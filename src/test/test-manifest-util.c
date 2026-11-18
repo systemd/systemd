@@ -26,6 +26,7 @@
 #include "memstream-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "sha256.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -585,6 +586,12 @@ TEST(manifest_uapi16) {
         ASSERT_NULL(sd_json_variant_by_key(reg, "groupName"));
         ASSERT_TRUE(sd_json_variant_is_normalized(reg)); /* Fields are sorted */
 
+        /* The hash of empty files is implied by their size, hence not included */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *empty = find_object(buf, "empty.txt");
+        ASSERT_NOT_NULL(empty);
+        ASSERT_EQ(sd_json_variant_unsigned(sd_json_variant_by_key(empty, "size")), 0U);
+        ASSERT_NULL(sd_json_variant_by_key(empty, "sha256"));
+
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *lnk = find_object(buf, "symlink");
         ASSERT_NOT_NULL(lnk);
         ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(lnk, "type")), "lnk");
@@ -623,6 +630,22 @@ TEST(manifest_uapi16) {
         context_init(&c, MANIFEST_FORMAT_UAPI16);
         c.fields = MANIFEST_FIELD_SIZE|MANIFEST_FIELD_MTIME;
         ASSERT_OK(verify_buffer(&c, tfd, buf2, size2));
+
+        /* Without the size, the hash of empty files is included */
+        _cleanup_free_ char *buf_hash = NULL;
+        size_t size_hash;
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.fields = MANIFEST_FIELD_HASH;
+        ASSERT_OK(generate(&c, tfd, &buf_hash, &size_hash));
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *empty_hash = find_object(buf_hash, "empty.txt");
+        ASSERT_NOT_NULL(empty_hash);
+        ASSERT_NULL(sd_json_variant_by_key(empty_hash, "size"));
+        ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(empty_hash, "sha256")), "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.fields = MANIFEST_FIELD_HASH;
+        ASSERT_OK(verify_buffer(&c, tfd, buf_hash, size_hash));
 
         /* User and group names are included if requested, as resolved on the host */
         _cleanup_free_ char *user_name = uid_to_name(getuid()), *group_name = gid_to_name(getgid());
@@ -931,6 +954,11 @@ TEST(uapi16_dispatch) {
         ASSERT_OK(dispatch_one(j36, 1, &o));
         uapi16_object_done(&o);
         ASSERT_ERROR(dispatch_one(j37, 1, &o), EINVAL);
+
+        /* The hash of empty files is implied by their size */
+        ASSERT_OK(dispatch_one("{\"name\":\"a\",\"size\":0}", 1, &o));
+        ASSERT_TRUE(iovec_equal(&o.sha256, &IOVEC_MAKE(SHA256_EMPTY, SHA256_DIGEST_SIZE)));
+        uapi16_object_done(&o);
 
         /* An empty slice at the very end of the source is fine */
         ASSERT_OK(dispatch_one("{\"name\":\"a\",\"size\":0,\"contents\":[{\"file\":\"b\",\"offset\":5,\"originalSize\":5}]}", 1, &o));
