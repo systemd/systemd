@@ -36,6 +36,7 @@
 #include "fs-util.h"
 #include "fsck-util.h"
 #include "glyph-util.h"
+#include "gpt.h"
 #include "home-util.h"
 #include "homework.h"
 #include "homework-blob.h"
@@ -1136,7 +1137,8 @@ int run_fitrim(int root_fd) {
                         return 0;
                 }
 
-                return log_warning_errno(errno, "Failed to invoke FITRIM, ignoring: %m");
+                log_warning_errno(errno, "Failed to invoke FITRIM, ignoring: %m");
+                return 0;
         }
 
         log_info("Discarded unused %s.", FORMAT_BYTES(range.len));
@@ -1361,6 +1363,7 @@ int home_setup_luks(
                         } else {
                                 _cleanup_free_ char *buffer = NULL;
 
+                                sysfs = mfree(sysfs);
                                 if (asprintf(&sysfs, "/sys/dev/block/" DEVNUM_FORMAT_STR "/start", DEVNUM_FORMAT_VAL(st.st_rdev)) < 0)
                                         return log_oom();
 
@@ -1425,6 +1428,13 @@ int home_setup_luks(
                 if (r < 0)
                         return log_error_errno(r, "Failed to validate disk label: %m");
 
+                /* If the home partition was found within a partition table on the block device, the image
+                 * path refers to the whole device rather than to the partition itself, and we'd have to
+                 * stack a loop device on top of the block device. Refuse that. */
+                if (S_ISBLK(st.st_mode) && (offset != 0 || size != UINT64_MAX))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Block device '%s' has a partition table, refusing.", ip);
+
                 /* Everything before this point left the image untouched. We are now starting to make
                  * changes, hence mark the image dirty */
                 if (run_mark_dirty(setup->image_fd, true) > 0)
@@ -1435,11 +1445,6 @@ int home_setup_luks(
                         if (r < 0)
                                 return r;
                 }
-
-                /* Before we make the loop device, make sure offset is zero & we are using the full partition
-                 * If our offset is not zero, loop_device_make will create a loop device on top of the block device */
-                if (S_ISBLK(st.st_mode))
-                        assert(offset == 0 && size == UINT64_MAX);
 
                 r = loop_device_make(
                                 setup->image_fd,
@@ -1871,17 +1876,6 @@ static int luks_format(
                 slot++;
         }
 
-        r = sym_crypt_activate_by_volume_key(
-                        cd,
-                        dm_name,
-                        volume_key,
-                        volume_key_size,
-                        discard ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to activate LUKS superblock: %m");
-
-        log_info("LUKS activation by volume key succeeded.");
-
         r = user_record_clone(hr, USER_RECORD_EXTRACT_EMBEDDED|USER_RECORD_PERMISSIVE, &reduced);
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare home record for LUKS: %m");
@@ -1895,6 +1889,19 @@ static int luks_format(
                 return log_error_errno(r, "Failed to set LUKS JSON token: %m");
 
         log_info("Writing user record as LUKS token completed.");
+
+        /* Activate last, so that nothing can fail after the device is activated, as our caller only takes
+         * care of deactivating it once we returned successfully. */
+        r = sym_crypt_activate_by_volume_key(
+                        cd,
+                        dm_name,
+                        volume_key,
+                        volume_key_size,
+                        discard ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to activate LUKS superblock: %m");
+
+        log_info("LUKS activation by volume key succeeded.");
 
         if (ret)
                 *ret = TAKE_PTR(cd);
@@ -2218,6 +2225,12 @@ int home_create_luks(
 
         assert_se(ip = user_record_image_path(h));
 
+        /* The partition is looked up by its label on activation, hence refuse if it would be truncated */
+        if (!gpt_label_is_valid(user_record_user_name_and_realm(h)))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "User name '%s' not valid as GPT partition label, refusing.",
+                                       user_record_user_name_and_realm(h));
+
         fstype = user_record_file_system_type(h);
         if (!supported_fstype(fstype))
                 return log_error_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "Unsupported file system type: %s", fstype);
@@ -2303,10 +2316,12 @@ int home_create_luks(
                 if (h->disk_size == UINT64_MAX) {
 
                         /* If a relative disk size is requested, apply it relative to the block device size */
-                        if (h->disk_size_relative < UINT32_MAX)
-                                host_size = CLAMP(DISK_SIZE_ROUND_DOWN(block_device_size * h->disk_size_relative / UINT32_MAX),
+                        if (h->disk_size_relative < UINT32_MAX) {
+                                double f = (double) h->disk_size_relative / UINT32_MAX;
+
+                                host_size = CLAMP(DISK_SIZE_ROUND_DOWN((uint64_t) (block_device_size * f)),
                                                   USER_DISK_SIZE_MIN, USER_DISK_SIZE_MAX);
-                        else
+                        } else
                                 host_size = block_device_size; /* Otherwise, take the full device */
 
                 } else if (h->disk_size > block_device_size)
@@ -2363,8 +2378,16 @@ int home_create_luks(
                 if (r < 0)
                         return r;
 
+                /* resize_image_loop() might have picked a smaller size if disk space is short, recheck */
+                if (!supported_fs_size(fstype, LESS_BY(host_size, GPT_LUKS2_OVERHEAD)))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
+                                               "Not enough disk space for minimal %s file system.", fstype);
+
                 log_info("Allocating image file completed.");
         }
+
+        if (fstat(setup->image_fd, &st) < 0)
+                return log_error_errno(errno, "Failed to fstat home image: %m");
 
         if (h->luks_sector_size == UINT64_MAX) {
                 /* If sector size is not specified, select UINT32_MAX, i.e. auto-probe */
@@ -2392,9 +2415,6 @@ int home_create_luks(
                 return r;
 
         log_info("Writing of partition table completed.");
-
-        if (fstat(setup->image_fd, &st) < 0)
-                return log_error_errno(errno, "Failed to fstat home image: %m");
 
         /* Ensure we don't create a loop device over block device as it leads to huge overhead for discard operations
          * if the device does not support discard_zeroes_data */
@@ -2715,7 +2735,7 @@ static int ext4_offline_resize_fs(
                 r = execvp_safe("e2fsck", STRV_MAKE("e2fsck", "-fp", setup->dm_node));
                 log_open();
                 log_error_errno(r, "Failed to execute e2fsck: %m");
-                _exit(EXIT_FAILURE);
+                _exit(FSCK_OPERATIONAL_ERROR);
         }
 
         exit_status = pidref_wait_for_terminate_and_check("e2fsck", &fsck_pidref, WAIT_LOG_ABNORMAL);
@@ -2900,7 +2920,7 @@ static int apply_resize_partition(
                 sd_id128_t disk_uuids,
                 struct fdisk_table *t,
                 struct fdisk_partition *p,
-                size_t new_partition_size) {
+                uint64_t new_partition_size) {
 
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
         uint32_t ssz;
@@ -3608,8 +3628,14 @@ int home_resize_luks(
                 }
 
                 r = apply_resize_partition(image_fd, disk_uuid, table, partition, new_partition_size);
-                if (r < 0)
+                if (r < 0) {
+                        /* The old partition table refers to space beyond the shrunk image, restore the
+                         * original image size so that it remains usable. */
+                        if (S_ISREG(st.st_mode) && ftruncate(image_fd, old_image_size) < 0)
+                                log_warning_errno(errno, "Failed to restore size of '%s', ignoring: %m", ip);
+
                         return r;
+                }
                 if (r > 0)
                         log_info("Shrinking of partition completed.");
 
