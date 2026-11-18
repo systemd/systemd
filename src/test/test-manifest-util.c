@@ -813,11 +813,21 @@ TEST(manifest_omitted) {
         ASSERT_OK_ERRNO(fchmodat(tfd, "subdir", 0755, 0));
 }
 
-static int dispatch_one(const char *json, size_t n, Uapi16Object *ret) {
+static int dispatch_with_features(const char *json, size_t n, ManifestField features, Uapi16Object *ret) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
         ASSERT_OK(sd_json_parse(json, /* flags= */ 0, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
-        return dispatch_uapi16_object(v, n, SD_JSON_LOG, ret);
+
+        /* Objects other than the root object are dispatched below a root object listing the specified
+         * features */
+        Uapi16Object root = UAPI16_OBJECT_NULL;
+        root.features = features;
+
+        return dispatch_uapi16_object(v, n == 0 ? NULL : &root, SD_JSON_LOG, ret);
+}
+
+static int dispatch_one(const char *json, size_t n, Uapi16Object *ret) {
+        return dispatch_with_features(json, n, _MANIFEST_FIELD_ALL, ret);
 }
 
 TEST(uapi16_name_is_valid) {
@@ -857,8 +867,8 @@ TEST(uapi16_dispatch) {
         _cleanup_(uapi16_object_done) Uapi16Object o = UAPI16_OBJECT_NULL;
 
         /* null is equivalent to an absent field */
-        ASSERT_OK(dispatch_one("{\"name\":\"a\",\"type\":null,\"size\":null,\"mode\":null,\"sha256\":null,\"contents\":null,"
-                               "\"extendedAttributes\":null,\"validSinceUSec\":null,\"validity\":null}", 1, &o));
+        ASSERT_OK(dispatch_with_features("{\"name\":\"a\",\"type\":null,\"size\":null,\"mode\":null,\"sha256\":null,\"contents\":null,"
+                               "\"extendedAttributes\":null,\"validSinceUSec\":null,\"validity\":null}", 1, _MANIFEST_FIELD_DEFAULT, &o));
         ASSERT_EQ(o.type, (mode_t) S_IFREG);
         ASSERT_EQ(o.size, UINT64_MAX);
         ASSERT_EQ(o.valid_since_usec, 0U);
@@ -913,16 +923,32 @@ TEST(uapi16_dispatch) {
         ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"readOnly\":false,\"mode\":292}", 1, &o), EBADMSG);
         ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"gptFlags\":0,\"gptFlagNoAuto\":true}", 1, &o), EBADMSG);
 
-        ASSERT_OK(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"gptDiskUuid\":\"0fc63daf-8483-4772-8e79-3d69d8477de4\"}", 0, &o));
+        ASSERT_OK(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"features\":[\"gpt-disk-uuid\"],\"gptDiskUuid\":\"0fc63daf-8483-4772-8e79-3d69d8477de4\"}", 0, &o));
         ASSERT_TRUE(o.gpt_disk_uuid_set);
         uapi16_object_done(&o);
-        ASSERT_OK(dispatch_one("{\"name\":\"a\",\"readOnly\":true,\"mode\":292,\"gptFlags\":9223372036854775808,\"gptFlagNoAuto\":true}", 1, &o));
+        /* Bits 63 and 60, i.e. no-auto and read-only */
+        ASSERT_OK(dispatch_one("{\"name\":\"a\",\"readOnly\":true,\"mode\":292,\"gptFlags\":10376293541461622784,\"gptFlagNoAuto\":true}", 1, &o));
+        ASSERT_EQ(o.gpt_growfs, 0); /* The feature is listed, hence cleared */
+        uapi16_object_done(&o);
+        ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"readOnly\":true,\"gptFlags\":9223372036854775808}", 1, &o), EBADMSG);
+        ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"readOnly\":false,\"gptFlags\":1152921504606846976}", 1, &o), EBADMSG);
+        /* If the features are listed, absent fields count as cleared when checking consistency */
+        ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"gptFlags\":1152921504606846976}", 1, &o), EBADMSG);
+        ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"gptFlagNoAuto\":true}", 1, &o), EBADMSG);
+        ASSERT_OK(dispatch_with_features("{\"name\":\"a\",\"gptFlags\":1152921504606846976}", 1, MANIFEST_FIELD_GPT_FLAGS, &o));
+        ASSERT_EQ(o.read_only, -1);
+        uapi16_object_done(&o);
+        ASSERT_OK(dispatch_with_features("{\"name\":\"a\",\"readOnly\":true}", 1, MANIFEST_FIELD_READ_ONLY|MANIFEST_FIELD_GPT_FLAG_NO_AUTO, &o));
+        ASSERT_FALSE(o.gpt_flags_set);
+        ASSERT_EQ(o.gpt_no_auto, 0);
         uapi16_object_done(&o);
 
         /* FAT attributes, Linux inode flags and the file system identity. The FAT read-only attribute is
-         * encoded in the generic "readOnly" field. */
-        ASSERT_OK(dispatch_one("{\"name\":\"a\",\"readOnly\":true,\"flagHidden\":false,\"flagSystem\":null,\"flagArchive\":true,"
-                               "\"flagAppendOnly\":false,\"flagImmutable\":true,\"flagNoAtime\":null,\"flagNoCow\":true,\"flagNoDump\":false}", 1, &o));
+         * encoded in the generic "readOnly" field. The features of the null fields are not listed, as
+         * otherwise their absence would mean the flags are cleared. */
+        ASSERT_OK(dispatch_with_features("{\"name\":\"a\",\"readOnly\":true,\"flagHidden\":false,\"flagSystem\":null,\"flagArchive\":true,"
+                                         "\"flagAppendOnly\":false,\"flagImmutable\":true,\"flagNoAtime\":null,\"flagNoCow\":true,\"flagNoDump\":false}",
+                                         1, _MANIFEST_FIELD_FSTREE_ALL & ~(MANIFEST_FIELD_FLAG_SYSTEM|MANIFEST_FIELD_FLAG_NO_ATIME), &o));
         uint32_t fat_value, fat_mask;
         uapi16_object_fat_attrs(&o, &fat_value, &fat_mask);
         ASSERT_EQ(fat_value, UINT32_C(0x21));
@@ -938,7 +964,7 @@ TEST(uapi16_dispatch) {
         ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"type\":\"fifo\",\"flagNoDump\":true}", 1, &o), EBADMSG);
         ASSERT_ERROR(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"flagHidden\":true}", 0, &o), EBADMSG);
         /* The generic "readOnly" field is not restricted like the FAT specific ones */
-        ASSERT_OK(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"readOnly\":true}", 0, &o));
+        ASSERT_OK(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"features\":[\"read-only\"],\"readOnly\":true}", 0, &o));
         uapi16_object_done(&o);
         ASSERT_OK(dispatch_one("{\"name\":\"a\",\"type\":\"fifo\",\"readOnly\":false}", 1, &o));
         uapi16_object_done(&o);
@@ -946,7 +972,7 @@ TEST(uapi16_dispatch) {
         ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"flagReadOnly\":true}", 1, &o), EADDRNOTAVAIL);
         ASSERT_ERROR(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"fatLabel\":\"ESP\"}", 0, &o), EADDRNOTAVAIL);
 
-        ASSERT_OK(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"flagNoDump\":true,\"fatSerial\":\"12ab-CD34\","
+        ASSERT_OK(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"features\":[\"flag-no-dump\",\"fat-serial\",\"fs-uuid\",\"fs-label\"],\"flagNoDump\":true,\"fatSerial\":\"12ab-CD34\","
                                "\"fsUUID\":\"0fc63daf-8483-4772-8e79-3d69d8477de4\",\"fsLabel\":\"root fs ä\"}", 0, &o));
         ASSERT_TRUE(o.fat_serial_set);
         ASSERT_EQ(o.fat_serial, UINT32_C(0x12ABCD34));
@@ -964,9 +990,16 @@ TEST(uapi16_dispatch) {
         ASSERT_ERROR(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"fsLabel\":\"a\\u007fb\"}", 0, &o), EINVAL);
         ASSERT_ERROR(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"fsLabel\":\"a\\nb\"}", 0, &o), EINVAL);
         /* Length limits are file system specific, hence not enforced when parsing */
-        _cleanup_free_ char *longlabel = strjoin("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"fsLabel\":\"", strrepa("a", 300), "\"}");
+        _cleanup_free_ char *longlabel = strjoin("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"features\":[\"fs-label\"],\"fsLabel\":\"", strrepa("a", 300), "\"}");
         ASSERT_NOT_NULL(longlabel);
         ASSERT_OK(dispatch_one(longlabel, 0, &o));
+        uapi16_object_done(&o);
+        /* If the feature is listed, an absent label means there is none */
+        ASSERT_OK(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"features\":[\"fs-label\"]}", 0, &o));
+        ASSERT_STREQ(o.fs_label, "");
+        uapi16_object_done(&o);
+        ASSERT_OK(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\"}", 0, &o));
+        ASSERT_NULL(o.fs_label);
         uapi16_object_done(&o);
 
         /* The GPT label limit is in UTF-16 code units, not bytes */
@@ -1031,7 +1064,7 @@ TEST(uapi16_dispatch) {
         ASSERT_TRUE(o.user_xattrs_set);
         ASSERT_EQ(o.n_user_xattrs, 0U);
         uapi16_object_done(&o);
-        ASSERT_OK(dispatch_one("{\"name\":\"a\",\"extendedAttributes\":{\"user\":null}}", 1, &o));
+        ASSERT_OK(dispatch_with_features("{\"name\":\"a\",\"extendedAttributes\":{\"user\":null}}", 1, _MANIFEST_FIELD_DEFAULT, &o));
         ASSERT_FALSE(o.user_xattrs_set);
         uapi16_object_done(&o);
 
@@ -1040,6 +1073,138 @@ TEST(uapi16_dispatch) {
         ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"extendedAttributes\":{\"user\":{\"\":{\"text\":\"x\"}}}}", 1, &o), EINVAL);
         ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"extendedAttributes\":{\"user\":{\"a\\u0001\":{\"text\":\"x\"}}}}", 1, &o), EINVAL);
         ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"extendedAttributes\":{\"user\":[]}}", 1, &o), EINVAL);
+}
+
+TEST(uapi16_dispatch_features) {
+        _cleanup_(uapi16_object_done) Uapi16Object o = UAPI16_OBJECT_NULL;
+
+        /* The root object declares the features, and if it doesn't the default set applies */
+        ASSERT_OK(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\"}", 0, &o));
+        ASSERT_EQ(o.features, _MANIFEST_FIELD_DEFAULT);
+        uapi16_object_done(&o);
+        ASSERT_OK(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"features\":null}", 0, &o));
+        ASSERT_EQ(o.features, _MANIFEST_FIELD_DEFAULT);
+        uapi16_object_done(&o);
+        ASSERT_OK(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"features\":[]}", 0, &o));
+        ASSERT_EQ(o.features, 0);
+        uapi16_object_done(&o);
+        /* Unknown values are ignored */
+        ASSERT_OK(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"features\":[\"sha256\",\"frobnicate\",\"mtime\"]}", 0, &o));
+        ASSERT_EQ(o.features, MANIFEST_FIELD_HASH|MANIFEST_FIELD_MTIME);
+        uapi16_object_done(&o);
+        ASSERT_ERROR(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"features\":[\"mode\",\"mode\"]}", 0, &o), EINVAL);
+        ASSERT_ERROR(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"features\":\"mode\"}", 0, &o), EINVAL);
+        ASSERT_ERROR(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"features\":[4711]}", 0, &o), EINVAL);
+        /* The root object is subject to its own features too */
+        ASSERT_ERROR(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"features\":[],\"mode\":493}", 0, &o), EBADMSG);
+
+        /* Only permitted on the root object */
+        ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"features\":[\"mode\"]}", 1, &o), EBADMSG);
+
+        /* Other objects inherit the features of the root object */
+        ASSERT_OK(dispatch_with_features("{\"name\":\"a\"}", 1, MANIFEST_FIELD_MTIME, &o));
+        ASSERT_EQ(o.features, MANIFEST_FIELD_MTIME);
+        uapi16_object_done(&o);
+
+        /* Fields of features not listed are refused, the default set lacks some */
+        ASSERT_ERROR(dispatch_with_features("{\"name\":\"a\",\"mTimeNSec\":1}", 1, _MANIFEST_FIELD_DEFAULT, &o), EBADMSG);
+        ASSERT_ERROR(dispatch_with_features("{\"name\":\"a\",\"userName\":\"foo\"}", 1, _MANIFEST_FIELD_DEFAULT, &o), EBADMSG);
+        ASSERT_ERROR(dispatch_with_features("{\"name\":\"a\",\"extendedAttributes\":{\"user\":{}}}", 1, _MANIFEST_FIELD_DEFAULT, &o), EBADMSG);
+        ASSERT_ERROR(dispatch_with_features("{\"name\":\"a\",\"size\":1}", 1, MANIFEST_FIELD_HASH, &o), EBADMSG);
+        ASSERT_ERROR(dispatch_with_features("{\"name\":\"a\",\"inodeToken\":0}", 1, MANIFEST_FIELD_HASH, &o), EBADMSG);
+        ASSERT_ERROR(dispatch_with_features("{\"name\":\"a\",\"type\":\"blk\",\"major\":1}", 1, MANIFEST_FIELD_MODE, &o), EBADMSG);
+        ASSERT_ERROR(dispatch_with_features("{\"name\":\"a\",\"type\":\"lnk\",\"contents\":[{\"literal\":\"eA==\"}]}", 1, MANIFEST_FIELD_MODE, &o), EBADMSG);
+        /* The "contents" of other inode types are not covered by any feature */
+        ASSERT_OK(dispatch_with_features("{\"name\":\"a\",\"contents\":[{\"file\":\"b\"}]}", 1, /* features= */ 0, &o));
+        uapi16_object_done(&o);
+        /* Extended attributes in other namespaces are not covered by "user-xattr" */
+        ASSERT_OK(dispatch_with_features("{\"name\":\"a\",\"extendedAttributes\":{\"security\":{\"selinux\":{\"text\":\"foo\"}}}}", 1, /* features= */ 0, &o));
+        ASSERT_FALSE(o.user_xattrs_set);
+        uapi16_object_done(&o);
+
+        /* If the feature is listed, the absence of a field carries meaning */
+        ASSERT_OK(dispatch_with_features("{\"name\":\"a\"}", 1, MANIFEST_FIELD_HARDLINK|MANIFEST_FIELD_USER_XATTR, &o));
+        ASSERT_EQ(o.inode_token, 0U);
+        ASSERT_TRUE(o.user_xattrs_set);
+        ASSERT_EQ(o.n_user_xattrs, 0U);
+        uapi16_object_done(&o);
+        ASSERT_OK(dispatch_with_features("{\"name\":\"a\"}", 1, /* features= */ 0, &o));
+        ASSERT_EQ(o.inode_token, UINT64_MAX);
+        ASSERT_FALSE(o.user_xattrs_set);
+        uapi16_object_done(&o);
+
+        /* Same for the flag fields, but only where they are defined */
+        ASSERT_ERROR(dispatch_with_features("{\"name\":\"a\",\"flagNoDump\":true}", 1, _MANIFEST_FIELD_DEFAULT, &o), EBADMSG);
+        ASSERT_ERROR(dispatch_with_features("{\"name\":\"a\",\"flagHidden\":false}", 1, _MANIFEST_FIELD_DEFAULT, &o), EBADMSG);
+        ASSERT_OK(dispatch_with_features("{\"name\":\"a\",\"flagNoDump\":true}", 1, MANIFEST_FIELD_FLAG_NO_DUMP|MANIFEST_FIELD_FLAG_HIDDEN, &o));
+        ASSERT_EQ(o.flag_no_dump, 1);
+        ASSERT_EQ(o.flag_hidden, 0);
+        ASSERT_EQ(o.flag_immutable, -1);
+        ASSERT_EQ(o.flag_system, -1);
+        uapi16_object_done(&o);
+        ASSERT_OK(dispatch_with_features("{\"name\":\"a\",\"type\":\"lnk\"}", 1, MANIFEST_FIELD_FLAG_NO_DUMP|MANIFEST_FIELD_FLAG_HIDDEN, &o));
+        ASSERT_EQ(o.flag_no_dump, -1);
+        ASSERT_EQ(o.flag_hidden, -1);
+        uapi16_object_done(&o);
+        ASSERT_OK(dispatch_with_features("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"features\":[\"flag-no-dump\",\"flag-hidden\"]}", 0, /* features= */ 0, &o));
+        ASSERT_EQ(o.features, MANIFEST_FIELD_FLAG_NO_DUMP|MANIFEST_FIELD_FLAG_HIDDEN);
+        ASSERT_EQ(o.flag_no_dump, 0);
+        ASSERT_EQ(o.flag_hidden, -1); /* The FAT root directory has no attributes */
+        uapi16_object_done(&o);
+
+        /* "readOnly", the file system identity and the GPT fields are subject to features too */
+        ASSERT_ERROR(dispatch_with_features("{\"name\":\"a\",\"readOnly\":true}", 1, _MANIFEST_FIELD_DEFAULT, &o), EBADMSG);
+        ASSERT_ERROR(dispatch_with_features("{\"name\":\"a\",\"gptLabel\":\"foo\"}", 1, _MANIFEST_FIELD_DEFAULT, &o), EBADMSG);
+        ASSERT_ERROR(dispatch_with_features("{\"name\":\"a\",\"gptFlags\":0}", 1, _MANIFEST_FIELD_DEFAULT, &o), EBADMSG);
+        ASSERT_ERROR(dispatch_with_features("{\"name\":\"a\",\"gptFlagGrowFileSystem\":false}", 1, MANIFEST_FIELD_GPT_FLAGS, &o), EBADMSG);
+        ASSERT_ERROR(dispatch_with_features("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"fsLabel\":\"foo\"}", 0, /* features= */ 0, &o), EBADMSG);
+        ASSERT_ERROR(dispatch_with_features("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"features\":[\"fs-label\"],\"fatSerial\":\"1234-ABCD\"}", 0, /* features= */ 0, &o), EBADMSG);
+        ASSERT_ERROR(dispatch_with_features("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"gptDiskUuid\":\"0fc63daf-8483-4772-8e79-3d69d8477de4\"}", 0, /* features= */ 0, &o), EBADMSG);
+        ASSERT_OK(dispatch_with_features("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"features\":[\"fs-label\",\"fat-serial\"],\"fsLabel\":\"foo\",\"fatSerial\":\"1234-ABCD\"}", 0, /* features= */ 0, &o));
+        ASSERT_STREQ(o.fs_label, "foo");
+        ASSERT_TRUE(o.fat_serial_set);
+        uapi16_object_done(&o);
+
+        /* If the features are listed, an absent "readOnly" means not read-only (on any object), and absent
+         * partition attribute flags are cleared (only on regular files, where they are defined) */
+        ASSERT_OK(dispatch_with_features("{\"name\":\"a\"}", 1, _MANIFEST_FIELD_GPT_ALL, &o));
+        ASSERT_EQ(o.read_only, 0);
+        ASSERT_TRUE(o.gpt_flags_set);
+        ASSERT_EQ(o.gpt_flags, 0U);
+        ASSERT_EQ(o.gpt_no_auto, 0);
+        ASSERT_EQ(o.gpt_growfs, 0);
+        ASSERT_FALSE(o.gpt_uuid_set);
+        uapi16_object_done(&o);
+        ASSERT_OK(dispatch_with_features("{\"name\":\"a\",\"type\":\"dir\"}", 1, _MANIFEST_FIELD_GPT_ALL, &o));
+        ASSERT_EQ(o.read_only, 0);
+        ASSERT_FALSE(o.gpt_flags_set);
+        ASSERT_EQ(o.gpt_no_auto, -1);
+        uapi16_object_done(&o);
+        ASSERT_OK(dispatch_with_features("{\"name\":\"a\"}", 1, /* features= */ 0, &o));
+        ASSERT_EQ(o.read_only, -1);
+        ASSERT_FALSE(o.gpt_flags_set);
+        ASSERT_EQ(o.gpt_no_auto, -1);
+        uapi16_object_done(&o);
+
+        /* If "symlink" is listed, symlinks carry their target */
+        ASSERT_ERROR(dispatch_with_features("{\"name\":\"a\",\"type\":\"lnk\"}", 1, MANIFEST_FIELD_SYMLINK, &o), EBADMSG);
+        ASSERT_ERROR(dispatch_with_features("{\"name\":\"a\",\"type\":\"lnk\",\"contents\":[{\"file\":\"b\"}]}", 1, MANIFEST_FIELD_SYMLINK, &o), EBADMSG);
+        ASSERT_OK(dispatch_with_features("{\"name\":\"a\",\"type\":\"lnk\",\"contents\":[{\"literal\":\"eA==\"}]}", 1, MANIFEST_FIELD_SYMLINK, &o));
+        uapi16_object_done(&o);
+        ASSERT_OK(dispatch_with_features("{\"name\":\"a\",\"type\":\"lnk\"}", 1, /* features= */ 0, &o));
+        uapi16_object_done(&o);
+
+        /* The features field round-trips, sorted */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        ASSERT_OK(uapi16_features_build_json(_MANIFEST_FIELD_DEFAULT, &j));
+        _cleanup_free_ char *s = NULL;
+        ASSERT_OK(sd_json_variant_format(j, /* flags= */ 0, &s));
+        ASSERT_STREQ(s, "[\"device\",\"gid\",\"hardlink\",\"mode\",\"sha256\",\"size\",\"symlink\",\"uid\"]");
+        j = sd_json_variant_unref(j);
+        s = mfree(s);
+        ASSERT_OK(uapi16_features_build_json(/* features= */ 0, &j));
+        ASSERT_OK(sd_json_variant_format(j, /* flags= */ 0, &s));
+        ASSERT_STREQ(s, "[]");
 }
 
 static bool try_set_special_xattr(int dir_fd, const char *name) {
@@ -1315,19 +1480,24 @@ TEST(manifest_uapi16_inode_flags) {
                                  (int) (brace - buf), buf,
                                  (int) (size - (brace - buf) - 1), brace + 1));
         _cleanup_free_ char *fatbuf2 = ASSERT_NOT_NULL(strreplace(fatbuf, "\"name\":\"regular.txt\"", "\"name\":\"regular.txt\",\"flagHidden\":true,\"flagSystem\":false"));
+        /* The manifest has to list the features of the fields we added */
+        _cleanup_free_ char *fatbuf3 = ASSERT_NOT_NULL(strreplace(fatbuf2, "\"flag-hidden\"", "\"flag-hidden\",\"flag-system\""));
+        ASSERT_NOT_STREQ(fatbuf2, fatbuf3);
 
         manifest_context_done(&c);
         context_init(&c, MANIFEST_FORMAT_UAPI16);
         c.fields |= MANIFEST_FIELD_FAT_SERIAL|MANIFEST_FIELD_FLAG_HIDDEN|MANIFEST_FIELD_FLAG_SYSTEM;
-        ASSERT_OK(verify_buffer(&c, tfd, fatbuf2, strlen(fatbuf2)));
+        ASSERT_OK(verify_buffer(&c, tfd, fatbuf3, strlen(fatbuf3)));
         ASSERT_EQ(c.n_errors, 0U);
-        ASSERT_EQ(c.n_not_applicable, 3U);
+        /* As the features are listed, the six regular files and directories other than the root have the
+         * attributes cleared if they don't carry them, which cannot be verified either */
+        ASSERT_EQ(c.n_not_applicable, 1U + 6U * 2U);
 
         manifest_context_done(&c);
         context_init(&c, MANIFEST_FORMAT_UAPI16);
         c.fields |= MANIFEST_FIELD_FLAG_HIDDEN;
-        ASSERT_OK(verify_buffer(&c, tfd, fatbuf2, strlen(fatbuf2)));
-        ASSERT_EQ(c.n_not_applicable, 1U);
+        ASSERT_OK(verify_buffer(&c, tfd, fatbuf3, strlen(fatbuf3)));
+        ASSERT_EQ(c.n_not_applicable, 6U);
 }
 
 TEST(manifest_uapi16_read_only) {

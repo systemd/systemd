@@ -347,6 +347,43 @@ int uapi16_features_build_json(ManifestField features, sd_json_variant **ret) {
         return sd_json_variant_new_array_strv(ret, l);
 }
 
+static int json_dispatch_features(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        ManifestField *f = ASSERT_PTR(userdata);
+
+        /* Unset is encoded as _MANIFEST_FIELD_INVALID, the caller then picks the default set */
+        if (sd_json_variant_is_null(variant)) {
+                *f = _MANIFEST_FIELD_INVALID;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_array(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
+
+        ManifestField mask = 0;
+        sd_json_variant *e;
+        JSON_VARIANT_ARRAY_FOREACH(e, variant) {
+                if (!sd_json_variant_is_string(e))
+                        return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "Element of JSON field '%s' is not a string.", strna(name));
+
+                const char *s = sd_json_variant_string(e);
+
+                /* The specification requires ignoring unknown values, to allow future extensions */
+                ManifestField k = manifest_field_from_uapi16_feature(s);
+                if (k < 0) {
+                        json_log(e, flags|SD_JSON_DEBUG, 0, "Ignoring unknown feature '%s'.", s);
+                        continue;
+                }
+
+                if (FLAGS_SET(mask, k))
+                        return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "Feature '%s' listed twice in JSON field '%s', refusing.", s, strna(name));
+
+                mask |= k;
+        }
+
+        *f = mask;
+        return 0;
+}
+
 static int json_dispatch_inode_type(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         mode_t *t = ASSERT_PTR(userdata);
 
@@ -908,21 +945,145 @@ static int uapi16_object_validate(sd_json_variant *v, sd_json_dispatch_flags_t f
         if (inode_mask != 0 && !IN_SET(o->type, S_IFREG, S_IFDIR))
                 return json_log(v, flags, SYNTHETIC_ERRNO(EBADMSG), "Inode flag fields are not permitted on inode type '%s', refusing.", t);
 
+        return 0;
+}
+
+static const struct {
+        ManifestField feature;
+        size_t offset;
+        bool fat_attr; /* The root directory of a FAT file system has no directory entry, hence no attributes */
+} flag_feature_table[] = {
+        { MANIFEST_FIELD_FLAG_APPEND_ONLY, offsetof(Uapi16Object, flag_append_only), false },
+        { MANIFEST_FIELD_FLAG_IMMUTABLE,   offsetof(Uapi16Object, flag_immutable),   false },
+        { MANIFEST_FIELD_FLAG_NO_ATIME,    offsetof(Uapi16Object, flag_no_atime),    false },
+        { MANIFEST_FIELD_FLAG_NO_COW,      offsetof(Uapi16Object, flag_no_cow),      false },
+        { MANIFEST_FIELD_FLAG_NO_DUMP,     offsetof(Uapi16Object, flag_no_dump),     false },
+        { MANIFEST_FIELD_FLAG_HIDDEN,      offsetof(Uapi16Object, flag_hidden),      true  },
+        { MANIFEST_FIELD_FLAG_SYSTEM,      offsetof(Uapi16Object, flag_system),      true  },
+        { MANIFEST_FIELD_FLAG_ARCHIVE,     offsetof(Uapi16Object, flag_archive),     true  },
+};
+
+static int uapi16_object_apply_features(sd_json_variant *v, sd_json_dispatch_flags_t flags, Uapi16Object *o, bool is_root) {
+        assert(v);
+        assert(o);
+        assert(o->features >= 0);
+
+        /* Refuses fields of features the manifest does not list, and then initializes the fields whose
+         * absence carries meaning if the manifest lists their feature. Must be called before any fields
+         * are derived from others, as that would make them appear set. */
+
+        ManifestField carried =
+                (o->mode != MODE_INVALID ? MANIFEST_FIELD_MODE : 0) |
+                (o->uid != UID_INVALID ? MANIFEST_FIELD_UID : 0) |
+                (o->gid != GID_INVALID ? MANIFEST_FIELD_GID : 0) |
+                (o->user_name ? MANIFEST_FIELD_USER_NAME : 0) |
+                (o->group_name ? MANIFEST_FIELD_GROUP_NAME : 0) |
+                (o->size != UINT64_MAX ? MANIFEST_FIELD_SIZE : 0) |
+                (iovec_is_set(&o->sha256) ? MANIFEST_FIELD_HASH : 0) |
+                (o->type == S_IFLNK && o->n_contents > 0 ? MANIFEST_FIELD_SYMLINK : 0) |
+                (o->major != UINT64_MAX || o->minor != UINT64_MAX ? MANIFEST_FIELD_DEVICE : 0) |
+                (o->inode_token != UINT64_MAX ? MANIFEST_FIELD_HARDLINK : 0) |
+                (o->mtime_nsec != NSEC_INFINITY ? MANIFEST_FIELD_MTIME : 0) |
+                (o->user_xattrs_set ? MANIFEST_FIELD_USER_XATTR : 0) |
+                (o->read_only >= 0 ? MANIFEST_FIELD_READ_ONLY : 0) |
+                (o->fs_uuid_set ? MANIFEST_FIELD_FS_UUID : 0) |
+                (o->fs_label ? MANIFEST_FIELD_FS_LABEL : 0) |
+                (o->fat_serial_set ? MANIFEST_FIELD_FAT_SERIAL : 0) |
+                (o->gpt_label ? MANIFEST_FIELD_GPT_LABEL : 0) |
+                (o->gpt_uuid_set ? MANIFEST_FIELD_GPT_UUID : 0) |
+                (o->gpt_type_uuid_set ? MANIFEST_FIELD_GPT_TYPE_UUID : 0) |
+                (o->gpt_disk_uuid_set ? MANIFEST_FIELD_GPT_DISK_UUID : 0) |
+                (o->gpt_flags_set ? MANIFEST_FIELD_GPT_FLAGS : 0) |
+                (o->gpt_no_auto >= 0 ? MANIFEST_FIELD_GPT_FLAG_NO_AUTO : 0) |
+                (o->gpt_growfs >= 0 ? MANIFEST_FIELD_GPT_FLAG_GROWFS : 0);
+
+        FOREACH_ELEMENT(i, flag_feature_table)
+                if (*(const int*) ((const uint8_t*) o + i->offset) >= 0)
+                        carried |= i->feature;
+
+        BIT_FOREACH(b, (unsigned) (carried & ~o->features))
+                return json_log(v, flags, SYNTHETIC_ERRNO(EBADMSG),
+                                "File object carries field of feature '%s', which the manifest does not list, refusing.",
+                                manifest_field_to_uapi16_feature(1 << b));
+
+        /* If the feature is listed, every symlink carries its target */
+        if (FLAGS_SET(o->features, MANIFEST_FIELD_SYMLINK) && o->type == S_IFLNK) {
+                bool found = false;
+
+                FOREACH_ARRAY(c, o->contents, o->n_contents)
+                        if (uapi16_contents_has_literal(c)) {
+                                found = true;
+                                break;
+                        }
+
+                if (!found)
+                        return json_log(v, flags, SYNTHETIC_ERRNO(EBADMSG),
+                                        "Symlink object does not carry its target, even though the manifest lists the 'symlink' feature, refusing.");
+        }
+
+        /* If the feature is listed, an absent "inodeToken" means the file is not subject to hardlinks */
+        if (FLAGS_SET(o->features, MANIFEST_FIELD_HARDLINK) && o->inode_token == UINT64_MAX)
+                o->inode_token = 0;
+
+        /* If the feature is listed, an absent "user" namespace object means there are no such attributes */
+        if (FLAGS_SET(o->features, MANIFEST_FIELD_USER_XATTR) && !o->user_xattrs_set) {
+                assert(o->n_user_xattrs == 0);
+                o->user_xattrs_set = true;
+        }
+
+        /* If the feature is listed, an absent flag field means the flag is cleared. But only where the
+         * flag is defined at all, see uapi16_object_validate(). */
+        if (IN_SET(o->type, S_IFREG, S_IFDIR))
+                FOREACH_ELEMENT(i, flag_feature_table) {
+                        int *b = (int*) ((uint8_t*) o + i->offset);
+
+                        if (FLAGS_SET(o->features, i->feature) && *b < 0 && !(i->fat_attr && is_root))
+                                *b = false;
+                }
+
+        /* If the feature is listed, an absent "readOnly" means the object is not read-only */
+        if (FLAGS_SET(o->features, MANIFEST_FIELD_READ_ONLY) && o->read_only < 0)
+                o->read_only = false;
+
+        /* If the feature is listed, an absent "fsLabel" means the file system has no label */
+        if (FLAGS_SET(o->features, MANIFEST_FIELD_FS_LABEL) && is_root && !o->fs_label) {
+                o->fs_label = strdup("");
+                if (!o->fs_label)
+                        return json_log_oom(v, flags);
+        }
+
+        /* If the features are listed, absent partition attribute flag fields mean the flags are cleared. But
+         * only where these fields are defined at all, see uapi16_object_validate(). */
+        if (o->type == S_IFREG) {
+                if (FLAGS_SET(o->features, MANIFEST_FIELD_GPT_FLAGS) && !o->gpt_flags_set) {
+                        o->gpt_flags = 0;
+                        o->gpt_flags_set = true;
+                }
+                if (FLAGS_SET(o->features, MANIFEST_FIELD_GPT_FLAG_NO_AUTO) && o->gpt_no_auto < 0)
+                        o->gpt_no_auto = false;
+                if (FLAGS_SET(o->features, MANIFEST_FIELD_GPT_FLAG_GROWFS) && o->gpt_growfs < 0)
+                        o->gpt_growfs = false;
+        }
+
+        /* The individual partition attribute flag fields must be consistent with the raw flags. This is
+         * checked only now, as absent fields count as cleared if their features are listed. */
         if (o->gpt_flags_set &&
             ((o->gpt_no_auto >= 0 && FLAGS_SET(o->gpt_flags, SD_GPT_FLAG_NO_AUTO) != o->gpt_no_auto) ||
-             (o->gpt_growfs >= 0 && FLAGS_SET(o->gpt_flags, SD_GPT_FLAG_GROWFS) != o->gpt_growfs)))
-                return json_log(v, flags, SYNTHETIC_ERRNO(EBADMSG), "Fields 'gptFlags' and 'gptFlag*' contradict each other, refusing.");
+             (o->gpt_growfs >= 0 && FLAGS_SET(o->gpt_flags, SD_GPT_FLAG_GROWFS) != o->gpt_growfs) ||
+             (o->read_only >= 0 && FLAGS_SET(o->gpt_flags, SD_GPT_FLAG_READ_ONLY) != o->read_only)))
+                return json_log(v, flags, SYNTHETIC_ERRNO(EBADMSG), "Fields 'gptFlags' and 'gptFlag*' or 'readOnly' contradict each other, refusing.");
 
         return 0;
 }
 
-int dispatch_uapi16_object(sd_json_variant *v, size_t n, sd_json_dispatch_flags_t flags, Uapi16Object *ret) {
+int dispatch_uapi16_object(sd_json_variant *v, const Uapi16Object *root, sd_json_dispatch_flags_t flags, Uapi16Object *ret) {
         assert(ret);
 
         /* The specification says null fields are equivalent to absent ones, hence SD_JSON_NULLABLE */
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "name",                  SD_JSON_VARIANT_STRING,        json_dispatch_uapi16_name,         offsetof(Uapi16Object, name),             SD_JSON_NULLABLE },
                 { "mediaType",             SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,           offsetof(Uapi16Object, media_type),       SD_JSON_NULLABLE },
+                { "features",              SD_JSON_VARIANT_ARRAY,         json_dispatch_features,            offsetof(Uapi16Object, features),         SD_JSON_NULLABLE },
                 { "type",                  SD_JSON_VARIANT_STRING,        json_dispatch_inode_type,          offsetof(Uapi16Object, type),             SD_JSON_NULLABLE },
                 { "size",                  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,           offsetof(Uapi16Object, size),             0                },
                 { "mode",                  _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode,         offsetof(Uapi16Object, mode),             0                },
@@ -978,7 +1139,7 @@ int dispatch_uapi16_object(sd_json_variant *v, size_t n, sd_json_dispatch_flags_
         if (object.media_type && !streq(object.media_type, UAPI16_MANIFEST_MEDIA_TYPE))
                 return json_log(v, flags, SYNTHETIC_ERRNO(EBADMSG), "Manifest object has unexpected media type '%s', refusing.", object.media_type);
 
-        if (n == 0) {
+        if (!root) {
                 if (!object.media_type)
                         return json_log(v, flags, SYNTHETIC_ERRNO(EBADMSG), "First manifest object does not carry mediaType field, refusing.");
 
@@ -989,15 +1150,29 @@ int dispatch_uapi16_object(sd_json_variant *v, size_t n, sd_json_dispatch_flags_
                         return json_log(v, flags, SYNTHETIC_ERRNO(EBADMSG), "Initial manifest object has unexpected inode type '%s', refusing.", strna(inode_type_to_string(object.type)));
 
                 object.type = S_IFDIR;
+
+                if (object.features < 0)
+                        object.features = _MANIFEST_FIELD_DEFAULT;
         } else {
                 if (!object.name)
                         return json_log(v, flags, SYNTHETIC_ERRNO(EBADMSG), "Manifest object has no name field set, refusing.");
 
                 if (object.type == 0)
                         object.type = S_IFREG;
+
+                if (object.features >= 0)
+                        return json_log(v, flags, SYNTHETIC_ERRNO(EBADMSG), "Field 'features' is only permitted on the root object, refusing.");
+
+                /* Inherit the manifest's features, so that users of the object know what it records */
+                assert(root->features >= 0);
+                object.features = root->features;
         }
 
-        r = uapi16_object_validate(v, flags, &object, /* is_root= */ n == 0);
+        r = uapi16_object_validate(v, flags, &object, /* is_root= */ !root);
+        if (r < 0)
+                return r;
+
+        r = uapi16_object_apply_features(v, flags, &object, /* is_root= */ !root);
         if (r < 0)
                 return r;
 
@@ -1598,6 +1773,7 @@ int uapi16_manifest_read(
         bool signature_seen = false, signature_supported_seen = false, signature_verified = false, trailer_seen = false;
         _cleanup_free_ char *unsupported_mechanism = NULL;
         _cleanup_(iovec_done) struct iovec buffer = {};
+        _cleanup_(uapi16_object_done) Uapi16Object root = UAPI16_OBJECT_NULL;
         size_t n_objects = 0;
         for (;; n_objects++) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
@@ -1693,12 +1869,15 @@ int uapi16_manifest_read(
 
                 assert_se(iovec_consume(&buffer, bytes));
 
+                /* The root object is kept around for the whole manifest, as it declares manifest-wide
+                 * properties that govern the other objects */
                 _cleanup_(uapi16_object_done) Uapi16Object object = UAPI16_OBJECT_NULL;
-                r = dispatch_uapi16_object(v, n_objects, SD_JSON_ALLOW_EXTENSIONS|SD_JSON_LOG, &object);
+                Uapi16Object *o = n_objects == 0 ? &root : &object;
+                r = dispatch_uapi16_object(v, n_objects == 0 ? NULL : &root, SD_JSON_ALLOW_EXTENSIONS|SD_JSON_LOG, o);
                 if (r < 0)
                         return r;
 
-                r = handler(&object, n_objects, userdata);
+                r = handler(o, n_objects, userdata);
                 if (r < 0)
                         return r;
         }
