@@ -64,10 +64,6 @@ jobs:
           - distro: debian
             release: stable
             rust: 1
-          - distro: debian
-            release: testing
-            shim: 1
-            rust: 1
           - distro: ubuntu
             release: resolute
             runner: ubuntu-24.04-arm
@@ -78,6 +74,7 @@ jobs:
             release: noble
           - distro: ubuntu
             release: resolute
+            shim: 1
           - distro: fedora
             release: "44"
             sanitizers: address,undefined
