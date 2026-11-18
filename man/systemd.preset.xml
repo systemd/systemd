@@ -124,7 +124,9 @@
     does not undo that: where the policy and the vendor agree, no symlink is written to
     <filename>/etc/</filename>. The administrator can still turn individual units off afterwards, in
     which case <command>systemctl disable</command> shadows the vendor symlink with a symlink to
-    <filename>/dev/null</filename> in <filename>/etc/</filename>. See
+    <filename>/dev/null</filename> in <filename>/etc/</filename>. <command>systemctl preset</command> with an
+    <literal>enable</literal> policy removes that symlink again, <command>systemctl preset --vendor</command>
+    leaves it in place. See
     <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
     details.</para>
   </refsect1>

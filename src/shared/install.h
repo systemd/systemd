@@ -23,6 +23,7 @@ typedef enum InstallChangeType {
         INSTALL_CHANGE_IS_DANGLING,
         INSTALL_CHANGE_DESTINATION_NOT_PRESENT,
         INSTALL_CHANGE_AUXILIARY_FAILED,
+        INSTALL_CHANGE_SHADOWED,
         _INSTALL_CHANGE_TYPE_MAX,
         _INSTALL_CHANGE_INVALID = -EINVAL,
         _INSTALL_CHANGE_ERRNO_MAX = -ERRNO_MAX, /* Ensure this type covers the whole negative errno range */
@@ -40,6 +41,7 @@ typedef enum UnitFileFlags {
         UNIT_FILE_IGNORE_AUXILIARY_FAILURE = 1 << 4,
         UNIT_FILE_VENDOR                   = 1 << 5,
         UNIT_FILE_APPLYING_PRESET          = 1 << 6,
+        UNIT_FILE_REMOVE_ONLY              = 1 << 7, /* Public API via DBUS, do not change */
         _UNIT_FILE_FLAGS_MASK_PUBLIC = UNIT_FILE_RUNTIME|UNIT_FILE_PORTABLE|UNIT_FILE_FORCE,
 } UnitFileFlags;
 

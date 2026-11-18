@@ -2713,7 +2713,7 @@ static int method_disable_unit_files_generic(
                 r = sd_bus_message_read(message, "t", &raw_flags);
                 if (r < 0)
                         return r;
-                if ((raw_flags & ~_UNIT_FILE_FLAGS_MASK_PUBLIC) != 0 ||
+                if ((raw_flags & ~(_UNIT_FILE_FLAGS_MASK_PUBLIC|UNIT_FILE_REMOVE_ONLY)) != 0 ||
                                 FLAGS_SET(raw_flags, UNIT_FILE_FORCE))
                         return -EINVAL;
                 flags = raw_flags;
@@ -2929,10 +2929,11 @@ static int method_get_unit_file_links(sd_bus_message *message, void *userdata, s
                 const char *link;
 
                 /* For units enabled by the vendor the dry run reports the mask that would shadow the vendor
-                 * symlink. Report the vendor symlink itself, that's the one that enables the unit. */
+                 * symlink. Report the vendor symlink itself, that's the one that enables the unit. A mask
+                 * change without a source has no vendor symlink to report. */
                 if (c->type == INSTALL_CHANGE_UNLINK)
                         link = c->path;
-                else if (c->type == INSTALL_CHANGE_MASK_DEPENDENCY)
+                else if (c->type == INSTALL_CHANGE_MASK_DEPENDENCY && c->source)
                         link = c->source;
                 else
                         continue;
