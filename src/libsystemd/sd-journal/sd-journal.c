@@ -2106,10 +2106,9 @@ static void directory_watch(sd_journal *j, Directory *m, int fd, uint32_t mask) 
                 return;
 
         m->wd = inotify_add_watch_fd(j->inotify_fd, fd, mask);
-        if (m->wd < 0) {
-                log_debug_errno(m->wd, "Failed to watch journal directory '%s', ignoring: %m", m->path);
-                return;
-        }
+        if (m->wd < 0)
+                return (void) log_debug_errno(m->wd, "Failed to watch journal directory '%s', ignoring: %m",
+                                              m->path);
 
         r = hashmap_ensure_put(&j->directories_by_wd, &directories_by_wd_hash_ops, INT_TO_PTR(m->wd), m);
         if (r < 0) {

@@ -89,10 +89,9 @@ static void automount_set_catatonic(Automount *a) {
                 return;
 
         ioctl_fd = open_ioctl_fd(UNIT(a)->manager->dev_autofs_fd, a->where, a->dev_id);
-        if (ioctl_fd < 0) {
-                log_unit_warning_errno(UNIT(a), ioctl_fd, "Failed to open automount ioctl fd for '%s', ignoring: %m", a->where);
-                return;
-        }
+        if (ioctl_fd < 0)
+                return (void) log_unit_warning_errno(UNIT(a), ioctl_fd, "Failed to open automount ioctl fd for '%s', ignoring: %m",
+                                                     a->where);
 
         r = autofs_set_catatonic(UNIT(a)->manager->dev_autofs_fd, ioctl_fd);
         if (r < 0)

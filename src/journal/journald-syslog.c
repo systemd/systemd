@@ -58,10 +58,9 @@ static void forward_syslog_iovec(
 
         j = strjoina(m->runtime_directory, "/syslog");
         r = sockaddr_un_set_path(&sa.un, j);
-        if (r < 0) {
-                log_debug_errno(r, "Forwarding socket path %s too long for AF_UNIX, not forwarding: %m", j);
-                return;
-        }
+        if (r < 0)
+                return (void) log_debug_errno(r, "Forwarding socket path %s too long for AF_UNIX, not forwarding: %m",
+                                              j);
 
         msghdr.msg_name = &sa.sa;
         msghdr.msg_namelen = r;
@@ -385,10 +384,8 @@ void manager_process_syslog_message(
                 msg = buf + leading_ws;
         else {
                 msg = dummy = new(char, i - leading_ws + 1);
-                if (!dummy) {
-                        log_oom();
-                        return;
-                }
+                if (!dummy)
+                        return (void) log_oom();
 
                 memcpy(dummy, buf + leading_ws, i - leading_ws);
                 dummy[i - leading_ws] = 0;
@@ -466,20 +463,17 @@ void manager_process_syslog_message(
         }
 
         msg_msg = strjoin("MESSAGE=", msg);
-        if (!msg_msg) {
-                log_oom();
-                return;
-        }
+        if (!msg_msg)
+                return (void) log_oom();
+
         iovec[n++] = IOVEC_MAKE_STRING(msg_msg);
 
         if (store_raw) {
                 const size_t hlen = STRLEN("SYSLOG_RAW=");
 
                 msg_raw = new(char, hlen + raw_len);
-                if (!msg_raw) {
-                        log_oom();
-                        return;
-                }
+                if (!msg_raw)
+                        return (void) log_oom();
 
                 memcpy(msg_raw, "SYSLOG_RAW=", hlen);
                 memcpy(msg_raw + hlen, buf, raw_len);

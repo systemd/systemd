@@ -1972,10 +1972,8 @@ static void cmdline_take_random_seed(void) {
                             arg_random_seed_size, suggested);
 
         r = random_write_entropy(-1, arg_random_seed, arg_random_seed_size, /* credit= */ true);
-        if (r < 0) {
-                log_warning_errno(r, "Failed to credit entropy specified on kernel command line, ignoring: %m");
-                return;
-        }
+        if (r < 0)
+                return (void) log_warning_errno(r, "Failed to credit entropy specified on kernel command line, ignoring: %m");
 
         log_notice("Successfully credited entropy passed on kernel command line.\n"
                    "Note that the seed provided this way is accessible to unprivileged programs. "
@@ -2052,16 +2050,12 @@ static void apply_protect_system(bool skip_setup) {
         if (skip_setup || getpid_cached() != 1 || arg_protect_system == 0)
                 return;
 
-        if (arg_protect_system < 0 && !in_initrd()) {
-                log_debug("ProtectSystem=auto selected, but not running in an initrd, skipping.");
-                return;
-        }
+        if (arg_protect_system < 0 && !in_initrd())
+                return (void) log_debug("ProtectSystem=auto selected, but not running in an initrd, skipping.");
 
         r = make_mount_point("/usr");
-        if (r < 0) {
-                log_warning_errno(r, "Failed to make /usr/ a mount point, ignoring: %m");
-                return;
-        }
+        if (r < 0)
+                return (void) log_warning_errno(r, "Failed to make /usr/ a mount point, ignoring: %m");
 
         if (mount_nofollow_verbose(
                         LOG_WARNING,
@@ -2960,10 +2954,8 @@ static void fallback_rlimit_nofile(const struct rlimit *saved_rlimit_nofile) {
         /* Make sure forked processes get limits based on the original kernel setting */
 
         rl = newdup(struct rlimit, saved_rlimit_nofile, 1);
-        if (!rl) {
-                log_oom();
-                return;
-        }
+        if (!rl)
+                return (void) log_oom();
 
         /* Bump the hard limit for system services to a substantially higher value. The default
          * hard limit current kernels set is pretty low (4K), mostly for historical
@@ -2998,10 +2990,8 @@ static void fallback_rlimit_memlock(const struct rlimit *saved_rlimit_memlock) {
                 return;
 
         rl = newdup(struct rlimit, saved_rlimit_memlock, 1);
-        if (!rl) {
-                log_oom();
-                return;
-        }
+        if (!rl)
+                return (void) log_oom();
 
         if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM)  {
                 /* Raise the default limit to 8M also on old kernels and in containers (8M is the kernel
