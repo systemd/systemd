@@ -260,11 +260,11 @@ static int dispatch_resolve_link(sd_varlink *vlink, sd_json_variant *parameters,
         if (FLAGS_SET(link->flags, IFF_LOOPBACK))
                 return sd_varlink_error(vlink, "io.systemd.Resolve.Link.IsLoopback", /* parameters= */ NULL);
 
-         if (link->state == LINK_STATE_UNMANAGED)
+        if (link->state == LINK_STATE_UNMANAGED)
                 return sd_varlink_error(vlink, "io.systemd.Network.Link.InterfaceUnmanaged", /* parameters= */ NULL);
 
-         *ret = link;
-         return 0;
+        *ret = link;
+        return 0;
 }
 
 int vl_method_link_set_dns(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
