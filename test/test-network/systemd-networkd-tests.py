@@ -2648,6 +2648,38 @@ ReorderHeader=no
         self.wait_online('vxcan99:carrier', 'vxcan-peer:carrier')
 
     @expectedFailureIfModuleIsNotAvailable('wireguard')
+    @unittest.skipUnless(shutil.which('wg'), 'wg is not available')
+    def test_wireguard_split(self):
+        # One peer must span multiple 64K messages, including continuation of the first peer.
+        public_key = 'RDf+LSpeEre7YEIKaxg+wbpsNV7du+ktR99uBEtIiCA='
+        other_key = 'TTiCUpCxS7zDn/ax4p5W6Evg41r8hOrnWQw2Sq6Nh10='
+        allowed_ips = [str(ipaddress.IPv6Network(f'fd00:1234::{i:x}/128')) for i in range(4096)]
+        with open(os.path.join(network_unit_dir, '25-wireguard-split.netdev'), mode='w', encoding='utf-8') as f:
+            f.write(
+                '[NetDev]\nName=wg-split\nKind=wireguard\n'
+                '[WireGuard]\nPrivateKey=EEGlnEPYJV//kbvvIqxKkQwOiS+UENyPncC4bF46ong=\nRouteTable=off\n'
+                f'[WireGuardPeer]\nPublicKey={other_key}\nAllowedIPs=192.0.2.2/32\n'
+                f'[WireGuardPeer]\nPublicKey={public_key}\nAllowedIPs=' + ','.join(allowed_ips) + '\n'
+            )
+        with open(os.path.join(network_unit_dir, '25-wireguard-split.network'), mode='w', encoding='utf-8') as f:
+            f.write('[Match]\nName=wg-split\n[Network]\nAddress=192.0.2.1/24\nLinkLocalAddressing=no\nIPv6AcceptRA=no\n')
+        start_networkd()
+        self.wait_online('wg-split:routable')
+
+        for reload in (False, True):
+            if reload:
+                touch_network_unit('25-wireguard-split.netdev')
+                networkctl_reload()
+                self.wait_online('wg-split:routable')
+
+            output = check_output('wg show wg-split allowed-ips')
+            peers = dict(line.split('\t', 1) for line in output.splitlines())
+            self.assertEqual(set(peers), {public_key, other_key})
+            self.assertEqual(set(peers[public_key].split()), set(allowed_ips))
+            self.assertEqual(peers[other_key], '192.0.2.2/32')
+
+
+    @expectedFailureIfModuleIsNotAvailable('wireguard')
     def test_wireguard(self):
         copy_credential(
             '25-wireguard-endpoint-peer0-cred.txt',

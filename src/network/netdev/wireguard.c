@@ -254,7 +254,7 @@ static int wireguard_set_interface(NetDev *netdev) {
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append wireguard interface name: %m");
 
-                if (peer_start == w->peers) {
+                if (!sent_once) {
                         r = sd_netlink_message_append_data(message, WGDEVICE_A_PRIVATE_KEY, &w->private_key, WG_KEY_LEN);
                         if (r < 0)
                                 return log_netdev_error_errno(netdev, r, "Could not append wireguard private key: %m");
