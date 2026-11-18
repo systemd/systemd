@@ -770,6 +770,39 @@ static int dispatch_one(const char *json, size_t n, Uapi16Object *ret) {
         return dispatch_uapi16_object(v, n, SD_JSON_LOG, ret);
 }
 
+TEST(uapi16_name_is_valid) {
+        ASSERT_TRUE(uapi16_name_is_valid("a"));
+        ASSERT_TRUE(uapi16_name_is_valid("a/b/c"));
+        ASSERT_TRUE(uapi16_name_is_valid("a/Uapi16Manifest"));
+        ASSERT_FALSE(uapi16_name_is_valid(NULL));
+        ASSERT_FALSE(uapi16_name_is_valid(""));
+        ASSERT_FALSE(uapi16_name_is_valid("/a"));
+        ASSERT_FALSE(uapi16_name_is_valid("a/"));
+        ASSERT_FALSE(uapi16_name_is_valid("a//b"));
+        ASSERT_FALSE(uapi16_name_is_valid("a/./b"));
+        ASSERT_FALSE(uapi16_name_is_valid("a/../b"));
+        ASSERT_FALSE(uapi16_name_is_valid("a\nb"));
+        ASSERT_FALSE(uapi16_name_is_valid("\xff"));
+        ASSERT_FALSE(uapi16_name_is_valid("Uapi16Manifest"));
+        ASSERT_FALSE(uapi16_name_is_valid("Uapi16Manifest.gz"));
+
+        /* The complete name is limited to 4095 bytes */
+        _cleanup_free_ char *n = NULL;
+        ASSERT_NOT_NULL(n = strrep("x/", UAPI16_NAME_MAX / 2));
+        ASSERT_NOT_NULL(strextend(&n, "x"));
+        ASSERT_EQ(strlen(n), UAPI16_NAME_MAX);
+        ASSERT_TRUE(uapi16_name_is_valid(n));
+        ASSERT_NOT_NULL(strextend(&n, "x"));
+        ASSERT_FALSE(uapi16_name_is_valid(n));
+        n = mfree(n);
+
+        /* The specification does not limit the components on their own, but we limit them to NAME_MAX */
+        ASSERT_NOT_NULL(n = strrep("x", NAME_MAX));
+        ASSERT_TRUE(uapi16_name_is_valid(n));
+        ASSERT_NOT_NULL(strextend(&n, "x"));
+        ASSERT_FALSE(uapi16_name_is_valid(n));
+}
+
 TEST(uapi16_dispatch) {
         _cleanup_(uapi16_object_done) Uapi16Object o = UAPI16_OBJECT_NULL;
 
