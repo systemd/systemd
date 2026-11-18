@@ -662,6 +662,53 @@ TEST(getpid_measure) {
         log_info("getpid_cached(): %lf μs each", (double) q / iterations);
 }
 
+TEST(pid_get_euid) {
+        _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
+        _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
+        uid_t u;
+        char x;
+        int r;
+
+        ASSERT_OK(pid_get_euid(/* pid= */ 0, &u));
+        ASSERT_EQ(u, geteuid());
+
+        ASSERT_OK(pidref_get_euid(&PIDREF_MAKE_FROM_PID(getpid_cached()), &u));
+        ASSERT_EQ(u, geteuid());
+
+        ASSERT_ERROR(pidref_get_euid(&PIDREF_NULL, &u), ESRCH);
+
+        if (getuid() != 0)
+                return (void) log_tests_skipped("not root");
+
+        /* Fork off a child with differing real and effective UID, and check that we get the latter */
+        ASSERT_OK_ERRNO(pipe2(pfd, O_CLOEXEC));
+
+        r = ASSERT_OK(pidref_safe_fork("(test-euid)", FORK_DEATHSIG_SIGKILL|FORK_LOG, &child));
+        if (r == 0) {
+                pfd[0] = safe_close(pfd[0]);
+
+                if (setresuid(/* ruid= */ 0, /* euid= */ UID_NOBODY, /* suid= */ 0) < 0)
+                        _exit(EXIT_FAILURE);
+
+                if (write(pfd[1], "x", 1) != 1)
+                        _exit(EXIT_FAILURE);
+
+                freeze();
+        }
+
+        pfd[1] = safe_close(pfd[1]);
+        ASSERT_OK_EQ_ERRNO(read(pfd[0], &x, 1), 1);
+
+        ASSERT_OK(pid_get_euid(child.pid, &u));
+        ASSERT_EQ(u, UID_NOBODY);
+
+        ASSERT_OK(pidref_get_euid(&child, &u));
+        ASSERT_EQ(u, UID_NOBODY);
+
+        ASSERT_OK(pid_get_uid(child.pid, &u));
+        ASSERT_EQ(u, (uid_t) 0);
+}
+
 TEST(pidref_safe_fork) {
         _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
         siginfo_t status;
