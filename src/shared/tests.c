@@ -59,10 +59,8 @@ static void load_testdata_env(void) {
         ASSERT_NOT_NULL(envpath = path_join(d, "systemd-runtest.env"));
 
         r = load_env_file_pairs(NULL, envpath, &pairs);
-        if (r < 0) {
-                log_debug_errno(r, "Reading %s failed, ignoring: %m", envpath);
-                return;
-        }
+        if (r < 0)
+                return (void) log_debug_errno(r, "Reading %s failed, ignoring: %m", envpath);
 
         STRV_FOREACH_PAIR(k, v, pairs) {
                 _cleanup_free_ char *p = NULL;

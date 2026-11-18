@@ -262,10 +262,9 @@ static void job_on_errno(Job *j, const char *buf) {
         assert(buf);
 
         r = parse_errno(buf);
-        if (r < 0) {
-                log_warning_errno(r, "Got invalid errno value from job %" PRIu64 ", ignoring: %m", j->id);
-                return;
-        }
+        if (r < 0)
+                return (void) log_warning_errno(r, "Got invalid errno value from job %" PRIu64 ", ignoring: %m",
+                                                j->id);
 
         j->status_errno = r;
 
@@ -280,10 +279,8 @@ static void job_on_progress(Job *j, const char *buf) {
         assert(buf);
 
         r = safe_atou(buf, &progress);
-        if (r < 0 || progress > 100) {
-                log_warning("Got invalid percent value, ignoring.");
-                return;
-        }
+        if (r < 0 || progress > 100)
+                return (void) log_warning("Got invalid percent value, ignoring.");
 
         j->progress_percent = progress;
         (void) sd_bus_emit_properties_changed(j->manager->bus, j->object_path,

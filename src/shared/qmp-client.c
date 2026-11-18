@@ -385,10 +385,8 @@ static void qmp_client_emit_synthetic_shutdown(QmpClient *c) {
                         &data,
                         SD_JSON_BUILD_PAIR_BOOLEAN("guest", false),
                         SD_JSON_BUILD_PAIR_STRING("reason", "disconnected"));
-        if (r < 0) {
-                json_stream_log_errno(&c->stream, r, "Failed to build synthetic SHUTDOWN event data, skipping: %m");
-                return;
-        }
+        if (r < 0)
+                return (void) json_stream_log_errno(&c->stream, r, "Failed to build synthetic SHUTDOWN event data, skipping: %m");
 
         r = c->event_callback(c, "SHUTDOWN", data, c->event_userdata);
         if (r < 0)

@@ -409,16 +409,13 @@ static void home_pin(Home *h) {
                 return;
 
         path = user_record_home_directory(h->record);
-        if (!path) {
-                log_warning("No home directory path to pin for %s, ignoring.", h->user_name);
-                return;
-        }
+        if (!path)
+                return (void) log_warning("No home directory path to pin for %s, ignoring.", h->user_name);
 
         h->pin_fd = xopenat(AT_FDCWD, path, O_PATH|O_DIRECTORY);
-        if (h->pin_fd < 0) {
-                log_warning_errno(h->pin_fd, "Couldn't open home directory '%s' for pinning, ignoring: %m", path);
-                return;
-        }
+        if (h->pin_fd < 0)
+                return (void) log_warning_errno(h->pin_fd, "Couldn't open home directory '%s' for pinning, ignoring: %m",
+                                                path);
 
         log_debug("Successfully pinned home directory '%s'.", path);
 }
@@ -715,10 +712,8 @@ static void home_count_bad_authentication(Home *h, int error, bool save) {
                 return;
 
         r = user_record_bad_authentication(h->record);
-        if (r < 0) {
-                log_warning_errno(r, "Failed to increase bad authentication counter, ignoring: %m");
-                return;
-        }
+        if (r < 0)
+                return (void) log_warning_errno(r, "Failed to increase bad authentication counter, ignoring: %m");
 
         if (save) {
                 r = home_save_record(h);

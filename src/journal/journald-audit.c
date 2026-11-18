@@ -441,20 +441,14 @@ void manager_process_audit_message(
         if (!sa ||
             salen != sizeof(struct sockaddr_nl) ||
             sa->nl.nl_family != AF_NETLINK ||
-            sa->nl.nl_pid != 0) {
-                log_debug("Audit netlink message from invalid sender.");
-                return;
-        }
+            sa->nl.nl_pid != 0)
+                return (void) log_debug("Audit netlink message from invalid sender.");
 
-        if (!ucred || ucred->pid != 0) {
-                log_debug("Audit netlink message with invalid credentials.");
-                return;
-        }
+        if (!ucred || ucred->pid != 0)
+                return (void) log_debug("Audit netlink message with invalid credentials.");
 
-        if (!NLMSG_OK(nl, buffer_size)) {
-                log_ratelimit_error(JOURNAL_LOG_RATELIMIT, "Audit netlink message truncated.");
-                return;
-        }
+        if (!NLMSG_OK(nl, buffer_size))
+                return (void) log_ratelimit_error(JOURNAL_LOG_RATELIMIT, "Audit netlink message truncated.");
 
         /* Ignore special Netlink messages */
         if (IN_SET(nl->nlmsg_type, NLMSG_NOOP, NLMSG_ERROR))

@@ -261,10 +261,8 @@ void tofu_setup(
         /* Without Secure Boot the firmware loads unsigned addons just fine, and we'd never see them. Don't
          * enroll in that case, as the record would be empty and close the enrollment window for good once
          * Secure Boot is turned on. */
-        if (!secure_boot_enabled()) {
-                log_debug("Secure Boot is disabled, not trusting addons on first use.");
-                return;
-        }
+        if (!secure_boot_enabled())
+                return (void) log_debug("Secure Boot is disabled, not trusting addons on first use.");
 
         c->variable = xasprintf("StubTofuRecord-%s", c->token);
 
@@ -307,10 +305,9 @@ void tofu_enroll(TofuContext *c, const void *buffer, size_t size, const char16_t
         if (hash_is_recorded(c, hash)) /* The same addon in both directories */
                 return;
 
-        if (c->n_hashes >= TOFU_HASHES_MAX) {
-                log_error("Too many unsigned addons to trust on first use, not trusting '%ls'.", path);
-                return;
-        }
+        if (c->n_hashes >= TOFU_HASHES_MAX)
+                return (void) log_error("Too many unsigned addons to trust on first use, not trusting '%ls'.",
+                                        path);
 
         c->hashes = xrealloc(c->hashes, c->n_hashes * SHA256_DIGEST_SIZE, (c->n_hashes + 1) * SHA256_DIGEST_SIZE);
         memcpy(c->hashes + c->n_hashes * SHA256_DIGEST_SIZE, hash, SHA256_DIGEST_SIZE);

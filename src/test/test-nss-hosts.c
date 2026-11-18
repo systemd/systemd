@@ -114,10 +114,8 @@ static void test_gethostbyname4_r(void *handle, const char *module, const char *
         fname = strjoina("_nss_", module, "_gethostbyname4_r");
         f = dlsym(handle, fname);
         log_debug("dlsym(0x%p, %s) → 0x%p", handle, fname, f);
-        if (!f) {
-                log_info("%s not defined", fname);
-                return;
-        }
+        if (!f)
+                return (void) log_info("%s not defined", fname);
 
         /* Poison the scratch buffer so uninitialized padding in NSS replies is observable. */
         memset(buffer, 0xa5, sizeof(buffer));
@@ -181,10 +179,8 @@ static void test_gethostbyname3_r(void *handle, const char *module, const char *
         fname = strjoina("_nss_", module, "_gethostbyname3_r");
         f = dlsym(handle, fname);
         log_debug("dlsym(0x%p, %s) → 0x%p", handle, fname, f);
-        if (!f) {
-                log_info("%s not defined", fname);
-                return;
-        }
+        if (!f)
+                return (void) log_info("%s not defined", fname);
 
         status = f(name, af, &host, buffer, sizeof buffer, &errno1, &errno2, &ttl, &canon);
         log_info("%s(\"%s\", %s) → status=%s%-20serrno=%d/%s h_errno=%d/%s ttl=%"PRIi32,
@@ -210,10 +206,8 @@ static void test_gethostbyname2_r(void *handle, const char *module, const char *
         fname = strjoina("_nss_", module, "_gethostbyname2_r");
         f = dlsym(handle, fname);
         log_debug("dlsym(0x%p, %s) → 0x%p", handle, fname, f);
-        if (!f) {
-                log_info("%s not defined", fname);
-                return;
-        }
+        if (!f)
+                return (void) log_info("%s not defined", fname);
 
         status = f(name, af, &host, buffer, sizeof buffer, &errno1, &errno2);
         log_info("%s(\"%s\", %s) → status=%s%-20serrno=%d/%s h_errno=%d/%s",
@@ -237,10 +231,8 @@ static void test_gethostbyname_r(void *handle, const char *module, const char *n
         fname = strjoina("_nss_", module, "_gethostbyname_r");
         f = dlsym(handle, fname);
         log_debug("dlsym(0x%p, %s) → 0x%p", handle, fname, f);
-        if (!f) {
-                log_info("%s not defined", fname);
-                return;
-        }
+        if (!f)
+                return (void) log_info("%s not defined", fname);
 
         status = f(name, &host, buffer, sizeof buffer, &errno1, &errno2);
         log_info("%s(\"%s\") → status=%s%-20serrno=%d/%s h_errno=%d/%s",
@@ -272,10 +264,8 @@ static void test_gethostbyaddr2_r(void *handle,
 
         log_full_errno(f ? LOG_DEBUG : LOG_INFO,  errno,
                        "dlsym(0x%p, %s) → 0x%p: %m", handle, fname, f);
-        if (!f) {
-                log_info("%s not defined", fname);
-                return;
-        }
+        if (!f)
+                return (void) log_info("%s not defined", fname);
 
         ASSERT_OK(in_addr_to_string(af, addr, &addr_pretty));
 
@@ -309,10 +299,8 @@ static void test_gethostbyaddr_r(void *handle,
 
         log_full_errno(f ? LOG_DEBUG : LOG_INFO,  errno,
                        "dlsym(0x%p, %s) → 0x%p: %m", handle, fname, f);
-        if (!f) {
-                log_info("%s not defined", fname);
-                return;
-        }
+        if (!f)
+                return (void) log_info("%s not defined", fname);
 
         ASSERT_OK(in_addr_to_string(af, addr, &addr_pretty));
 

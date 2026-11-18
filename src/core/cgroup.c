@@ -1133,10 +1133,8 @@ static void cgroup_apply_cpuset(Unit *u, const char *name, const CPUSet *cpus) {
         _cleanup_free_ char *buf = NULL;
 
         buf = cpu_set_to_range_string(cpus);
-        if (!buf) {
-                log_oom();
-                return;
-        }
+        if (!buf)
+                return (void) log_oom();
 
         (void) set_attribute_and_warn(u, name, buf);
 }
@@ -1173,11 +1171,13 @@ static void cgroup_apply_cpuset_partition(Unit *u, const char *name, const char 
         crt = ASSERT_PTR(unit_get_cgroup_runtime(u));
 
         r = cg_get_attribute(crt->cgroup_path, name, &buf);
-        if (r < 0) {
-                log_unit_full_errno(u, LOG_LEVEL_CGROUP_WRITE(r), r, "Failed to read back '%s' attribute on '%s' as '%.*s': %m",
-                                    name, empty_to_root(crt->cgroup_path), (int) strcspn(partition, NEWLINE), partition);
-                return;
-        }
+        if (r < 0)
+                return (void) log_unit_full_errno(u, LOG_LEVEL_CGROUP_WRITE(r), r,
+                                                  "Failed to read back '%s' attribute on '%s' as '%.*s': %m",
+                                                  name,
+                                                  empty_to_root(crt->cgroup_path),
+                                                  (int) strcspn(partition, NEWLINE),
+                                                  partition);
 
         r = cgroup_cpuset_partition_invalid(buf);
         if (r < 0)
@@ -3154,16 +3154,12 @@ static void unit_add_to_cgroup_oom_queue(Unit *u) {
                 _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
 
                 r = sd_event_add_defer(u->manager->event, &s, on_cgroup_oom_event, u->manager);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to create cgroup oom event source: %m");
-                        return;
-                }
+                if (r < 0)
+                        return (void) log_error_errno(r, "Failed to create cgroup oom event source: %m");
 
                 r = sd_event_source_set_priority(s, EVENT_PRIORITY_CGROUP_OOM);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to set priority of cgroup oom event source: %m");
-                        return;
-                }
+                if (r < 0)
+                        return (void) log_error_errno(r, "Failed to set priority of cgroup oom event source: %m");
 
                 (void) sd_event_source_set_description(s, "cgroup-oom");
                 u->manager->cgroup_oom_event_source = TAKE_PTR(s);
