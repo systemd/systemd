@@ -4569,7 +4569,7 @@ static int lock_secureboot_policy(void) {
                 };
 
                 efi_id128_to_guid(vv->id, vdata->variableName);
-                memcpy(mempcpy(vdata->unicodeName, name16, name16_bytes), data, data_size);
+                memcpy_safe(mempcpy(vdata->unicodeName, name16, name16_bytes), data, data_size);
 
                 r = make_pcrlock_record(TPM2_PCR_SECURE_BOOT_POLICY /* =7 */, vdata, vdata_size, &record);
                 if (r < 0)
