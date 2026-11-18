@@ -720,10 +720,14 @@ static int fscrypt_slot_try_one(
                 r = unbase64mem_full(xattr_value, e - xattr_value, /* secure= */ false, &salt, &salt_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode legacy salt: %m");
+                if (salt_size == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid legacy salt size.");
 
                 r = unbase64mem_full(e + 1, xattr_size - (e - xattr_value) - 1, /* secure= */ false, &encrypted, &encrypted_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode legacy ciphertext: %m");
+                if (encrypted_size == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Empty legacy ciphertext.");
 
                 return fscrypt_slot_try_v1(password,
                                            salt, salt_size,
@@ -1425,7 +1429,7 @@ int home_passwd_fscrypt(
 
         _cleanup_(iovec_done_erase) struct iovec volume_key = {};
         _cleanup_free_ char *xattr_buf = NULL;
-        uint32_t slot = 0;
+        uint32_t base = 0, slot = 0;
         int r;
 
         assert(h);
@@ -1440,14 +1444,9 @@ int home_passwd_fscrypt(
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(p, effective_passwords) {
-                r = fscrypt_slot_set(setup->root_fd, &volume_key, *p, slot);
-                if (r < 0)
-                        return r;
-
-                slot++;
-        }
-
+        /* Add the new slots at indexes above all existing ones, and only remove the old slots once all new
+         * slots have been written. Otherwise a failure half-way through would leave us with some of the old
+         * slots destroyed, and hence the user potentially locked out. */
         r = flistxattr_malloc(setup->root_fd, &xattr_buf);
         if (r < 0)
                 return log_error_errno(r, "Failed to retrieve xattr list: %m");
@@ -1463,7 +1462,43 @@ int home_passwd_fscrypt(
                 if (safe_atou32(nr, &z) < 0)
                         continue;
 
-                if (z < slot)
+                if (z == UINT32_MAX)
+                        return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "Key slot index out of range.");
+
+                base = MAX(base, z + 1);
+        }
+
+        if (strv_length(effective_passwords) > UINT32_MAX - base)
+                return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "Key slot index out of range.");
+
+        STRV_FOREACH(p, effective_passwords) {
+                r = fscrypt_slot_set(setup->root_fd, &volume_key, *p, base + slot);
+                if (r < 0) {
+                        /* Remove the new slots again, the old ones are still in place */
+                        for (uint32_t i = 0; i < slot; i++) {
+                                char label[STRLEN("trusted.fscrypt_slot") + DECIMAL_STR_MAX(uint32_t) + 1];
+
+                                xsprintf(label, "trusted.fscrypt_slot%" PRIu32, base + i);
+                                if (fremovexattr(setup->root_fd, label) < 0 && errno != ENODATA)
+                                        log_warning_errno(errno, "Failed to remove xattr %s, ignoring: %m",
+                                                          label);
+                        }
+
+                        return r;
+                }
+
+                slot++;
+        }
+
+        /* All new slots are in place, now remove the old ones, i.e. the ones we found above */
+        NULSTR_FOREACH(xa, xattr_buf) {
+                const char *nr;
+                uint32_t z;
+
+                nr = startswith(xa, "trusted.fscrypt_slot");
+                if (!nr)
+                        continue;
+                if (safe_atou32(nr, &z) < 0)
                         continue;
 
                 if (fremovexattr(setup->root_fd, xa) < 0)
