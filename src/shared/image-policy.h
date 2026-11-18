@@ -81,6 +81,7 @@ extern const ImagePolicy image_policy_host;
 
 PartitionPolicyFlags image_policy_get(const ImagePolicy *policy, PartitionDesignator designator);
 PartitionPolicyFlags image_policy_get_exhaustively(const ImagePolicy *policy, PartitionDesignator designator);
+bool image_policy_requires_signature(const ImagePolicy *policy, PartitionDesignator designator);
 
 /* We want that the NULL image policy means "everything" allowed, hence use these simple accessors to make
  * NULL policies work reasonably */

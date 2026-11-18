@@ -181,6 +181,15 @@ PartitionPolicyFlags image_policy_get_exhaustively(const ImagePolicy *policy, Pa
         return flags;
 }
 
+bool image_policy_requires_signature(const ImagePolicy *policy, PartitionDesignator designator) {
+        PartitionPolicyFlags flags;
+
+        /* A partition with Verity but without a validated root hash signature only satisfies a policy that
+         * allows "verity". */
+        flags = image_policy_get_exhaustively(policy, designator);
+        return flags >= 0 && FLAGS_SET(flags, PARTITION_POLICY_SIGNED) && !FLAGS_SET(flags, PARTITION_POLICY_VERITY);
+}
+
 static PartitionPolicyFlags policy_flag_from_fstype(const char *s) {
         if (!s)
                 return _PARTITION_POLICY_FLAGS_INVALID;
