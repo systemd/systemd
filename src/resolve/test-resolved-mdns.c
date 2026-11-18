@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <string.h>
 #include <sys/socket.h>
 
 #include "sd-event.h"
 
+#include "dns-answer.h"
 #include "dns-packet.h"
 #include "dns-rr.h"
 #include "dns-type.h"
@@ -15,9 +17,9 @@
 #include "tests.h"
 #include "time-util.h"
 
-/* Tests for the mDNS goodbye timer, which drops the records of a goodbye from the cache a second after
- * receipt, as RFC 6762 section 10.1 asks, and then tells the browsers. The tests hand packets to
- * mdns_scope_process_packet(), as on_mdns_packet() does after the socket read. */
+/* Tests for the mDNS reply path and its goodbye timer, which drops the records of a goodbye from the
+ * cache a second after receipt, as RFC 6762 section 10.1 asks, and then tells the browsers. The tests
+ * hand packets to mdns_scope_process_packet(), as on_mdns_packet() does after the socket read. */
 
 /* A DNS scope, not an mDNS one: dns_scope_new() joins the multicast group for the multicast
  * protocols, which needs a link and a real socket. The reply path does not care, and with no browsers
@@ -46,6 +48,17 @@ static DnsResourceRecord* new_a(const char *name, uint32_t ttl) {
         ASSERT_NOT_NULL(rr);
         rr->a.in_addr.s_addr = htobe32(0xc0a80101);
         rr->ttl = ttl;
+
+        return rr;
+}
+
+static DnsResourceRecord* new_ptr(const char *name, const char *target) {
+        DnsResourceRecord *rr;
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR, name);
+        ASSERT_NOT_NULL(rr);
+        ASSERT_NOT_NULL(rr->ptr.name = strdup(target));
+        rr->ttl = 120;
 
         return rr;
 }
@@ -108,6 +121,25 @@ static void make_deadline_stale(DnsScope *scope) {
                                            usec_sub_unsigned(now(CLOCK_BOOTTIME), 5 * USEC_PER_SEC)));
 }
 
+/* The TTL the cache holds for the A record of 'name'. */
+static uint32_t cached_ttl(DnsScope *scope, const char *name) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        DnsResourceRecord *rr;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, name);
+        ASSERT_NOT_NULL(key);
+        ASSERT_OK_POSITIVE(dns_cache_lookup(&scope->cache, key, /* query_flags= */ 0, /* ret_rcode= */ NULL,
+                                            &answer, /* ret_full_packet= */ NULL,
+                                            /* ret_query_flags= */ NULL, /* ret_dnssec_result= */ NULL));
+        ASSERT_EQ(dns_answer_size(answer), 1u);
+
+        DNS_ANSWER_FOREACH(rr, answer)
+                return rr->ttl;
+
+        assert_not_reached();
+}
+
 /* A goodbye received after the timer came due, but before a busy event loop dispatched it: the pass has
  * to look a second ahead of now, or it finds the goodbye's record outside that window and arms no pass
  * for it. A deadline left in the past stands in for the late dispatch. */
@@ -144,6 +176,108 @@ TEST(mdns_goodbye_after_the_deadline_rearms) {
         ASSERT_OK_POSITIVE(sd_event_run(event, 3 * USEC_PER_SEC));
         ASSERT_TRUE(dns_cache_is_empty(&scope->cache));
         ASSERT_NULL(scope->mdns_goodbye_event_source);
+}
+
+/* RFC 6762 section 10.1: each goodbye record of a reply is cached with TTL 1, not dropped at once, and
+ * a live record between them keeps its TTL. */
+TEST(mdns_goodbye_records_are_cached_with_ttl_1) {
+        Manager manager = {};
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(dns_scope_freep) DnsScope *scope = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *bye = NULL, *stays = NULL, *bye2 = NULL;
+
+        scope = test_scope_new(&manager, &event);
+        receive_a(scope, "bye.local", 120);
+        receive_a(scope, "stays.local", 120);
+        receive_a(scope, "bye2.local", 120);
+
+        bye = new_a("bye.local", /* ttl= */ 0);
+        stays = new_a("stays.local", 120);
+        bye2 = new_a("bye2.local", /* ttl= */ 0);
+        DnsResourceRecord *rrs[] = { bye, stays, bye2 };
+        receive(scope, rrs, ELEMENTSOF(rrs));
+
+        ASSERT_EQ(cached_ttl(scope, "bye.local"), 1u);
+        ASSERT_EQ(cached_ttl(scope, "stays.local"), 120u);
+        ASSERT_EQ(cached_ttl(scope, "bye2.local"), 1u);
+        ASSERT_NOT_NULL(scope->mdns_goodbye_event_source);
+}
+
+/* Only a goodbye arms the pass: a reply with nothing but live records leaves the timer alone, even if
+ * one has TTL 1. */
+TEST(mdns_reply_without_goodbye_arms_nothing) {
+        Manager manager = {};
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(dns_scope_freep) DnsScope *scope = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *live = NULL, *brief = NULL;
+
+        scope = test_scope_new(&manager, &event);
+
+        live = new_a("live.local", 120);
+        brief = new_a("brief.local", 1);
+        DnsResourceRecord *rrs[] = { live, brief };
+        receive(scope, rrs, ELEMENTSOF(rrs));
+
+        ASSERT_EQ(cached_ttl(scope, "live.local"), 120u);
+        ASSERT_NULL(scope->mdns_goodbye_event_source);
+}
+
+/* A reply carrying any record outside .local and the reverse zones is discarded whole: its goodbye
+ * neither gets cached nor arms the pass. */
+TEST(mdns_reply_failing_the_name_check_arms_nothing) {
+        Manager manager = {};
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(dns_scope_freep) DnsScope *scope = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *bye = NULL, *foreign = NULL;
+
+        scope = test_scope_new(&manager, &event);
+        receive_a(scope, "goodbye.local", 120);
+
+        bye = new_a("goodbye.local", /* ttl= */ 0);
+        foreign = new_a("example.com", 120);
+        DnsResourceRecord *rrs[] = { bye, foreign };
+        receive(scope, rrs, ELEMENTSOF(rrs));
+
+        ASSERT_EQ(cached_ttl(scope, "goodbye.local"), 120u);
+        ASSERT_NULL(scope->mdns_goodbye_event_source);
+}
+
+/* RFC 6762 section 6: a reply from a source port other than 5353 is ignored, its goodbye included. */
+TEST(mdns_reply_from_another_port_arms_nothing) {
+        Manager manager = {};
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(dns_scope_freep) DnsScope *scope = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *bye = NULL;
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+
+        scope = test_scope_new(&manager, &event);
+        receive_a(scope, "goodbye.local", 120);
+
+        bye = new_a("goodbye.local", /* ttl= */ 0);
+        p = make_reply(&bye, 1, /* flags= */ 0);
+        p->sender_port = MDNS_PORT + 1;
+        ASSERT_OK(mdns_scope_process_packet(scope, p));
+
+        ASSERT_EQ(cached_ttl(scope, "goodbye.local"), 120u);
+        ASSERT_NULL(scope->mdns_goodbye_event_source);
+}
+
+/* The reverse zones pass the name check too: a reply for them is cached. */
+TEST(mdns_reply_for_the_reverse_zones_is_cached) {
+        Manager manager = {};
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(dns_scope_freep) DnsScope *scope = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *v4 = NULL, *v6 = NULL;
+
+        scope = test_scope_new(&manager, &event);
+
+        v4 = new_ptr("1.1.168.192.in-addr.arpa", "host.local");
+        v6 = new_ptr("1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.e.f.ip6.arpa",
+                     "host.local");
+
+        receive(scope, &v4, 1);
+        receive(scope, &v6, 1);
+        ASSERT_EQ(dns_cache_size(&scope->cache), 2u);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

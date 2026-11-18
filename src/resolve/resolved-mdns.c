@@ -406,6 +406,24 @@ static int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userda
         return 0;
 }
 
+/* RFC 6762 section 10.1: goodbye records carry TTL 0 and are to be deleted one second after receipt,
+ * so rewrite them to TTL 1. Returns whether the answer carried any. */
+static bool mdns_answer_rewrite_goodbye_ttls(DnsAnswer *answer) {
+        DnsResourceRecord *rr;
+        bool goodbye = false;
+
+        DNS_ANSWER_FOREACH(rr, answer)
+                if (rr->ttl == 0) {
+                        rr->ttl = 1;
+                        goodbye = true;
+                }
+
+        if (goodbye)
+                log_debug("Got a goodbye packet");
+
+        return goodbye;
+}
+
 /* Handle an mDNS packet that arrived on the scope: check a reply for conflicts with our records, cache it
  * and pass it on to the transactions and browsers waiting for it, or answer a query. Kept apart from the
  * socket read, so that unit tests can hand it packets. */
@@ -418,6 +436,7 @@ int mdns_scope_process_packet(DnsScope *scope, DnsPacket *p) {
 
         if (dns_packet_validate_reply(p) > 0) {
                 DnsResourceRecord *rr;
+                bool goodbye;
 
                 /* RFC 6762 section 6:
                  * The source UDP port in all Multicast DNS responses MUST be 5353 (the well-known port
@@ -459,28 +478,23 @@ int mdns_scope_process_packet(DnsScope *scope, DnsPacket *p) {
                               dns_name_endswith(name, "ip6.arpa") > 0 ||
                               dns_name_endswith(name, "local") > 0))
                                 return 0;
+                }
 
-                        if (rr->ttl == 0) {
-                                log_debug("Got a goodbye packet");
-                                /* See the section 10.1 of RFC6762 */
-                                rr->ttl = 1;
+                goodbye = mdns_answer_rewrite_goodbye_ttls(p->answer);
 
-                                /* Look at the cache 1 second later and remove stale entries.
-                                 * This is particularly useful to keep service browsers updated on service removal,
-                                 * as there are no other reliable triggers to propagate that info. */
-                                if (!scope->mdns_goodbye_event_source) {
-                                        r = sd_event_add_time_relative(
-                                                        scope->manager->event,
-                                                        &scope->mdns_goodbye_event_source,
-                                                        CLOCK_BOOTTIME,
-                                                        USEC_PER_SEC,
-                                                        /* accuracy= */ 0,
-                                                        mdns_goodbye_callback,
-                                                        scope);
-                                        if (r < 0)
-                                                return r;
-                                }
-                        }
+                /* Look at the cache a second later, to drop the goodbye's records and tell the browsers,
+                 * which have no other reliable trigger for it. */
+                if (goodbye && !scope->mdns_goodbye_event_source) {
+                        r = sd_event_add_time_relative(
+                                        scope->manager->event,
+                                        &scope->mdns_goodbye_event_source,
+                                        CLOCK_BOOTTIME,
+                                        USEC_PER_SEC,
+                                        /* accuracy= */ 0,
+                                        mdns_goodbye_callback,
+                                        scope);
+                        if (r < 0)
+                                return r;
                 }
 
                 dns_cache_put(
