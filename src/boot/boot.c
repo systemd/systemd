@@ -3159,32 +3159,47 @@ static EFI_STATUS call_image_start(
                 (void) tpm_log_load_options(options, /* ret_measured= */ NULL);
         }
 
+        /* The firmware cannot start a kernel built for a different architecture: StartImage() returns
+         * EFI_UNSUPPORTED and leaves the image loaded, and we call the kernel compat entry point instead.
+         * But an image that did run can exit with the same status, and it is unloaded by the time
+         * StartImage() returns. Hence look for the compat entry point now, while the image is still
+         * loaded. pe_kernel_info() only returns one for an image of a different architecture, i.e. one
+         * that the firmware did not start. */
+        EFI_IMAGE_ENTRY_POINT compat_entry = NULL;
+        EFI_STATUS compat_err = EFI_SUCCESS;
+        if (entry->type == LOADER_LINUX) {
+                uint32_t compat_address = 0;
+
+                compat_err = pe_kernel_info(
+                                loaded_image->ImageBase,
+                                loaded_image->ImageSize,
+                                /* ret_entry_point= */ NULL,
+                                &compat_address,
+                                /* ret_size_in_memory= */ NULL,
+                                /* ret_section_alignment= */ NULL);
+                if (compat_err == EFI_SUCCESS && compat_address > 0)
+                        compat_entry = (EFI_IMAGE_ENTRY_POINT)
+                                ((uint8_t *) loaded_image->ImageBase + compat_address);
+        }
+
         efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeExecUSec", /* usec= */ 0);
         err = BS->StartImage(image, NULL, NULL);
         graphics_mode(/* on= */ false);
         if (err == EFI_SUCCESS)
                 return EFI_SUCCESS;
 
-        /* Try calling the kernel compat entry point if one exists. */
+        /* Try calling the kernel compat entry point if one exists. The image may be unloaded already,
+         * so don't access it here, see above. */
         if (err == EFI_UNSUPPORTED && entry->type == LOADER_LINUX) {
-                uint32_t compat_address;
+                if (!IN_SET(compat_err, EFI_SUCCESS, EFI_UNSUPPORTED))
+                        return log_error_status(compat_err, "Error finding kernel compat entry address: %m");
 
-                err = pe_kernel_info(loaded_image->ImageBase, loaded_image->ImageSize, /* ret_entry_point= */ NULL, &compat_address,
-                                     /* ret_size_in_memory= */ NULL,
-                                     /* ret_section_alignment= */ NULL);
-                if (err != EFI_SUCCESS) {
-                        if (err != EFI_UNSUPPORTED)
-                                return log_error_status(err, "Error finding kernel compat entry address: %m");
-                } else if (compat_address > 0) {
-                        EFI_IMAGE_ENTRY_POINT kernel_entry =
-                                (EFI_IMAGE_ENTRY_POINT) ((uint8_t *) loaded_image->ImageBase + compat_address);
-
-                        err = kernel_entry(image, ST);
+                if (compat_entry) {
+                        err = compat_entry(image, ST);
                         graphics_mode(/* on= */ false);
                         if (err == EFI_SUCCESS)
                                 return EFI_SUCCESS;
-                } else
-                        err = EFI_UNSUPPORTED;
+                }
         }
 
         return log_error_status(err, "Failed to execute %ls (%ls): %m", entry->title_show, entry->loader ?: entry->url);
