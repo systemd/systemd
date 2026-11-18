@@ -116,6 +116,16 @@
     one JSON value (object, array, string, number, boolean, or null); any trailing non-whitespace content
     after the first parsed value is considered an error.</para>
 
+    <para>JSON objects in the input must not contain the same key more than once, at any nesting level. While
+    <ulink url="https://www.rfc-editor.org/rfc/rfc8259">RFC 8259</ulink> only recommends that object keys
+    are unique, other parsers deal with duplicate keys in different ways (some honour the first, others the
+    last occurrence), and accepting such objects hence might result in different consumers of the same data
+    seeing different values. Such input is hence refused with <constant>-ENOTUNIQ</constant>, as required by
+    <ulink url="https://www.rfc-editor.org/rfc/rfc7493">RFC 7493</ulink> ("I-JSON"). Keys are compared
+    after decoding of escape sequences, and case-sensitively. See
+    <citerefentry><refentrytitle>sd_json_variant_new_object</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    for details.</para>
+
     <para>If parsing fails, the <parameter>reterr_line</parameter> and <parameter>reterr_column</parameter>
     arguments are set to the line and column (both one-based) where the parse error occurred. One or both
     may be passed as <constant>NULL</constant> if the caller is not interested in error location
@@ -270,6 +280,15 @@
         </varlistentry>
 
         <varlistentry>
+          <term><constant>-ENOTUNIQ</constant></term>
+
+          <listitem><para>The input contains a JSON object that contains the same key more than
+          once.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><constant>-ENODATA</constant></term>
 
           <listitem><para>The input string is empty or <constant>NULL</constant>.</para></listitem>
@@ -299,6 +318,8 @@
     <constant>SD_JSON_PARSE_MUST_BE_ARRAY</constant>, <constant>SD_JSON_PARSE_SEEK0</constant>,
     <constant>SD_JSON_PARSE_DONATE_FD</constant> and <constant>SD_JSON_PARSE_REOPEN_FD</constant> flags were
     added in version 261.</para>
+
+    <para>Before version 263 objects with duplicate keys were accepted by the parser.</para>
   </refsect1>
 
   <refsect1>
@@ -309,6 +330,8 @@
       <member><citerefentry><refentrytitle>sd-json</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>sd_json_variant_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>sd_json_variant_get_source</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_json_variant_new_object</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_json_build</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>sd_json_dispatch</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>

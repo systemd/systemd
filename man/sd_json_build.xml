@@ -1,0 +1,179 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_json_build" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_json_build</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_json_build</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_json_build</refname>
+    <refname>sd_json_buildv</refname>
+    <refname>sd_json_buildo</refname>
+
+    <refpurpose>Construct JSON variants of any type</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-json.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_json_build</function></funcdef>
+        <paramdef>sd_json_variant **<parameter>ret</parameter></paramdef>
+        <paramdef>…</paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_json_buildv</function></funcdef>
+        <paramdef>sd_json_variant **<parameter>ret</parameter></paramdef>
+        <paramdef>va_list <parameter>ap</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_json_buildo</function></funcdef>
+        <paramdef>sd_json_variant **<parameter>ret</parameter></paramdef>
+        <paramdef>…</paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_json_build()</function> constructs a JSON variant from a description of its
+    structure, passed as variadic arguments, and returns it in <parameter>ret</parameter>. The description
+    must consist of exactly one top-level value, which may be of any JSON type: an object, an array, a
+    string, a number, a boolean or null. It is generated with the <constant>SD_JSON_BUILD_…()</constant>
+    macros, which may be nested arbitrarily to build up complex objects and arrays in a single call. See
+    <citerefentry><refentrytitle>SD_JSON_BUILD_OBJECT</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    for a description of all of them.</para>
+
+    <para><function>sd_json_buildv()</function> is similar, but takes the description as
+    <type>va_list</type>.</para>
+
+    <para><function>sd_json_buildo()</function> is a macro that wraps its arguments in
+    <constant>SD_JSON_BUILD_OBJECT()</constant>, and is a shortcut for the common case of building an
+    object at the top level. Unlike <function>sd_json_build()</function> it hence can only be used to build
+    JSON objects, and its arguments must be a list of object fields, i.e. of
+    <constant>SD_JSON_BUILD_PAIR…()</constant> macros. This means
+    <programlisting>sd_json_buildo(&amp;v, SD_JSON_BUILD_PAIR_STRING("foo", "bar"));</programlisting>
+    is equivalent to
+    <programlisting>sd_json_build(&amp;v, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_STRING("foo", "bar")));</programlisting>
+    </para>
+
+    <para>Any objects generated, at any nesting level, are subject to the same rules as objects created with
+    <citerefentry><refentrytitle>sd_json_variant_new_object</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    in particular each key may only be used once within the same object. If the description contains the
+    same key more than once in the same object, the call fails with <constant>-ENOTUNIQ</constant>. Fields
+    suppressed with <constant>SD_JSON_BUILD_PAIR_CONDITION()</constant> do not count. Note that this check
+    happens at runtime, hence code that conditionally generates fields needs to make sure that the
+    conditions of fields of the same name are mutually exclusive.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, these functions return 0. On failure, they return a negative errno-style error
+    code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>An argument is invalid, or the description is not well-formed (for example, a
+          value is specified where an object field is expected).</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOTUNIQ</constant></term>
+
+          <listitem><para>An object would contain the same key more than once.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
+
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Build a JSON object with <function>sd_json_buildo()</function></title>
+
+      <programlisting>_cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+int r;
+
+r = sd_json_buildo(
+                &amp;v,
+                SD_JSON_BUILD_PAIR_STRING("name", "foo"),
+                SD_JSON_BUILD_PAIR_UNSIGNED("size", 4711),
+                SD_JSON_BUILD_PAIR_CONDITION(!!description, "description", SD_JSON_BUILD_STRING(description)),
+                SD_JSON_BUILD_PAIR_ARRAY("tags",
+                                         SD_JSON_BUILD_STRING("a"),
+                                         SD_JSON_BUILD_STRING("b")));
+if (r &lt; 0)
+        return r;</programlisting>
+    </example>
+
+    <example>
+      <title>Build a JSON array with <function>sd_json_build()</function></title>
+
+      <programlisting>_cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+int r;
+
+r = sd_json_build(
+                &amp;v,
+                SD_JSON_BUILD_ARRAY(
+                                SD_JSON_BUILD_STRING("foo"),
+                                SD_JSON_BUILD_UNSIGNED(4711),
+                                SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_BOOLEAN("enabled", true)),
+                                SD_JSON_BUILD_NULL));
+if (r &lt; 0)
+        return r;</programlisting>
+    </example>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_json_build()</function>, <function>sd_json_buildv()</function> and
+    <function>sd_json_buildo()</function> were added in version 257.</para>
+
+    <para>Before version 263 objects with duplicate keys were accepted by these functions.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-json</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>SD_JSON_BUILD_OBJECT</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_json_variant_new_object</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_json_parse</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>
