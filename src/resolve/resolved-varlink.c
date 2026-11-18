@@ -1499,6 +1499,11 @@ static int vl_get_link(sd_varlink *vlink, int ifindex, Link **ret_link) {
         if (link->is_managed)
                 return sd_varlink_error(vlink, "io.systemd.Resolve.Link.ManagedByNetworkd", /* parameters= */ NULL);
 
+        /* The interface name may not be known yet, e.g. when the associated RTM_NEWLINK message
+         * carries no IFLA_IFNAME. Refuse to configure such an interface for now. */
+        if (!link->ifname)
+                return sd_varlink_error(vlink, "io.systemd.Resolve.Link.InterfaceNotReady", /* parameters= */ NULL);
+
         *ret_link = link;
         return 0;
 }

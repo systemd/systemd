@@ -2346,6 +2346,9 @@ static int varlink_call_link_method(const char *method, sd_json_variant *paramet
         if (streq_ptr(error_id, "io.systemd.Resolve.Link.IsLoopback"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Link %s is loopback device", FORMAT_IFNAME(arg_ifindex));
 
+        if (streq_ptr(error_id, "io.systemd.Resolve.Link.InterfaceNotReady"))
+                return log_error_errno(SYNTHETIC_ERRNO(EAGAIN), "Link %s is not ready yet, please retry", FORMAT_IFNAME(arg_ifindex));
+
         if (sd_varlink_error_is_invalid_parameter(error_id, reply, "ifindex")) {
                 if (arg_ifindex_permissive)
                         return 0;
