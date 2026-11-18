@@ -145,6 +145,10 @@ bool pe_header_is_64bit(const PeHeader *h);
 #define PE_HEADER_OPTIONAL_FIELD_OFFSET(h, field) \
         (pe_header_is_64bit(h) ? offsetof(PeHeader, optional.pe32plus_##field) : offsetof(PeHeader, optional.pe32_##field))
 
+/* Maximum PE section we are willing to load (Note that sections we are not interested in may be larger, but
+ * the ones we do care about and we are willing to load into memory have this size limit.) */
+#define PE_SECTION_SIZE_MAX (4U*1024U*1024U)
+
 const IMAGE_DATA_DIRECTORY* pe_header_get_data_directory(const PeHeader *h, size_t i);
 bool pe_header_is_signed(const PeHeader *h);
 const IMAGE_SECTION_HEADER* pe_find_profile_section_table(
@@ -152,6 +156,13 @@ const IMAGE_SECTION_HEADER* pe_find_profile_section_table(
                 const IMAGE_SECTION_HEADER *sections,
                 unsigned profile,
                 size_t *ret_n_sections);
+const IMAGE_SECTION_HEADER* pe_find_profile_section(
+                const IMAGE_SECTION_HEADER *psections,
+                size_t n_psections,
+                const IMAGE_SECTION_HEADER *bsections,
+                size_t n_bsections,
+                const char *name,
+                bool *ret_duplicate);
 const IMAGE_SECTION_HEADER* pe_header_find_section(const PeHeader *pe_header, const IMAGE_SECTION_HEADER *sections, const char *name);
 bool pe_section_name_is_valid(const char *name);
 const IMAGE_SECTION_HEADER* pe_section_table_find(const IMAGE_SECTION_HEADER *sections, size_t n_sections, const char *name);
@@ -175,5 +186,11 @@ int pe_checksum(int fd, uint32_t *ret);
 #if HAVE_OPENSSL
 int pe_hash(int fd, const EVP_MD *md, void **ret_hash, size_t *ret_hash_size);
 
-int uki_hash(int fd, const EVP_MD *md, void *ret_hashes[static _UNIFIED_SECTION_MAX], size_t *ret_hash_size);
+int uki_profile_sections(
+                const PeHeader *pe_header,
+                const IMAGE_SECTION_HEADER *sections,
+                unsigned profile,
+                const IMAGE_SECTION_HEADER *ret_sections[static _UNIFIED_SECTION_MAX]);
+int uki_hash_section(int fd, const EVP_MD *md, const IMAGE_SECTION_HEADER *section, void **ret_hash, size_t *ret_hash_size);
+int uki_hash(int fd, const EVP_MD *md, unsigned profile, void *ret_hashes[static _UNIFIED_SECTION_MAX], size_t *ret_hash_size);
 #endif

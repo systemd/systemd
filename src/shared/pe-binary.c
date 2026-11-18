@@ -13,7 +13,6 @@
 #include "pe-binary.h"
 #include "sort-util.h"
 #include "stat-util.h"
-#include "string-table.h"
 #include "string-util.h"
 
 /* Cap on the (VirtualSize - SizeOfRawData) zero-padding the UKI hasher
@@ -142,6 +141,39 @@ const IMAGE_SECTION_HEADER* pe_find_profile_section_table(
                 *ret_n_sections = end - start;
 
         return start;
+}
+
+const IMAGE_SECTION_HEADER* pe_find_profile_section(
+                const IMAGE_SECTION_HEADER *psections,
+                size_t n_psections,
+                const IMAGE_SECTION_HEADER *bsections,
+                size_t n_bsections,
+                const char *name,
+                bool *ret_duplicate) {
+
+        assert(name);
+
+        /* systemd-stub looks up a section in the selected profile first, and in the base profile second. */
+        const IMAGE_SECTION_HEADER *part = psections, *found;
+        size_t n_part = n_psections;
+
+        found = pe_section_table_find(psections, n_psections, name);
+        if (!found) {
+                part = bsections;
+                n_part = n_bsections;
+
+                found = pe_section_table_find(bsections, n_bsections, name);
+        }
+
+        if (ret_duplicate)
+                *ret_duplicate = found && pe_section_table_find(found + 1, part + n_part - (found + 1), name);
+
+        /* systemd-stub ignores empty sections. A profile can hence use an empty section to mask a section of
+         * the base profile. */
+        if (!found || le32toh(found->VirtualSize) == 0)
+                return NULL;
+
+        return found;
 }
 
 const IMAGE_SECTION_HEADER* pe_header_find_section(
@@ -675,30 +707,23 @@ static void section_hash_array_done(SectionHashArray *array) {
                 free((*array)[i]);
 }
 
-int uki_hash(int fd,
-             const EVP_MD *md,
-             void* ret_hashes[static _UNIFIED_SECTION_MAX],
-             size_t *ret_hash_size) {
+int uki_hash_section(
+                int fd,
+                const EVP_MD *md,
+                const IMAGE_SECTION_HEADER *section,
+                void **ret_hash,
+                size_t *ret_hash_size) {
 
-        _cleanup_(section_hash_array_done) SectionHashArray hashes = {};
-        _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
-        _cleanup_free_ IMAGE_DOS_HEADER *dos_header = NULL;
-        _cleanup_free_ PeHeader *pe_header = NULL;
+        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *mdctx = NULL;
         int r;
 
         assert(fd >= 0);
-        assert(ret_hashes);
+        assert(md);
+        assert(section);
+        assert(ret_hash);
         assert(ret_hash_size);
 
         r = dlopen_libcrypto(LOG_DEBUG);
-        if (r < 0)
-                return r;
-
-        r = pe_load_headers(fd, &dos_header, &pe_header);
-        if (r < 0)
-                return r;
-
-        r = pe_load_sections(fd, dos_header, pe_header, &sections);
         if (r < 0)
                 return r;
 
@@ -706,72 +731,147 @@ int uki_hash(int fd,
         if (hsz < 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to get hash size.");
 
-        FOREACH_ARRAY(section, sections, le16toh(pe_header->pe.NumberOfSections)) {
-                _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *mdctx = NULL;
-                _cleanup_free_ char *n = NULL;
-                ssize_t i;
+        mdctx = sym_EVP_MD_CTX_new();
+        if (!mdctx)
+                return log_oom_debug();
 
-                n = memdup_suffix0(section->Name, sizeof(section->Name));
-                if (!n)
-                        return log_oom_debug();
+        if (sym_EVP_DigestInit_ex(mdctx, md, /* impl= */ NULL) != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to allocate message digest.");
 
-                i = string_table_lookup_from_string(unified_sections, _UNIFIED_SECTION_MAX, n);
-                if (i < 0)
+        r = hash_file(fd, mdctx, le32toh(section->PointerToRawData), MIN(le32toh(section->VirtualSize), le32toh(section->SizeOfRawData)));
+        if (r < 0)
+                return r;
+
+        if (le32toh(section->SizeOfRawData) < le32toh(section->VirtualSize)) {
+                uint8_t zeroes[1024] = {};
+                size_t remaining = le32toh(section->VirtualSize) - le32toh(section->SizeOfRawData);
+
+                /* Bound the zero-padding hash work.  An attacker can otherwise
+                 * set VirtualSize close to UINT32_MAX with SizeOfRawData = 0,
+                 * driving ~4 GiB of SHA-256 work per section on a tiny file
+                 * (issue #42344 — wedges the parser for >10 s on 382 B). */
+                if (remaining > UKI_HASH_VIRTUAL_SIZE_PADDING_MAX)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Section VirtualSize exceeds SizeOfRawData by %zu bytes (cap %zu); refusing to hash.",
+                                               remaining,
+                                               (size_t) UKI_HASH_VIRTUAL_SIZE_PADDING_MAX);
+
+                while (remaining > 0) {
+                        size_t sz = MIN(sizeof(zeroes), remaining);
+
+                        if (sym_EVP_DigestUpdate(mdctx, zeroes, sz) != 1)
+                                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Unable to hash data.");
+
+                        remaining -= sz;
+                }
+        }
+
+        _cleanup_free_ void *hash = malloc(hsz);
+        if (!hash)
+                return log_oom_debug();
+
+        unsigned hash_size = (unsigned) hsz;
+        if (sym_EVP_DigestFinal_ex(mdctx, hash, &hash_size) != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to finalize hash function.");
+
+        assert(hash_size == (unsigned) hsz);
+
+        *ret_hash = TAKE_PTR(hash);
+        *ret_hash_size = hash_size;
+        return 0;
+}
+
+int uki_profile_sections(
+                const PeHeader *pe_header,
+                const IMAGE_SECTION_HEADER *sections,
+                unsigned profile,
+                const IMAGE_SECTION_HEADER *ret_sections[static _UNIFIED_SECTION_MAX]) {
+
+        assert(pe_header);
+        assert(profile != UINT_MAX);
+        assert(ret_sections);
+
+        size_t n_bsections = 0, n_psections = 0;
+        const IMAGE_SECTION_HEADER
+                *bsections = pe_find_profile_section_table(pe_header, sections, UINT_MAX, &n_bsections),
+                *psections = pe_find_profile_section_table(pe_header, sections, profile, &n_psections);
+
+        /* systemd-stub implies profile @0 if the UKI has no .profile section at all. */
+        if (!psections && profile != 0)
+                return 0;
+
+        for (UnifiedSection i = 0; i < _UNIFIED_SECTION_MAX; i++) {
+                bool duplicate;
+
+                ret_sections[i] = pe_find_profile_section(psections, n_psections, bsections, n_bsections, unified_sections[i], &duplicate);
+
+                /* A profile that contains two sections of the same name is not supported. systemd-stub
+                 * matches each .dtbauto and .efifw section against the hardware it runs on, and the result
+                 * cannot be predicted here. A single .dtbauto or .efifw section is returned as if it always
+                 * matched. */
+                if (duplicate)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Duplicate section");
+        }
+
+        return 1;
+}
+
+int uki_hash(int fd,
+             const EVP_MD *md,
+             unsigned profile,
+             void* ret_hashes[static _UNIFIED_SECTION_MAX],
+             size_t *ret_hash_size) {
+
+        const IMAGE_SECTION_HEADER *selected[_UNIFIED_SECTION_MAX];
+        _cleanup_(section_hash_array_done) SectionHashArray hashes = {};
+        _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
+        _cleanup_free_ PeHeader *pe_header = NULL;
+        int r;
+
+        assert(fd >= 0);
+        assert(profile != UINT_MAX);
+        assert(ret_hashes);
+        assert(ret_hash_size);
+
+        /* uki_hash() hashes the sections that systemd-stub measures when it boots the specified profile. It
+         * returns 0 if the UKI does not contain the profile, and > 0 otherwise. */
+
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        r = pe_load_headers_and_sections(fd, &pe_header, &sections);
+        if (r < 0)
+                return r;
+
+        int hsz = sym_EVP_MD_get_size(md);
+        if (hsz < 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to get hash size.");
+
+        r = uki_profile_sections(pe_header, sections, profile, selected);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                memzero(ret_hashes, sizeof(hashes));
+                *ret_hash_size = (unsigned) hsz;
+                return 0;
+        }
+
+        for (UnifiedSection i = 0; i < _UNIFIED_SECTION_MAX; i++) {
+                size_t sz;
+
+                if (!selected[i])
                         continue;
 
-                if (hashes[i])
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Duplicate section");
-
-                mdctx = sym_EVP_MD_CTX_new();
-                if (!mdctx)
-                        return log_oom_debug();
-
-                if (sym_EVP_DigestInit_ex(mdctx, md, /* impl= */ NULL) != 1)
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to allocate message digest.");
-
-                r = hash_file(fd, mdctx, le32toh(section->PointerToRawData), MIN(le32toh(section->VirtualSize), le32toh(section->SizeOfRawData)));
+                r = uki_hash_section(fd, md, selected[i], hashes + i, &sz);
                 if (r < 0)
                         return r;
-
-                if (le32toh(section->SizeOfRawData) < le32toh(section->VirtualSize)) {
-                        uint8_t zeroes[1024] = {};
-                        size_t remaining = le32toh(section->VirtualSize) - le32toh(section->SizeOfRawData);
-
-                        /* Bound the zero-padding hash work.  An attacker can otherwise
-                         * set VirtualSize close to UINT32_MAX with SizeOfRawData = 0,
-                         * driving ~4 GiB of SHA-256 work per section on a tiny file
-                         * (issue #42344 — wedges the parser for >10 s on 382 B). */
-                        if (remaining > UKI_HASH_VIRTUAL_SIZE_PADDING_MAX)
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                                       "Section VirtualSize exceeds SizeOfRawData by %zu bytes (cap %zu); refusing to hash.",
-                                                       remaining,
-                                                       (size_t) UKI_HASH_VIRTUAL_SIZE_PADDING_MAX);
-
-                        while (remaining > 0) {
-                                size_t sz = MIN(sizeof(zeroes), remaining);
-
-                                if (sym_EVP_DigestUpdate(mdctx, zeroes, sz) != 1)
-                                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Unable to hash data.");
-
-                                remaining -= sz;
-                        }
-                }
-
-                hashes[i] = malloc(hsz);
-                if (!hashes[i])
-                        return log_oom_debug();
-
-                unsigned hash_size = (unsigned) hsz;
-                if (sym_EVP_DigestFinal_ex(mdctx, hashes[i], &hash_size) != 1)
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to finalize hash function.");
-
-                assert(hash_size == (unsigned) hsz);
 
                 if (DEBUG_LOGGING) {
                         _cleanup_free_ char *hs = NULL;
 
-                        hs = hexmem(hashes[i], hsz);
-                        log_debug("Section %s with %s is %s.", n, sym_EVP_MD_get0_name(md), strna(hs));
+                        hs = hexmem(hashes[i], sz);
+                        log_debug("Section %s of profile @%u with %s is %s.", unified_sections[i], profile, sym_EVP_MD_get0_name(md), strna(hs));
                 }
         }
 
@@ -779,6 +879,6 @@ int uki_hash(int fd,
         zero(hashes);
         *ret_hash_size = (unsigned) hsz;
 
-        return 0;
+        return 1;
 }
 #endif
