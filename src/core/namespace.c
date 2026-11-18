@@ -2502,10 +2502,11 @@ static int apply_mounts(
         }
 
         /* Third round, flip the noexec bits with a simplified deny list. */
-        for (size_t j = 0; j < ml->n_mounts; j++)
-                if (IN_SET((ml->mounts+j)->mode, MOUNT_EXEC, MOUNT_NOEXEC))
-                        deny_list[j] = (char*) mount_entry_path(ml->mounts+j);
-        deny_list[ml->n_mounts] = NULL;
+        size_t k = 0;
+        FOREACH_ARRAY(m, ml->mounts, ml->n_mounts)
+                if (IN_SET(m->mode, MOUNT_EXEC, MOUNT_NOEXEC))
+                        deny_list[k++] = (char*) mount_entry_path(m);
+        deny_list[k] = NULL;
 
         FOREACH_ARRAY(m, ml->mounts, ml->n_mounts) {
                 r = make_noexec(m, deny_list, proc_self_mountinfo);
