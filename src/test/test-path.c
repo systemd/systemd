@@ -36,13 +36,14 @@ static int setup_test(Manager **ret) {
                        "exists",
                        "existsglobFOOBAR",
                        "changed",
+                       "searchonly",
                        "modified",
                        "unit",
                        "directorynotempty",
                        "makedirectory") {
 
                 _cleanup_free_ char *p = ASSERT_NOT_NULL(strjoin("/tmp/test-path_", s));
-                (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL);
+                (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_CHMOD);
         }
 
         *ret = TAKE_PTR(m);
@@ -240,6 +241,46 @@ TEST_RET(path_changed) {
 
         (void) rm_rf(test_path, REMOVE_ROOT|REMOVE_PHYSICAL);
         ASSERT_OK(unit_stop(unit));
+        return 0;
+}
+
+TEST_RET(path_changed_searchonly) {
+        /* inotify needs read access to watch an inode, so a directory that we may search but not read cannot
+         * be watched itself. The file below it can still be, and changes to it must trigger the unit. */
+        const char *test_dir = "/tmp/test-path_searchonly",
+                *test_path = "/tmp/test-path_searchonly/sub/file";
+        int r;
+
+        _cleanup_(manager_freep) Manager *m = NULL;
+        r = setup_test(&m);
+        if (r != 0)
+                return r;
+
+        ASSERT_OK(mkdir_p("/tmp/test-path_searchonly/sub", 0755));
+        ASSERT_OK(touch(test_path));
+        ASSERT_OK_ERRNO(chmod(test_dir, 0100));
+        if (access(test_dir, R_OK) >= 0) {
+                (void) rm_rf(test_dir, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_CHMOD);
+                return log_tests_skipped("%s is readable despite mode 0100, running privileged?", test_dir);
+        }
+
+        Unit *unit;
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, "path-changed-searchonly.path", /* path= */ NULL, LOG_ERR, &unit));
+
+        Path *path = PATH(unit);
+        Service *service = service_for_path(m, path, /* service_name= */ NULL);
+
+        ASSERT_OK(unit_start(unit, /* details= */ NULL));
+        check_states(m, path, service, PATH_WAITING, SERVICE_DEAD);
+
+        fclose(ASSERT_NOT_NULL(fopen(test_path, "we")));
+        check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING);
+
+        ASSERT_OK(unit_stop(UNIT(service)));
+        check_states(m, path, service, PATH_WAITING, SERVICE_DEAD);
+
+        ASSERT_OK(unit_stop(unit));
+        (void) rm_rf(test_dir, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_CHMOD);
         return 0;
 }
 
