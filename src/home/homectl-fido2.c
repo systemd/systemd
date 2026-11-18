@@ -182,6 +182,7 @@ int identity_add_fido2_parameters(
                         &salt,
                         &cid, &cid_size,
                         &secret, &secret_size,
+                        /* ret_public_key= */ NULL,
                         &used_pin,
                         &lock_with);
         if (r < 0)
