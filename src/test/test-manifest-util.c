@@ -590,6 +590,7 @@ TEST(manifest_uapi16) {
         ASSERT_NOT_NULL(root);
         ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(root, "mediaType")), UAPI16_MANIFEST_MEDIA_TYPE);
         ASSERT_NULL(sd_json_variant_by_key(root, "features")); /* The default set is not declared explicitly */
+        ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(root, "order")), "codepoint");
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *reg = find_object(buf, "regular.txt");
         ASSERT_NOT_NULL(reg);
@@ -1092,6 +1093,19 @@ TEST(uapi16_dispatch_features) {
 
         /* Only permitted on the root object */
         ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"features\":[\"mode\"]}", 1, &o), EBADMSG);
+        ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"order\":\"codepoint\"}", 1, &o), EBADMSG);
+        ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"order\":\"frobnicate\"}", 1, &o), EBADMSG);
+        ASSERT_OK(dispatch_one("{\"name\":\"a\",\"order\":null}", 1, &o));
+        uapi16_object_done(&o);
+        ASSERT_OK(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"order\":\"codepoint\"}", 0, &o));
+        ASSERT_EQ(o.order, UAPI16_ORDER_CODEPOINT);
+        uapi16_object_done(&o);
+        ASSERT_OK(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"order\":\"frobnicate\"}", 0, &o));
+        ASSERT_EQ(o.order, _UAPI16_ORDER_UNKNOWN);
+        uapi16_object_done(&o);
+        ASSERT_OK(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\"}", 0, &o));
+        ASSERT_EQ(o.order, _UAPI16_ORDER_INVALID);
+        uapi16_object_done(&o);
 
         /* Other objects inherit the features of the root object */
         ASSERT_OK(dispatch_with_features("{\"name\":\"a\"}", 1, MANIFEST_FIELD_MTIME, &o));
@@ -1197,6 +1211,58 @@ TEST(uapi16_dispatch_features) {
         ASSERT_OK(uapi16_features_build_json(0, &j));
         ASSERT_OK(sd_json_variant_format(j, /* flags= */ 0, &s));
         ASSERT_STREQ(s, "[]");
+}
+
+static int ignore_object(Uapi16Object *o, size_t index, void *userdata) {
+        return 0;
+}
+
+static int read_records(const char *root_fields, char * const *names) {
+        _cleanup_free_ char *buf = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+
+        /* Builds a manifest of a root object with the specified extra fields and file objects with the
+         * specified names, where names with a trailing slash denote directories, and reads it */
+
+        ASSERT_NOT_NULL(buf = strjoin("\x1e{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\"", root_fields, "}\n"));
+
+        STRV_FOREACH(n, names) {
+                _cleanup_free_ char *name = NULL;
+                const char *e = endswith(*n, "/");
+                ASSERT_NOT_NULL(name = e ? strndup(*n, e - *n) : strdup(*n));
+                ASSERT_NOT_NULL(strextend(&buf, "\x1e{\"name\":\"", name, "\"", e ? ",\"type\":\"dir\"" : "", "}\n"));
+        }
+
+        ASSERT_NOT_NULL(strextend(&buf, "\x1e{\"mediaType\":\"" UAPI16_TRAILER_MEDIA_TYPE "\"}\n"));
+
+        ASSERT_NOT_NULL(f = fmemopen_unlocked(buf, strlen(buf), "r"));
+        return uapi16_manifest_read(f, /* certificates= */ NULL, /* n_certificates= */ 0, ignore_object, /* userdata= */ NULL);
+}
+
+TEST(uapi16_manifest_read_placement) {
+        /* Flat manifests in any order are fine */
+        ASSERT_OK(read_records("", STRV_MAKE("b", "a", "c")));
+        ASSERT_OK(read_records("", STRV_EMPTY));
+
+        /* Entries of directories must follow the directory immediately, in any order unless declared */
+        ASSERT_OK(read_records("", STRV_MAKE("a/", "a/y", "a/b/", "a/b/c", "a/x", "z")));
+        ASSERT_OK(read_records("", STRV_MAKE("z", "a/", "a/b/", "a/b/c")));
+        ASSERT_ERROR(read_records("", STRV_MAKE("a/x")), EBADMSG);
+        ASSERT_ERROR(read_records("", STRV_MAKE("a", "a/x")), EBADMSG); /* Not a directory */
+        ASSERT_ERROR(read_records("", STRV_MAKE("a/", "a/x", "b", "a/y")), EBADMSG);
+        ASSERT_ERROR(read_records("", STRV_MAKE("a/", "a/b/", "a/x", "a/b/c")), EBADMSG);
+        ASSERT_ERROR(read_records("", STRV_MAKE("a/", "b/", "a/x")), EBADMSG);
+
+        /* With the code point ordering declared, names must strictly increase */
+        ASSERT_OK(read_records(",\"order\":\"codepoint\"", STRV_MAKE("a/", "a/x", "a-b", "b")));
+        ASSERT_ERROR(read_records(",\"order\":\"codepoint\"", STRV_MAKE("a-b", "a/", "a/x")), EBADMSG);
+        ASSERT_ERROR(read_records(",\"order\":\"codepoint\"", STRV_MAKE("b", "a")), EBADMSG);
+        ASSERT_ERROR(read_records(",\"order\":\"codepoint\"", STRV_MAKE("a", "a")), EBADMSG);
+        /* … but not otherwise, and unknown orderings are treated as if not declared */
+        ASSERT_OK(read_records("", STRV_MAKE("a-b", "a/", "a/x")));
+        ASSERT_OK(read_records(",\"order\":\"frobnicate\"", STRV_MAKE("b", "a")));
+        ASSERT_OK(read_records(",\"order\":null", STRV_MAKE("b", "a")));
+        ASSERT_ERROR(read_records(",\"order\":4711", STRV_MAKE("b", "a")), EINVAL);
 }
 
 static bool try_set_special_xattr(int dir_fd, const char *name) {
