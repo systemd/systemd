@@ -9,6 +9,7 @@
 #include "format-util.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
+#include "pidfd-util.h"
 #include "pidref.h"
 #include "process-util.h"
 #include "special.h"
@@ -546,6 +547,36 @@ TEST(cgroupid) {
 
                 ASSERT_OK_EQ(inode_same_at(fd, /* filea= */ NULL, fd2, /* fileb= */ NULL, AT_EMPTY_PATH), true);
         }
+}
+
+TEST(pidref_get_cgroupid) {
+        _cleanup_(pidref_done) PidRef self = PIDREF_NULL, child = PIDREF_NULL;
+        uint64_t expected, id = UINT64_MAX;
+        int r;
+
+        ASSERT_ERROR(cg_pidref_get_cgroupid(&PIDREF_NULL, &id), ESRCH);
+        ASSERT_ERROR(cg_pidref_get_cgroupid(&(PidRef) { .pid = 1, .fd = -EREMOTE }, &id), EREMOTE);
+        ASSERT_ERROR(cg_pidref_get_cgroupid(&PIDREF_MAKE_FROM_PID(getpid_cached()), &id), ENOMEDIUM);
+        ASSERT_EQ(id, UINT64_MAX);
+
+        ASSERT_OK(pidref_set_self(&self));
+        if (self.fd < 0)
+                return (void) log_tests_skipped("pidfds are not supported");
+        r = pidfd_get_cgroupid(self.fd, &expected);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
+                ASSERT_ERROR(cg_pidref_get_cgroupid(&self, &id), EOPNOTSUPP);
+                ASSERT_EQ(id, UINT64_MAX);
+                return;
+        }
+        ASSERT_OK(r);
+        ASSERT_OK(cg_pidref_get_cgroupid(&self, &id));
+        ASSERT_EQ(id, expected);
+
+        ASSERT_OK_POSITIVE(pidref_safe_fork("(test-cgroupid)", FORK_DEATHSIG_SIGKILL|FORK_FREEZE, &child));
+        ASSERT_OK(pidref_kill(&child, SIGKILL));
+        ASSERT_OK(pidref_wait_for_terminate(&child, /* ret_si= */ NULL));
+        if (child.fd >= 0)
+                ASSERT_ERROR(cg_pidref_get_cgroupid(&child, &id), ESRCH);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

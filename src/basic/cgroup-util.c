@@ -22,6 +22,7 @@
 #include "login-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidfd-util.h"
 #include "pidref.h"
 #include "process-util.h"
 #include "set.h"
@@ -592,6 +593,19 @@ int cg_pidref_get_path(const PidRef *pidref, char **ret_path) {
 
         *ret_path = TAKE_PTR(path);
         return 0;
+}
+
+int cg_pidref_get_cgroupid(const PidRef *pidref, uint64_t *ret) {
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
+
+        if (pidref->fd < 0)
+                return -ENOMEDIUM;
+
+        /* Cgroup ID lookup via pidfd is supported since Linux 6.13. */
+        return pidfd_get_cgroupid(pidref->fd, ret);
 }
 
 int cg_is_empty(const char *path) {
