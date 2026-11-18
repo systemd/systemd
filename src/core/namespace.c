@@ -109,8 +109,6 @@ typedef struct MountEntry {
         bool nosuid:1;            /* Shall set MS_NOSUID on the mount itself */
         bool noexec:1;            /* Shall set MS_NOEXEC on the mount itself */
         bool exec:1;              /* Shall clear MS_NOEXEC on the mount itself */
-        bool create_source_dir:1; /* Create the source directory if it doesn't exist - for implicit bind mounts */
-        mode_t source_dir_mode;   /* Mode for the source directory, if it is to be created */
         MountEntryState state;    /* Whether it was already processed or skipped */
         char *path_malloc;        /* Use this instead of 'path_const' if we had to allocate memory */
         const char *unprefixed_path_const; /* If the path was amended with a prefix, these will save the original */
@@ -1999,16 +1997,6 @@ static int apply_one_mount(
 
                 /* When we create implicit mounts, we might need to create the path ourselves as it is on a
                  * just-created tmpfs, for example. */
-                if (m->create_source_dir) {
-                        r = mkdir_p(mount_entry_source(m), m->source_dir_mode);
-                        if (r < 0)
-                                return log_debug_errno(r, "Failed to create source directory %s: %m", mount_entry_source(m));
-
-                        r = label_fix_full(AT_FDCWD, mount_entry_source(m), mount_entry_unprefixed_path(m), /* flags= */ 0, /* label_context= */ NULL);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set label of the source directory %s: %m", mount_entry_source(m));
-                }
-
                 r = chase(mount_entry_source(m), /* root= */ NULL, CHASE_TRAIL_SLASH|CHASE_TRIGGER_AUTOFS, &chased, /* ret_fd= */ NULL);
                 if (r < 0) {
                         if (m->ignore) {
