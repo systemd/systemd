@@ -1923,7 +1923,7 @@ do_test_varlink_link_methods() {
     assert_eq "$(resolvectl --json=pretty status "$ifname")" "$orig_config"
 }
 
-do_test_varlink_link_error () {
+do_test_varlink_link_error() {
     local ifname ifindex socket error
 
     ifname="${1:?}"
