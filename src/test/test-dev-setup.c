@@ -10,15 +10,10 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 
-int main(int argc, char *argv[]) {
+TEST(dev_setup) {
         _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
         _cleanup_free_ char *f = NULL;
         struct stat st;
-
-        test_setup_logging(LOG_DEBUG);
-
-        if (have_effective_cap(CAP_DAC_OVERRIDE) <= 0)
-                return log_tests_skipped("missing capability (CAP_DAC_OVERRIDE)");
 
         ASSERT_OK(mkdtemp_malloc("/tmp/test-dev-setupXXXXXX", &p));
 
@@ -69,6 +64,13 @@ int main(int argc, char *argv[]) {
                 ASSERT_TRUE(S_ISBLK(st.st_mode));
                 ASSERT_EQ(st.st_mode & 07777, 0000U);
         }
+}
+
+static int intro(void) {
+        if (have_effective_cap(CAP_DAC_OVERRIDE) <= 0)
+                return log_tests_skipped("missing capability (CAP_DAC_OVERRIDE)");
 
         return EXIT_SUCCESS;
 }
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);

@@ -4,7 +4,6 @@
 ***/
 
 #include <netinet/if_ether.h>
-#include <stdio.h>
 
 #include "sd-event.h"
 #include "sd-ipv4ll.h"
@@ -14,8 +13,6 @@
 #include "in-addr-util.h"
 #include "tests.h"
 
-static bool verbose = false;
-static bool extended = false;
 static int test_fd[2];
 
 static int basic_request_handler_bind = 0;
@@ -68,15 +65,15 @@ int arp_network_bind_raw_socket(int ifindex, const struct in_addr *a, const stru
         return test_fd[0];
 }
 
-static void test_public_api_setters(sd_event *e) {
+TEST(public_api_setters) {
         struct in_addr address = {};
         uint64_t seed = 0;
         sd_ipv4ll *ll;
         struct ether_addr mac_addr = {
                 .ether_addr_octet = {'A', 'B', 'C', '1', '2', '3'}};
 
-        if (verbose)
-                printf("* %s\n", __func__);
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
 
         ASSERT_OK_ZERO(sd_ipv4ll_new(&ll));
         ASSERT_NOT_NULL(ll);
@@ -118,15 +115,17 @@ static void test_public_api_setters(sd_event *e) {
         ASSERT_NULL(sd_ipv4ll_unref(ll));
 }
 
-static void test_basic_request(sd_event *e, const struct in_addr *start_address) {
-
+static void test_basic_request(const struct in_addr *start_address) {
         sd_ipv4ll *ll;
         struct ether_arp arp;
         struct ether_addr mac_addr = {
                 .ether_addr_octet = {'A', 'B', 'C', '1', '2', '3'}};
 
-        if (verbose)
-                printf("* %s\n", __func__);
+        basic_request_handler_bind = 0;
+        basic_request_handler_stop = 0;
+
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
 
         ASSERT_OK_ZERO(sd_ipv4ll_new(&ll));
         if (in4_addr_is_set(start_address))
@@ -156,26 +155,24 @@ static void test_basic_request(sd_event *e, const struct in_addr *start_address)
         ASSERT_OK_EQ_ERRNO(recv(test_fd[1], &arp, sizeof(struct ether_arp), 0),
                            (ssize_t) sizeof(struct ether_arp));
 
-        if (extended) {
-                /* PROBE */
-                sd_event_run(e, UINT64_MAX);
-                ASSERT_OK_EQ_ERRNO(recv(test_fd[1], &arp, sizeof(struct ether_arp), 0),
-                                   (ssize_t) sizeof(struct ether_arp));
+        /* PROBE */
+        sd_event_run(e, UINT64_MAX);
+        ASSERT_OK_EQ_ERRNO(recv(test_fd[1], &arp, sizeof(struct ether_arp), 0),
+                           (ssize_t) sizeof(struct ether_arp));
 
-                /* PROBE */
-                sd_event_run(e, UINT64_MAX);
-                ASSERT_OK_EQ_ERRNO(recv(test_fd[1], &arp, sizeof(struct ether_arp), 0),
-                                   (ssize_t) sizeof(struct ether_arp));
+        /* PROBE */
+        sd_event_run(e, UINT64_MAX);
+        ASSERT_OK_EQ_ERRNO(recv(test_fd[1], &arp, sizeof(struct ether_arp), 0),
+                           (ssize_t) sizeof(struct ether_arp));
 
-                sd_event_run(e, UINT64_MAX);
-                ASSERT_EQ(basic_request_handler_bind, 1);
+        sd_event_run(e, UINT64_MAX);
+        ASSERT_EQ(basic_request_handler_bind, 1);
 
-                if (in4_addr_is_set(start_address)) {
-                        struct in_addr address;
+        if (in4_addr_is_set(start_address)) {
+                struct in_addr address;
 
-                        ASSERT_OK(sd_ipv4ll_get_address(ll, &address));
-                        ASSERT_EQ(start_address->s_addr, address.s_addr);
-                }
+                ASSERT_OK(sd_ipv4ll_get_address(ll, &address));
+                ASSERT_EQ(start_address->s_addr, address.s_addr);
         }
 
         sd_ipv4ll_stop(ll);
@@ -186,21 +183,16 @@ static void test_basic_request(sd_event *e, const struct in_addr *start_address)
         safe_close(test_fd[1]);
 }
 
-int main(int argc, char *argv[]) {
+TEST(basic_request_null) {
         struct in_addr start_address = {};
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-
-        test_setup_logging(LOG_DEBUG);
-
-        ASSERT_OK(sd_event_new(&e));
-
-        test_public_api_setters(e);
-        test_basic_request(e, &start_address);
-
-        basic_request_handler_bind = 0;
-        basic_request_handler_stop = 0;
-        start_address.s_addr = htobe32(169U << 24 | 254U << 16 | 1U << 8 | 2U);
-        test_basic_request(e, &start_address);
-
-        return 0;
+        test_basic_request(&start_address);
 }
+
+TEST(basic_request_non_null) {
+        struct in_addr start_address = {
+                .s_addr = htobe32(169U << 24 | 254U << 16 | 1U << 8 | 2U),
+        };
+        test_basic_request(&start_address);
+}
+
+DEFINE_TEST_MAIN(LOG_DEBUG);

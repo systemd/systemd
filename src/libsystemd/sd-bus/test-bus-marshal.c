@@ -72,7 +72,7 @@ static int dlopen_libdbus(void) {
 }
 #endif
 
-static void test_bus_path_encode_unique(void) {
+TEST(bus_path_encode_unique) {
         _cleanup_free_ char *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL;
 
         ASSERT_OK(bus_path_encode_unique(NULL, "/foo/bar", "some.sender", "a.suffix", &a));
@@ -89,7 +89,7 @@ static void test_bus_path_encode_unique(void) {
         ASSERT_STREQ(e, "");
 }
 
-static void test_bus_path_encode(void) {
+TEST(bus_path_encode) {
         _cleanup_free_ char *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL, *f = NULL, *g = NULL;
 
         ASSERT_OK(sd_bus_path_encode("/foo/bar", "waldo", &a));
@@ -116,7 +116,7 @@ static void test_bus_path_encode(void) {
         ASSERT_STREQ(g, "");
 }
 
-static void test_bus_path_encode_many(void) {
+TEST(bus_path_encode_many) {
         _cleanup_free_ char *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL, *f = NULL;
 
         ASSERT_OK_EQ(sd_bus_path_decode_many("/foo/bar", "/prefix/%", NULL), 0);
@@ -171,7 +171,7 @@ static ino_t get_inode(int fd) {
         return st.st_ino;
 }
 
-static void test_bus_fds_truncated(void) {
+TEST(bus_fds_truncated) {
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_close_ int memfd0 = -EBADF, memfd1 = -EBADF;
@@ -278,7 +278,7 @@ static void test_bus_fds_truncated(void) {
         log_info("All fd truncation tests passed");
 }
 
-static void test_bus_nested_variant_depth_limit(void) {
+TEST(bus_nested_variant_depth_limit) {
         /* Craft a raw D-Bus message with an unknown header field whose value is a variant
          * containing a variant containing a variant... nested beyond BUS_CONTAINER_DEPTH.
          * Without the depth limit in message_skip_fields(), this causes unbounded recursion
@@ -330,7 +330,7 @@ static void test_bus_nested_variant_depth_limit(void) {
         ASSERT_ERROR(bus_message_from_malloc(bus, buf, total, /* fds= */ NULL, /* n_fds= */ 0, /* got_ctrunc= */ false, /* label= */ NULL, &m), EBADMSG);
 }
 
-static void test_bus_label_escape(void) {
+TEST(bus_label_escape) {
         test_bus_label_escape_one("foo123bar", "foo123bar");
         test_bus_label_escape_one("foo.bar", "foo_2ebar");
         test_bus_label_escape_one("foo_2ebar", "foo_5f2ebar");
@@ -340,7 +340,7 @@ static void test_bus_label_escape(void) {
         test_bus_label_escape_one(":1", "_3a1");
 }
 
-int main(int argc, char *argv[]) {
+TEST(marshal) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *copy = NULL;
         _cleanup_free_ char *h = NULL, *first = NULL, *second = NULL, *third = NULL;
         const int32_t integer_array[] = { -1, -2, 0, 1, 2 }, *return_array;
@@ -356,13 +356,11 @@ int main(int argc, char *argv[]) {
         FILE *mf;
         char *s;
 
-        test_setup_logging(LOG_INFO);
-
         r = sd_bus_default_user(&bus);
         if (r < 0)
                 r = sd_bus_default_system(&bus);
         if (r < 0)
-                return log_tests_skipped("Failed to connect to bus");
+                return (void) log_tests_skipped_errno(r, "Failed to connect to bus");
 
         ASSERT_OK(sd_bus_message_new_method_call(bus, &m, "foobar.waldo", "/", "foobar.waldo", "Piep"));
 
@@ -582,13 +580,6 @@ int main(int argc, char *argv[]) {
         ASSERT_STREQ(b, "2");
         ASSERT_STREQ(c, "ccc");
         ASSERT_STREQ(d, "3");
-
-        test_bus_label_escape();
-        test_bus_path_encode();
-        test_bus_path_encode_unique();
-        test_bus_path_encode_many();
-        test_bus_fds_truncated();
-        test_bus_nested_variant_depth_limit();
-
-        return 0;
 }
+
+DEFINE_TEST_MAIN(LOG_INFO);

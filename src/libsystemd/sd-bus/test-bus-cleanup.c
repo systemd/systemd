@@ -9,16 +9,14 @@
 #include "process-util.h"
 #include "tests.h"
 
-static bool use_system_bus = false;
-
-static void test_bus_new(void) {
+TEST(bus_new) {
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
 
         ASSERT_OK_ZERO(sd_bus_new(&bus));
         ASSERT_EQ(bus->n_ref, 1U);
 }
 
-static void test_bus_fork(void) {
+TEST(bus_fork) {
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         int r;
 
@@ -42,7 +40,7 @@ static void test_bus_fork(void) {
         ASSERT_EQ(bus->n_ref, 1U);
 }
 
-static void test_bus_negotiate_closed(void) {
+TEST(bus_negotiate_closed) {
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
 
         ASSERT_OK_ZERO(sd_bus_new(&bus));
@@ -63,7 +61,7 @@ static void test_bus_negotiate_closed(void) {
         ASSERT_FALSE(bus->creds_mask & SD_BUS_CREDS_PID);
 }
 
-static int test_bus_open(void) {
+static int test_bus_open(sd_bus **ret) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
@@ -72,20 +70,24 @@ static int test_bus_open(void) {
                 r = sd_bus_open_system(&bus);
                 if (IN_SET(r, -ECONNREFUSED, -ENOENT))
                         return r;
-                use_system_bus = true;
         }
 
         ASSERT_OK(r);
         ASSERT_GE(bus->n_ref, 1U); /* we send a hello message when opening, so the count is above 1 */
 
+        if (ret)
+                *ret = TAKE_PTR(bus);
         return 0;
 }
 
-static void test_bus_new_method_call(void) {
+TEST(bus_new_method_call) {
         sd_bus *bus = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        int r;
 
-        ASSERT_OK(use_system_bus ? sd_bus_open_system(&bus) : sd_bus_open_user(&bus));
+        r = test_bus_open(&bus);
+        if (r < 0)
+                return (void) log_tests_skipped_errno(r, "Failed to connect to bus");
 
         ASSERT_OK(sd_bus_message_new_method_call(bus, &m, "a.service.name", "/an/object/path", "an.interface.name", "AMethodName"));
 
@@ -95,11 +97,14 @@ static void test_bus_new_method_call(void) {
         ASSERT_EQ(m->n_ref, 1U);
 }
 
-static void test_bus_new_signal(void) {
+TEST(bus_new_signal) {
         sd_bus *bus = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        int r;
 
-        ASSERT_OK(use_system_bus ? sd_bus_open_system(&bus) : sd_bus_open_user(&bus));
+        r = test_bus_open(&bus);
+        if (r < 0)
+                return (void) log_tests_skipped_errno(r, "Failed to connect to bus");
 
         ASSERT_OK(sd_bus_message_new_signal(bus, &m, "/an/object/path", "an.interface.name", "Name"));
 
@@ -109,18 +114,4 @@ static void test_bus_new_signal(void) {
         ASSERT_EQ(m->n_ref, 1U);
 }
 
-int main(int argc, char **argv) {
-        test_setup_logging(LOG_INFO);
-
-        test_bus_new();
-        test_bus_fork();
-        test_bus_negotiate_closed();
-
-        if (test_bus_open() < 0)
-                return log_tests_skipped("Failed to connect to bus");
-
-        test_bus_new_method_call();
-        test_bus_new_signal();
-
-        return EXIT_SUCCESS;
-}
+DEFINE_TEST_MAIN(LOG_INFO);

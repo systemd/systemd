@@ -6,11 +6,9 @@
 
 #include "tests.h"
 
-int main(int argc, char *argv[]) {
+TEST(journal_enum) {
         unsigned n = 0;
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
-
-        test_setup_logging(LOG_DEBUG);
 
         ASSERT_OK(sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY | SD_JOURNAL_ASSUME_IMMUTABLE));
 
@@ -29,6 +27,6 @@ int main(int argc, char *argv[]) {
                 if (n >= 10)
                         break;
         }
-
-        return 0;
 }
+
+DEFINE_TEST_MAIN(LOG_DEBUG);

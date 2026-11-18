@@ -582,7 +582,7 @@ static const sd_bus_vtable partial_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
-static void test_vtable_partial_failure(void) {
+TEST(vtable_partial_failure) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
 
         ASSERT_OK(sd_bus_new(&bus));
@@ -594,7 +594,7 @@ static void test_vtable_partial_failure(void) {
         ASSERT_TRUE(set_isempty(bus->vtable_methods));
 }
 
-static void test_vtable_failure_preserves_existing_members(void) {
+TEST(vtable_failure_preserves_existing_members) {
         static const sd_bus_vtable existing_vtable[] = {
                 SD_BUS_VTABLE_START(0),
                 SD_BUS_METHOD("Existing", NULL, NULL, NULL, 0),
@@ -658,15 +658,10 @@ static void test_vtable_failure_preserves_existing_members(void) {
         ASSERT_TRUE(set_isempty(bus->vtable_properties));
 }
 
-int main(int argc, char *argv[]) {
+TEST(objects) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(sd_future_unrefp) sd_future *f_server = NULL, *f_client = NULL;
         struct context c = {};
-
-        test_setup_logging(LOG_DEBUG);
-
-        test_vtable_partial_failure();
-        test_vtable_failure_preserves_existing_members();
 
         c.automatic_integer_property = 4711;
         ASSERT_NOT_NULL(c.automatic_string_property = strdup("dudeldu"));
@@ -686,6 +681,6 @@ int main(int argc, char *argv[]) {
 
         free(c.something);
         free(c.automatic_string_property);
-
-        return EXIT_SUCCESS;
 }
+
+DEFINE_TEST_MAIN(LOG_DEBUG);

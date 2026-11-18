@@ -8,11 +8,9 @@
 #include "journal-internal.h"
 #include "tests.h"
 
-int main(int argc, char *argv[]) {
+TEST(journal_match) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         _cleanup_free_ char *t;
-
-        test_setup_logging(LOG_DEBUG);
 
         ASSERT_OK(sd_journal_open(&j, SD_JOURNAL_ASSUME_IMMUTABLE));
 
@@ -54,6 +52,6 @@ int main(int argc, char *argv[]) {
         printf("resulting match expression is: %s\n", t);
 
         ASSERT_STREQ(t, "(((L3=ok OR L3=yes) OR ((L4_2=ok OR L4_2=yes) AND (L4_1=ok OR L4_1=yes))) AND ((TWO=two AND (ONE=two OR ONE=one)) OR (PIFF=paff AND (QUUX=yyyyy OR QUUX=xxxxx OR QUUX=mmmm) AND (HALLO= OR HALLO=WALDO) AND B=C\\000D AND A=\\001\\002)))");
-
-        return 0;
 }
+
+DEFINE_TEST_MAIN(LOG_DEBUG);

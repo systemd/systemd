@@ -8,80 +8,52 @@
 #include "tests.h"
 #include "time-util.h"
 
-static int test_acpi_fpdt(void) {
+TEST(acpi_fpdt) {
         usec_t loader_start, loader_exit;
         int r;
 
         r = acpi_get_boot_usec(&loader_start, &loader_exit);
-        if (r < 0) {
-                bool ok = IN_SET(r, -ENOENT, -ENODATA, -ERANGE) || ERRNO_IS_PRIVILEGE(r);
-
-                log_full_errno(ok ? LOG_DEBUG : LOG_ERR, r, "Failed to read ACPI FPDT: %m");
-                return ok ? 0 : r;
-        }
+        if (IN_SET(r, -ENOENT, -ENODATA, -ERANGE) || ERRNO_IS_NEG_PRIVILEGE(r))
+                return (void) log_tests_skipped_errno(r, "Failed to read ACPI FPDT");
+        ASSERT_OK(r);
 
         log_info("ACPI FPDT: loader start=%s exit=%s duration=%s",
                  FORMAT_TIMESPAN(loader_start, USEC_PER_MSEC),
                  FORMAT_TIMESPAN(loader_exit, USEC_PER_MSEC),
                  FORMAT_TIMESPAN(loader_exit - loader_start, USEC_PER_MSEC));
-        return 1;
 }
 
-static int test_efi_loader(void) {
+TEST(efi_loader) {
         usec_t loader_start, loader_exit;
         int r;
 
         r = efi_loader_get_boot_usec(&loader_start, &loader_exit);
-        if (r < 0) {
-                bool ok = IN_SET(r, -ENOENT, -EOPNOTSUPP) || ERRNO_IS_PRIVILEGE(r);
-
-                log_full_errno(ok ? LOG_DEBUG : LOG_ERR, r, "Failed to read EFI loader data: %m");
-                return ok ? 0 : r;
-        }
+        if (IN_SET(r, -ENOENT, -EOPNOTSUPP) || ERRNO_IS_NEG_PRIVILEGE(r))
+                return (void) log_tests_skipped_errno(r, "Failed to read EFI loader data");
+        ASSERT_OK(r);
 
         log_info("EFI Loader: start=%s exit=%s duration=%s",
                  FORMAT_TIMESPAN(loader_start, USEC_PER_MSEC),
                  FORMAT_TIMESPAN(loader_exit, USEC_PER_MSEC),
                  FORMAT_TIMESPAN(loader_exit - loader_start, USEC_PER_MSEC));
-        return 1;
 }
 
-static int test_boot_timestamps(void) {
+TEST(boot_timestamps) {
         dual_timestamp fw, l, k;
         int r;
 
         dual_timestamp_from_monotonic(&k, 0);
 
         r = boot_timestamps(NULL, &fw, &l);
-        if (r < 0) {
-                bool ok = IN_SET(r, -ENOENT, -EOPNOTSUPP) || ERRNO_IS_PRIVILEGE(r);
-
-                log_full_errno(ok ? LOG_DEBUG : LOG_ERR, r, "Failed to read variables: %m");
-                return ok ? 0 : r;
-        }
+        if (IN_SET(r, -ENOENT, -EOPNOTSUPP) || ERRNO_IS_NEG_PRIVILEGE(r))
+                return (void) log_tests_skipped_errno(r, "Failed to read variables");
+        ASSERT_OK(r);
 
         log_info("Firmware began %s before kernel.", FORMAT_TIMESPAN(fw.monotonic, 0));
         log_info("Loader began %s before kernel.", FORMAT_TIMESPAN(l.monotonic, 0));
         log_info("Firmware began %s.", FORMAT_TIMESTAMP(fw.realtime));
         log_info("Loader began %s.", FORMAT_TIMESTAMP(l.realtime));
         log_info("Kernel began %s.", FORMAT_TIMESTAMP(k.realtime));
-        return 1;
 }
 
-int main(int argc, char* argv[]) {
-        int p, q, r;
-
-        test_setup_logging(LOG_DEBUG);
-
-        p = test_acpi_fpdt();
-        ASSERT_OK(p);
-        q = test_efi_loader();
-        ASSERT_OK(q);
-        r = test_boot_timestamps();
-        ASSERT_OK(r);
-
-        if (p == 0 && q == 0 && r == 0)
-                return log_tests_skipped("access to firmware variables not possible");
-
-        return EXIT_SUCCESS;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);

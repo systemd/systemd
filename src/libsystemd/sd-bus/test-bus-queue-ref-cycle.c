@@ -2,10 +2,9 @@
 
 #include "sd-bus.h"
 
-#include "main-func.h"
 #include "tests.h"
 
-static int test_ref_unref(void) {
+TEST(ref_unref) {
         sd_bus_message *m = NULL;
         sd_bus *bus = NULL;
         int r;
@@ -15,7 +14,7 @@ static int test_ref_unref(void) {
 
         r = sd_bus_open_system(&bus);
         if (r < 0)
-                return log_tests_skipped("Failed to connect to bus");
+                return (void) log_tests_skipped_errno(r, "Failed to connect to bus");
 
         /* Create a message and enqueue it (this shouldn't send it though as the connection setup is not complete yet) */
         ASSERT_OK(sd_bus_message_new_method_call(bus, &m, "foo.bar", "/foo", "quux.quux", "waldo"));
@@ -30,7 +29,7 @@ static int test_ref_unref(void) {
 
         r = sd_bus_open_system(&bus);
         if (r < 0)
-                return log_tests_skipped("Failed to connect to bus");
+                return (void) log_tests_skipped_errno(r, "Failed to connect to bus");
 
         ASSERT_OK(sd_bus_message_new_method_call(bus, &m, "foo.bar", "/foo", "quux.quux", "waldo"));
         ASSERT_OK(sd_bus_send(bus, m, /* ret_cookie= */ NULL));
@@ -38,20 +37,6 @@ static int test_ref_unref(void) {
         /* Let's now unref things in the opposite order */
         bus = sd_bus_unref(bus);
         m = sd_bus_message_unref(m);
-
-        return 0;
 }
 
-static int run(int argc, char *argv[]) {
-        int r;
-
-        test_setup_logging(LOG_INFO);
-
-        r = test_ref_unref();
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_TEST_MAIN(LOG_INFO);
