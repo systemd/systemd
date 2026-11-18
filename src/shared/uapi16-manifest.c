@@ -384,6 +384,34 @@ static int json_dispatch_features(const char *name, sd_json_variant *variant, sd
         return 0;
 }
 
+static const char* const uapi16_order_table[_UAPI16_ORDER_MAX] = {
+        [UAPI16_ORDER_CODEPOINT] = "codepoint",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(uapi16_order, Uapi16Order);
+
+static int json_dispatch_order(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        Uapi16Order *o = ASSERT_PTR(userdata);
+
+        if (sd_json_variant_is_null(variant)) {
+                *o = _UAPI16_ORDER_INVALID;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+
+        /* The specification requires treating unknown values as if the field was not set, but keep them
+         * apart from an absent field, so that the field can still be refused where it is not permitted */
+        *o = uapi16_order_from_string(sd_json_variant_string(variant));
+        if (*o < 0) {
+                json_log(variant, flags|SD_JSON_DEBUG, 0, "Unknown order '%s', ignoring.", sd_json_variant_string(variant));
+                *o = _UAPI16_ORDER_UNKNOWN;
+        }
+
+        return 0;
+}
+
 static int json_dispatch_inode_type(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         mode_t *t = ASSERT_PTR(userdata);
 
@@ -1084,6 +1112,7 @@ int dispatch_uapi16_object(sd_json_variant *v, const Uapi16Object *root, sd_json
                 { "name",                  SD_JSON_VARIANT_STRING,        json_dispatch_uapi16_name,         offsetof(Uapi16Object, name),             SD_JSON_NULLABLE },
                 { "mediaType",             SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,           offsetof(Uapi16Object, media_type),       SD_JSON_NULLABLE },
                 { "features",              SD_JSON_VARIANT_ARRAY,         json_dispatch_features,            offsetof(Uapi16Object, features),         SD_JSON_NULLABLE },
+                { "order",                 SD_JSON_VARIANT_STRING,        json_dispatch_order,               offsetof(Uapi16Object, order),            SD_JSON_NULLABLE },
                 { "type",                  SD_JSON_VARIANT_STRING,        json_dispatch_inode_type,          offsetof(Uapi16Object, type),             SD_JSON_NULLABLE },
                 { "size",                  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,           offsetof(Uapi16Object, size),             0                },
                 { "mode",                  _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode,         offsetof(Uapi16Object, mode),             0                },
@@ -1162,6 +1191,9 @@ int dispatch_uapi16_object(sd_json_variant *v, const Uapi16Object *root, sd_json
 
                 if (object.features >= 0)
                         return json_log(v, flags, SYNTHETIC_ERRNO(EBADMSG), "Field 'features' is only permitted on the root object, refusing.");
+
+                if (object.order != _UAPI16_ORDER_INVALID)
+                        return json_log(v, flags, SYNTHETIC_ERRNO(EBADMSG), "Field 'order' is only permitted on the root object, refusing.");
 
                 /* Inherit the manifest's features, so that users of the object know what it records */
                 assert(root->features >= 0);
@@ -1750,6 +1782,68 @@ static int uapi16_manifest_next_record(
         }
 }
 
+typedef struct Uapi16Placement {
+        char **dirs;          /* The directories still open, i.e. whose entries may still follow */
+        size_t n_dirs;
+        char *previous_name;  /* Only tracked if the manifest declares an ordering */
+} Uapi16Placement;
+
+static void uapi16_placement_done(Uapi16Placement *p) {
+        assert(p);
+
+        p->dirs = strv_free(p->dirs);
+        p->n_dirs = 0;
+        p->previous_name = mfree(p->previous_name);
+}
+
+static int uapi16_placement_check(Uapi16Placement *p, const Uapi16Object *root, const Uapi16Object *o) {
+        int r;
+
+        assert(p);
+        assert(root);
+        assert(o);
+        assert(o->name);
+
+        /* The specification requires listing the file objects in tree order, i.e. every directory before
+         * the file objects below it, and these immediately following it. Check that with a stack of the
+         * directories that are still open. If the manifest declares the code point ordering, also check
+         * that the names strictly increase, which also refuses names listed twice. As names are normalized,
+         * path_compare() implements the code point ordering of the specification: it compares component by
+         * component, byte by byte, and orders a component before others it is a prefix of. */
+
+        if (root->order == UAPI16_ORDER_CODEPOINT) {
+                if (p->previous_name && path_compare(p->previous_name, o->name) >= 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Manifest declares code point ordering, but file object '%s' does not sort after '%s', refusing.",
+                                               o->name, p->previous_name);
+
+                r = free_and_strdup(&p->previous_name, o->name);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        _cleanup_free_ char *parent = NULL;
+        r = path_extract_directory(o->name, &parent);
+        if (r < 0 && r != -EDESTADDRREQ) /* EDESTADDRREQ → in the root directory */
+                return log_error_errno(r, "Failed to extract directory of '%s': %m", o->name);
+
+        /* Close all directories the object is not located in */
+        while (p->n_dirs > 0 && !streq_ptr(p->dirs[p->n_dirs - 1], parent)) {
+                p->n_dirs--;
+                p->dirs[p->n_dirs] = mfree(p->dirs[p->n_dirs]);
+        }
+
+        if (parent && p->n_dirs == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "File object '%s' is not listed right after the directory it is located in, refusing.",
+                                       o->name);
+
+        if (o->type == S_IFDIR && strv_extend_with_size(&p->dirs, &p->n_dirs, o->name) < 0)
+                return log_oom();
+
+        return 0;
+}
+
 int uapi16_manifest_read(
                 FILE *f,
                 X509 *const *certificates,
@@ -1774,6 +1868,7 @@ int uapi16_manifest_read(
         _cleanup_free_ char *unsupported_mechanism = NULL;
         _cleanup_(iovec_done) struct iovec buffer = {};
         _cleanup_(uapi16_object_done) Uapi16Object root = UAPI16_OBJECT_NULL;
+        _cleanup_(uapi16_placement_done) Uapi16Placement placement = {};
         size_t n_objects = 0;
         for (;; n_objects++) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
@@ -1876,6 +1971,12 @@ int uapi16_manifest_read(
                 r = dispatch_uapi16_object(v, n_objects == 0 ? NULL : &root, SD_JSON_ALLOW_EXTENSIONS|SD_JSON_LOG, o);
                 if (r < 0)
                         return r;
+
+                if (n_objects > 0) {
+                        r = uapi16_placement_check(&placement, &root, o);
+                        if (r < 0)
+                                return r;
+                }
 
                 r = handler(o, n_objects, userdata);
                 if (r < 0)
