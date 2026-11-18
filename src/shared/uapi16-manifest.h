@@ -58,6 +58,9 @@ int uapi16_features_build_json(ManifestField features, sd_json_variant **ret);
 typedef struct Uapi16Object {
         char *name;
         char *media_type;
+        /* The features of the manifest the object is part of, i.e. as declared on the root file object (or
+         * the default set, if not declared there) */
+        ManifestField features;
         mode_t type;  /* the inode type, i.e. S_IFREG, S_IFDIR, … – but no access mode bits */
         uint64_t size;
         mode_t mode;  /* the access bits, without inode type */
@@ -110,6 +113,7 @@ typedef struct Uapi16Object {
 } Uapi16Object;
 
 #define UAPI16_OBJECT_NULL (const Uapi16Object) {     \
+                .features = _MANIFEST_FIELD_INVALID,  \
                 .size = UINT64_MAX,                   \
                 .mode = MODE_INVALID,                 \
                 .uid = UID_INVALID,                   \
@@ -201,7 +205,10 @@ int uapi16_xattrs_build_json(const Uapi16Xattr *x, size_t n, sd_json_variant **r
 void uapi16_object_done(Uapi16Object *o);
 int uapi16_object_check_validity(Uapi16Object *o);
 
-int dispatch_uapi16_object(sd_json_variant *v, size_t n, sd_json_dispatch_flags_t flags, Uapi16Object *ret);
+/* Parses a file object. 'root' must be NULL when parsing the root file object of a manifest (i.e. its first
+ * object), and point to the already parsed root file object otherwise, since the manifest-wide fields
+ * declared on it (i.e. "features") govern the other file objects. */
+int dispatch_uapi16_object(sd_json_variant *v, const Uapi16Object *root, sd_json_dispatch_flags_t flags, Uapi16Object *ret);
 
 DECLARE_STRING_TABLE_LOOKUP(uapi16_validity, Uapi16Validity);
 
