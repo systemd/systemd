@@ -259,15 +259,15 @@ static int pseudo_tty_read(PseudoTTY *pty) {
 int pseudo_tty_sync_winsize(PseudoTTY *pty) {
         assert(pty);
 
-        /* Determines the minimum terminal dimensions of all monitors that track their dimensions via OSC
-         * 2811, and propagates them to the pty. */
+        /* Determines the minimum terminal dimensions of all monitors that track their dimensions via mode
+         * 2048 size reports, and propagates them to the pty. */
 
         if (pty->frontend_fd < 0)
                 return 0;
 
         unsigned columns = 0, lines = 0;
         LIST_FOREACH(monitors, m, pty->monitors) {
-                if (!m->osc_winsize)
+                if (!m->inband_resize)
                         continue;
 
                 if (m->columns > 0)
