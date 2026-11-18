@@ -996,6 +996,13 @@ evdev:name:Huawei WMI hotkeys:dmi:bvn*:bvr*:bd*:svnHUAWEI*:pnEUL-WX9:*
  KEYBOARD_KEY_281=unknown                               # Brightness Down, also emitted by acpi-video, ignore
  KEYBOARD_KEY_282=unknown                               # Brightness Up, also emitted by acpi-video, ignore
 
+# Huawei MateBook X (MRGFG-XX)
+evdev:atkbd:dmi:bvn*:bvr*:svnHUAWEI*:pnMRGFG-XX:*
+ KEYBOARD_KEY_a0=!mute                                  # Mute, no release event sent
+
+evdev:name:Huawei WMI hotkeys:dmi:bvn*:bvr*:bd*:svnHUAWEI*:pnMRGFG-XX:*
+ KEYBOARD_KEY_284=reserved                              # Mute, also emitted by the AT keyboard, ignore
+
 ###########################################################
 # Infinix
 ###########################################################
