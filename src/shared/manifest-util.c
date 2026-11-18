@@ -1300,7 +1300,7 @@ static int manifest_uapi16_item(
         _cleanup_free_ char *data = NULL;
         uint8_t hash[MANIFEST_HASH_SIZE_MAX];
         uint64_t size = UINT64_MAX;
-        bool have_size = false, hash_valid = false;
+        bool have_size = false, hash_valid = false, omit_hash = false;
         const char *type = NULL;
         uint64_t hardlink_counter = 0;
 
@@ -1317,7 +1317,12 @@ static int manifest_uapi16_item(
                                 have_size = true;
                         }
 
-                        if (!hash_valid && FLAGS_SET(c->fields, MANIFEST_FIELD_HASH) && inode_fd >= 0) {
+                        /* The specification recommends leaving the hash of empty files unset, as it is
+                         * implied by the size. But only if we actually include the size. */
+                        if (FLAGS_SET(c->fields, MANIFEST_FIELD_SIZE) && have_size && size == 0)
+                                omit_hash = true;
+
+                        if (!hash_valid && !omit_hash && FLAGS_SET(c->fields, MANIFEST_FIELD_HASH) && inode_fd >= 0) {
                                 r = manifest_context_hash_fd(c, inode_fd, hash);
                                 if (r < 0) {
                                         log_warning_errno(r, "Failed to calculate file SHA256 sum for '%s', ignoring: %m", empty_to_root(path));
@@ -1386,7 +1391,7 @@ static int manifest_uapi16_item(
                         SD_JSON_BUILD_PAIR_CONDITION(!!type, "type", SD_JSON_BUILD_STRING(type)),
                         SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(c->fields, MANIFEST_FIELD_SIZE) && have_size, "size", SD_JSON_BUILD_UNSIGNED(size)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!data, "contents", SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("literal", SD_JSON_BUILD_BASE64(data, size))))),
-                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(c->fields, MANIFEST_FIELD_HASH) && hash_valid, "sha256", SD_JSON_BUILD_HEX(hash, SHA256_DIGEST_SIZE)),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(c->fields, MANIFEST_FIELD_HASH) && hash_valid && !omit_hash, "sha256", SD_JSON_BUILD_HEX(hash, SHA256_DIGEST_SIZE)),
                         SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(c->fields, MANIFEST_FIELD_DEVICE) && FLAGS_SET(sx->stx_mask, STATX_TYPE) && (S_ISBLK(sx->stx_mode) || S_ISCHR(sx->stx_mode)), "major", SD_JSON_BUILD_UNSIGNED(sx->stx_rdev_major)),
                         SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(c->fields, MANIFEST_FIELD_DEVICE) && FLAGS_SET(sx->stx_mask, STATX_TYPE) && (S_ISBLK(sx->stx_mode) || S_ISCHR(sx->stx_mode)), "minor", SD_JSON_BUILD_UNSIGNED(sx->stx_rdev_minor)),
                         SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(c->fields, MANIFEST_FIELD_MODE) && FLAGS_SET(sx->stx_mask, STATX_TYPE|STATX_MODE) && !S_ISLNK(sx->stx_mode), "mode", SD_JSON_BUILD_UNSIGNED(sx->stx_mode & 07777)),

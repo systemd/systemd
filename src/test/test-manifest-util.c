@@ -585,6 +585,12 @@ TEST(manifest_uapi16) {
         ASSERT_NULL(sd_json_variant_by_key(reg, "groupName"));
         ASSERT_TRUE(sd_json_variant_is_normalized(reg)); /* Fields are sorted */
 
+        /* The hash of empty files is implied by their size, hence not included */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *empty = find_object(buf, "empty.txt");
+        ASSERT_NOT_NULL(empty);
+        ASSERT_EQ(sd_json_variant_unsigned(sd_json_variant_by_key(empty, "size")), 0U);
+        ASSERT_NULL(sd_json_variant_by_key(empty, "sha256"));
+
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *lnk = find_object(buf, "symlink");
         ASSERT_NOT_NULL(lnk);
         ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(lnk, "type")), "lnk");
@@ -623,6 +629,22 @@ TEST(manifest_uapi16) {
         context_init(&c, MANIFEST_FORMAT_UAPI16);
         c.fields = MANIFEST_FIELD_SIZE|MANIFEST_FIELD_MTIME;
         ASSERT_OK(verify_buffer(&c, tfd, buf2, size2));
+
+        /* Without the size, the hash of empty files is included */
+        _cleanup_free_ char *buf_hash = NULL;
+        size_t size_hash;
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.fields = MANIFEST_FIELD_HASH;
+        ASSERT_OK(generate(&c, tfd, &buf_hash, &size_hash));
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *empty_hash = find_object(buf_hash, "empty.txt");
+        ASSERT_NOT_NULL(empty_hash);
+        ASSERT_NULL(sd_json_variant_by_key(empty_hash, "size"));
+        ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(empty_hash, "sha256")), "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.fields = MANIFEST_FIELD_HASH;
+        ASSERT_OK(verify_buffer(&c, tfd, buf_hash, size_hash));
 
         /* User and group names are included if requested, as resolved on the host */
         _cleanup_free_ char *user_name = uid_to_name(getuid()), *group_name = gid_to_name(getgid());
