@@ -12,6 +12,7 @@
 #include "fstab-util.h"
 #include "generator.h"
 #include "hexdecoct.h"
+#include "image-policy.h"
 #include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -42,6 +43,7 @@ static char *arg_usr_hash = NULL;
 static char *arg_usr_data_what = NULL;
 static char *arg_usr_hash_what = NULL;
 static char *arg_usr_options = NULL;
+static ImagePolicy *arg_image_policy = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root_hash, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_data_what, freep);
@@ -51,9 +53,11 @@ STATIC_DESTRUCTOR_REGISTER(arg_usr_hash, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_usr_data_what, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_usr_hash_what, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_usr_options, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 static int create_special_device(
                 const char *name,
+                PartitionDesignator designator,
                 const char *roothash,
                 const char *data_what,
                 const char *hash_what,
@@ -110,6 +114,15 @@ static int create_special_device(
         } else if (!isempty(options) && !strextend(&o, ",", options))
                 return log_oom();
 
+        /* We add root-hash-signature-required=yes after the options from the kernel command line, so that
+         * they can't turn off a signature that the image policy requires. If the options end in a
+         * backslash, systemd-veritysetup reads the next comma as part of the last option. We put two
+         * commas before root-hash-signature-required=yes, so that a trailing backslash only escapes the
+         * first comma. systemd-veritysetup skips the empty option between the two commas. */
+        if (image_policy_requires_signature(arg_image_policy ?: &image_policy_host, designator) &&
+            !strextend(&o, ",,root-hash-signature-required=yes"))
+                return log_oom();
+
         log_debug("Using %s verity data device %s, hash device %s, options %s, and hash %s.", name, data_what, hash_what, o, roothash);
 
         u = fstab_node_to_udev_node(data_what);
@@ -156,11 +169,11 @@ static int create_special_device(
 }
 
 static int create_root_device(void) {
-        return create_special_device("root", arg_root_hash, arg_root_data_what, arg_root_hash_what, arg_root_options);
+        return create_special_device("root", PARTITION_ROOT, arg_root_hash, arg_root_data_what, arg_root_hash_what, arg_root_options);
 }
 
 static int create_usr_device(void) {
-        return create_special_device("usr", arg_usr_hash, arg_usr_data_what, arg_usr_hash_what, arg_usr_options);
+        return create_special_device("usr", PARTITION_USR, arg_usr_hash, arg_usr_data_what, arg_usr_hash_what, arg_usr_options);
 }
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
@@ -514,6 +527,34 @@ static int add_veritytab_devices(void) {
         return 0;
 }
 
+static int parse_image_policy_item(const char *key, const char *value, void *data) {
+        assert(key);
+
+        if (!proc_cmdline_key_streq(key, "systemd.image_policy"))
+                return 0;
+
+        if (proc_cmdline_value_missing(key, value))
+                return 0;
+
+        return parse_image_policy_argument(value, &arg_image_policy);
+}
+
+static int acquire_image_policy(void) {
+        int r;
+
+        /* We parse systemd.image_policy= the same way as systemd-gpt-auto-generator, so that we apply the
+         * same policy as systemd-gpt-auto-generator. We don't pass PROC_CMDLINE_STRIP_RD_PREFIX, so we
+         * ignore rd.systemd.image_policy=. proc_cmdline_parse() stops at an invalid policy, and
+         * arg_image_policy keeps the last valid policy. We still write the units after an invalid policy. */
+        r = proc_cmdline_parse(parse_image_policy_item, /* userdata= */ NULL, /* flags= */ 0);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse systemd.image_policy= kernel command line switch, ignoring: %m");
+
+        return 0;
+}
+
 static int run(const char *dest, const char *dest_early, const char *dest_late) {
         int r;
 
@@ -527,6 +568,10 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
 
         if (!arg_enabled)
                 return 0;
+
+        r = acquire_image_policy();
+        if (r < 0)
+                return r;
 
         r = add_veritytab_devices();
         if (r < 0)
