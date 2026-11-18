@@ -103,10 +103,14 @@ int uapi16_object_check_validity(Uapi16Object *o) {
 }
 
 bool uapi16_name_is_valid(const char *s) {
-        /* The specification requires the "name" field to be a normalized, relative UTF-8 path without
-         * control characters, that does not clash with the name of the manifest file itself. */
+        /* The specification requires the "name" field to be a normalized, relative UTF-8 path without a
+         * trailing slash and without control characters, of at most 4095 bytes, that does not clash with the
+         * name of the manifest file itself. */
 
         if (isempty(s))
+                return false;
+
+        if (strlen(s) > UAPI16_NAME_MAX)
                 return false;
 
         if (!utf8_is_valid(s))
@@ -115,7 +119,14 @@ bool uapi16_name_is_valid(const char *s) {
         if (path_is_absolute(s))
                 return false;
 
+        /* NB: path_is_normalized() limits the individual components to NAME_MAX, while the specification
+         * does not limit them on their own. We are stricter here, since such names cannot be represented
+         * on Linux file systems anyway. */
         if (!path_is_normalized(s))
+                return false;
+
+        /* path_is_normalized() accepts a trailing slash, the specification does not */
+        if (endswith(s, "/"))
                 return false;
 
         if (string_has_cc(s, /* ok= */ NULL))

@@ -145,6 +145,9 @@ static inline bool uapi16_manifest_filename_is_suffixed(const char *name) {
                 (endswith(name, UAPI16_MANIFEST_SUFFIX) || !isempty(strstr(name, UAPI16_MANIFEST_SUFFIX ".")));
 }
 
+/* The maximum length of the "name" field of a file object, in bytes */
+#define UAPI16_NAME_MAX 4095U
+
 /* Validates the "name" field of a file object: a normalized relative path, that is not reserved. */
 bool uapi16_name_is_valid(const char *s) _pure_;
 
