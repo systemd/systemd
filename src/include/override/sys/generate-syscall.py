@@ -54,7 +54,6 @@ HEADER = '''\
 #include <asm/sgidefs.h>
 #endif
 
-#include <assert.h>
 '''
 
 DEF_TEMPLATE_A = '''\
@@ -126,7 +125,7 @@ DEF_TEMPLATE_D = '''\
 /* may be an (invalid) negative number due to libseccomp, see PR 13319 */
 #  if defined __NR_{syscall} && __NR_{syscall} >= 0
 #    if defined systemd_NR_{syscall}
-static_assert(__NR_{syscall} == systemd_NR_{syscall}, "");
+_Static_assert(__NR_{syscall} == systemd_NR_{syscall}, "");
 #    endif
 #  else
 #    if defined __NR_{syscall}

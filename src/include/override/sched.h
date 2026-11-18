@@ -9,28 +9,26 @@
 
 #include_next <sched.h>         /* IWYU pragma: export */
 
-#include <assert.h>
-
 /* 769071ac9f20b6a447410c7eaa55d1a5233ef40c (5.8),
  * defined in sched.h since glibc-2.36. */
 #ifndef CLONE_NEWTIME
 #  define CLONE_NEWTIME 0x00000080
 #else
-static_assert(CLONE_NEWTIME == 0x00000080, "");
+_Static_assert(CLONE_NEWTIME == 0x00000080, "");
 #endif
 
 /* Not exposed yet. Defined at include/linux/sched.h */
 #ifndef PF_DUMPCORE
 #  define PF_DUMPCORE 0x00000200
 #else
-static_assert(PF_DUMPCORE == 0x00000200, "");
+_Static_assert(PF_DUMPCORE == 0x00000200, "");
 #endif
 
 /* Not exposed yet. Defined at include/linux/sched.h */
 #ifndef PF_KTHREAD
 #  define PF_KTHREAD 0x00200000
 #else
-static_assert(PF_KTHREAD == 0x00200000, "");
+_Static_assert(PF_KTHREAD == 0x00200000, "");
 #endif
 
 /* The maximum thread/process name length including trailing NUL byte. This mimics the kernel definition of
@@ -41,7 +39,7 @@ static_assert(PF_KTHREAD == 0x00200000, "");
 #ifndef TASK_COMM_LEN
 #  define TASK_COMM_LEN 16
 #else
-static_assert(TASK_COMM_LEN == 16, "");
+_Static_assert(TASK_COMM_LEN == 16, "");
 #endif
 
 /* glibc does not provide clone() on ia64, only clone2(). Not only that, but it also doesn't provide a
@@ -66,5 +64,5 @@ int sched_setattr_shim(pid_t pid, struct sched_attr *attr, unsigned flags);
 #ifndef SCHED_EXT
 #  define SCHED_EXT 7
 #else
-static_assert(SCHED_EXT == 7, "");
+_Static_assert(SCHED_EXT == 7, "");
 #endif
