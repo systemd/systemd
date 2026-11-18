@@ -177,10 +177,9 @@ TEST(x11_convert_to_vconsole) {
         log_info("/* test with known variant, new mapping (es:dvorak) */");
         ASSERT_OK(free_and_strdup(&xc.variant, "dvorak"));
         ASSERT_OK(x11_convert_to_vconsole(&xc, &vc));
-        if (vc_context_isempty(&vc)) {
-                log_info("Skipping rest of %s: keymaps are not installed", __func__);
-                return;
-        }
+        if (vc_context_isempty(&vc))
+                return (void) log_info("Skipping rest of %s: keymaps are not installed", __func__);
+
         ASSERT_STREQ(vc.keymap, "es-dvorak");
         vc_context_clear(&vc);
 

@@ -5418,10 +5418,8 @@ void unit_warn_if_dir_nonempty(Unit *u, const char* where) {
         r = dir_is_empty(where, /* ignore_hidden_or_backup= */ false);
         if (r > 0 || r == -ENOTDIR)
                 return;
-        if (r < 0) {
-                log_unit_warning_errno(u, r, "Failed to check directory %s: %m", where);
-                return;
-        }
+        if (r < 0)
+                return (void) log_unit_warning_errno(u, r, "Failed to check directory %s: %m", where);
 
         log_unit_struct(u, LOG_NOTICE,
                         LOG_MESSAGE_ID(SD_MESSAGE_OVERMOUNTING_STR),

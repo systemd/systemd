@@ -104,21 +104,17 @@ static void manager_watch_home(Manager *m) {
         m->inotify_event_source = sd_event_source_disable_unref(m->inotify_event_source);
         m->scan_slash_home = false;
 
-        if (statfs(get_home_root(), &sfs) < 0) {
-                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
-                               "Failed to statfs() %s directory, disabling automatic scanning.", get_home_root());
-                return;
-        }
+        if (statfs(get_home_root(), &sfs) < 0)
+                return (void) log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
+                                             "Failed to statfs() %s directory, disabling automatic scanning.",
+                                             get_home_root());
 
-        if (is_network_fs(&sfs)) {
-                log_info("%s is a network file system, disabling automatic scanning.", get_home_root());
-                return;
-        }
+        if (is_network_fs(&sfs))
+                return (void) log_info("%s is a network file system, disabling automatic scanning.",
+                                       get_home_root());
 
-        if (is_fs_type(&sfs, AUTOFS_SUPER_MAGIC)) {
-                log_info("%s is on autofs, disabling automatic scanning.", get_home_root());
-                return;
-        }
+        if (is_fs_type(&sfs, AUTOFS_SUPER_MAGIC))
+                return (void) log_info("%s is on autofs, disabling automatic scanning.", get_home_root());
 
         m->scan_slash_home = true;
 
@@ -1611,17 +1607,13 @@ void manager_revalidate_image(Manager *m, Home *h) {
         } else if (h->state < 0) {
 
                 r = user_record_test_home_directory(h->record);
-                if (r < 0) {
-                        log_warning_errno(r, "Unable to determine state of home directory, ignoring: %m");
-                        return;
-                }
+                if (r < 0)
+                        return (void) log_warning_errno(r, "Unable to determine state of home directory, ignoring: %m");
 
                 if (r == USER_TEST_MOUNTED) {
                         r = user_record_test_image_path(h->record);
-                        if (r < 0) {
-                                log_warning_errno(r, "Unable to determine state of image path, ignoring: %m");
-                                return;
-                        }
+                        if (r < 0)
+                                return (void) log_warning_errno(r, "Unable to determine state of image path, ignoring: %m");
 
                         if (r == USER_TEST_ABSENT) {
                                 _cleanup_(operation_unrefp) Operation *o = NULL;
@@ -1637,10 +1629,8 @@ void manager_revalidate_image(Manager *m, Home *h) {
                                  * currently already run some operation, and we can deactivate it only after
                                  * that's complete. */
                                 o = operation_new(OPERATION_DEACTIVATE_FORCE, NULL);
-                                if (!o) {
-                                        log_oom();
-                                        return;
-                                }
+                                if (!o)
+                                        return (void) log_oom();
 
                                 r = home_schedule_operation(h, o, /* error= */ NULL);
                                 if (r < 0)

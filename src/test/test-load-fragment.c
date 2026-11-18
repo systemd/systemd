@@ -155,10 +155,8 @@ TEST(config_parse_exec) {
         _cleanup_(unit_freep) Unit *u = NULL;
 
         r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
-        if (manager_errno_skip_test(r)) {
-                log_notice_errno(r, "Skipping test: manager_new: %m");
-                return;
-        }
+        if (manager_errno_skip_test(r))
+                return (void) log_notice_errno(r, "Skipping test: manager_new: %m");
 
         ASSERT_OK(r);
         ASSERT_OK(manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL));
@@ -465,10 +463,8 @@ TEST(config_parse_bind_paths) {
         int r;
 
         r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
-        if (manager_errno_skip_test(r)) {
-                log_notice_errno(r, "Skipping test: manager_new: %m");
-                return;
-        }
+        if (manager_errno_skip_test(r))
+                return (void) log_notice_errno(r, "Skipping test: manager_new: %m");
 
         ASSERT_OK(r);
         ASSERT_OK(manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL));
@@ -530,10 +526,8 @@ TEST(config_parse_log_extra_fields) {
         ExecContext c = {};
 
         r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
-        if (manager_errno_skip_test(r)) {
-                log_notice_errno(r, "Skipping test: manager_new: %m");
-                return;
-        }
+        if (manager_errno_skip_test(r))
+                return (void) log_notice_errno(r, "Skipping test: manager_new: %m");
 
         ASSERT_OK(r);
         ASSERT_OK(manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL));
@@ -918,10 +912,8 @@ TEST(config_parse_unit_env_file) {
         int r;
 
         r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
-        if (manager_errno_skip_test(r)) {
-                log_notice_errno(r, "Skipping test: manager_new: %m");
-                return;
-        }
+        if (manager_errno_skip_test(r))
+                return (void) log_notice_errno(r, "Skipping test: manager_new: %m");
 
         ASSERT_OK(r);
         ASSERT_OK(manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL));
@@ -1098,10 +1090,8 @@ TEST(unit_is_recursive_template_dependency) {
         int r;
 
         r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
-        if (manager_errno_skip_test(r)) {
-                log_notice_errno(r, "Skipping test: manager_new: %m");
-                return;
-        }
+        if (manager_errno_skip_test(r))
+                return (void) log_notice_errno(r, "Skipping test: manager_new: %m");
 
         ASSERT_OK(r);
         ASSERT_OK(manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL));
@@ -1192,10 +1182,8 @@ TEST(config_parse_open_file) {
         int r;
 
         r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
-        if (manager_errno_skip_test(r)) {
-                log_notice_errno(r, "Skipping test: manager_new: %m");
-                return;
-        }
+        if (manager_errno_skip_test(r))
+                return (void) log_notice_errno(r, "Skipping test: manager_new: %m");
 
         ASSERT_OK(r);
         ASSERT_OK(manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL));
@@ -1251,10 +1239,8 @@ TEST(config_parse_service_refresh_on_reload) {
         _cleanup_(unit_freep) Unit *u = NULL;
 
         r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
-        if (manager_errno_skip_test(r)) {
-                log_notice_errno(r, "Skipping test: manager_new: %m");
-                return;
-        }
+        if (manager_errno_skip_test(r))
+                return (void) log_notice_errno(r, "Skipping test: manager_new: %m");
 
         ASSERT_OK(r);
         ASSERT_OK(manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL));

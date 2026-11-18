@@ -526,10 +526,8 @@ void fwupdate_install(const EFI_DEVICE_PATH *boot_disk_path) {
         assert(boot_disk_path);
         assert(!device_path_is_end(boot_disk_path));
 
-        if (!fwupdate_supported()) {
-                log_debug("UEFI capsule update services are unavailable, skipping firmware updates.");
-                return;
-        }
+        if (!fwupdate_supported())
+                return (void) log_debug("UEFI capsule update services are unavailable, skipping firmware updates.");
 
         /* Collect only variables whose capsules resolve on the boot disk. Variables for other disks must
          * neither be loaded nor have their status changed. */

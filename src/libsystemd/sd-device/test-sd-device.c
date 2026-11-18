@@ -950,10 +950,8 @@ static void test_devname_from_devnum_one(const char *path) {
 
         log_debug("> %s", path);
 
-        if (stat(path, &st) < 0) {
-                log_notice("Path %s not found, skipping test", path);
-                return;
-        }
+        if (stat(path, &st) < 0)
+                return (void) log_notice("Path %s not found, skipping test", path);
 
         ASSERT_OK(devname_from_devnum(st.st_mode, st.st_rdev, &resolved));
         ASSERT_TRUE(path_equal(path, resolved));

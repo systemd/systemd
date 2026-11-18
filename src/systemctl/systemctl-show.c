@@ -972,10 +972,8 @@ static void show_unit_help(UnitStatusInfo *i) {
 
         assert(i);
 
-        if (!i->documentation) {
-                log_info("Documentation for %s not known.", i->id);
-                return;
-        }
+        if (!i->documentation)
+                return (void) log_info("Documentation for %s not known.", i->id);
 
         STRV_FOREACH(doc, i->documentation) {
                 const char *p;
