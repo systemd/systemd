@@ -68,8 +68,8 @@ jobs:
             release: testing
             shim: 1
             rust: 1
-          - distro: debian
-            release: testing
+          - distro: ubuntu
+            release: resolute
             runner: ubuntu-24.04-arm
             no_qemu: 1
             no_kvm: 1
