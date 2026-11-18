@@ -331,6 +331,16 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
         if (!filename_is_valid(volume))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Volume name '%s' is not valid.", volume);
 
+        /* The service can start again after the initrd activated the volume. The data device might lack
+         * the udev properties for root-hash-signature=auto then. root-hash-signature-required=yes would
+         * then refuse a volume that is already active. We check for an active volume before we look at
+         * the options. */
+        status = sym_crypt_status(/* cd= */ NULL, volume);
+        if (IN_SET(status, CRYPT_ACTIVE, CRYPT_BUSY)) {
+                log_info("Volume %s already active.", volume);
+                return 0;
+        }
+
         if (options) {
                 r = parse_options(options);
                 if (r < 0)
@@ -386,12 +396,6 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
                 return log_error_errno(r, "Failed to open verity device %s: %m", verity_device);
 
         cryptsetup_enable_logging(cd);
-
-        status = sym_crypt_status(cd, volume);
-        if (IN_SET(status, CRYPT_ACTIVE, CRYPT_BUSY)) {
-                log_info("Volume %s already active.", volume);
-                return 0;
-        }
 
         if (arg_superblock) {
                 p = (struct crypt_params_verity) {
