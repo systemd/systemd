@@ -12,6 +12,7 @@
 #include "dns-packet.h"
 #include "dns-question.h"
 #include "dns-rr.h"
+#include "event-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "resolved-dns-scope.h"
@@ -23,6 +24,15 @@
 #include "time-util.h"
 
 #define CLEAR_CACHE_FLUSH(x) (~MDNS_RR_CACHE_FLUSH_OR_QU & (x))
+
+/* RFC 6762 section 10.1: the records of a goodbye are deleted one second after receipt, so a goodbye
+ * arms the timer for then, unless it is armed already. */
+#define MDNS_GOODBYE_DELAY (1 * USEC_PER_SEC)
+
+/* The shortest time between two goodbye passes, so that a burst of goodbyes cannot cause a pass per
+ * packet: the timer is never armed for sooner than this from now (the floor). It delays a removal by at
+ * most this much, on top of the timer's accuracy. */
+#define MDNS_GOODBYE_MIN_INTERVAL (MDNS_GOODBYE_DELAY / 4)
 
 void manager_mdns_stop(Manager *m) {
         assert(m);
@@ -373,14 +383,43 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
         return 0;
 }
 
-static int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userdata) {
-        DnsScope *scope = userdata;
+static int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userdata);
+
+/* With force_reset=false an armed timer keeps its deadline, whatever 'until' says. That is safe: no
+ * armed deadline is later than now + MDNS_GOODBYE_DELAY, which is when a goodbye received now needs its
+ * pass. */
+static void mdns_goodbye_arm(DnsScope *scope, usec_t until, bool force_reset) {
         int r;
 
-        assert(s);
+        assert(scope);
+        assert(until != USEC_INFINITY);
+
+        until = MAX(until, usec_add(now(CLOCK_BOOTTIME), MDNS_GOODBYE_MIN_INTERVAL));
+
+        r = event_reset_time(
+                        scope->manager->event,
+                        &scope->mdns_goodbye_event_source,
+                        CLOCK_BOOTTIME,
+                        until,
+                        /* accuracy= */ 0,
+                        mdns_goodbye_callback,
+                        scope,
+                        /* priority= */ 0,
+                        "mdns-goodbye",
+                        force_reset);
+        if (r < 0)
+                log_warning_errno(r, "mDNS: Failed to arm goodbye timer, ignoring: %m");
+}
+
+static int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userdata) {
+        DnsScope *scope = userdata;
+        usec_t until;
+        int r;
+
         assert(scope);
 
-        scope->mdns_goodbye_event_source = sd_event_source_disable_unref(scope->mdns_goodbye_event_source);
+        /* The code below releases or re-arms scope->mdns_goodbye_event_source, which must be 's'. */
+        assert(s == scope->mdns_goodbye_event_source);
 
         dns_cache_prune(&scope->cache);
 
@@ -388,20 +427,16 @@ static int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userda
         if (r < 0)
                 log_warning_errno(r, "mDNS: Failed to notify service subscribers of goodbyes, ignoring: %m");
 
-        /* Look for records due within a second of now, not of 'usec': the records of a goodbye received
-         * after the deadline expire more than a second after it. */
-        if (dns_cache_expiry_in_one_second(&scope->cache, now(CLOCK_BOOTTIME))) {
-                r = sd_event_add_time_relative(
-                                scope->manager->event,
-                                &scope->mdns_goodbye_event_source,
-                                CLOCK_BOOTTIME,
-                                USEC_PER_SEC,
-                                /* accuracy= */ 0,
-                                mdns_goodbye_callback,
-                                scope);
-                if (r < 0)
-                        return log_warning_errno(r, "mDNS: Failed to re-schedule goodbye callback, ignoring: %m");
-        }
+        /* Go on while anything is due by the time the records of the last goodbye expire: a goodbye
+         * received while the timer was armed kept its deadline, which its records outlive. Records that
+         * merely expire later are left to the browsers' own timers. */
+        until = dns_cache_next_expiry(&scope->cache);
+        if (until > scope->mdns_goodbye_until)
+                /* No goodbye's records left: release the timer. */
+                scope->mdns_goodbye_event_source =
+                        sd_event_source_disable_unref(scope->mdns_goodbye_event_source);
+        else
+                mdns_goodbye_arm(scope, until, /* force_reset= */ true);
 
         return 0;
 }
@@ -482,21 +517,6 @@ int mdns_scope_process_packet(DnsScope *scope, DnsPacket *p) {
 
                 goodbye = mdns_answer_rewrite_goodbye_ttls(p->answer);
 
-                /* Look at the cache a second later, to drop the goodbye's records and tell the browsers,
-                 * which have no other reliable trigger for it. */
-                if (goodbye && !scope->mdns_goodbye_event_source) {
-                        r = sd_event_add_time_relative(
-                                        scope->manager->event,
-                                        &scope->mdns_goodbye_event_source,
-                                        CLOCK_BOOTTIME,
-                                        USEC_PER_SEC,
-                                        /* accuracy= */ 0,
-                                        mdns_goodbye_callback,
-                                        scope);
-                        if (r < 0)
-                                log_warning_errno(r, "mDNS: Failed to arm goodbye timer, ignoring: %m");
-                }
-
                 dns_cache_put(
                                 &scope->cache,
                                 scope->manager->enable_cache,
@@ -511,6 +531,15 @@ int mdns_scope_process_packet(DnsScope *scope, DnsPacket *p) {
                                 p->family,
                                 &p->sender,
                                 scope->manager->stale_retention_usec);
+
+                /* Arm after the put, so that the pass does not come due before the goodbye's records
+                 * expire. Arm even if the put cached nothing (a record we never held, a cache-flush
+                 * goodbye, caching off): the pass is the browsers' only reliable trigger. An armed timer
+                 * keeps its deadline. */
+                if (goodbye) {
+                        scope->mdns_goodbye_until = usec_add(now(CLOCK_BOOTTIME), MDNS_GOODBYE_DELAY);
+                        mdns_goodbye_arm(scope, scope->mdns_goodbye_until, /* force_reset= */ false);
+                }
 
                 for (bool match = true; match;) {
                         match = false;
