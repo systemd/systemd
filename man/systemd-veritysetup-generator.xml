@@ -119,6 +119,16 @@
         <citerefentry project='man-pages'><refentrytitle>veritysetup</refentrytitle><manvolnum>8</manvolnum></citerefentry> for more
         details.</para>
 
+        <para>The generator adds <option>root-hash-signature=auto</option> in front of these options.
+        systemd-veritysetup then reads the root hash signature from the
+        <literal>ID_DISSECT_PART_ROOTHASH_SIG=</literal> udev property of the data device, if the data
+        device has this property. udev sets this property only on partitions of the boot disk that the
+        boot loader reports. udev doesn't set it if the kernel command line contains both
+        <varname>roothash=</varname> and <varname>usrhash=</varname>. See
+        <citerefentry><refentrytitle>veritytab</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        details. Specify <option>root-hash-signature=</option> in these options to use a different
+        signature.</para>
+
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
