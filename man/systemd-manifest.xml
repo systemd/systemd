@@ -285,7 +285,7 @@
                 <entry><option>read-only</option></entry>
                 <entry><emphasis>no</emphasis></entry>
                 <entry>uapi16</entry>
-                <entry>FAT attribute <constant>ATTR_READ_ONLY</constant> (encoded in the generic <literal>readOnly</literal> field)</entry>
+                <entry>Read-only state: FAT attribute <constant>ATTR_READ_ONLY</constant>, or derived from the access mode elsewhere (encoded in the generic <literal>readOnly</literal> field)</entry>
               </row>
               <row>
                 <entry><option>flag-hidden</option></entry>
@@ -354,11 +354,16 @@
         (<option>read-only</option>, <option>flag-hidden</option>, <option>flag-system</option>,
         <option>flag-archive</option>) are recorded for regular files and directories located on FAT file
         systems, except for the top-level directory (which has no directory entry on FAT). When verifying,
-        they are ignored for inodes not located on a FAT file system. The file system identity fields
+        they are ignored for inodes not located on a FAT file system. The exception is
+        <option>read-only</option>: for all other inodes except symlinks, it is derived from the access mode
+        (i.e. an inode is considered read-only if no write bit is set in its access mode), both when
+        generating and when verifying. The file system identity fields
         (<option>fs-uuid</option>, <option>fs-label</option>, <option>fat-serial</option>) are recorded on
         the top-level object, and describe the file system the top-level directory is located on. FAT file
         systems have no UUID, but a volume serial number instead, hence <option>fs-uuid</option> only applies
-        to non-FAT file systems, and <option>fat-serial</option> only to FAT file systems. When verifying,
+        to non-FAT file systems, and <option>fat-serial</option> only to FAT file systems. If the file system
+        does not permit querying one of them, it is not declared as recorded in the generated manifest.
+        When verifying,
         <option>fs-uuid</option>, <option>fs-label</option> and <option>fat-serial</option> are ignored if the
         file system lacks the respective property, or it cannot be queried; otherwise a differing value is
         considered a mismatch. The number of fields not verified because they do not apply to the file system

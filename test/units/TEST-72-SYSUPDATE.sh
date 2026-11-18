@@ -1300,7 +1300,8 @@ xm_object() {
         "$v" "$(stat -c %s "$XM/payload/blobs/xm-v$v.bin")" "$(sha256_of "$XM/payload/blobs/xm-v$v.bin")" "$v" "$xattrs"
 }
 {
-    printf '\036{"mediaType":"application/vnd.uapi.16.manifest"}\n'
+    # Extended attributes may only be listed if the manifest declares the "user-xattr" feature
+    printf '\036{"mediaType":"application/vnd.uapi.16.manifest","features":["sha256","size","user-xattr"]}\n'
     # Not restricted in any way
     xm_object 1
     # Restricted to two machines, one of which is us, and to our OS. Also carries an unrelated attribute.
