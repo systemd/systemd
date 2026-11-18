@@ -77,6 +77,8 @@ TEST_RET(cgroup_mask, .sd_booted = true) {
         ASSERT_CGROUP_MASK(unit_get_own_mask(nomem_parent), 0);
         ASSERT_CGROUP_MASK(unit_get_own_mask(nomem_leaf), (CGROUP_MASK_IO | CGROUP_MASK_MEMORY));
         ASSERT_CGROUP_MASK(unit_get_own_mask(root), 0);
+        ASSERT_TRUE(unit_has_startup_cgroup_constraints(son));
+        ASSERT_TRUE(!unit_has_startup_cgroup_constraints(daughter));
 
         /* Verify aggregation of member masks */
         ASSERT_CGROUP_MASK(unit_get_members_mask(son), 0);
