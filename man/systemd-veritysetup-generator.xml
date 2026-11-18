@@ -143,6 +143,24 @@
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.image_policy=</varname></term>
+
+        <listitem><para>Takes an image dissection policy string as argument (as per
+        <citerefentry><refentrytitle>systemd.image-policy</refentrytitle><manvolnum>7</manvolnum></citerefentry>).
+        If the policy for the root or <filename>/usr/</filename> partition allows <option>signed</option>
+        but not <option>verity</option>, the unit for <varname>roothash=</varname> or
+        <varname>usrhash=</varname> uses the <option>root-hash-signature-required=yes</option> option (see
+        <citerefentry><refentrytitle>veritytab</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+        systemd-veritysetup then only activates the device if the kernel or userspace validates its root
+        hash signature. Options in <varname>systemd.verity_root_options=</varname> and
+        <varname>systemd.verity_usr_options=</varname> can't turn this requirement off. If the generator
+        can't parse a <varname>systemd.image_policy=</varname> value, it ignores this value and all later
+        values.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

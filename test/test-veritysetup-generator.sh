@@ -64,3 +64,35 @@ check_options "usrhash=$USRHASH systemd.verity_usr_options=/run/a,b\\c.sig" \
 check_unit_options root "roothash=$USRHASH" "root-hash-signature=auto"
 check_unit_options root "roothash=$USRHASH systemd.verity_root_options=panic-on-corruption" \
                    "root-hash-signature=auto,panic-on-corruption"
+
+# An image policy that allows "signed" but not "verity" for a partition requires a validated signature. The
+# generator adds root-hash-signature-required=yes after the options from the kernel command line, so that they
+# can't turn the requirement off.
+check_options "usrhash=$USRHASH systemd.image_policy=usr=signed" \
+              "root-hash-signature=auto,,root-hash-signature-required=yes"
+check_options "usrhash=$USRHASH systemd.image_policy=usr=signed systemd.verity_usr_options=root-hash-signature-required=no" \
+              "root-hash-signature=auto,root-hash-signature-required=no,,root-hash-signature-required=yes"
+check_unit_options root "roothash=$USRHASH systemd.image_policy=root=signed" \
+                   "root-hash-signature=auto,,root-hash-signature-required=yes"
+check_options "usrhash=$USRHASH systemd.image_policy=usr=verity+signed" "root-hash-signature=auto"
+
+# If the options end in a backslash, systemd-veritysetup reads the next comma as part of the last option. The
+# generator puts two commas before root-hash-signature-required=yes, so that it stays a separate option.
+# ExecStart= processes C escapes, so the unit file escapes the backslash once more.
+check_options "usrhash=$USRHASH systemd.image_policy=usr=signed systemd.verity_usr_options=panic-on-corruption\\" \
+              "root-hash-signature=auto,panic-on-corruption\\\\,,root-hash-signature-required=yes"
+check_options "usrhash=$USRHASH systemd.image_policy=root=signed" "root-hash-signature=auto"
+
+# The generator ignores rd.systemd.image_policy=, like systemd-gpt-auto-generator and udev.
+SYSTEMD_IN_INITRD=1 check_options "usrhash=$USRHASH rd.systemd.image_policy=usr=signed" "root-hash-signature=auto"
+
+# If the generator can't parse an image policy, it ignores the policy and all later policies. The generator
+# still writes the unit. systemd-gpt-auto-generator handles an invalid policy the same way.
+check_options "usrhash=$USRHASH systemd.image_policy=usr=bogus" "root-hash-signature=auto"
+check_options "usrhash=$USRHASH systemd.image_policy=usr=signed systemd.image_policy=usr=bogus" \
+              "root-hash-signature=auto,,root-hash-signature-required=yes"
+check_options "usrhash=$USRHASH systemd.image_policy=usr=bogus systemd.image_policy=usr=signed" \
+              "root-hash-signature=auto"
+
+# The generator ignores systemd.image_policy without a value.
+check_options "usrhash=$USRHASH systemd.image_policy" "root-hash-signature=auto"
