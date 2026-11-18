@@ -259,15 +259,15 @@ static int pseudo_tty_read(PseudoTTY *pty) {
 int pseudo_tty_sync_winsize(PseudoTTY *pty) {
         assert(pty);
 
-        /* Determines the minimum terminal dimensions of all monitors that track their dimensions via OSC
-         * 2811, and propagates them to the pty. */
+        /* Determines the minimum terminal dimensions of all monitors that track their dimensions via mode
+         * 2048 size reports, and propagates them to the pty. */
 
         if (pty->frontend_fd < 0)
                 return 0;
 
         unsigned columns = 0, lines = 0;
         LIST_FOREACH(monitors, m, pty->monitors) {
-                if (!m->osc_winsize)
+                if (!m->inband_resize)
                         continue;
 
                 if (m->columns > 0)
@@ -288,7 +288,7 @@ int pseudo_tty_sync_winsize(PseudoTTY *pty) {
         return terminal_settings_sync_size_fd(&pty->terminal_settings, pty->frontend_fd, pty->backend_path);
 }
 
-static int pseudo_tty_set_events_full(PseudoTTY *pty, bool rearm) {
+static int pseudo_tty_set_events_full(PseudoTTY *pty, uint32_t rearm) {
         int r;
 
         assert(pty);
@@ -316,10 +316,11 @@ static int pseudo_tty_set_events_full(PseudoTTY *pty, bool rearm) {
         /* We watch the frontend edge-triggered, since in ignore-hangup mode EPOLLHUP would otherwise be
          * reported continuously while the backend is closed. sd-event re-registers edge-triggered event
          * sources on every call, and the kernel then immediately reports any pending EPOLLHUP again, hence
-         * only re-arm if the mask actually changed, or if we stopped reading before hitting EAGAIN, and thus
-         * need to be woken up again for the remaining data. */
+         * only re-arm if the mask actually changed, or if the caller asks us to for one of the events in the
+         * mask: if we stopped reading before hitting EAGAIN, and thus need to be woken up again for the
+         * remaining data, or if data was queued for writing after our last write attempt. */
         events |= EPOLLET;
-        if (!rearm || !FLAGS_SET(events, EPOLLIN)) {
+        if ((events & rearm) == 0) {
                 uint32_t current;
                 r = sd_event_source_get_io_events(pty->io_event_source, &current);
                 if (r < 0)
@@ -336,7 +337,7 @@ static int pseudo_tty_set_events_full(PseudoTTY *pty, bool rearm) {
 }
 
 int pseudo_tty_set_events(PseudoTTY *pty) {
-        return pseudo_tty_set_events_full(pty, /* rearm= */ false);
+        return pseudo_tty_set_events_full(pty, /* rearm= */ 0);
 }
 
 static int pseudo_tty_log_line(PseudoTTY *pty, const char *line) {
@@ -608,8 +609,15 @@ static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userd
         while (k > 0);
         r = k;
 
+        /* Processing the pty output might queue replies to the payload's queries in our write buffer (see
+         * pseudo_tty_monitor_reply_mode()). If the write loop above emptied the buffer without hitting
+         * EAGAIN, EPOLLOUT might still be in our event mask, and since we watch edge-triggered we'd not be
+         * woken up for them. Hence re-arm in that case. */
+        size_t queued = pty->frontend_write_buffer.iov_len;
+
         k = pseudo_tty_read_queued(pty, /* min_budget= */ 0);
-        bool rearm = k > 0;
+        uint32_t rearm = (k > 0 ? EPOLLIN : 0) |
+                (pty->frontend_write_buffer.iov_len > queued ? EPOLLOUT : 0);
         RET_GATHER(r, k);
 
         RET_GATHER(r, pseudo_tty_process_hangup(pty, revents));
