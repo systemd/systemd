@@ -261,6 +261,33 @@ static bool sender_on_local_subnet(DnsScope *s, DnsPacket *p) {
         return false;
 }
 
+bool mdns_known_answers_suppress(DnsAnswer *known_answers, DnsResourceRecord *rr) {
+        DnsResourceRecord *i;
+        DnsAnswerFlags flags;
+
+        assert(rr);
+
+        /* Returns true if rr must not be sent, because the querier already knows it. RFC 6762, Section 7.1:
+         * "A Multicast DNS responder MUST NOT answer a Multicast DNS query if the answer it would give is
+         * already included in the Answer Section with an RR TTL at least half the correct value." */
+
+        DNS_ANSWER_FOREACH_FLAGS(i, flags, known_answers) {
+                /* known_answers contains resource records from the Answer, Authority, and Additional
+                 * sections. Records in the Authority Section of a probe query are the prober's proposed
+                 * records (Section 8.2), not known answers. */
+                if (!FLAGS_SET(flags, DNS_ANSWER_SECTION_ANSWER))
+                        continue;
+
+                if ((uint64_t) i->ttl * 2 < rr->ttl)
+                        continue;
+
+                if (dns_resource_record_equal(i, rr) > 0)
+                        return true;
+        }
+
+        return false;
+}
+
 static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *full_answer = NULL;
         _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
@@ -340,6 +367,13 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
 
                 DNS_ANSWER_FOREACH_ITEM(item, answer) {
                         DnsAnswerFlags flags = item->flags | DNS_ANSWER_REFUSE_TTL_NO_MATCH;
+
+                        if (mdns_known_answers_suppress(p->answer, item->rr)) {
+                                log_debug("%s is a known answer of the query, not sending it.",
+                                          dns_resource_record_to_string(item->rr));
+                                continue;
+                        }
+
                         /* The cache-flush bit must not be set in legacy unicast responses.
                          * See section 6.7 of RFC 6762. */
                         if (legacy_query)
