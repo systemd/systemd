@@ -646,6 +646,33 @@ static void test_exec_readwritepaths(Manager *m) {
         test(m, "exec-readwritepaths-mount-propagation.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
 }
 
+static void test_exec_protectsystem(Manager *m) {
+
+        /* ProtectSystem= has no effect (and does not fail) when mount namespacing is unavailable, so these
+         * tests only make sense when we can actually set up namespaces. */
+        if (!can_unshare) {
+                log_notice("Cannot use namespaces, skipping %s", __func__);
+                return;
+        }
+
+        /* ProtectSystem=yes makes /usr/ read-only, but leaves /etc/ and /run/ writable. The /etc/ check
+         * writes to the host's /etc/, so only run it when that is writable. */
+        if (path_is_read_only_fs("/etc") == 0)
+                test(m, "exec-protectsystem-yes.service", 0, CLD_EXITED);
+
+        /* ProtectSystem=full additionally makes /etc/ read-only; /run/ stays writable. */
+        test(m, "exec-protectsystem-full.service", 0, CLD_EXITED);
+
+        /* ProtectSystem=strict makes everything read-only, including /run/ (even with the MountAPIVFS=
+         * tmpfs) ... */
+        test(m, "exec-protectsystem-strict.service", 0, CLD_EXITED);
+        /* ... but ReadWritePaths= can still make a subdirectory of /run/ writable. The target has to exist
+         * for ReadWritePaths= to bind it, so create it on the host first. */
+        ASSERT_OK(mkdir_p("/run/test-exec-run-readwrite", 0755));
+        test(m, "exec-protectsystem-strict-readwrite.service", 0, CLD_EXITED);
+        (void) rm_rf("/run/test-exec-run-readwrite", REMOVE_ROOT|REMOVE_PHYSICAL);
+}
+
 static void test_exec_inaccessiblepaths(Manager *m) {
 
         if (!is_inaccessible_available()) {
@@ -1405,6 +1432,7 @@ static void run_tests(RuntimeScope scope, char **patterns) {
                 entry(test_exec_privatetmp),
                 entry(test_exec_protecthome),
                 entry(test_exec_protectkernelmodules),
+                entry(test_exec_protectsystem),
                 entry(test_exec_readonlypaths),
                 entry(test_exec_readwritepaths),
                 entry(test_exec_restrictnamespaces),
