@@ -94,32 +94,41 @@ size_t manifest_hash_size(ManifestHash h) {
 static const struct {
         ManifestField field;
         const char *name;
+        const char *uapi16_feature; /* The name in the "features" field of UAPI.16 manifests */
 } manifest_field_table[] = {
         /* This is a bitfield, hence not a simple array indexed by the enum */
-        { MANIFEST_FIELD_MODE,             "mode"             },
-        { MANIFEST_FIELD_UID,              "uid"              },
-        { MANIFEST_FIELD_GID,              "gid"              },
-        { MANIFEST_FIELD_SIZE,             "size"             },
-        { MANIFEST_FIELD_HASH,             "hash"             },
-        { MANIFEST_FIELD_SYMLINK,          "symlink"          },
-        { MANIFEST_FIELD_DEVICE,           "device"           },
-        { MANIFEST_FIELD_HARDLINK,         "hardlink"         },
-        { MANIFEST_FIELD_MTIME,            "mtime"            },
-        { MANIFEST_FIELD_USER_XATTR,       "user-xattr"       },
-        { MANIFEST_FIELD_USER_NAME,        "user-name"        },
-        { MANIFEST_FIELD_GROUP_NAME,       "group-name"       },
-        { MANIFEST_FIELD_FLAG_APPEND_ONLY, "flag-append-only" },
-        { MANIFEST_FIELD_FLAG_IMMUTABLE,   "flag-immutable"   },
-        { MANIFEST_FIELD_FLAG_NO_ATIME,    "flag-no-atime"    },
-        { MANIFEST_FIELD_FLAG_NO_COW,      "flag-no-cow"      },
-        { MANIFEST_FIELD_FLAG_NO_DUMP,     "flag-no-dump"     },
-        { MANIFEST_FIELD_READ_ONLY,        "read-only"        },
-        { MANIFEST_FIELD_FLAG_HIDDEN,      "flag-hidden"      },
-        { MANIFEST_FIELD_FLAG_SYSTEM,      "flag-system"      },
-        { MANIFEST_FIELD_FLAG_ARCHIVE,     "flag-archive"     },
-        { MANIFEST_FIELD_FS_UUID,          "fs-uuid"          },
-        { MANIFEST_FIELD_FS_LABEL,         "fs-label"         },
-        { MANIFEST_FIELD_FAT_SERIAL,       "fat-serial"       },
+        { MANIFEST_FIELD_MODE,              "mode",             "mode"                      },
+        { MANIFEST_FIELD_UID,               "uid",              "uid"                       },
+        { MANIFEST_FIELD_GID,               "gid",              "gid"                       },
+        { MANIFEST_FIELD_SIZE,              "size",             "size"                      },
+        { MANIFEST_FIELD_HASH,              "hash",             "sha256"                    }, /* UAPI.16 only supports SHA256 */
+        { MANIFEST_FIELD_SYMLINK,           "symlink",          "symlink"                   },
+        { MANIFEST_FIELD_DEVICE,            "device",           "device"                    },
+        { MANIFEST_FIELD_HARDLINK,          "hardlink",         "hardlink"                  },
+        { MANIFEST_FIELD_MTIME,             "mtime",            "mtime"                     },
+        { MANIFEST_FIELD_USER_XATTR,        "user-xattr",       "user-xattr"                },
+        { MANIFEST_FIELD_USER_NAME,         "user-name",        "user-name"                 },
+        { MANIFEST_FIELD_GROUP_NAME,        "group-name",       "group-name"                },
+        { MANIFEST_FIELD_FLAG_APPEND_ONLY,  "flag-append-only", "flag-append-only"          },
+        { MANIFEST_FIELD_FLAG_IMMUTABLE,    "flag-immutable",   "flag-immutable"            },
+        { MANIFEST_FIELD_FLAG_NO_ATIME,     "flag-no-atime",    "flag-no-atime"             },
+        { MANIFEST_FIELD_FLAG_NO_COW,       "flag-no-cow",      "flag-no-cow"               },
+        { MANIFEST_FIELD_FLAG_NO_DUMP,      "flag-no-dump",     "flag-no-dump"              },
+        { MANIFEST_FIELD_READ_ONLY,         "read-only",        "read-only"                 },
+        { MANIFEST_FIELD_FLAG_HIDDEN,       "flag-hidden",      "flag-hidden"               },
+        { MANIFEST_FIELD_FLAG_SYSTEM,       "flag-system",      "flag-system"               },
+        { MANIFEST_FIELD_FLAG_ARCHIVE,      "flag-archive",     "flag-archive"              },
+        { MANIFEST_FIELD_FS_UUID,           "fs-uuid",          "fs-uuid"                   },
+        { MANIFEST_FIELD_FS_LABEL,          "fs-label",         "fs-label"                  },
+        { MANIFEST_FIELD_FAT_SERIAL,        "fat-serial",       "fat-serial"                },
+        /* Not generated from directory trees, hence not selectable by name */
+        { MANIFEST_FIELD_GPT_LABEL,         NULL,               "gpt-label"                 },
+        { MANIFEST_FIELD_GPT_UUID,          NULL,               "gpt-uuid"                  },
+        { MANIFEST_FIELD_GPT_TYPE_UUID,     NULL,               "gpt-type-uuid"             },
+        { MANIFEST_FIELD_GPT_DISK_UUID,     NULL,               "gpt-disk-uuid"             },
+        { MANIFEST_FIELD_GPT_FLAGS,         NULL,               "gpt-flags"                 },
+        { MANIFEST_FIELD_GPT_FLAG_NO_AUTO,  NULL,               "gpt-flag-no-auto"          },
+        { MANIFEST_FIELD_GPT_FLAG_GROWFS,   NULL,               "gpt-flag-grow-file-system" },
 };
 
 const char* manifest_field_to_string(ManifestField f) {
@@ -135,7 +144,26 @@ ManifestField manifest_field_from_string(const char *s) {
                 return _MANIFEST_FIELD_INVALID;
 
         FOREACH_ELEMENT(i, manifest_field_table)
-                if (streq(i->name, s))
+                if (streq_ptr(i->name, s))
+                        return i->field;
+
+        return _MANIFEST_FIELD_INVALID;
+}
+
+const char* manifest_field_to_uapi16_feature(ManifestField f) {
+        FOREACH_ELEMENT(i, manifest_field_table)
+                if (i->field == f)
+                        return i->uapi16_feature;
+
+        return NULL;
+}
+
+ManifestField manifest_field_from_uapi16_feature(const char *s) {
+        if (!s)
+                return _MANIFEST_FIELD_INVALID;
+
+        FOREACH_ELEMENT(i, manifest_field_table)
+                if (streq_ptr(i->uapi16_feature, s))
                         return i->field;
 
         return _MANIFEST_FIELD_INVALID;
@@ -178,7 +206,7 @@ int manifest_fields_from_string(const char *s, ManifestField *fields) {
 
                 ManifestField f;
                 if (streq(n, "all"))
-                        f = _MANIFEST_FIELD_ALL;
+                        f = _MANIFEST_FIELD_FSTREE_ALL;
                 else if (streq(n, "default"))
                         f = _MANIFEST_FIELD_DEFAULT;
                 else if (streq(n, "none"))
@@ -205,7 +233,7 @@ int manifest_fields_to_string(ManifestField f, char **ret) {
         assert(ret);
 
         FOREACH_ELEMENT(i, manifest_field_table) {
-                if (!FLAGS_SET(f, i->field))
+                if (!i->name || !FLAGS_SET(f, i->field))
                         continue;
 
                 if (!strextend_with_separator(&s, ",", i->name))
@@ -727,7 +755,7 @@ static unsigned manifest_uapi16_fields_to_statx(ManifestField fields) {
 
         /* Returns the statx() mask needed to generate an uapi16 manifest with the specified fields. */
 
-        if (FLAGS_SET(fields, MANIFEST_FIELD_MODE))
+        if (fields & (MANIFEST_FIELD_MODE|MANIFEST_FIELD_READ_ONLY))
                 mask |= STATX_MODE;
         if (fields & (MANIFEST_FIELD_UID|MANIFEST_FIELD_USER_NAME))
                 mask |= STATX_UID;
@@ -848,8 +876,13 @@ static int hardlink_data_lookup(
         r = inode_fid_hex(inode_fd, &fhs);
         if (r < 0)
                 return r;
-        if (r == 0)
+        if (r == 0) {
+                /* We declare the "hardlink" feature in the manifest, which means a missing inode token
+                 * indicates the file is not hardlinked. Which is not true here, hence count. */
+                log_warning("Cannot identify hardlinked inode '%s', as the file system does not support file handles, omitting hardlink information.", empty_to_root(path));
+                c->n_metadata_omitted++;
                 goto nope;
+        }
 
         r = hardlink_db_acquire(c);
         if (r < 0)
@@ -1109,6 +1142,7 @@ typedef struct FsIdentity {
         bool uuid_set;
         uint32_t fat_serial;
         bool fat_serial_set;
+        ManifestField unqueryable;  /* The identity fields the file system cannot report */
 } FsIdentity;
 
 static void fs_identity_done(FsIdentity *i) {
@@ -1142,6 +1176,8 @@ static int manifest_read_fs_identity(int dir_fd, FsIdentity *ret) {
         if (ioctl(fd, FS_IOC_GETFSLABEL, label) < 0) {
                 if (!ERRNO_IS_IOCTL_NOT_SUPPORTED(errno))
                         return -errno;
+
+                id.unqueryable |= MANIFEST_FIELD_FS_LABEL;
         } else {
                 id.label = strndup(label, sizeof(label));
                 if (!id.label)
@@ -1154,6 +1190,8 @@ static int manifest_read_fs_identity(int dir_fd, FsIdentity *ret) {
                 if (ioctl(fd, FAT_IOCTL_GET_VOLUME_ID, &serial) < 0) {
                         if (!ERRNO_IS_IOCTL_NOT_SUPPORTED(errno))
                                 return -errno;
+
+                        id.unqueryable |= MANIFEST_FIELD_FAT_SERIAL;
                 } else {
                         id.fat_serial = serial;
                         id.fat_serial_set = true;
@@ -1163,11 +1201,14 @@ static int manifest_read_fs_identity(int dir_fd, FsIdentity *ret) {
                 if (ioctl(fd, FS_IOC_GETFSUUID, &u) < 0) {
                         if (!ERRNO_IS_IOCTL_NOT_SUPPORTED(errno))
                                 return -errno;
-                } else if (u.len != sizeof(id.uuid.bytes))
+
+                        id.unqueryable |= MANIFEST_FIELD_FS_UUID;
+                } else if (u.len != sizeof(id.uuid.bytes)) {
                         /* The kernel permits file systems to report identifiers shorter than 16 bytes,
                          * which are not UUIDs and hence cannot be represented as "fsUUID" */
                         log_debug("File system reports a %u byte identifier, which is not a UUID, ignoring.", (unsigned) u.len);
-                else {
+                        id.unqueryable |= MANIFEST_FIELD_FS_UUID;
+                } else {
                         memcpy(id.uuid.bytes, u.uuid, sizeof(id.uuid.bytes));
                         id.uuid_set = !sd_id128_is_null(id.uuid);
                 }
@@ -1192,8 +1233,7 @@ static int manifest_uapi16_extra_fields(
         assert(FLAGS_SET(sx->stx_mask, STATX_TYPE)); /* Always requested, see manifest_uapi16_fields_to_statx() */
         assert(j);
 
-        /* Adds the Linux inode flags, FAT attributes and file system identity fields to the object, if
-         * requested. */
+        /* Adds the Linux inode flags, FAT attributes and read-only state to the object, if requested. */
 
         if (inode_fd < 0)
                 return 0;
@@ -1217,6 +1257,7 @@ static int manifest_uapi16_extra_fields(
 
         /* The root directory of a FAT file system has no directory entry, hence no attributes */
         uint32_t fat_mask = manifest_fields_to_fat_attrs(c->fields);
+        bool read_only_done = false;
         if (fat_mask != 0 && reg_or_dir && !is_root) {
                 uint32_t a;
                 r = manifest_read_fat_attrs(inode_fd, &a);
@@ -1227,40 +1268,84 @@ static int manifest_uapi16_extra_fields(
                         r = uapi16_fat_attrs_merge_json(j, a, fat_mask);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to add FAT attributes to JSON object: %m");
+
+                        read_only_done = FLAGS_SET(fat_mask, ATTR_RO);
                 }
         }
 
-        if ((c->fields & (MANIFEST_FIELD_FS_UUID|MANIFEST_FIELD_FS_LABEL|MANIFEST_FIELD_FAT_SERIAL)) != 0 && is_root) {
-                _cleanup_(fs_identity_done) FsIdentity id = {};
-                r = manifest_read_fs_identity(inode_fd, &id);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_warning_errno(r, "Failed to read file system identity, ignoring: %m");
+        /* Everywhere else (and if the FAT attributes cannot be read) the read-only state is derived from
+         * the access mode, so that it is declared consistently with it. Symlinks have no access mode. */
+        if (FLAGS_SET(c->fields, MANIFEST_FIELD_READ_ONLY) && !read_only_done &&
+            FLAGS_SET(sx->stx_mask, STATX_MODE) && !S_ISLNK(sx->stx_mode)) {
+                r = sd_json_variant_set_field_boolean(j, "readOnly", (sx->stx_mode & 0222) == 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add read-only state to JSON object: %m");
+        }
+
+        return 0;
+}
+
+static int manifest_uapi16_fs_identity(
+                ManifestContext *c,
+                int dir_fd,
+                sd_json_variant **ret,
+                ManifestField *ret_unqueryable) {
+
+        int r;
+
+        assert(c);
+        assert(ret);
+        assert(ret_unqueryable);
+
+        /* Builds the file system identity fields of the root object, if requested. Also returns the
+         * requested identity fields the file system cannot report, so that the root object does not declare
+         * them as recorded features: if it did, readers would conclude the file system has no such
+         * property. */
+
+        if ((c->fields & (MANIFEST_FIELD_FS_UUID|MANIFEST_FIELD_FS_LABEL|MANIFEST_FIELD_FAT_SERIAL)) == 0 || dir_fd < 0) {
+                *ret = NULL;
+                *ret_unqueryable = 0;
+                return 0;
+        }
+
+        _cleanup_(fs_identity_done) FsIdentity id = {};
+        r = manifest_read_fs_identity(dir_fd, &id);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_warning_errno(r, "Failed to read file system identity, ignoring: %m");
+                c->n_metadata_omitted++;
+                *ret = NULL;
+                *ret_unqueryable = 0;
+                return 0;
+        }
+
+        char sb[UAPI16_FAT_SERIAL_STRING_MAX];
+        const char *label = NULL;
+
+        if (FLAGS_SET(c->fields, MANIFEST_FIELD_FS_LABEL) && !isempty(id.label)) {
+                if (uapi16_fs_label_is_valid(id.label))
+                        label = id.label;
+                else {
+                        log_warning("File system label cannot be represented in a UAPI.16 manifest, omitting.");
                         c->n_metadata_omitted++;
-                } else {
-                        char sb[UAPI16_FAT_SERIAL_STRING_MAX];
-                        const char *label = NULL;
-
-                        if (FLAGS_SET(c->fields, MANIFEST_FIELD_FS_LABEL) && !isempty(id.label)) {
-                                if (uapi16_fs_label_is_valid(id.label))
-                                        label = id.label;
-                                else {
-                                        log_warning("File system label cannot be represented in a UAPI.16 manifest, omitting.");
-                                        c->n_metadata_omitted++;
-                                }
-                        }
-
-                        r = sd_json_variant_merge_objectbo(
-                                        j,
-                                        SD_JSON_BUILD_PAIR_CONDITION(!!label, "fsLabel", SD_JSON_BUILD_STRING(label)),
-                                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(c->fields, MANIFEST_FIELD_FAT_SERIAL) && id.fat_serial_set, "fatSerial", SD_JSON_BUILD_STRING(uapi16_fat_serial_to_string(id.fat_serial, sb))),
-                                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(c->fields, MANIFEST_FIELD_FS_UUID) && id.uuid_set, "fsUUID", SD_JSON_BUILD_UUID(id.uuid)));
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add file system identity to JSON object: %m");
                 }
         }
 
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        r = sd_json_buildo(
+                        &j,
+                        SD_JSON_BUILD_PAIR_CONDITION(!!label, "fsLabel", SD_JSON_BUILD_STRING(label)),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(c->fields, MANIFEST_FIELD_FAT_SERIAL) && id.fat_serial_set, "fatSerial", SD_JSON_BUILD_STRING(uapi16_fat_serial_to_string(id.fat_serial, sb))),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(c->fields, MANIFEST_FIELD_FS_UUID) && id.uuid_set, "fsUUID", SD_JSON_BUILD_UUID(id.uuid)));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build file system identity JSON object: %m");
+
+        if (id.unqueryable != 0)
+                log_debug("File system cannot report all requested identity fields, not declaring them.");
+
+        *ret = TAKE_PTR(j);
+        *ret_unqueryable = id.unqueryable & c->fields;
         return 0;
 }
 
@@ -1383,10 +1468,29 @@ static int manifest_uapi16_item(
         if (r < 0)
                 return r;
 
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *jid = NULL, *jf = NULL;
+        if (is_root) {
+                ManifestField unqueryable;
+                r = manifest_uapi16_fs_identity(c, inode_fd, &jid, &unqueryable);
+                if (r < 0)
+                        return r;
+
+                /* The root object declares the features the manifest records, i.e. which fields the file
+                 * objects may carry. Unless they are the default ones, as the specification asks us not to
+                 * set fields to their default. */
+                ManifestField declared = c->fields & ~unqueryable;
+                if (declared != _MANIFEST_FIELD_DEFAULT) {
+                        r = uapi16_features_build_json(declared, &jf);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to build features JSON array: %m");
+                }
+        }
+
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
         r = sd_json_buildo(
                         &j,
                         SD_JSON_BUILD_PAIR_CONDITION(is_root, "mediaType", JSON_BUILD_CONST_STRING(UAPI16_MANIFEST_MEDIA_TYPE)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!jf, "features", SD_JSON_BUILD_VARIANT(jf)),
                         SD_JSON_BUILD_PAIR_CONDITION(!is_root, "name", SD_JSON_BUILD_STRING(path)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!type, "type", SD_JSON_BUILD_STRING(type)),
                         SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(c->fields, MANIFEST_FIELD_SIZE) && have_size, "size", SD_JSON_BUILD_UNSIGNED(size)),
@@ -1404,6 +1508,12 @@ static int manifest_uapi16_item(
                         SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(c->fields, MANIFEST_FIELD_MTIME) && FLAGS_SET(sx->stx_mask, STATX_MTIME) && sx->stx_mtime.tv_sec >= 0, "mTimeNSec", SD_JSON_BUILD_UNSIGNED(statx_timestamp_load_nsec(&sx->stx_mtime))));
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON object: %m");
+
+        if (jid) {
+                r = sd_json_variant_merge_object(&j, jid);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add file system identity to JSON object: %m");
+        }
 
         r = manifest_uapi16_extra_fields(c, path, inode_fd, sx, &j);
         if (r < 0)
@@ -2193,17 +2303,19 @@ static int verify_inode_flags(ManifestContext *c, const Uapi16Object *o, int fd)
         return 0;
 }
 
-static int verify_fat_attrs(ManifestContext *c, const Uapi16Object *o, int fd) {
+static int verify_fat_attrs(ManifestContext *c, const Uapi16Object *o, int fd, const struct statx *sx) {
         uint32_t value, mask, a;
         int r;
 
         assert(c);
         assert(o);
         assert(fd >= 0);
+        assert(sx);
+        assert(FLAGS_SET(sx->stx_mask, STATX_MODE));
 
-        /* Only directory entries of regular files and directories carry attributes. The dispatcher refuses
-         * the FAT-specific fields elsewhere, but the generic "readOnly" field may show up anywhere. */
-        if (!o->name || !IN_SET(o->type, S_IFREG, S_IFDIR))
+        /* Symlinks have neither attributes nor an access mode. The dispatcher refuses the FAT-specific
+         * fields on them, but the generic "readOnly" field may show up anywhere. */
+        if (o->type == S_IFLNK)
                 return 0;
 
         uapi16_object_fat_attrs(o, &value, &mask);
@@ -2211,20 +2323,38 @@ static int verify_fat_attrs(ManifestContext *c, const Uapi16Object *o, int fd) {
         if (mask == 0)
                 return 0;
 
-        r = manifest_read_fat_attrs(fd, &a);
-        if (r < 0)
-                return log_error_errno(r, "Failed to read FAT attributes of '%s': %m", o->name);
-        if (r == 0) {
-                /* The specification says these fields have no effect on other file systems */
-                log_debug("'%s' is not located on a FAT file system, not verifying FAT attributes.", o->name);
-                c->n_not_applicable += popcount(mask);
-                return 0;
+        /* Only directory entries of regular files and directories carry attributes, and the root directory
+         * of a FAT file system has no directory entry */
+        if (o->name && IN_SET(o->type, S_IFREG, S_IFDIR)) {
+                r = manifest_read_fat_attrs(fd, &a);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read FAT attributes of '%s': %m", o->name);
+                if (r > 0) {
+                        BIT_FOREACH(b, (value ^ a) & mask) {
+                                uint32_t attr = UINT32_C(1) << b;
+                                manifest_verify_error(c, o->name, "Expected FAT attribute '%s' to be %s, but it is not.",
+                                                      uapi16_fat_attr_to_field(attr), FLAGS_SET(value, attr) ? "set" : "unset");
+                        }
+
+                        return 0;
+                }
         }
 
-        BIT_FOREACH(b, (value ^ a) & mask) {
-                uint32_t attr = UINT32_C(1) << b;
-                manifest_verify_error(c, o->name, "Expected FAT attribute '%s' to be %s, but it is not.",
-                                      uapi16_fat_attr_to_field(attr), FLAGS_SET(value, attr) ? "set" : "unset");
+        /* Everywhere else the read-only state is derived from the access mode */
+        if (FLAGS_SET(mask, ATTR_RO)) {
+                bool ro = (sx->stx_mode & 0222) == 0;
+
+                if (FLAGS_SET(value, ATTR_RO) != ro)
+                        manifest_verify_error(c, o->name, "Expected inode to be %s, but it is not.",
+                                              FLAGS_SET(value, ATTR_RO) ? "read-only" : "writable");
+
+                mask &= ~ATTR_RO;
+        }
+
+        /* The specification says the FAT-specific fields have no effect on other file systems */
+        if (mask != 0) {
+                log_debug("'%s' is not located on a FAT file system, not verifying FAT attributes.", empty_to_root(o->name));
+                c->n_not_applicable += popcount(mask);
         }
 
         return 0;
@@ -2365,7 +2495,7 @@ static int verify_object(ManifestContext *c, int dir_fd, const Uapi16Object *o) 
         if (r < 0)
                 return r;
 
-        r = verify_fat_attrs(c, o, fd);
+        r = verify_fat_attrs(c, o, fd, &sx);
         if (r < 0)
                 return r;
 

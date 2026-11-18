@@ -8,6 +8,7 @@
 #include "sd-gpt.h"
 
 #include "alloc-util.h"
+#include "bitfield.h"
 #include "conf-files.h"
 #include "crypto-util.h"
 #include "errno-util.h"
@@ -328,6 +329,22 @@ static int json_dispatch_uapi16_name(const char *name, sd_json_variant *variant,
                 return json_log_oom(variant, flags);
 
         return 0;
+}
+
+int uapi16_features_build_json(ManifestField features, sd_json_variant **ret) {
+        _cleanup_strv_free_ char **l = NULL;
+
+        assert((features & ~_MANIFEST_FIELD_ALL) == 0);
+        assert(ret);
+
+        BIT_FOREACH(b, (unsigned) features)
+                if (strv_extend(&l, ASSERT_PTR(manifest_field_to_uapi16_feature(1 << b))) < 0)
+                        return -ENOMEM;
+
+        /* The specification recommends sorting the values by their bytes */
+        strv_sort(l);
+
+        return sd_json_variant_new_array_strv(ret, l);
 }
 
 static int json_dispatch_inode_type(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {

@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <linux/fs.h>
+#include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
 #include <unistd.h>
@@ -244,7 +246,7 @@ TEST(manifest_fields_from_string) {
 
         f = 0;
         ASSERT_OK(manifest_fields_from_string("all", &f));
-        ASSERT_EQ(f, _MANIFEST_FIELD_ALL);
+        ASSERT_EQ(f, _MANIFEST_FIELD_FSTREE_ALL);
 
         f = _MANIFEST_FIELD_ALL;
         ASSERT_OK(manifest_fields_from_string("none", &f));
@@ -288,6 +290,24 @@ TEST(manifest_fields_from_string) {
         ASSERT_STREQ(manifest_field_to_string(MANIFEST_FIELD_HARDLINK), "hardlink");
         ASSERT_EQ(manifest_field_from_string("device"), MANIFEST_FIELD_DEVICE);
         ASSERT_EQ(manifest_field_from_string("nope"), _MANIFEST_FIELD_INVALID);
+
+        /* The GPT fields cannot be generated from directory trees, hence have no name of their own */
+        ASSERT_NULL(manifest_field_to_string(MANIFEST_FIELD_GPT_LABEL));
+        ASSERT_EQ(manifest_field_from_string("gpt-label"), _MANIFEST_FIELD_INVALID);
+        f = _MANIFEST_FIELD_DEFAULT;
+        ASSERT_ERROR(manifest_fields_from_string("+gpt-label", &f), EINVAL);
+        s = mfree(s);
+        ASSERT_OK(manifest_fields_to_string(MANIFEST_FIELD_SIZE|MANIFEST_FIELD_GPT_FLAGS, &s));
+        ASSERT_STREQ(s, "size");
+
+        /* The names of the UAPI.16 features only differ for the hash, and cover the GPT fields too */
+        ASSERT_STREQ(manifest_field_to_uapi16_feature(MANIFEST_FIELD_HASH), "sha256");
+        ASSERT_STREQ(manifest_field_to_uapi16_feature(MANIFEST_FIELD_READ_ONLY), "read-only");
+        ASSERT_STREQ(manifest_field_to_uapi16_feature(MANIFEST_FIELD_GPT_FLAG_GROWFS), "gpt-flag-grow-file-system");
+        ASSERT_EQ(manifest_field_from_uapi16_feature("sha256"), MANIFEST_FIELD_HASH);
+        ASSERT_EQ(manifest_field_from_uapi16_feature("hash"), _MANIFEST_FIELD_INVALID);
+        ASSERT_EQ(manifest_field_from_uapi16_feature("gpt-disk-uuid"), MANIFEST_FIELD_GPT_DISK_UUID);
+        ASSERT_EQ(manifest_field_from_uapi16_feature("fat-serial"), MANIFEST_FIELD_FAT_SERIAL);
 }
 
 TEST(manifest_list) {
@@ -572,6 +592,7 @@ TEST(manifest_uapi16) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *root = find_object(buf, /* name= */ NULL);
         ASSERT_NOT_NULL(root);
         ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(root, "mediaType")), UAPI16_MANIFEST_MEDIA_TYPE);
+        ASSERT_NULL(sd_json_variant_by_key(root, "features")); /* The default set is not declared explicitly */
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *reg = find_object(buf, "regular.txt");
         ASSERT_NOT_NULL(reg);
@@ -615,6 +636,12 @@ TEST(manifest_uapi16) {
         context_init(&c, MANIFEST_FORMAT_UAPI16);
         c.fields = MANIFEST_FIELD_SIZE|MANIFEST_FIELD_MTIME;
         ASSERT_OK(generate(&c, tfd, &buf2, &size2));
+        /* … and is declared in the root object */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *root2 = find_object(buf2, /* name= */ NULL);
+        ASSERT_NOT_NULL(root2);
+        _cleanup_free_ char *features2 = NULL;
+        ASSERT_OK(sd_json_variant_format(sd_json_variant_by_key(root2, "features"), /* flags= */ 0, &features2));
+        ASSERT_STREQ(features2, "[\"mtime\",\"size\"]");
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *reg2 = find_object(buf2, "regular.txt");
         ASSERT_NOT_NULL(reg2);
         ASSERT_NULL(sd_json_variant_by_key(reg2, "mode"));
@@ -1301,6 +1328,86 @@ TEST(manifest_uapi16_inode_flags) {
         c.fields |= MANIFEST_FIELD_FLAG_HIDDEN;
         ASSERT_OK(verify_buffer(&c, tfd, fatbuf2, strlen(fatbuf2)));
         ASSERT_EQ(c.n_not_applicable, 1U);
+}
+
+TEST(manifest_uapi16_read_only) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF;
+        _cleanup_free_ char *buf = NULL;
+        size_t size;
+
+        ASSERT_OK(tfd = make_tree(&t));
+        ASSERT_OK_ERRNO(fchmodat(tfd, "regular.txt", 0444, 0));
+        ASSERT_OK_ERRNO(fchmodat(tfd, "fifo", 0400, 0));
+
+        /* Outside of FAT the read-only state is derived from the access mode, on everything but symlinks,
+         * as the dispatcher refuses "readOnly" and "mode" contradicting each other */
+        _cleanup_(manifest_context_done) ManifestContext c;
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.fields |= MANIFEST_FIELD_READ_ONLY;
+        ASSERT_OK(generate(&c, tfd, &buf, &size));
+        ASSERT_EQ(c.n_metadata_omitted, 0U);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant
+                *reg = ASSERT_NOT_NULL(find_object(buf, "regular.txt")),
+                *fifo = ASSERT_NOT_NULL(find_object(buf, "fifo")),
+                *nested = ASSERT_NOT_NULL(find_object(buf, "subdir/nested.txt")),
+                *lnk = ASSERT_NOT_NULL(find_object(buf, "symlink"));
+        ASSERT_TRUE(sd_json_variant_boolean(sd_json_variant_by_key(reg, "readOnly")));
+        ASSERT_TRUE(sd_json_variant_boolean(sd_json_variant_by_key(fifo, "readOnly")));
+        ASSERT_TRUE(sd_json_variant_is_boolean(sd_json_variant_by_key(nested, "readOnly")));
+        ASSERT_FALSE(sd_json_variant_boolean(sd_json_variant_by_key(nested, "readOnly")));
+        ASSERT_NULL(sd_json_variant_by_key(lnk, "readOnly"));
+
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.fields |= MANIFEST_FIELD_READ_ONLY;
+        ASSERT_OK(verify_buffer(&c, tfd, buf, size));
+        ASSERT_EQ(c.n_not_applicable, 0U);
+
+        /* A changed access mode is detected via the read-only state too */
+        ASSERT_OK_ERRNO(fchmodat(tfd, "regular.txt", 0644, 0));
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.fields = MANIFEST_FIELD_READ_ONLY;
+        ASSERT_ERROR(verify_buffer(&c, tfd, buf, size), EBADMSG);
+        ASSERT_EQ(c.n_errors, 1U);
+}
+
+TEST(manifest_uapi16_fs_identity_features) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF;
+        _cleanup_free_ char *buf = NULL;
+        size_t size;
+
+        ASSERT_OK(tfd = make_tree(&t));
+
+        _cleanup_(manifest_context_done) ManifestContext c;
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.fields |= MANIFEST_FIELD_FS_LABEL|MANIFEST_FIELD_FAT_SERIAL;
+        ASSERT_OK(generate(&c, tfd, &buf, &size));
+        ASSERT_EQ(c.n_metadata_omitted, 0U);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *root = ASSERT_NOT_NULL(find_object(buf, /* name= */ NULL));
+        _cleanup_free_ char *features = NULL;
+        ASSERT_OK(sd_json_variant_format(sd_json_variant_by_key(root, "features"), /* flags= */ 0, &features));
+
+        /* If the file system cannot report its label, it is not declared, as readers would otherwise
+         * conclude the file system has none. Other file systems than FAT have no FAT volume serial number,
+         * hence that one is declared, but not recorded. */
+        char label[FSLABEL_MAX] = {};
+        bool have_label = ioctl(tfd, FS_IOC_GETFSLABEL, label) >= 0;
+        if (!have_label)
+                ASSERT_TRUE(ERRNO_IS_IOCTL_NOT_SUPPORTED(errno));
+        log_info("File system label %s queryable, features: %s", have_label ? "is" : "is not", features);
+        ASSERT_EQ(!!strstr(features, "\"fs-label\""), have_label);
+        ASSERT_NOT_NULL(strstr(features, "\"fat-serial\""));
+        ASSERT_NULL(sd_json_variant_by_key(root, "fatSerial"));
+
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.fields |= MANIFEST_FIELD_FS_LABEL|MANIFEST_FIELD_FAT_SERIAL;
+        ASSERT_OK(verify_buffer(&c, tfd, buf, size));
 }
 
 #if HAVE_OPENSSL
