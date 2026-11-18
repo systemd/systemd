@@ -4,7 +4,7 @@
 (( $+functions[_systemd-manifest_fields] )) ||
 _systemd-manifest_fields() {
     local -a _fields _all
-    _fields=(mode uid gid size hash symlink device hardlink mtime user-xattr user-name group-name)
+    _fields=(mode uid gid size hash symlink device hardlink mtime user-xattr user-name group-name flag-append-only flag-immutable flag-no-atime flag-no-cow flag-no-dump read-only flag-hidden flag-system flag-archive fs-uuid fs-label fat-serial)
     _all=( $_fields ${_fields/#/+} ${_fields/#/-} all default none )
     _values -s , 'field' $_all
 }

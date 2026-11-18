@@ -90,7 +90,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                                 return log_error_errno(arg_format, "Unknown manifest format: %s", opts.arg);
                         break;
 
-                OPTION_LONG("field", "FIELDS", "Fields to include (mode, uid, gid, size, hash, symlink, device, hardlink, mtime, user-xattr, user-name, group-name, all, default, none, or +/- prefixed to adjust)"):
+                OPTION_LONG("field", "FIELDS", "Fields to include (mode, uid, gid, size, hash, symlink, device, hardlink, mtime, user-xattr, user-name, group-name, flag-append-only, flag-immutable, flag-no-atime, flag-no-cow, flag-no-dump, read-only, flag-hidden, flag-system, flag-archive, fs-uuid, fs-label, fat-serial, all, default, none, or +/- prefixed to adjust)"):
                         r = manifest_fields_from_string(opts.arg, &arg_fields);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse field list: %s", opts.arg);
@@ -469,7 +469,13 @@ static int verb_verify(int argc, char *argv[], uintptr_t _data, void *userdata) 
                         return log_error_errno(r, "Failed to open standard input: %m");
         }
 
-        return manifest_verify(&c, dfd, f);
+        r = manifest_verify(&c, dfd, f);
+
+        /* Show this also if verification failed, it might help understanding what was checked */
+        if (c.n_not_applicable > 0)
+                log_info("%" PRIu64 " fields listed in the manifest not verified, as they do not apply to the file system.", c.n_not_applicable);
+
+        return r;
 }
 
 static int run(int argc, char *argv[]) {

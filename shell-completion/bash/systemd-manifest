@@ -46,7 +46,7 @@ _systemd_manifest() {
             --field)
                 local f
                 comps=''
-                for f in mode uid gid size hash symlink device hardlink mtime user-xattr user-name group-name; do
+                for f in mode uid gid size hash symlink device hardlink mtime user-xattr user-name group-name flag-append-only flag-immutable flag-no-atime flag-no-cow flag-no-dump read-only flag-hidden flag-system flag-archive fs-uuid fs-label fat-serial; do
                     comps+=" $f +$f -$f"
                 done
                 comps+=' all default none'
