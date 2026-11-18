@@ -62,6 +62,10 @@
  * mounts that shall stay private to their mount namespace, e.g. the extension images. */
 #define UNIT_STAGING_DIR "/run/systemd/staging"
 
+/* The directory the mount namespace is assembled in, before it is switched to /. Created by PID 1
+ * early on, like /run/systemd/staging. */
+#define STAGING_ROOT_DIR "/run/systemd/mount-rootfs"
+
 typedef enum MountMode {
         /* This is ordered by priority! */
         MOUNT_INACCESSIBLE,
@@ -523,7 +527,6 @@ static int append_mount_images(MountList *ml, const MountImage *mount_images, si
 
 static int append_extensions(
                 MountList *ml,
-                const char *root,
                 char **hierarchies,
                 const MountImage *mount_images,
                 size_t n_mount_images,
@@ -691,7 +694,7 @@ static int append_extensions(
         for (size_t i = 0; hierarchies && hierarchies[i]; ++i) {
                 _cleanup_free_ char *prefixed_hierarchy = NULL;
 
-                prefixed_hierarchy = path_join(root, hierarchies[i]);
+                prefixed_hierarchy = path_join(STAGING_ROOT_DIR, hierarchies[i]);
                 if (!prefixed_hierarchy)
                         return -ENOMEM;
 
@@ -1101,14 +1104,10 @@ static void drop_nop(MountList *ml) {
         ml->n_mounts = t - ml->mounts;
 }
 
-static void drop_outside_root(MountList *ml, const char *root_directory) {
+static void drop_outside_root(MountList *ml) {
         MountEntry *f, *t;
 
         assert(ml);
-
-        /* Nothing to do */
-        if (!root_directory)
-                return;
 
         /* Drops all mounts that are outside of the root directory. */
 
@@ -1117,7 +1116,7 @@ static void drop_outside_root(MountList *ml, const char *root_directory) {
                 /* ExtensionImages/Directories bases are staged in a private tmpfs below
                  * /run/systemd/staging, outside of the root directory. */
                 if (!IN_SET(f->mode, MOUNT_EXTENSION_IMAGE, MOUNT_EXTENSION_DIRECTORY) &&
-                    !path_startswith(mount_entry_path(f), root_directory)) {
+                    !path_startswith(mount_entry_path(f), STAGING_ROOT_DIR)) {
                         log_debug("%s is outside of root directory.", mount_entry_path(f));
                         mount_entry_done(f);
                         continue;
@@ -2249,28 +2248,27 @@ static bool namespace_parameters_mount_apivfs(const NamespaceParameters *p) {
  * - that are outside of the relevant root directory
  * - which are duplicates
  */
-static void sort_and_drop_unused_mounts(MountList *ml, const char *root_directory) {
+static void sort_and_drop_unused_mounts(MountList *ml) {
         assert(ml);
-        assert(root_directory);
 
         assert(ml->mounts || ml->n_mounts == 0);
 
         typesafe_qsort(ml->mounts, ml->n_mounts, mount_path_compare);
 
         drop_duplicates(ml);
-        drop_outside_root(ml, root_directory);
+        drop_outside_root(ml);
         drop_inaccessible(ml);
         drop_nop(ml);
 }
 
-static int create_symlinks_from_tuples(const char *root, char **strv_symlinks) {
+static int create_symlinks_from_tuples(char **strv_symlinks) {
         int r;
 
         STRV_FOREACH_PAIR(src, dst, strv_symlinks) {
                 _cleanup_free_ char *src_abs = NULL, *dst_abs = NULL;
 
-                src_abs = path_join(root, *src);
-                dst_abs = path_join(root, *dst);
+                src_abs = path_join(STAGING_ROOT_DIR, *src);
+                dst_abs = path_join(STAGING_ROOT_DIR, *dst);
                 if (!src_abs || !dst_abs)
                         return -ENOMEM;
 
@@ -2293,7 +2291,7 @@ static int create_symlinks_from_tuples(const char *root, char **strv_symlinks) {
         return 0;
 }
 
-static void mount_entry_path_debug_string(const char *root, MountEntry *m, char **ret_path) {
+static void mount_entry_path_debug_string(MountEntry *m, char **ret_path) {
         assert(m);
 
         /* Create a string suitable for debugging logs, stripping for example the local working directory.
@@ -2314,29 +2312,26 @@ static void mount_entry_path_debug_string(const char *root, MountEntry *m, char 
                 return;
         }
 
-        if (root) {
-                const char *e = startswith(mount_entry_path(m), root);
-                if (e) {
-                        *ret_path = strdup(e);
-                        return;
-                }
+        const char *e = startswith(mount_entry_path(m), STAGING_ROOT_DIR);
+        if (e) {
+                *ret_path = strdup(e);
+                return;
         }
 
         *ret_path = strdup(mount_entry_path(m));
         return;
 }
 
-static int setup_host_os_release(const NamespaceParameters *p, const char *root) {
+static int setup_host_os_release(const NamespaceParameters *p) {
         int r;
 
         assert(p);
-        assert(root);
 
         if (p->host_os_release_fd < 0)
                 return 0;
 
         _cleanup_close_ int dir_fd = -EBADF;
-        r = chase("run/host", root,
+        r = chase("run/host", STAGING_ROOT_DIR,
                   CHASE_PREFIX_ROOT|CHASE_MKDIR_0755|CHASE_PROHIBIT_SYMLINKS,
                   /* ret_path= */ NULL, &dir_fd);
         if (r < 0)
@@ -2355,7 +2350,6 @@ static int setup_host_os_release(const NamespaceParameters *p, const char *root)
 
 static int apply_mounts(
                 MountList *ml,
-                const char *root,
                 const NamespaceParameters *p,
                 char **reterr_path) {
 
@@ -2364,7 +2358,6 @@ static int apply_mounts(
         int r;
 
         assert(ml);
-        assert(root);
         assert(p);
 
         if (ml->n_mounts == 0) /* Shortcut: nothing to do */
@@ -2393,9 +2386,9 @@ static int apply_mounts(
 
                         /* ExtensionImages/Directories are first opened in the propagate directory, not in
                          * the root_directory. */
-                        r = follow_symlink(!IN_SET(m->mode, MOUNT_EXTENSION_IMAGE, MOUNT_EXTENSION_DIRECTORY) ? root : NULL, m);
+                        r = follow_symlink(!IN_SET(m->mode, MOUNT_EXTENSION_IMAGE, MOUNT_EXTENSION_DIRECTORY) ? STAGING_ROOT_DIR : NULL, m);
                         if (r < 0) {
-                                mount_entry_path_debug_string(root, m, reterr_path);
+                                mount_entry_path_debug_string(m, reterr_path);
                                 return r;
                         }
                         if (r == 0) {
@@ -2408,9 +2401,9 @@ static int apply_mounts(
                         }
 
                         /* Returns 1 if the mount should be post-processed, 0 otherwise */
-                        r = apply_one_mount(root, m, p);
+                        r = apply_one_mount(STAGING_ROOT_DIR, m, p);
                         if (r < 0) {
-                                mount_entry_path_debug_string(root, m, reterr_path);
+                                mount_entry_path_debug_string(m, reterr_path);
                                 return r;
                         }
                         m->state = r == 0 ? MOUNT_SKIPPED : MOUNT_APPLIED;
@@ -2419,18 +2412,18 @@ static int apply_mounts(
                 if (!again)
                         break;
 
-                sort_and_drop_unused_mounts(ml, root);
+                sort_and_drop_unused_mounts(ml);
         }
 
         /* Now that all filesystems have been set up, but before the
          * read-only switches are flipped, create the exec dirs and other symlinks.
          * Note that when /var/lib is not empty/tmpfs, these symlinks will already
          * exist, which means this will be a no-op. */
-        r = create_symlinks_from_tuples(root, p->symlinks);
+        r = create_symlinks_from_tuples(p->symlinks);
         if (r < 0)
                 return log_debug_errno(r, "Failed to set up symlinks inside mount namespace: %m");
 
-        r = setup_host_os_release(p, root);
+        r = setup_host_os_release(p);
         if (r < 0)
                 log_debug_errno(r, "Failed to set up the host's os-release, ignoring: %m");
 
@@ -2446,7 +2439,7 @@ static int apply_mounts(
         FOREACH_ARRAY(m, ml->mounts, ml->n_mounts) {
                 r = make_read_only(m, deny_list, proc_self_mountinfo);
                 if (r < 0) {
-                        mount_entry_path_debug_string(root, m, reterr_path);
+                        mount_entry_path_debug_string(m, reterr_path);
                         return r;
                 }
         }
@@ -2461,7 +2454,7 @@ static int apply_mounts(
         FOREACH_ARRAY(m, ml->mounts, ml->n_mounts) {
                 r = make_noexec(m, deny_list, proc_self_mountinfo);
                 if (r < 0) {
-                        mount_entry_path_debug_string(root, m, reterr_path);
+                        mount_entry_path_debug_string(m, reterr_path);
                         return r;
                 }
         }
@@ -2471,7 +2464,7 @@ static int apply_mounts(
                 FOREACH_ARRAY(m, ml->mounts, ml->n_mounts) {
                         r = make_nosuid(m, proc_self_mountinfo);
                         if (r < 0) {
-                                mount_entry_path_debug_string(root, m, reterr_path);
+                                mount_entry_path_debug_string(m, reterr_path);
                                 return r;
                         }
                 }
@@ -2539,7 +2532,6 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         _cleanup_strv_free_ char **hierarchies = NULL;
         _cleanup_(mount_list_done) MountList ml = {};
         _cleanup_close_ int userns_fd = -EBADF;
-        const char *root;
         DissectImageFlags dissect_image_flags =
                 DISSECT_IMAGE_GENERIC_ROOT |
                 DISSECT_IMAGE_REQUIRE_ROOT |
@@ -2737,8 +2729,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
          * for all images, which is safe, since they all live in their own namespaces after all, and
          * hence won't see each other. (Note: this directory is also created by PID 1 early on, we
          * create it here for similar reasons as /run/systemd/ first.) */
-        root = "/run/systemd/mount-rootfs";
-        (void) mkdir_label(root, 0555);
+        (void) mkdir_label(STAGING_ROOT_DIR, 0555);
 
         /* Same as above: the mount point for the private staging tmpfs is created by PID 1 early
          * on, but let's make sure it exists also in the cases where that did not happen. */
@@ -2775,7 +2766,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         if (r < 0)
                 return r;
 
-        r = append_extensions(&ml, root, hierarchies, p->extension_images, p->n_extension_images, p->extension_directories);
+        r = append_extensions(&ml, hierarchies, p->extension_images, p->n_extension_images, p->extension_directories);
         if (r < 0)
                 return r;
 
@@ -3014,11 +3005,11 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         }
 
         /* Prepend the root directory where that's necessary */
-        r = prefix_where_needed(&ml, root);
+        r = prefix_where_needed(&ml, STAGING_ROOT_DIR);
         if (r < 0)
                 return r;
 
-        sort_and_drop_unused_mounts(&ml, root);
+        sort_and_drop_unused_mounts(&ml);
 
         /* All above is just preparation, figuring out what to do. Let's now actually start doing something. */
 
@@ -3063,10 +3054,10 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         if (root_mount_fd >= 0) {
                 /* If we have root_mount_fd we have a ready-to-use detached mount. Attach it. */
 
-                if (move_mount(root_mount_fd, "", AT_FDCWD, root, MOVE_MOUNT_F_EMPTY_PATH) < 0)
-                        return log_debug_errno(errno, "Failed to move detached mount to '%s': %m", root);
+                if (move_mount(root_mount_fd, "", AT_FDCWD, STAGING_ROOT_DIR, MOVE_MOUNT_F_EMPTY_PATH) < 0)
+                        return log_debug_errno(errno, "Failed to move detached mount to '%s': %m", STAGING_ROOT_DIR);
 
-                r = mount_nofollow_verbose(LOG_DEBUG, /* what= */ NULL, root, /* fstype= */ NULL, MS_SLAVE|MS_REC, /* options= */ NULL);
+                r = mount_nofollow_verbose(LOG_DEBUG, /* what= */ NULL, STAGING_ROOT_DIR, /* fstype= */ NULL, MS_SLAVE|MS_REC, /* options= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -3075,7 +3066,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 /* A root image is specified, mount it to the right place */
                 r = dissected_image_mount(
                                 dissected_image,
-                                root,
+                                STAGING_ROOT_DIR,
                                 /* uid_shift= */ UID_INVALID,
                                 /* uid_range= */ UID_INVALID,
                                 userns_fd,
@@ -3097,11 +3088,11 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
 
         } else if (p->rootfs && p->rootfs->mstack_loaded) {
 
-                r = mstack_make_mounts(p->rootfs->mstack_loaded, root, mstack_flags);
+                r = mstack_make_mounts(p->rootfs->mstack_loaded, STAGING_ROOT_DIR, mstack_flags);
                 if (r < 0)
                         return r;
 
-                r = mstack_bind_mounts(p->rootfs->mstack_loaded, root, /* where_fd= */ -EBADF, mstack_flags, /* ret_root_fd= */ NULL);
+                r = mstack_bind_mounts(p->rootfs->mstack_loaded, STAGING_ROOT_DIR, /* where_fd= */ -EBADF, mstack_flags, /* ret_root_fd= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -3114,22 +3105,22 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                  * the old mount namespace. */
                 r = mount_nofollow_verbose(LOG_DEBUG,
                                            p->rootfs && p->rootfs->directory ? p->rootfs->directory : "/",
-                                           root, /* fstype= */ NULL, MS_BIND|MS_REC, /* options= */ NULL);
+                                           STAGING_ROOT_DIR, /* fstype= */ NULL, MS_BIND|MS_REC, /* options= */ NULL);
                 if (r < 0)
                         return r;
         }
 
         /* Try to set up the new root directory before mounting anything else there. */
         if (pinned_resource_is_set(p->rootfs))
-                (void) base_filesystem_create(root, UID_INVALID, GID_INVALID);
+                (void) base_filesystem_create(STAGING_ROOT_DIR, UID_INVALID, GID_INVALID);
 
         /* Now make the magic happen */
-        r = apply_mounts(&ml, root, p, reterr_path);
+        r = apply_mounts(&ml, p, reterr_path);
         if (r < 0)
                 return r;
 
         /* MS_MOVE does not work on MS_SHARED so the remount MS_SHARED will be done later */
-        r = mount_switch_root(root, /* mount_propagation_flag = */ 0);
+        r = mount_switch_root(STAGING_ROOT_DIR, /* mount_propagation_flag = */ 0);
         if (r < 0)
                 return log_debug_errno(r, "Failed to mount root with MS_MOVE: %m");
 
@@ -3697,7 +3688,6 @@ static int unpeel_mount_and_setup_overlay(int pair_fd, const char *mount_path) {
 static int refresh_grandchild_proc(
                 const PidRef *target,
                 MountList *ml,
-                const char *overlay_prefix,
                 int pidns_fd,
                 int mntns_fd,
                 int root_fd,
@@ -3707,7 +3697,6 @@ static int refresh_grandchild_proc(
 
         assert(pidref_is_set(target));
         assert(ml);
-        assert(overlay_prefix);
         assert(pidns_fd >= 0);
         assert(mntns_fd >= 0);
         assert(root_fd >= 0);
@@ -3725,7 +3714,7 @@ static int refresh_grandchild_proc(
                 /* Need an absolute path under the child namespace, rather than the root's */
                 _cleanup_free_ char *mount_path = NULL;
                 mount_path = path_join("/",
-                                       path_startswith(mount_entry_unprefixed_path(m), overlay_prefix) ?:
+                                       path_startswith(mount_entry_unprefixed_path(m), STAGING_ROOT_DIR) ?:
                                             mount_entry_unprefixed_path(m));
                 if (!mount_path)
                         return log_oom_debug();
@@ -3756,7 +3745,6 @@ static int refresh_grandchild_proc(
 
 static int handle_mount_from_grandchild(
                 MountEntry *m,
-                const char *overlay_prefix,
                 int **fd_layers,
                 size_t *n_fd_layers,
                 int pipe_fd) {
@@ -3767,7 +3755,6 @@ static int handle_mount_from_grandchild(
         int r;
 
         assert(m);
-        assert(overlay_prefix);
         assert(fd_layers);
         assert(n_fd_layers);
         assert(pipe_fd >= 0);
@@ -3775,7 +3762,7 @@ static int handle_mount_from_grandchild(
         if (m->mode != MOUNT_OVERLAY)
                 return 0;
 
-        const char *mount_path = path_startswith(mount_entry_unprefixed_path(m), overlay_prefix);
+        const char *mount_path = path_startswith(mount_entry_unprefixed_path(m), STAGING_ROOT_DIR);
         if (!mount_path)
                 mount_path = mount_entry_unprefixed_path(m);
 
@@ -3798,7 +3785,7 @@ static int handle_mount_from_grandchild(
                 return log_debug_errno(hierarchy_path_fd, "Failed to receive fd from grandchild for %s: %m", mount_path);
 
         /* move_mount so that it is visible on our end. */
-        hierarchy_path_moved_mount = path_join(overlay_prefix, mount_path);
+        hierarchy_path_moved_mount = path_join(STAGING_ROOT_DIR, mount_path);
         if (!hierarchy_path_moved_mount)
                 return log_oom_debug();
 
@@ -3910,7 +3897,6 @@ int refresh_extensions_in_namespace(
                 const NamespaceParameters *p) {
 
         _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF;
-        const char *overlay_prefix = "/run/systemd/mount-rootfs";
         _cleanup_(mount_list_done) MountList ml = {};
         _cleanup_strv_free_ char **hierarchies = NULL;
         int r;
@@ -3939,7 +3925,6 @@ int refresh_extensions_in_namespace(
 
         r = append_extensions(
                         &ml,
-                        overlay_prefix,
                         hierarchies,
                         p->extension_images,
                         p->n_extension_images,
@@ -3947,7 +3932,7 @@ int refresh_extensions_in_namespace(
         if (r < 0)
                 return r;
 
-        sort_and_drop_unused_mounts(&ml, overlay_prefix);
+        sort_and_drop_unused_mounts(&ml);
         if (ml.n_mounts == 0)
                 return 0;
 
@@ -3970,7 +3955,7 @@ int refresh_extensions_in_namespace(
                 _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
                 _cleanup_(pidref_done_sigkill_wait) PidRef grandchild = PIDREF_NULL;
 
-                 (void) mkdir_p_label(overlay_prefix, 0555);
+                 (void) mkdir_p_label(STAGING_ROOT_DIR, 0555);
 
                 r = refresh_apply_and_prune(p, &ml);
                 if (r < 0) {
@@ -3992,7 +3977,7 @@ int refresh_extensions_in_namespace(
                         /* Grandchild (target service namespace) */
                         pair[0] = safe_close(pair[0]);
 
-                        r = refresh_grandchild_proc(target, &ml, overlay_prefix, pidns_fd, mntns_fd, root_fd, pair[1]);
+                        r = refresh_grandchild_proc(target, &ml, pidns_fd, mntns_fd, root_fd, pair[1]);
                         if (r < 0) {
                                 pair[1] = safe_close(pair[1]);
                                 _exit(EXIT_FAILURE);
@@ -4014,7 +3999,7 @@ int refresh_extensions_in_namespace(
                 CLEANUP_ARRAY(fd_layers, n_fd_layers, close_many_and_free);
 
                 FOREACH_ARRAY(m, ml.mounts, ml.n_mounts) {
-                        r = handle_mount_from_grandchild(m, overlay_prefix, &fd_layers, &n_fd_layers, pair[0]);
+                        r = handle_mount_from_grandchild(m, &fd_layers, &n_fd_layers, pair[0]);
                         if (r < 0)
                                 _exit(EXIT_FAILURE);
                 }
