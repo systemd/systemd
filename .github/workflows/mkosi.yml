@@ -14,14 +14,14 @@ on:
       - "!README*"
       - "!LICENSE*"
       - "!LICENSES/**"
-      - "!TODO"
+      - "!TODO.md"
       - "!docs/**"
       - "!man/**"
       - "!catalog/**"
       - "!shell-completion/**"
       - "!po/**"
       - "!.**"
-      - ".github/**"
+      - ".github/workflows/mkosi.yml"
 
   pull_request:
     branches:
@@ -32,14 +32,14 @@ on:
       - "!README*"
       - "!LICENSE*"
       - "!LICENSES/**"
-      - "!TODO"
+      - "!TODO.md"
       - "!docs/**"
       - "!man/**"
       - "!catalog/**"
       - "!shell-completion/**"
       - "!po/**"
       - "!.**"
-      - ".github/**"
+      - ".github/workflows/mkosi.yml"
 
 permissions:
   contents: read
