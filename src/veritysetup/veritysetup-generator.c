@@ -5,6 +5,7 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fstab-util.h"
@@ -57,7 +58,7 @@ static int create_special_device(
                 const char *hash_what,
                 const char *options) {
 
-        _cleanup_free_ char *u = NULL, *v = NULL, *d = NULL, *e = NULL;
+        _cleanup_free_ char *u = NULL, *v = NULL, *d = NULL, *e = NULL, *o = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -82,7 +83,29 @@ static int create_special_device(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        log_debug("Using %s verity data device %s, hash device %s, options %s, and hash %s.", name, data_what, hash_what, options, roothash);
+        /* systemd-veritysetup reads the signature from the ID_DISSECT_PART_ROOTHASH_SIG udev property of the
+         * data device for root-hash-signature=auto. Options that come later override this default. */
+        o = strdup("root-hash-signature=auto");
+        if (!o)
+                return log_oom();
+
+        if (options && (startswith(options, "base64:") || path_is_absolute(options))) {
+                /* systemd-veritysetup also accepts a signature as the whole option string, but not together
+                 * with other options. We turn such a signature into a root-hash-signature= option.
+                 * systemd-veritysetup splits the options at commas, so we escape commas and backslashes in
+                 * the signature. */
+                log_warning("Passing a root hash signature as the whole systemd.verity_%s_options= value is deprecated, use root-hash-signature= instead.", name);
+
+                _cleanup_free_ char *escaped = shell_escape(options, ",");
+                if (!escaped)
+                        return log_oom();
+
+                if (!strextend(&o, ",root-hash-signature=", escaped))
+                        return log_oom();
+        } else if (!isempty(options) && !strextend(&o, ",", options))
+                return log_oom();
+
+        log_debug("Using %s verity data device %s, hash device %s, options %s, and hash %s.", name, data_what, hash_what, o, roothash);
 
         u = fstab_node_to_udev_node(data_what);
         if (!u)
@@ -112,7 +135,7 @@ static int create_special_device(
                 "After=%1$s %2$s\n",
                 d, e);
 
-        r = generator_write_veritysetup_service_section(f, name, u, v, roothash, options);
+        r = generator_write_veritysetup_service_section(f, name, u, v, roothash, o);
         if (r < 0)
                 return r;
 
