@@ -184,6 +184,37 @@ CHANGES WITH 263 in spe:
           below /usr/ stays, as /usr/ is frequently read-only and the next
           image update would restore it.
 
+          The symlink to /dev/null in /etc/ also hides a symlink with the
+          same name in /run/, so "systemctl enable --runtime" of such a unit
+          has no effect. "systemctl enable", "disable" and "preset" print a
+          warning for each symlink of the unit that an entry with a higher
+          priority hides this way.
+
+          "systemctl revert" removes these symlinks to /dev/null again, so
+          that the symlinks below /usr/ take effect.
+
+          A persistent "systemctl disable" of a unit whose unit file is below
+          /usr/ now also places a symlink to /dev/null for each symlink that
+          "systemctl enable" would create, even if the vendor does not enable
+          the unit yet. A later image or package update that enables the unit
+          below /usr/ thus leaves it disabled. This includes the first
+          "systemctl disable" after "systemctl enable", so scripts that check
+          that /etc/ contains no symlink after disabling a unit need updating.
+          No symlink is placed for units that exist only in /etc/ or are
+          linked into the search path, for instances other than
+          DefaultInstance=, with --runtime, or when another directory such
+          as /run/ enables the unit. For example,
+          after "timedatectl set-ntp false", a later "systemctl enable
+          --runtime systemd-timesyncd" warns that its symlink has no effect.
+
+          Package removal scripts should disable units with
+          "systemd-update-helper remove-units" rather than "systemctl
+          disable". It only removes symlinks and places no symlinks to
+          /dev/null in /etc/, so a unit that the vendor enables below /usr/
+          is enabled again when its package is reinstalled.
+          DisableUnitFilesWithFlags() accepts the new flag
+          SD_SYSTEMD_UNIT_REMOVE_ONLY for this.
+
           "systemctl disable" no longer removes masks. Previously, disabling a
           template unit removed the masks of its instances, which unmasked
           them.
