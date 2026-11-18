@@ -51,6 +51,7 @@ at_exit() {
         rm -f "$img" "$img".private.pem "$img".public.pem "$img".pcrsign
     fi
     rm -f /tmp/borked /tmp/pcrlockpwd /var/lib/systemd/pcrlock.json /var/lib/systemd/pcrlock.json.gone
+    rm -f /tmp/pcrlock-pin.img /tmp/pcrlock-pin.log
     systemctl daemon-reload
 }
 
@@ -158,6 +159,16 @@ systemd-cryptenroll --unlock-key-file=/tmp/pcrlockpwd --tpm2-device=auto --tpm2-
 systemd-cryptsetup attach pcrlock "$img" - tpm2-device=auto,tpm2-pcrlock=/var/lib/systemd/pcrlock.json,headless
 systemd-cryptsetup detach pcrlock
 
+# The same with a PIN. Once the policy stops matching (see below) the PIN must neither be asked for nor tried.
+truncate -s 20M /tmp/pcrlock-pin.img
+cryptsetup luksFormat -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --use-urandom /tmp/pcrlock-pin.img /tmp/pcrlockpwd
+NEWPIN=123456 systemd-cryptenroll --unlock-key-file=/tmp/pcrlockpwd --tpm2-device=auto --tpm2-pcrlock=/var/lib/systemd/pcrlock.json --tpm2-public-key= --tpm2-with-pin=yes --wipe-slot=tpm2 /tmp/pcrlock-pin.img
+for mod in 1 0; do
+    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=$mod PIN=123456 \
+        systemd-cryptsetup attach pcrlock /tmp/pcrlock-pin.img - tpm2-device=auto,tpm2-pcrlock=/var/lib/systemd/pcrlock.json,headless
+    systemd-cryptsetup detach pcrlock
+done
+
 # Ensure systemd-pcrlock not crashing on empty variant directory
 mkdir -p /var/lib/pcrlock.d/123-empty.pcrlock.d
 "$SD_PCRLOCK" predict --pcr="$PCRS"
@@ -169,6 +180,17 @@ rm -rf /var/lib/pcrlock.d/123-empty.pcrlock.d
 "$SD_PCRLOCK" cel --json=pretty
 
 (! systemd-cryptsetup attach pcrlock "$img" - tpm2-device=auto,tpm2-pcrlock=/var/lib/systemd/pcrlock.json,headless )
+
+for mod in 1 0; do
+    tpm2_dictionarylockout -c
+    (! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=$mod \
+        systemd-cryptsetup attach pcrlock /tmp/pcrlock-pin.img - tpm2-device=auto,tpm2-pcrlock=/var/lib/systemd/pcrlock.json,headless 2>/tmp/pcrlock-pin.log)
+    grep "not asking for PIN" /tmp/pcrlock-pin.log >/dev/null
+    (! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=$mod PIN=123457 \
+        systemd-cryptsetup attach pcrlock /tmp/pcrlock-pin.img - tpm2-device=auto,tpm2-pcrlock=/var/lib/systemd/pcrlock.json,headless)
+    tpm2_getcap properties-variable | grep -E '^TPM2_PT_LOCKOUT_COUNTER: +0x0+$' >/dev/null
+done
+rm -f /tmp/pcrlock-pin.img /tmp/pcrlock-pin.log
 
 # Now add a component for it, rebuild policy and it should work (we'll rebuild
 # once like that, but don't provide the recovery pin. This should fail, since

@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "cryptenroll.h"
 #include "cryptenroll-list.h"
+#include "cryptenroll-tpm2.h"
 #include "cryptsetup-util.h"
 #include "format-table.h"
 #include "json-util.h"
@@ -102,21 +103,36 @@ int collect_enrolled_slots(struct crypt_device *cd, EnrolledSlot **ret, size_t *
         return 0;
 }
 
-int list_enrolled(struct crypt_device *cd) {
+int list_enrolled(const EnrollContext *c, struct crypt_device *cd) {
         _cleanup_free_ EnrolledSlot *slots = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
-        size_t n_slots;
+        Tpm2Token *tokens = NULL;
+        size_t n_slots, n_tokens = 0;
+        bool any_tpm2 = false;
         int r;
         TableCell *cell;
 
+        CLEANUP_ARRAY(tokens, n_tokens, tpm2_token_array_free);
+
+        assert(c);
         assert(cd);
 
         r = collect_enrolled_slots(cd, &slots, &n_slots);
         if (r < 0)
                 return r;
 
+        FOREACH_ARRAY(s, slots, n_slots)
+                any_tpm2 = any_tpm2 || (!s->conflict && s->type == ENROLL_TPM2);
+
+        /* For TPM2 slots also show whether they can unlock the volume in the current system state */
+        if (any_tpm2) {
+                r = tpm2_tokens_load(c, cd, &tokens, &n_tokens);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to determine the state of TPM2 tokens, not showing it: %m");
+        }
+
         /* Create a table out of it all */
-        t = table_new("slot", "type");
+        t = table_new("slot", "type", "state");
         if (!t)
                 return log_oom();
 
@@ -133,13 +149,25 @@ int list_enrolled(struct crypt_device *cd) {
                 else
                         type = enroll_type_to_string(s->type);
 
+                const char *state = NULL;
+                FOREACH_ARRAY(tk, tokens, n_tokens)
+                        if (tk->keyslot == s->slot) {
+                                state = tpm2_token_state_to_string(tk->state);
+                                break;
+                        }
+
                 r = table_add_many(
                                 t,
                                 TABLE_INT, s->slot,
-                                TABLE_STRING, type);
+                                TABLE_STRING, type,
+                                TABLE_STRING, state);
                 if (r < 0)
                         return table_log_add_error(r);
         }
+
+        /* Only show the state column if there's anything in it */
+        if (n_tokens == 0)
+                (void) table_set_display(t, (size_t) 0, (size_t) 1);
 
         if (table_isempty(t)) {
                 log_info("No slots found.");

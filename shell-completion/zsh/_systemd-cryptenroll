@@ -76,4 +76,5 @@ _arguments -s \
     '--tpm2-signature=[Validate public key enrollment works with JSON signature file]:signature file:_files' \
     '--tpm2-pcrlock=[Specify pcrlock policy to lock against]:pcrlock file:_files' \
     '--tpm2-with-pin=[Whether to require entering a PIN to unlock the volume]:mode:(yes no direct)' \
+    '--tpm2-reenroll[Re-enroll TPM2 tokens whose PCR values changed, with the same parameters]' \
     '*::block device:_systemd-cryptenroll_devices'

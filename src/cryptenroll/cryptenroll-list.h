@@ -16,4 +16,4 @@ typedef struct EnrolledSlot {
 /* Enumerates the active keyslots and classifies each by token type. Returns a newly allocated array. */
 int collect_enrolled_slots(struct crypt_device *cd, EnrolledSlot **ret, size_t *ret_n);
 
-int list_enrolled(struct crypt_device *cd);
+int list_enrolled(const EnrollContext *c, struct crypt_device *cd);

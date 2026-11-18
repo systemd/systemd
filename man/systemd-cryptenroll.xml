@@ -56,7 +56,8 @@
 
     <para>In addition, the tool may be used to enumerate currently enrolled security tokens and wipe a subset
     of them. The latter may be combined with the enrollment operation of a new security token, in order to
-    update or replace enrollments.</para>
+    update or replace enrollments. When enumerating, TPM2 tokens are shown with their state, i.e. whether
+    they can unlock the volume in the current system state, see <option>--tpm2-reenroll</option> below.</para>
 
     <para>The tool supports only LUKS2 volumes, as it stores token meta-information in the LUKS2 JSON token
     area, which is not available in other encryption formats.</para>
@@ -824,6 +825,39 @@
         behaviour off.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--tpm2-reenroll</option></term>
+
+        <listitem><para>Re-enroll the TPM2 tokens of the volume that can no longer unlock it because the PCR
+        values they are bound to changed, for example after a firmware update. Each such token is replaced by
+        a new one bound to the current values of the same PCRs, with the same PIN mode. If the token used a
+        PIN, a new one is asked for, which may be the same as before. Unlocking the volume works as for
+        enrollment, see <option>--unlock-key-file=</option> and related options, and is only needed if there
+        is a token to re-enroll.</para>
+
+        <para>Tokens that still match the current system state, and tokens enrolled with a different TPM, are
+        left as they are. Tokens bound to a signed PCR policy for which no signature covers the current system
+        state, or to a pcrlock policy that doesn't cover it, are left as they are too, as re-enrolling them
+        would not help: they need a new signature or an updated policy (see
+        <citerefentry><refentrytitle>systemd-pcrlock</refentrytitle><manvolnum>8</manvolnum></citerefentry>)
+        instead. Whether a token matches is determined without its PIN. The state of each token is also shown
+        when listing the enrolled tokens, as <literal>current</literal>, <literal>stale</literal>,
+        <literal>stale-signature</literal>, <literal>stale-pcrlock</literal>, <literal>other-tpm</literal> or
+        <literal>unknown</literal>.</para>
+
+        <para>Re-enrolling binds the tokens to the current system state, i.e. treats it as trustworthy. Only use
+        this after a change of system state that was expected, as an unexpected one might mean the system
+        was tampered with.</para>
+
+        <para>This option may not be combined with other enrollment types, with options that select TPM2
+        enrollment parameters (as those of the existing tokens are reused), with
+        <option>--wipe-slot=</option> or with <option>--firstboot</option>. <option>--tpm2-device=</option>
+        selects the TPM2 device to use, and <option>--tpm2-signature=</option> and
+        <option>--tpm2-pcrlock=</option> are used to determine whether tokens using signed PCR policies or
+        pcrlock policies are current.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

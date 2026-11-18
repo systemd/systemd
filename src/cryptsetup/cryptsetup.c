@@ -125,6 +125,12 @@ static char *arg_link_key_description = NULL;
 static char *arg_fixate_volume_key = NULL;
 static char *arg_friendly_name = NULL;
 
+/* Set when TPM2 unlocking was given up because no TPM2 token matched the current system state, and whether
+ * any of those tokens would have asked for a PIN, so that the passphrase prompt can say why it is shown. */
+static bool tpm2_state_mismatch = false, tpm2_state_mismatch_pin = false;
+/* Set once a token PIN was asked for or taken from $PIN, in which case it wasn't skipped. */
+static bool token_pin_requested = false;
+
 STATIC_DESTRUCTOR_REGISTER(arg_cipher, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_hash, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_header, freep);
@@ -945,7 +951,14 @@ static int get_password(
         if (!friendly)
                 return log_oom();
 
-        if (asprintf(&text, "Please enter %s for disk %s:", passphrase_type_to_string(passphrase_type), friendly) < 0)
+        /* Say why TPM2 unlocking didn't happen. This reveals nothing beyond what the unencrypted LUKS2
+         * header and the missing PIN prompt already show, and tells a user who didn't expect the system
+         * state to change that something changed it, hence this is not configurable. */
+        const char *reason =
+                tpm2_state_mismatch_pin && !token_pin_requested ? "TPM2 policy mismatch, PIN skipped. " :
+                tpm2_state_mismatch ? "TPM2 policy mismatch. " : "";
+
+        if (asprintf(&text, "%sPlease enter %s for disk %s:", reason, passphrase_type_to_string(passphrase_type), friendly) < 0)
                 return log_oom();
 
         disk_path = cescape(src);
@@ -1513,6 +1526,8 @@ static int crypt_activate_by_token_pin_ask_password(
         r = acquire_pins_from_env_variable(&pins);
         if (r < 0)
                 return r;
+        if (!strv_isempty(pins))
+                token_pin_requested = true;
 
         STRV_FOREACH(p, pins) {
                 r = sym_crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, *p, strlen(*p), userdata, activation_flags);
@@ -1543,6 +1558,7 @@ static int crypt_activate_by_token_pin_ask_password(
                 r = ask_password_auto(&req, flags, &pins);
                 if (r < 0)
                         return r;
+                token_pin_requested = true;
 
                 STRV_FOREACH(p, pins) {
                         r = sym_crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, *p, strlen(*p), userdata, activation_flags);
@@ -1967,6 +1983,29 @@ static int attach_luks2_by_tpm2_via_plugin(
 #endif
 }
 
+static void note_tpm2_state_mismatch(struct crypt_device *cd) {
+        assert(cd);
+
+        /* Only consider the tokens that were tried, i.e. if tpm2-pcrs= is set, the ones bound to exactly those
+         * PCRs. If none were, no token mismatched the system state. */
+        for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                uint32_t mask;
+
+                if (cryptsetup_get_token_as_json(cd, token, "systemd-tpm2", &v) < 0)
+                        continue;
+
+                if (arg_tpm2_pcr_mask != UINT32_MAX &&
+                    (tpm2_parse_pcr_json_array(sd_json_variant_by_key(v, "tpm2-pcrs"), &mask) < 0 ||
+                     mask != arg_tpm2_pcr_mask))
+                        continue;
+
+                tpm2_state_mismatch = true;
+                if (sd_json_variant_boolean(sd_json_variant_by_key(v, "tpm2-pin")))
+                        tpm2_state_mismatch_pin = true;
+        }
+}
+
 static int attach_luks_or_plain_or_bitlk_by_tpm2(
                 struct crypt_device *cd,
                 const char *name,
@@ -2035,9 +2074,11 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                 return 0;
                         /* EAGAIN     means: no tpm2 chip found
                          * EOPNOTSUPP means: no libcryptsetup plugins support */
-                        if (r == -ENXIO)
+                        if (r == -ENXIO) {
+                                note_tpm2_state_mismatch(cd);
                                 return log_notice_errno(SYNTHETIC_ERRNO(EAGAIN),
                                                         "No TPM2 metadata matching the current system state found in LUKS2 header, falling back to traditional unlocking.");
+                        }
                         if (r == -ENOENT)
                                 return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
                                                        "No TPM2 metadata enrolled in LUKS2 header or TPM2 support not available, falling back to traditional unlocking.");
@@ -2090,13 +2131,16 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 &keyslot,
                                                 &token,
                                                 &argon2id_params);
-                                if (r == -ENXIO)
+                                if (r == -ENXIO) {
                                         /* No further TPM2 tokens found in the LUKS2 header. */
+                                        if (found_some)
+                                                note_tpm2_state_mismatch(cd);
                                         return log_full_errno(found_some ? LOG_NOTICE : LOG_DEBUG,
                                                               SYNTHETIC_ERRNO(EAGAIN),
                                                               found_some
                                                               ? "No TPM2 metadata matching the current system state found in LUKS2 header, falling back to traditional unlocking."
                                                               : "No TPM2 metadata enrolled in LUKS2 header, falling back to traditional unlocking.");
+                                }
                                 if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                                         /* TPM2 support not compiled in? */
                                         return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
