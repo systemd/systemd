@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "alloc-util.h"
 #include "sort-util.h"
@@ -89,4 +90,22 @@ int cmp_unsigned(const unsigned *a, const unsigned *b) {
         POINTER_MAY_BE_NULL(b);
 
         return CMP(*a, *b);
+}
+
+int cmp_string(char * const *a, char * const *b) {
+        /* This is called from qsort()s inner loops. Correctly implemented qsort will never pass NULL so we
+           just suppress the check via POINTER_MAY_BE_NULL instead of assert() to avoid the runtime cost. */
+        POINTER_MAY_BE_NULL(a);
+        POINTER_MAY_BE_NULL(b);
+
+        return strcmp(*a, *b);
+}
+
+int cmp_const_string(const char * const *a, const char * const *b) {
+        /* This is called from qsort()s inner loops. Correctly implemented qsort will never pass NULL so we
+           just suppress the check via POINTER_MAY_BE_NULL instead of assert() to avoid the runtime cost. */
+        POINTER_MAY_BE_NULL(a);
+        POINTER_MAY_BE_NULL(b);
+
+        return strcmp(*a, *b);
 }

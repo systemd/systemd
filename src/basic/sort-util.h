@@ -45,3 +45,9 @@ void qsort_r_safe(void *base, size_t nmemb, size_t size, comparison_userdata_fn_
 int cmp_int(const int *a, const int *b);
 int cmp_uint16(const uint16_t *a, const uint16_t *b);
 int cmp_unsigned(const unsigned *a, const unsigned *b);
+
+/* Compares two strings referenced by pointer, i.e. for sorting arrays of strings. There are two flavours,
+ * because typesafe_qsort() insists on exact types, and char* arrays and const char* arrays differ in that
+ * regard. */
+int cmp_string(char * const *a, char * const *b);
+int cmp_const_string(const char * const *a, const char * const *b);
