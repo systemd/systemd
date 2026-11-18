@@ -102,6 +102,8 @@ typedef struct sd_varlink {
          * delegated. */
         JsonStream stream;
 
+        /* Number of method calls we issued as client that have not been fully replied to yet. Must be zero
+         * in VARLINK_IDLE_CLIENT state, and is reset to zero when the connection is closed. */
         unsigned n_pending;
 
         sd_varlink_reply_t reply_callback;
