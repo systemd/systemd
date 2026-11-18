@@ -2463,7 +2463,7 @@ static int start_via_ptybroker(void) {
                         SD_JSON_BUILD_PAIR("frontendType", JSON_BUILD_CONST_STRING("null")),
                         SD_JSON_BUILD_PAIR("backendType", JSON_BUILD_CONST_STRING("shell")),
                         SD_JSON_BUILD_PAIR_BOOLEAN("monitor", true),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("osc2811", true), /* The PTY forwarder implements the emulator side */
+                        SD_JSON_BUILD_PAIR_BOOLEAN("inBandResize", true), /* The PTY forwarder implements the terminal side */
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("user", arg_exec_user),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("group", arg_exec_group),
                         SD_JSON_BUILD_PAIR_CONDITION(!!arg_working_directory, "workingDirectory",
