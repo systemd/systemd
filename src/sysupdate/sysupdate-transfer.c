@@ -50,6 +50,7 @@
 #include "sysupdate-resource.h"
 #include "sysupdate-transfer.h"
 #include "time-util.h"
+#include "uapi16-manifest.h"
 #include "web-util.h"
 #include "xattr-util.h"
 

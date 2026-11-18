@@ -5,7 +5,6 @@
 
 #include "forward.h"
 #include "time-util.h"
-#include "uapi16-manifest.h"
 
 /* Generic helpers for generating (and verifying) file manifests of directory trees, in various formats. */
 
@@ -52,7 +51,24 @@ typedef enum ManifestField {
         MANIFEST_FIELD_FS_UUID          = 1 << 21, /* File system UUID, see FS_IOC_GETFSUUID */
         MANIFEST_FIELD_FS_LABEL         = 1 << 22, /* File system label, see FS_IOC_GETFSLABEL */
         MANIFEST_FIELD_FAT_SERIAL       = 1 << 23, /* FAT volume serial number, see FAT_IOCTL_GET_VOLUME_ID */
-        _MANIFEST_FIELD_ALL             = (1 << 24) - 1,
+        /* The fields that may be generated from a directory tree */
+        _MANIFEST_FIELD_FSTREE_ALL      = (1 << 24) - 1,
+        /* GPT partition table entry fields (only UAPI.16). Only systemd-repart generates these, for the
+         * partition table it creates, hence they cannot be selected via manifest_fields_from_string() */
+        MANIFEST_FIELD_GPT_LABEL        = 1 << 24, /* Partition label */
+        MANIFEST_FIELD_GPT_UUID         = 1 << 25, /* Partition UUID */
+        MANIFEST_FIELD_GPT_TYPE_UUID    = 1 << 26, /* Partition type UUID */
+        MANIFEST_FIELD_GPT_DISK_UUID    = 1 << 27, /* Disk UUID, on the top-level object */
+        MANIFEST_FIELD_GPT_FLAGS        = 1 << 28, /* Raw partition attribute flags */
+        MANIFEST_FIELD_GPT_FLAG_NO_AUTO = 1 << 29, /* SD_GPT_FLAG_NO_AUTO */
+        MANIFEST_FIELD_GPT_FLAG_GROWFS  = 1 << 30, /* SD_GPT_FLAG_GROWFS */
+        /* The fields that may be generated from a GPT partition table. Note that the read-only flag is
+         * encoded in the generic "readOnly" field, which is hence part of both sets. */
+        _MANIFEST_FIELD_GPT_ALL         = MANIFEST_FIELD_GPT_LABEL|MANIFEST_FIELD_GPT_UUID|MANIFEST_FIELD_GPT_TYPE_UUID|
+                                          MANIFEST_FIELD_GPT_DISK_UUID|MANIFEST_FIELD_GPT_FLAGS|
+                                          MANIFEST_FIELD_GPT_FLAG_NO_AUTO|MANIFEST_FIELD_GPT_FLAG_GROWFS|
+                                          MANIFEST_FIELD_READ_ONLY,
+        _MANIFEST_FIELD_ALL             = _MANIFEST_FIELD_FSTREE_ALL|_MANIFEST_FIELD_GPT_ALL,
         _MANIFEST_FIELD_DEFAULT         = MANIFEST_FIELD_MODE|MANIFEST_FIELD_UID|MANIFEST_FIELD_GID|MANIFEST_FIELD_SIZE|
                                           MANIFEST_FIELD_HASH|MANIFEST_FIELD_SYMLINK|MANIFEST_FIELD_DEVICE|MANIFEST_FIELD_HARDLINK,
         _MANIFEST_FIELD_INVALID         = -EINVAL,
@@ -136,6 +152,11 @@ DECLARE_STRING_TABLE_LOOKUP(manifest_format, ManifestFormat);
 /* Only for single bits */
 const char* manifest_field_to_string(ManifestField f) _const_;
 ManifestField manifest_field_from_string(const char *s) _pure_;
+
+/* Same, but for the names of the values of the "features" field of UAPI.16 manifests, which differ for some
+ * fields. Unlike the above, these cover the GPT fields too. */
+const char* manifest_field_to_uapi16_feature(ManifestField f) _const_;
+ManifestField manifest_field_from_uapi16_feature(const char *s) _pure_;
 
 /* Parses a comma separated list of field names. Each item may be prefixed with "+" or "-" to add or remove
  * the field from the mask passed in in *fields, otherwise the mask is reset with the first item. "all",
