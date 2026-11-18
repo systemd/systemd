@@ -62,17 +62,18 @@ __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_method_flags_t) {
 } sd_varlink_method_flags_t;
 
 __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_server_flags_t) {
-        SD_VARLINK_SERVER_ROOT_ONLY               = 1 << 0, /* Only accessible by root */
-        SD_VARLINK_SERVER_MYSELF_ONLY             = 1 << 1, /* Only accessible by our own UID */
-        SD_VARLINK_SERVER_ACCOUNT_UID             = 1 << 2, /* Do per user accounting */
-        SD_VARLINK_SERVER_INHERIT_USERDATA        = 1 << 3, /* Initialize Varlink connection userdata from sd_varlink_server userdata */
-        SD_VARLINK_SERVER_INPUT_SENSITIVE         = 1 << 4, /* Automatically mark all connection input as sensitive */
-        SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT  = 1 << 5, /* Allow receiving fds over all connections */
-        SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT = 1 << 6, /* Allow sending fds over all connections */
-        SD_VARLINK_SERVER_FD_PASSING_INPUT_STRICT = 1 << 7, /* Reject input messages with fds if fd passing is disabled (needs kernel v6.16+) */
-        SD_VARLINK_SERVER_HANDLE_SIGINT           = 1 << 8, /* Exit cleanly on SIGINT */
-        SD_VARLINK_SERVER_HANDLE_SIGTERM          = 1 << 9, /* Exit cleanly on SIGTERM */
-        SD_VARLINK_SERVER_UPGRADABLE              = 1 << 10, /* Server has upgrade methods; avoid consuming post-upgrade data during reads */
+        SD_VARLINK_SERVER_ROOT_ONLY                = 1 << 0, /* Only accessible by root */
+        SD_VARLINK_SERVER_MYSELF_ONLY              = 1 << 1, /* Only accessible by our own UID */
+        SD_VARLINK_SERVER_ACCOUNT_UID              = 1 << 2, /* Do per user accounting */
+        SD_VARLINK_SERVER_INHERIT_USERDATA         = 1 << 3, /* Initialize Varlink connection userdata from sd_varlink_server userdata */
+        SD_VARLINK_SERVER_INPUT_SENSITIVE          = 1 << 4, /* Automatically mark all connection input as sensitive */
+        SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT   = 1 << 5, /* Allow receiving fds over all connections */
+        SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT  = 1 << 6, /* Allow sending fds over all connections */
+        SD_VARLINK_SERVER_FD_PASSING_INPUT_STRICT  = 1 << 7, /* Reject input messages with fds if fd passing is disabled (needs kernel v6.16+) */
+        SD_VARLINK_SERVER_HANDLE_SIGINT            = 1 << 8, /* Exit cleanly on SIGINT */
+        SD_VARLINK_SERVER_HANDLE_SIGTERM           = 1 << 9, /* Exit cleanly on SIGTERM */
+        SD_VARLINK_SERVER_UPGRADABLE               = 1 << 10, /* Server has upgrade methods; avoid consuming post-upgrade data during reads */
+        SD_VARLINK_SERVER_ACCOUNT_UID_EXCLUDE_ROOT = 1 << 11, /* Exempt root from the per-UID connection limit, but not the total limit */
         _SD_ENUM_FORCE_S64(SD_VARLINK_SERVER)
 } sd_varlink_server_flags_t;
 
