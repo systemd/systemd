@@ -69,6 +69,7 @@
 #include "pidref.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
+#include "proc-cmdline.h"
 #include "process-util.h"
 #include "ptybroker-client.h"
 #include "ptyfwd.h"
@@ -1932,6 +1933,21 @@ static int bind_user_setup(
         return 0;
 }
 
+static int kernel_cmdline_extra_has_key(const char *key) {
+        assert(key);
+
+        /* Checks whether the extra kernel command line contains the given key, with or without a value. Note
+         * that a single entry might contain multiple words, hence parse the joined command line, just like
+         * the kernel will see it. */
+
+        _cleanup_free_ char *cmdline = strv_join(arg_kernel_cmdline_extra, " ");
+        if (!cmdline)
+                return -ENOMEM;
+
+        _cleanup_free_ char *value = NULL;
+        return cmdline_get_key(cmdline, key, PROC_CMDLINE_VALUE_OPTIONAL, &value);
+}
+
 static int kernel_cmdline_maybe_append_root(void) {
         int r;
 
@@ -3266,7 +3282,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         case CONSOLE_READ_ONLY:
                 if (arg_console_mode == CONSOLE_READ_ONLY)
-                        ptyfwd_flags |= PTY_FORWARD_READ_ONLY;
+                        /* Nothing can answer terminal queries in read-only mode, hence do so ourselves */
+                        ptyfwd_flags |= PTY_FORWARD_READ_ONLY|PTY_FORWARD_ANSWER_QUERIES;
 
                 _fallthrough_;
 
@@ -3565,29 +3582,54 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
          * to avoid stat()'ing each drive twice. */
 
         if (!IN_SET(arg_console_mode, CONSOLE_GUI, CONSOLE_HEADLESS)) {
-                r = strv_prepend(&arg_kernel_cmdline_extra,
-                                 arg_console_transport == CONSOLE_TRANSPORT_SERIAL ?
-                                 "console=" QEMU_SERIAL_CONSOLE_NAME : "console=hvc0");
-                if (r < 0)
-                        return log_oom();
+                const char *tty = arg_console_transport == CONSOLE_TRANSPORT_SERIAL ? QEMU_SERIAL_CONSOLE_NAME : "hvc0";
 
                 /* Propagate the host's $TERM into the VM via the kernel command line. TERM= is
                  * picked up by PID 1 and inherited by services on /dev/console, and
-                 * systemd.tty.term.hvc0= is used by services directly attached to /dev/hvc0 (such
-                 * as serial-getty). While systemd can auto-detect the terminal type via DCS
+                 * systemd.tty.term.<tty>= is used by services directly attached to the console tty
+                 * (such as serial-getty). While systemd can auto-detect the terminal type via DCS
                  * XTGETTCAP, not all terminal emulators implement this, so let's always propagate
-                 * $TERM if we have it. */
-                const char *term = getenv("TERM");
-                if (term_env_valid(term)) {
-                        FOREACH_STRING(tty_key, "systemd.tty.term.hvc0", "TERM") {
-                                _cleanup_free_ char *p = strjoin(tty_key, "=", term);
+                 * $TERM if we have it. If we are not connected to a capable terminal (for example,
+                 * because we are invoked as a service with output going to the journal), pass
+                 * TERM=dumb, just like nspawn does. Except in broker mode: there real terminals
+                 * attach later via ptybrokerd, hence let the guest auto-detect in that case. Don't
+                 * propagate any key the user explicitly configured on the kernel command line. */
+                _cleanup_free_ char *tty_term_key = strjoin("systemd.tty.term.", tty);
+                if (!tty_term_key)
+                        return log_oom();
+
+                const char *term;
+                if (!terminal_is_dumb())
+                        term = getenv("TERM");
+                else if (IN_SET(arg_console_mode, CONSOLE_BROKER, CONSOLE_BROKER_LOG))
+                        term = NULL;
+                else
+                        term = "dumb";
+
+                if (term_env_valid(term))
+                        FOREACH_STRING(key, tty_term_key, "TERM") {
+                                r = kernel_cmdline_extra_has_key(key);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse extra kernel command line: %m");
+                                if (r > 0) {
+                                        log_debug("%s= explicitly configured on kernel command line, not propagating $TERM.", key);
+                                        continue;
+                                }
+
+                                _cleanup_free_ char *p = strjoin(key, "=", term);
                                 if (!p)
                                         return log_oom();
 
                                 if (strv_consume_prepend(&arg_kernel_cmdline_extra, TAKE_PTR(p)) < 0)
                                         return log_oom();
                         }
-                }
+
+                _cleanup_free_ char *console = strjoin("console=", tty);
+                if (!console)
+                        return log_oom();
+
+                if (strv_consume_prepend(&arg_kernel_cmdline_extra, TAKE_PTR(console)) < 0)
+                        return log_oom();
         }
 
         _cleanup_free_ char *fstab_extra = NULL, *fstab_extra_initrd = NULL;

@@ -1708,7 +1708,11 @@ static int fixup_environment(void) {
         r = proc_cmdline_get_key("TERM", /* flags= */ 0, &term);
         if (r < 0)
                 return r;
-        if (r > 0) {
+        if (term && !term_env_valid(term)) {
+                log_warning("Invalid TERM= setting on kernel command line, ignoring.");
+                term = mfree(term);
+        }
+        if (term) {
                 /* If we pick up $TERM, then also pick up $COLORTERM, $NO_COLOR */
                 FOREACH_STRING(v, "COLORTERM", "NO_COLOR") {
                         _cleanup_free_ char *vv = NULL;
@@ -1723,6 +1727,10 @@ static int fixup_environment(void) {
                 r = proc_cmdline_get_key("systemd.tty.term.console", /* flags= */ 0, &term);
                 if (r < 0)
                         return r;
+                if (term && !term_env_valid(term)) {
+                        log_warning("Invalid systemd.tty.term.console= setting on kernel command line, ignoring.");
+                        term = mfree(term);
+                }
         }
 
         if (!term)
