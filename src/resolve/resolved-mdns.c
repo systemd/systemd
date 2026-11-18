@@ -388,7 +388,9 @@ static int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userda
         if (r < 0)
                 log_warning_errno(r, "mDNS: Failed to notify service subscribers of goodbyes, ignoring: %m");
 
-        if (dns_cache_expiry_in_one_second(&scope->cache, usec)) {
+        /* Look for records due within a second of now, not of 'usec': the records of a goodbye received
+         * after the deadline expire more than a second after it. */
+        if (dns_cache_expiry_in_one_second(&scope->cache, now(CLOCK_BOOTTIME))) {
                 r = sd_event_add_time_relative(
                                 scope->manager->event,
                                 &scope->mdns_goodbye_event_source,
