@@ -186,7 +186,13 @@ static int wireguard_set_peer_one(NetDev *netdev, sd_netlink_message *message, c
                 if (r < 0)
                         goto cancel;
 
-                r = sd_netlink_message_append_u16(message, WGPEER_A_PERSISTENT_KEEPALIVE_INTERVAL, peer->persistent_keepalive_interval);
+                if (netdev->kind == NETDEV_KIND_AMNEZIAWG)
+                        r = sd_netlink_message_append_u32(message, AWGPEER_A_PERSISTENT_KEEPALIVE_INTERVAL,
+                                                         (uint32_t) peer->persistent_keepalive_interval_max << 16 |
+                                                         peer->persistent_keepalive_interval);
+                else
+                        r = sd_netlink_message_append_u16(message, WGPEER_A_PERSISTENT_KEEPALIVE_INTERVAL,
+                                                         peer->persistent_keepalive_interval);
                 if (r < 0)
                         goto cancel;
 
@@ -230,23 +236,113 @@ cancel:
         return 0;
 }
 
+static int amneziawg_append_parameters(Wireguard *w, sd_netlink_message *message) {
+        int r;
+
+        for (unsigned i = AWGDEVICE_A_JC; i <= AWGDEVICE_A_MAX; i++) {
+                if (i == AWGDEVICE_A_PEER || (i >= AWGDEVICE_A_I1 && i <= AWGDEVICE_A_HEADER_PROTECTION_KEY))
+                        continue;
+
+                uint64_t value = w->amnezia_parameters[i];
+
+                if (i >= AWGDEVICE_A_H1 && i <= AWGDEVICE_A_H4)
+                        r = sd_netlink_message_append_u64(message, i, value);
+                else if (IN_SET(i, AWGDEVICE_A_RANDOM_TRAILERS, AWGDEVICE_A_DISABLE_COOKIES))
+                        r = sd_netlink_message_append_u8(message, i, value);
+                else if (i >= AWGDEVICE_A_CONTENT_PADDING_ADDITION && i <= AWGDEVICE_A_MAX_HANDSHAKE_ATTEMPTS)
+                        r = sd_netlink_message_append_u32(message, i, value);
+                else
+                        r = sd_netlink_message_append_u16(message, i, value);
+                if (r < 0)
+                        return r;
+        }
+
+        if (w->header_protection_key_set) {
+                r = sd_netlink_message_append_data(message, AWGDEVICE_A_HEADER_PROTECTION_KEY,
+                                                   w->header_protection_key, sizeof(w->header_protection_key));
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int wireguard_set_interface_handler(sd_netlink *rtnl, sd_netlink_message *message, NetDev *netdev) {
+        int r;
+
+        if (!netdev_is_managed(netdev))
+                return 0;
+
+        r = sd_netlink_message_get_errno(message);
+        if (r < 0) {
+                log_netdev_warning_errno(netdev, r, "Failed to configure %s interface: %m",
+                                         netdev_kind_to_string(netdev->kind));
+                netdev_enter_failed(netdev);
+        }
+
+        return 0;
+}
+
+static int amneziawg_set_signatures(Wireguard *w) {
+        NetDev *netdev = NETDEV(w);
+        int r;
+
+        /* Send each CPS string separately, as their combined size may exceed the message size limit. */
+        FOREACH_ELEMENT(signature, w->amnezia_signatures) {
+                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
+
+                r = sd_genl_message_new(netdev->manager->genl, AWG_GENL_NAME, AWG_CMD_SET_DEVICE, &message);
+                if (r < 0)
+                        return r;
+
+                r = sd_netlink_message_append_string(message, AWGDEVICE_A_IFNAME, netdev->ifname);
+                if (r < 0)
+                        return r;
+
+                r = sd_netlink_message_append_string(message, AWGDEVICE_A_I1 + (signature - w->amnezia_signatures),
+                                                      *signature ?: "");
+                if (r < 0)
+                        return r;
+
+                r = netlink_call_async(netdev->manager->genl, NULL, message, wireguard_set_interface_handler,
+                                       netdev_destroy_callback, netdev);
+                if (r < 0)
+                        return r;
+
+                netdev_ref(netdev);
+        }
+
+        return 0;
+}
+
 static int wireguard_set_interface(NetDev *netdev) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
         WireguardIPmask *mask_start = NULL;
         bool sent_once = false;
-        uint32_t serial;
         Wireguard *w = WIREGUARD(netdev);
         int r;
 
         if (!netdev_is_managed(netdev))
                 return 0; /* Already detached, due to e.g. reloading .netdev files. */
 
+        if (netdev->kind == NETDEV_KIND_AMNEZIAWG) {
+                r = amneziawg_set_signatures(w);
+                if (r == -EPROTONOSUPPORT)
+                        return log_netdev_error_errno(netdev, r,
+                                                     "Unsupported AmneziaWG kernel interface version, requires version %d.",
+                                                     AWG_GENL_VERSION);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not set AmneziaWG signatures: %m");
+        }
+
         for (WireguardPeer *peer_start = w->peers; peer_start || !sent_once; ) {
                 uint16_t i = 0;
 
                 message = sd_netlink_message_unref(message);
 
-                r = sd_genl_message_new(netdev->manager->genl, WG_GENL_NAME, WG_CMD_SET_DEVICE, &message);
+                r = sd_genl_message_new(netdev->manager->genl,
+                                        netdev->kind == NETDEV_KIND_AMNEZIAWG ? AWG_GENL_NAME : WG_GENL_NAME,
+                                        WG_CMD_SET_DEVICE, &message);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Failed to allocate generic netlink message: %m");
 
@@ -254,7 +350,7 @@ static int wireguard_set_interface(NetDev *netdev) {
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append wireguard interface name: %m");
 
-                if (peer_start == w->peers) {
+                if (!sent_once) {
                         r = sd_netlink_message_append_data(message, WGDEVICE_A_PRIVATE_KEY, &w->private_key, WG_KEY_LEN);
                         if (r < 0)
                                 return log_netdev_error_errno(netdev, r, "Could not append wireguard private key: %m");
@@ -270,6 +366,12 @@ static int wireguard_set_interface(NetDev *netdev) {
                         r = sd_netlink_message_append_u32(message, WGDEVICE_A_FLAGS, w->flags);
                         if (r < 0)
                                 return log_netdev_error_errno(netdev, r, "Could not append wireguard flags: %m");
+
+                        if (netdev->kind == NETDEV_KIND_AMNEZIAWG) {
+                                r = amneziawg_append_parameters(w, message);
+                                if (r < 0)
+                                        return log_netdev_error_errno(netdev, r, "Could not append AmneziaWG parameters: %m");
+                        }
                 }
 
                 r = sd_netlink_message_open_container(message, WGDEVICE_A_PEERS);
@@ -292,10 +394,12 @@ static int wireguard_set_interface(NetDev *netdev) {
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not close wireguard container: %m");
 
-                r = sd_netlink_send(netdev->manager->genl, message, &serial);
+                r = netlink_call_async(netdev->manager->genl, NULL, message, wireguard_set_interface_handler,
+                                       netdev_destroy_callback, netdev);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not set wireguard device: %m");
 
+                netdev_ref(netdev);
                 sent_once = true;
         }
 
@@ -364,7 +468,9 @@ static int wireguard_peer_resolve_handler(
                                 continue;
 
                         memcpy(&peer->endpoint, ai->ai_addr, ai->ai_addrlen);
-                        (void) wireguard_set_interface(netdev);
+                        r = wireguard_set_interface(netdev);
+                        if (r < 0)
+                                netdev_enter_failed(netdev);
                         peer->n_retries = 0;
                         found = true;
                         break;
@@ -446,9 +552,16 @@ static void wireguard_resolve_endpoints(NetDev *netdev) {
 }
 
 static int netdev_wireguard_post_create(NetDev *netdev, Link *link) {
+        int r;
+
         assert(WIREGUARD(netdev));
 
-        (void) wireguard_set_interface(netdev);
+        r = wireguard_set_interface(netdev);
+        if (r < 0) {
+                netdev_enter_failed(netdev);
+                return r;
+        }
+
         wireguard_resolve_endpoints(netdev);
         return 0;
 }
@@ -506,7 +619,7 @@ static int wireguard_decode_key_and_warn(
 
         if (isempty(rvalue)) {
                 memzero(ret, WG_KEY_LEN);
-                return 0;
+                return 1;
         }
 
         cred_name = startswith(rvalue, "@");
@@ -535,7 +648,7 @@ static int wireguard_decode_key_and_warn(
         }
 
         memcpy(ret, key, WG_KEY_LEN);
-        return 0;
+        return 1;
 }
 
 int config_parse_wireguard_private_key(
@@ -551,8 +664,15 @@ int config_parse_wireguard_private_key(
                 void *userdata) {
 
         Wireguard *w = WIREGUARD(data);
+        int r;
 
-        return wireguard_decode_key_and_warn(rvalue, w->private_key, unit, filename, line, lvalue);
+        r = wireguard_decode_key_and_warn(rvalue,
+                                          streq(lvalue, "HeaderProtectionKey") ? w->header_protection_key : w->private_key,
+                                          unit, filename, line, lvalue);
+        if (r > 0 && streq(lvalue, "HeaderProtectionKey"))
+                w->header_protection_key_set = !isempty(rvalue);
+
+        return r;
 }
 
 int config_parse_wireguard_private_key_file(
@@ -569,9 +689,10 @@ int config_parse_wireguard_private_key_file(
 
         Wireguard *w = WIREGUARD(data);
         _cleanup_free_ char *path = NULL;
+        char **key_file = streq(lvalue, "HeaderProtectionKeyFile") ? &w->header_protection_key_file : &w->private_key_file;
 
         if (isempty(rvalue)) {
-                w->private_key_file = mfree(w->private_key_file);
+                *key_file = mfree(*key_file);
                 return 0;
         }
 
@@ -582,7 +703,68 @@ int config_parse_wireguard_private_key_file(
         if (path_simplify_and_warn(path, PATH_CHECK_ABSOLUTE|PATH_CHECK_NON_API_VFS, unit, filename, line, lvalue) < 0)
                 return 0;
 
-        return free_and_replace(w->private_key_file, path);
+        return free_and_replace(*key_file, path);
+}
+
+int config_parse_amneziawg_parameter(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Wireguard *w = WIREGUARD(data);
+        unsigned lower, upper;
+        uint64_t value;
+        int r;
+
+        assert(ltype >= AWGDEVICE_A_JC && ltype <= AWGDEVICE_A_MAX);
+
+        if (isempty(rvalue)) {
+                unsigned h = ltype - AWGDEVICE_A_H1 + 1;
+
+                w->amnezia_parameters[ltype] = ltype >= AWGDEVICE_A_H1 && ltype <= AWGDEVICE_A_H4 ?
+                        (uint64_t) h << 32 | h : 0;
+                return 0;
+        }
+
+        if (IN_SET(ltype, AWGDEVICE_A_RANDOM_TRAILERS, AWGDEVICE_A_DISABLE_COOKIES)) {
+                r = parse_boolean(rvalue);
+                if (r < 0)
+                        goto invalid;
+                value = r;
+        } else if ((ltype >= AWGDEVICE_A_H1 && ltype <= AWGDEVICE_A_H4) ||
+                   (ltype >= AWGDEVICE_A_CONTENT_PADDING_ADDITION && ltype <= AWGDEVICE_A_MAX_HANDSHAKE_ATTEMPTS)) {
+                r = parse_range(rvalue, &lower, &upper);
+                if (r < 0)
+                        goto invalid;
+                if (lower > upper || (ltype >= AWGDEVICE_A_CONTENT_PADDING_ADDITION && upper > UINT16_MAX)) {
+                        r = -ERANGE;
+                        goto invalid;
+                }
+
+                value = (uint64_t) upper << (ltype >= AWGDEVICE_A_H1 && ltype <= AWGDEVICE_A_H4 ? 32 : 16) | lower;
+        } else {
+                uint16_t n;
+
+                r = safe_atou16(rvalue, &n);
+                if (r < 0)
+                        goto invalid;
+                value = n;
+        }
+
+        w->amnezia_parameters[ltype] = value;
+        return 0;
+
+invalid:
+        log_syntax(unit, LOG_WARNING, filename, line, r,
+                   "Invalid %s= value, ignoring assignment: %s", lvalue, rvalue);
+        return 0;
 }
 
 int config_parse_wireguard_peer_key(
@@ -872,22 +1054,31 @@ int config_parse_wireguard_keepalive(
 
         Wireguard *w = WIREGUARD(data);
         _cleanup_(wireguard_peer_free_or_set_invalidp) WireguardPeer *peer = NULL;
-        uint16_t keepalive = 0;
+        unsigned lower = 0, upper = 0;
         int r;
 
         r = wireguard_peer_new_static(w, filename, section_line, &peer);
         if (r < 0)
                 return log_oom();
 
-        if (streq(rvalue, "off"))
-                keepalive = 0;
-        else {
-                r = safe_atou16(rvalue, &keepalive);
+        if (!streq(rvalue, "off")) {
+                if (NETDEV(w)->kind == NETDEV_KIND_AMNEZIAWG)
+                        r = parse_range(rvalue, &lower, &upper);
+                else {
+                        uint16_t keepalive;
+
+                        r = safe_atou16(rvalue, &keepalive);
+                        if (r >= 0)
+                                lower = upper = keepalive;
+                }
                 if (r < 0)
                         return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+                if (lower > upper || upper > UINT16_MAX)
+                        return log_syntax_parse_error(unit, filename, line, -ERANGE, lvalue, rvalue);
         }
 
-        peer->persistent_keepalive_interval = keepalive;
+        peer->persistent_keepalive_interval = lower;
+        peer->persistent_keepalive_interval_max = upper;
 
         TAKE_PTR(peer);
         return 0;
@@ -1056,6 +1247,8 @@ static void wireguard_init(NetDev *netdev) {
         Wireguard *w = WIREGUARD(netdev);
 
         w->flags = WGDEVICE_F_REPLACE_PEERS;
+        for (unsigned i = 0; i < 4; i++)
+                w->amnezia_parameters[AWGDEVICE_A_H1 + i] = (uint64_t) (i + 1) << 32 | (i + 1);
 }
 
 static void wireguard_done(NetDev *netdev) {
@@ -1063,6 +1256,10 @@ static void wireguard_done(NetDev *netdev) {
 
         explicit_bzero_safe(w->private_key, WG_KEY_LEN);
         free(w->private_key_file);
+        explicit_bzero_safe(w->header_protection_key, sizeof(w->header_protection_key));
+        free(w->header_protection_key_file);
+        FOREACH_ELEMENT(signature, w->amnezia_signatures)
+                free(*signature);
 
         hashmap_free(w->peers_by_section);
 
@@ -1178,6 +1375,47 @@ static int wireguard_read_default_key_cred(NetDev *netdev, const char *filename)
         return 0;
 }
 
+static int amneziawg_verify(Wireguard *w) {
+        NetDev *netdev = NETDEV(w);
+        uint64_t headers[4];
+        int r;
+
+        r = wireguard_read_key_file(w->header_protection_key_file, w->header_protection_key);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r,
+                                              "Failed to read header protection key from '%s', ignoring network device: %m",
+                                              w->header_protection_key_file);
+        if (w->header_protection_key_file)
+                w->header_protection_key_set = true;
+
+        if (w->amnezia_parameters[AWGDEVICE_A_JMIN] > w->amnezia_parameters[AWGDEVICE_A_JMAX])
+                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                              "Jmin= exceeds Jmax=, ignoring network device.");
+
+        FOREACH_ELEMENT(header, headers) {
+                unsigned i = header - headers;
+
+                *header = w->amnezia_parameters[AWGDEVICE_A_H1 + i];
+        }
+
+        for (unsigned i = 0; i < ELEMENTSOF(headers); i++)
+                for (unsigned j = i + 1; j < ELEMENTSOF(headers); j++)
+                        if ((uint32_t) headers[i] <= headers[j] >> 32 && (uint32_t) headers[j] <= headers[i] >> 32)
+                                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                              "H%u= and H%u= overlap, ignoring network device.", i + 1, j + 1);
+
+        if (w->header_protection_key_set) {
+                int i;
+
+                FOREACH_ARGUMENT(i, AWGDEVICE_A_S1, AWGDEVICE_A_S2, AWGDEVICE_A_S3, AWGDEVICE_A_S4)
+                        if (w->amnezia_parameters[i] < 12)
+                                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                              "HeaderProtectionKey= requires S1= through S4= to be at least 12, ignoring network device.");
+        }
+
+        return 0;
+}
+
 static int wireguard_verify(NetDev *netdev, const char *filename) {
         Wireguard *w = WIREGUARD(netdev);
         int r;
@@ -1190,6 +1428,12 @@ static int wireguard_verify(NetDev *netdev, const char *filename) {
 
         if (eqzero(w->private_key)) {
                 r = wireguard_read_default_key_cred(netdev, filename);
+                if (r < 0)
+                        return r;
+        }
+
+        if (netdev->kind == NETDEV_KIND_AMNEZIAWG) {
+                r = amneziawg_verify(w);
                 if (r < 0)
                         return r;
         }
@@ -1246,6 +1490,18 @@ static int wireguard_verify(NetDev *netdev, const char *filename) {
 const NetDevVTable wireguard_vtable = {
         .object_size = sizeof(Wireguard),
         .sections = NETDEV_COMMON_SECTIONS "WireGuard\0WireGuardPeer\0",
+        .post_create = netdev_wireguard_post_create,
+        .init = wireguard_init,
+        .done = wireguard_done,
+        .create_type = NETDEV_CREATE_INDEPENDENT,
+        .config_verify = wireguard_verify,
+        .iftype = ARPHRD_NONE,
+        .keep_existing = true,
+};
+
+const NetDevVTable amneziawg_vtable = {
+        .object_size = sizeof(Wireguard),
+        .sections = NETDEV_COMMON_SECTIONS "WireGuard\0WireGuardPeer\0AmneziaWG\0",
         .post_create = netdev_wireguard_post_create,
         .init = wireguard_init,
         .done = wireguard_done,

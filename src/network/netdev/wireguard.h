@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <linux/amneziawg.h>
 #include <linux/wireguard.h>
 
 #include "in-addr-util.h"
@@ -27,6 +28,7 @@ typedef struct WireguardPeer {
         char *preshared_key_file;
         uint32_t flags;
         uint16_t persistent_keepalive_interval;
+        uint16_t persistent_keepalive_interval_max;
 
         union sockaddr_union endpoint;
         char *endpoint_host;
@@ -61,11 +63,27 @@ typedef struct Wireguard {
         Set *routes;
         uint32_t route_table;
         uint32_t route_priority;
+
+        /* Indexed by netlink attribute; ranges pack the upper bound above the lower bound. */
+        uint64_t amnezia_parameters[AWGDEVICE_A_MAX + 1];
+        char *amnezia_signatures[5];
+        uint8_t header_protection_key[WG_KEY_LEN];
+        char *header_protection_key_file;
+        bool header_protection_key_set;
 } Wireguard;
 
-DEFINE_NETDEV_CAST(WIREGUARD, Wireguard);
-extern const NetDevVTable wireguard_vtable;
+static inline Wireguard* WIREGUARD(NetDev *netdev) {
+        assert(netdev);
+        assert(IN_SET(netdev->kind, NETDEV_KIND_WIREGUARD, NETDEV_KIND_AMNEZIAWG));
+        assert(netdev->state < _NETDEV_STATE_MAX);
 
+        return (Wireguard*) netdev;
+}
+
+extern const NetDevVTable wireguard_vtable;
+extern const NetDevVTable amneziawg_vtable;
+
+CONFIG_PARSER_PROTOTYPE(config_parse_amneziawg_parameter);
 CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_allowed_ips);
 CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_endpoint);
 CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_listen_port);
