@@ -207,13 +207,16 @@ static DLSYM_PROTOTYPE(EVP_MD_get_type) = NULL;
 DLSYM_PROTOTYPE(EVP_PKEY_CTX_free) = NULL;
 DLSYM_PROTOTYPE(EVP_PKEY_CTX_new) = NULL;
 DLSYM_PROTOTYPE(EVP_PKEY_CTX_new_from_name) = NULL;
+static DLSYM_PROTOTYPE(EVP_PKEY_CTX_new_from_pkey) = NULL;
 DLSYM_PROTOTYPE(EVP_PKEY_CTX_new_id) = NULL;
 static DLSYM_PROTOTYPE(EVP_PKEY_CTX_set0_rsa_oaep_label) = NULL;
 DLSYM_PROTOTYPE(EVP_PKEY_CTX_set_ec_paramgen_curve_nid) = NULL;
+static DLSYM_PROTOTYPE(EVP_PKEY_CTX_set_params) = NULL;
 DLSYM_PROTOTYPE(EVP_PKEY_CTX_set_rsa_keygen_bits) = NULL;
 static DLSYM_PROTOTYPE(EVP_PKEY_CTX_set_rsa_oaep_md) = NULL;
 DLSYM_PROTOTYPE(EVP_PKEY_CTX_set_rsa_padding) = NULL;
 DLSYM_PROTOTYPE(EVP_PKEY_CTX_set_signature_md) = NULL;
+static DLSYM_PROTOTYPE(EVP_PKEY_CTX_settable_params) = NULL;
 static DLSYM_PROTOTYPE(EVP_PKEY_derive) = NULL;
 static DLSYM_PROTOTYPE(EVP_PKEY_derive_init) = NULL;
 static DLSYM_PROTOTYPE(EVP_PKEY_derive_set_peer) = NULL;
@@ -275,8 +278,10 @@ static DLSYM_PROTOTYPE(OSSL_get_max_threads) = NULL;
 DLSYM_PROTOTYPE(OSSL_PARAM_construct_BN) = NULL;
 DLSYM_PROTOTYPE(OSSL_PARAM_construct_end) = NULL;
 DLSYM_PROTOTYPE(OSSL_PARAM_construct_octet_string) = NULL;
+static DLSYM_PROTOTYPE(OSSL_PARAM_construct_uint) = NULL;
 DLSYM_PROTOTYPE(OSSL_PARAM_construct_utf8_string) = NULL;
 DLSYM_PROTOTYPE(OSSL_PARAM_free) = NULL;
+static DLSYM_PROTOTYPE(OSSL_PARAM_locate_const) = NULL;
 static DLSYM_PROTOTYPE(OSSL_PROVIDER_try_load) = NULL;
 static DLSYM_PROTOTYPE(OSSL_STORE_INFO_free) = NULL;
 static DLSYM_PROTOTYPE(OSSL_STORE_INFO_get1_CERT) = NULL;
@@ -599,13 +604,16 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(EVP_PKEY_CTX_free),
                         DLSYM_ARG(EVP_PKEY_CTX_new),
                         DLSYM_ARG(EVP_PKEY_CTX_new_from_name),
+                        DLSYM_ARG(EVP_PKEY_CTX_new_from_pkey),
                         DLSYM_ARG(EVP_PKEY_CTX_new_id),
                         DLSYM_ARG(EVP_PKEY_CTX_set0_rsa_oaep_label),
                         DLSYM_ARG(EVP_PKEY_CTX_set_ec_paramgen_curve_nid),
+                        DLSYM_ARG(EVP_PKEY_CTX_set_params),
                         DLSYM_ARG(EVP_PKEY_CTX_set_rsa_keygen_bits),
                         DLSYM_ARG(EVP_PKEY_CTX_set_rsa_oaep_md),
                         DLSYM_ARG(EVP_PKEY_CTX_set_rsa_padding),
                         DLSYM_ARG(EVP_PKEY_CTX_set_signature_md),
+                        DLSYM_ARG(EVP_PKEY_CTX_settable_params),
                         DLSYM_ARG(EVP_PKEY_derive),
                         DLSYM_ARG(EVP_PKEY_derive_init),
                         DLSYM_ARG(EVP_PKEY_derive_set_peer),
@@ -665,8 +673,10 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(OSSL_PARAM_construct_BN),
                         DLSYM_ARG(OSSL_PARAM_construct_end),
                         DLSYM_ARG(OSSL_PARAM_construct_octet_string),
+                        DLSYM_ARG(OSSL_PARAM_construct_uint),
                         DLSYM_ARG(OSSL_PARAM_construct_utf8_string),
                         DLSYM_ARG(OSSL_PARAM_free),
+                        DLSYM_ARG(OSSL_PARAM_locate_const),
                         DLSYM_ARG(OSSL_PROVIDER_try_load),
                         DLSYM_ARG(OSSL_STORE_INFO_free),
                         DLSYM_ARG(OSSL_STORE_INFO_get1_CERT),
@@ -2256,16 +2266,43 @@ int digest_and_sign(
         if (!mdctx)
                 return log_openssl_errors(LOG_DEBUG, "Failed to create new EVP_MD_CTX");
 
+        /* Will be set by EVP_DigestSignInit(), and freed with mdctx. */
+        EVP_PKEY_CTX *pctx = NULL;
         /* Note that a NULL 'md' (message digest algorithm) means to sign the provided data directly, without
          * hashing it first, as long as a suitable signing algorithm is used that supports this, such as
          * Ed25519 (PureEdDSA). For such algorithms callers may pass an already calculated digest as input. */
-        if (sym_EVP_DigestSignInit(mdctx, /* pctx= */ NULL, md, NULL, privkey) != 1) {
+        if (sym_EVP_DigestSignInit(mdctx, &pctx, md, NULL, privkey) != 1) {
                 /* Distro security policies often disable support for SHA-1. Let's return a recognizable
                  * error for that case. */
                 bool invalid_digest = ERR_GET_REASON(sym_ERR_peek_last_error()) == EVP_R_INVALID_DIGEST;
                 r = log_openssl_errors(LOG_DEBUG, "Failed to initialize signature context");
                 return invalid_digest ? -EADDRNOTAVAIL : r;
         }
+
+#ifdef OSSL_SIGNATURE_PARAM_NONCE_TYPE
+        /* Enable enable deterministic ECDSA signature, if possible. That depends on the key type (can't work
+         * with RSA keys), requires a message digest (required for ECDSA, but may be NULL with other key
+         * types), and OpenSSL >= 3.2. */
+        const OSSL_PARAM *settable = sym_EVP_PKEY_CTX_settable_params(pctx);
+        if (md && settable && sym_OSSL_PARAM_locate_const(settable, OSSL_SIGNATURE_PARAM_NONCE_TYPE)) {
+                /* value to be set, 1 means deterministic */
+                unsigned nonce_type = 1;
+                /* The digest parameter must be set explicitly with nonce-type, see
+                 * man:provider-signature(7). Use the selected signature digest. */
+                _cleanup_free_ char *digest_name = strdup(sym_EVP_MD_get0_name(md));
+                if (!digest_name)
+                        return log_oom_debug();
+                OSSL_PARAM params[3] = {
+                        sym_OSSL_PARAM_construct_uint(OSSL_SIGNATURE_PARAM_NONCE_TYPE, &nonce_type),
+                        sym_OSSL_PARAM_construct_utf8_string(OSSL_SIGNATURE_PARAM_DIGEST, digest_name, strlen(digest_name)),
+                        sym_OSSL_PARAM_construct_end(),
+                };
+                r = sym_EVP_PKEY_CTX_set_params(pctx, params);
+                if (!r)
+                        return log_openssl_errors(LOG_DEBUG, "Failed to enable deterministic ECDSA.");
+                log_debug("Enabled deterministic ECDSA signature (RFC 6979).");
+        }
+#endif
 
         /* Determine signature size */
         size_t ss;
