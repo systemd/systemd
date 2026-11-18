@@ -60,3 +60,21 @@ check_options "usrhash=$USRHASH systemd.verity_usr_options=/run/a,b\\c.sig" \
 check_unit_options root "roothash=$USRHASH" "root-hash-signature=auto"
 check_unit_options root "roothash=$USRHASH systemd.verity_root_options=panic-on-corruption" \
                    "root-hash-signature=auto,panic-on-corruption"
+
+# An image policy that allows "signed" but not "verity" for a partition requires a validated signature. The
+# generator adds root-hash-signature-required=yes after the options from the kernel command line, so that they
+# can't turn the requirement off.
+check_options "usrhash=$USRHASH systemd.image_policy=usr=signed" \
+              "root-hash-signature=auto,root-hash-signature-required=yes"
+check_options "usrhash=$USRHASH systemd.image_policy=usr=signed systemd.verity_usr_options=root-hash-signature-required=no" \
+              "root-hash-signature=auto,root-hash-signature-required=no,root-hash-signature-required=yes"
+check_unit_options root "roothash=$USRHASH systemd.image_policy=root=signed" \
+                   "root-hash-signature=auto,root-hash-signature-required=yes"
+check_options "usrhash=$USRHASH systemd.image_policy=usr=verity+signed" "root-hash-signature=auto"
+check_options "usrhash=$USRHASH systemd.image_policy=root=signed" "root-hash-signature=auto"
+
+# The generator ignores rd.systemd.image_policy=, like systemd-gpt-auto-generator and udev.
+SYSTEMD_IN_INITRD=1 check_options "usrhash=$USRHASH rd.systemd.image_policy=usr=signed" "root-hash-signature=auto"
+
+# An image policy that doesn't parse is ignored, and the generator still writes the unit.
+check_options "usrhash=$USRHASH systemd.image_policy=usr=bogus" "root-hash-signature=auto"
