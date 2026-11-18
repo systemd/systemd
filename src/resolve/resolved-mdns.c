@@ -404,30 +404,15 @@ static int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userda
         return 0;
 }
 
-static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        Manager *m = userdata;
-        DnsScope *scope;
+/* Handle an mDNS packet that arrived on the scope: check a reply for conflicts with our records, cache it
+ * and pass it on to the transactions and browsers waiting for it, or answer a query. Kept apart from the
+ * socket read, so that unit tests can hand it packets. */
+int mdns_scope_process_packet(DnsScope *scope, DnsPacket *p) {
         int r;
         bool unsolicited_packet = true;
 
-        r = manager_recv(m, fd, DNS_PROTOCOL_MDNS, &p);
-        if (r <= 0)
-                return r;
-
-        /* Refuse traffic from the local host, to avoid query loops. However, allow legacy mDNS
-         * unicast queries through anyway (we never send those ourselves, hence no risk).
-         * i.e. check for the source port nr. */
-        if (p->sender_port == MDNS_PORT && manager_packet_from_local_address(m, p)) {
-                log_debug("Got mDNS UDP packet from local host, ignoring.");
-                return 0;
-        }
-
-        scope = manager_find_scope(m, p);
-        if (!scope) {
-                log_debug("Got mDNS UDP packet on unknown scope. Ignoring.");
-                return 0;
-        }
+        assert(scope);
+        assert(p);
 
         if (dns_packet_validate_reply(p) > 0) {
                 DnsResourceRecord *rr;
@@ -537,7 +522,7 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                 }
                 /* Check if incoming packet key matches with active browse clients. If yes, update the same */
                 if (unsolicited_packet)
-                        mdns_notify_browsers_unsolicited_updates(m, p->answer, p->family);
+                        mdns_notify_browsers_unsolicited_updates(scope->manager, p->answer, p->family);
         } else if (dns_packet_validate_query(p) > 0)  {
                 log_debug("Got mDNS query packet for id %u", DNS_PACKET_ID(p));
 
@@ -550,6 +535,33 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                 log_debug("Invalid mDNS UDP packet.");
 
         return 0;
+}
+
+static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        Manager *m = userdata;
+        DnsScope *scope;
+        int r;
+
+        r = manager_recv(m, fd, DNS_PROTOCOL_MDNS, &p);
+        if (r <= 0)
+                return r;
+
+        /* Refuse traffic from the local host, to avoid query loops. However, allow legacy mDNS
+         * unicast queries through anyway (we never send those ourselves, hence no risk).
+         * i.e. check for the source port nr. */
+        if (p->sender_port == MDNS_PORT && manager_packet_from_local_address(m, p)) {
+                log_debug("Got mDNS UDP packet from local host, ignoring.");
+                return 0;
+        }
+
+        scope = manager_find_scope(m, p);
+        if (!scope) {
+                log_debug("Got mDNS UDP packet on unknown scope. Ignoring.");
+                return 0;
+        }
+
+        return mdns_scope_process_packet(scope, p);
 }
 
 int manager_mdns_ipv4_fd(Manager *m) {
