@@ -1347,9 +1347,14 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 arg_root_rw = true;
         else if (streq(key, "ro") && !value)
                 arg_root_rw = false;
-        else if (proc_cmdline_key_streq(key, "systemd.image_policy"))
+        else if (proc_cmdline_key_streq(key, "systemd.image_policy")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
                 return parse_image_policy_argument(value, &arg_image_policy);
-        else if (proc_cmdline_key_streq(key, "systemd.image_filter")) {
+
+        } else if (proc_cmdline_key_streq(key, "systemd.image_filter")) {
                 _cleanup_(image_filter_freep) ImageFilter *f = NULL;
 
                 r = image_filter_parse(value, &f);
