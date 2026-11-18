@@ -419,7 +419,9 @@ int manager_setup_varlink_server(Manager *m) {
          * io.systemd.Unit.StartTransient() to accept stdio fds. */
         sd_varlink_server_flags_t flags = SD_VARLINK_SERVER_INHERIT_USERDATA|SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT;
         if (MANAGER_IS_SYSTEM(m))
-                flags |= SD_VARLINK_SERVER_ACCOUNT_UID;
+                /* The PTY broker holds one root connection per shell unit. Keep the global limit and the
+                 * per-UID limit for unprivileged clients, but don't restrict root to the latter. */
+                flags |= SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_ACCOUNT_UID_EXCLUDE_ROOT;
 
         r = varlink_server_new(&s, flags, m);
         if (r < 0)
