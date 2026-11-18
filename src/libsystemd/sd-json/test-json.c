@@ -1907,6 +1907,80 @@ TEST(must_be) {
         ASSERT_OK(sd_json_parse("[]", SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_MUST_BE_ARRAY, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
 }
 
+static void test_duplicate_keys_parse_one(const char *text, int expected) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        int r;
+
+        r = sd_json_parse(text, /* flags= */ 0, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
+
+        if (expected == 0) {
+                ASSERT_OK(r);
+                ASSERT_NOT_NULL(v);
+        } else {
+                ASSERT_ERROR(r, expected);
+                ASSERT_NULL(v);
+        }
+}
+
+TEST(duplicate_keys) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *a = NULL, *b = NULL, *c = NULL;
+
+        /* Parser */
+        test_duplicate_keys_parse_one("{\"a\":1,\"a\":2}", ENOTUNIQ);
+        test_duplicate_keys_parse_one("{\"a\":1,\"a\":1}", ENOTUNIQ);
+        test_duplicate_keys_parse_one("{\"b\":1,\"a\":2,\"b\":3}", ENOTUNIQ);
+        test_duplicate_keys_parse_one("{\"x\":{\"a\":1,\"a\":2}}", ENOTUNIQ);
+        test_duplicate_keys_parse_one("[{\"a\":1},{\"a\":1,\"b\":2,\"a\":3}]", ENOTUNIQ);
+        test_duplicate_keys_parse_one("{\"a\":1,\"\\u0061\":2}", ENOTUNIQ); /* same key after unescaping */
+        test_duplicate_keys_parse_one("{\"a\":1,\"A\":2}", /* expected= */ 0);
+        test_duplicate_keys_parse_one("{\"b\":1,\"a\":2}", /* expected= */ 0);
+        test_duplicate_keys_parse_one("[{\"a\":1},{\"a\":2}]", /* expected= */ 0);
+        test_duplicate_keys_parse_one("{\"a\":{\"a\":{\"a\":1}}}", /* expected= */ 0);
+
+        /* Large unsorted objects take a different code path, check that too, with the duplicate keys at
+         * opposite ends of the object */
+        _cleanup_free_ char *fields = NULL;
+        for (unsigned i = 0; i < 100; i++)
+                ASSERT_OK(strextendf_with_separator(&fields, ",", "\"k%u\":%u", 99 - i, i));
+
+        _cleanup_free_ char *big = strjoin("{", fields, "}");
+        ASSERT_NOT_NULL(big);
+        test_duplicate_keys_parse_one(big, /* expected= */ 0);
+
+        _cleanup_free_ char *big_dup = strjoin("{", fields, ",\"k99\":4711}");
+        ASSERT_NOT_NULL(big_dup);
+        test_duplicate_keys_parse_one(big_dup, ENOTUNIQ);
+
+        /* Builder */
+        ASSERT_ERROR(sd_json_buildo(&v,
+                                    SD_JSON_BUILD_PAIR_UNSIGNED("a", 1),
+                                    SD_JSON_BUILD_PAIR_UNSIGNED("a", 2)), ENOTUNIQ);
+        ASSERT_NULL(v);
+        ASSERT_ERROR(sd_json_buildo(&v,
+                                    SD_JSON_BUILD_PAIR_UNSIGNED("b", 1),
+                                    SD_JSON_BUILD_PAIR_UNSIGNED("a", 2),
+                                    SD_JSON_BUILD_PAIR_UNSIGNED("b", 3)), ENOTUNIQ);
+        ASSERT_NULL(v);
+        ASSERT_OK(sd_json_buildo(&v,
+                                 SD_JSON_BUILD_PAIR_UNSIGNED("b", 1),
+                                 SD_JSON_BUILD_PAIR_UNSIGNED("a", 2)));
+        ASSERT_NOT_NULL(v);
+
+        /* Low-level constructor */
+        ASSERT_OK(sd_json_variant_new_string(&a, "foo"));
+        ASSERT_OK(sd_json_variant_new_string(&b, "bar"));
+        ASSERT_OK(sd_json_variant_new_unsigned(&c, 4711));
+
+        sd_json_variant *dup[] = { a, c, b, c, a, c };
+        ASSERT_ERROR(sd_json_variant_new_object(&v, dup, ELEMENTSOF(dup)), ENOTUNIQ);
+        ASSERT_NOT_NULL(v); /* unchanged on failure */
+
+        sd_json_variant *nodup[] = { a, c, b, c };
+        v = sd_json_variant_unref(v);
+        ASSERT_OK(sd_json_variant_new_object(&v, nodup, ELEMENTSOF(nodup)));
+        ASSERT_EQ(sd_json_variant_elements(v), 4U);
+}
+
 TEST(json_dispatch_in_addr) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
 
