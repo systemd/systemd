@@ -228,10 +228,10 @@ TEST(touch_file) {
         if (geteuid() == 0) {
                 a = strjoina(p, "/bdev");
                 r = RET_NERRNO(mknod(a, 0775 | S_IFBLK, makedev(0, 0)));
-                if (r == -EPERM && detect_container() > 0) {
-                        log_notice("Running in unprivileged container? Skipping remaining tests in %s", __func__);
-                        return;
-                }
+                if (r == -EPERM && detect_container() > 0)
+                        return (void) log_notice("Running in unprivileged container? Skipping remaining tests in %s",
+                                                 __func__);
+
                 ASSERT_OK(r);
                 ASSERT_OK(touch_file(a, /* parents= */ false, test_mtime, test_uid, test_gid, 0640));
                 ASSERT_OK_ERRNO(lstat(a, &st));

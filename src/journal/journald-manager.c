@@ -996,11 +996,9 @@ static void manager_write_to_journal(
                 return;
 
         if (journal_file_rotate_suggested(f, m->config.max_file_usec, LOG_DEBUG)) {
-                if (vacuumed) {
-                        log_ratelimit_warning(JOURNAL_LOG_RATELIMIT,
-                                              "Suppressing rotation, as we already rotated immediately before write attempt. Giving up.");
-                        return;
-                }
+                if (vacuumed)
+                        return (void) log_ratelimit_warning(JOURNAL_LOG_RATELIMIT,
+                                                            "Suppressing rotation, as we already rotated immediately before write attempt. Giving up.");
 
                 log_debug("%s: Journal header limits reached or header out-of-date, rotating.", f->path);
 
@@ -1033,11 +1031,9 @@ static void manager_write_to_journal(
 
         if (!shall_try_append_again(f, r))
                 return;
-        if (vacuumed) {
-                log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
-                                            "Suppressing rotation, as we already rotated immediately before write attempt. Giving up.");
-                return;
-        }
+        if (vacuumed)
+                return (void) log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
+                                                          "Suppressing rotation, as we already rotated immediately before write attempt. Giving up.");
 
         manager_rotate_journal(m, TAKE_PTR(f), uid);
         manager_vacuum(m, /* verbose= */ false);

@@ -360,19 +360,15 @@ static void test_exec_cpuaffinity(Manager *m) {
         ASSERT_OK(cpu_set_realloc(&c, 8192)); /* just allocate the maximum possible size */
         ASSERT_OK_ERRNO(sched_getaffinity(0, c.allocated, c.set));
 
-        if (!CPU_ISSET_S(0, c.allocated, c.set)) {
-                log_notice("Cannot use CPU 0, skipping %s", __func__);
-                return;
-        }
+        if (!CPU_ISSET_S(0, c.allocated, c.set))
+                return (void) log_notice("Cannot use CPU 0, skipping %s", __func__);
 
         test(m, "exec-cpuaffinity1.service", 0, CLD_EXITED);
         test(m, "exec-cpuaffinity2.service", 0, CLD_EXITED);
 
         if (!CPU_ISSET_S(1, c.allocated, c.set) ||
-            !CPU_ISSET_S(2, c.allocated, c.set)) {
-                log_notice("Cannot use CPU 1 or 2, skipping remaining tests in %s", __func__);
-                return;
-        }
+            !CPU_ISSET_S(2, c.allocated, c.set))
+                return (void) log_notice("Cannot use CPU 1 or 2, skipping remaining tests in %s", __func__);
 
         test(m, "exec-cpuaffinity3.service", 0, CLD_EXITED);
 }
@@ -550,14 +546,11 @@ static void test_exec_privatetmp(Manager *m) {
 static void test_exec_privatedevices(Manager *m) {
         int r;
 
-        if (detect_container() > 0) {
-                log_notice("Testing in container, skipping %s", __func__);
-                return;
-        }
-        if (!is_inaccessible_available()) {
-                log_notice("Testing without inaccessible, skipping %s", __func__);
-                return;
-        }
+        if (detect_container() > 0)
+                return (void) log_notice("Testing in container, skipping %s", __func__);
+
+        if (!is_inaccessible_available())
+                return (void) log_notice("Testing without inaccessible, skipping %s", __func__);
 
         if (MANAGER_IS_SYSTEM(m) || have_userns_privileges()) {
                 test(m, "exec-privatedevices-yes.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
@@ -572,10 +565,9 @@ static void test_exec_privatedevices(Manager *m) {
         /* We use capsh to test if the capabilities are
          * properly set, so be sure that it exists */
         r = find_executable("capsh", /* ret_filename= */ NULL);
-        if (r < 0) {
-                log_notice_errno(r, "Could not find capsh binary, skipping remaining tests in %s: %m", __func__);
-                return;
-        }
+        if (r < 0)
+                return (void) log_notice_errno(r, "Could not find capsh binary, skipping remaining tests in %s: %m",
+                                               __func__);
 
         if (MANAGER_IS_SYSTEM(m) || have_userns_privileges()) {
                 test(m, "exec-privatedevices-yes-capability-mknod.service", can_unshare || MANAGER_IS_SYSTEM(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
@@ -587,10 +579,8 @@ static void test_exec_privatedevices(Manager *m) {
 }
 
 static void test_exec_protecthome(Manager *m) {
-        if (!can_unshare) {
-                log_notice("Cannot reliably unshare, skipping %s", __func__);
-                return;
-        }
+        if (!can_unshare)
+                return (void) log_notice("Cannot reliably unshare, skipping %s", __func__);
 
         test(m, "exec-protecthome-tmpfs-vs-protectsystem-strict.service", 0, CLD_EXITED);
 }
@@ -598,20 +588,15 @@ static void test_exec_protecthome(Manager *m) {
 static void test_exec_protectkernelmodules(Manager *m) {
         int r;
 
-        if (detect_container() > 0) {
-                log_notice("Testing in container, skipping %s", __func__);
-                return;
-        }
-        if (!is_inaccessible_available()) {
-                log_notice("Testing without inaccessible, skipping %s", __func__);
-                return;
-        }
+        if (detect_container() > 0)
+                return (void) log_notice("Testing in container, skipping %s", __func__);
+
+        if (!is_inaccessible_available())
+                return (void) log_notice("Testing without inaccessible, skipping %s", __func__);
 
         r = find_executable("capsh", /* ret_filename= */ NULL);
-        if (r < 0) {
-                log_notice_errno(r, "Skipping %s, could not find capsh binary: %m", __func__);
-                return;
-        }
+        if (r < 0)
+                return (void) log_notice_errno(r, "Skipping %s, could not find capsh binary: %m", __func__);
 
         test(m, "exec-protectkernelmodules-no-capabilities.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_FAILURE, CLD_EXITED);
 
@@ -626,10 +611,9 @@ static void test_exec_readonlypaths(Manager *m) {
         if (MANAGER_IS_SYSTEM(m) || have_userns_privileges())
                 test(m, "exec-readonlypaths-simple.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
 
-        if (path_is_read_only_fs("/var") > 0) {
-                log_notice("Directory /var is readonly, skipping remaining tests in %s", __func__);
-                return;
-        }
+        if (path_is_read_only_fs("/var") > 0)
+                return (void) log_notice("Directory /var is readonly, skipping remaining tests in %s",
+                                         __func__);
 
         test(m, "exec-readonlypaths.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
         test(m, "exec-readonlypaths-with-bindpaths.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
@@ -638,28 +622,23 @@ static void test_exec_readonlypaths(Manager *m) {
 
 static void test_exec_readwritepaths(Manager *m) {
 
-        if (path_is_read_only_fs("/") > 0) {
-                log_notice("Root directory is readonly, skipping %s", __func__);
-                return;
-        }
+        if (path_is_read_only_fs("/") > 0)
+                return (void) log_notice("Root directory is readonly, skipping %s", __func__);
 
         test(m, "exec-readwritepaths-mount-propagation.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
 }
 
 static void test_exec_inaccessiblepaths(Manager *m) {
 
-        if (!is_inaccessible_available()) {
-                log_notice("Testing without inaccessible, skipping %s", __func__);
-                return;
-        }
+        if (!is_inaccessible_available())
+                return (void) log_notice("Testing without inaccessible, skipping %s", __func__);
 
         if (MANAGER_IS_SYSTEM(m) || have_userns_privileges())
                 test(m, "exec-inaccessiblepaths-sys.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
 
-        if (path_is_read_only_fs("/") > 0) {
-                log_notice("Root directory is readonly, skipping remaining tests in %s", __func__);
-                return;
-        }
+        if (path_is_read_only_fs("/") > 0)
+                return (void) log_notice("Root directory is readonly, skipping remaining tests in %s",
+                                         __func__);
 
         test(m, "exec-inaccessiblepaths-mount-propagation.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
 }
@@ -813,23 +792,21 @@ static void test_exec_mount_apivfs(Manager *m) {
         ASSERT_NOT_NULL(user_runtime_unit_dir);
 
         r = find_executable("ldd", /* ret_filename= */ NULL);
-        if (r < 0) {
-                log_notice_errno(r, "Skipping %s, could not find 'ldd' command: %m", __func__);
-                return;
-        }
+        if (r < 0)
+                return (void) log_notice_errno(r, "Skipping %s, could not find 'ldd' command: %m", __func__);
+
         r = find_executable("touch", &fullpath_touch);
-        if (r < 0) {
-                log_notice_errno(r, "Skipping %s, could not find 'touch' command: %m", __func__);
-                return;
-        }
+        if (r < 0)
+                return (void) log_notice_errno(r, "Skipping %s, could not find 'touch' command: %m",
+                                               __func__);
+
         r = find_executable("test", &fullpath_test);
-        if (r < 0) {
-                log_notice_errno(r, "Skipping %s, could not find 'test' command: %m", __func__);
-                return;
-        }
+        if (r < 0)
+                return (void) log_notice_errno(r, "Skipping %s, could not find 'test' command: %m",
+                                               __func__);
 
         if (MANAGER_IS_USER(m) && !have_userns_privileges())
-                return (void)log_notice("Skipping %s, do not have user namespace privileges", __func__);
+                return (void) log_notice("Skipping %s, do not have user namespace privileges", __func__);
 
         ASSERT_OK(find_libraries(fullpath_touch, &libraries));
         ASSERT_OK(find_libraries(fullpath_test, &libraries_test));
@@ -874,10 +851,8 @@ static void test_exec_systemcallfilter(Manager *m) {
 #if HAVE_SECCOMP && !HAS_FEATURE_ADDRESS_SANITIZER
         int r;
 
-        if (!is_seccomp_available()) {
-                log_notice("Seccomp not available, skipping %s", __func__);
-                return;
-        }
+        if (!is_seccomp_available())
+                return (void) log_notice("Seccomp not available, skipping %s", __func__);
 
         test(m, "exec-systemcallfilter-writing-handoff-timestamp.service", 0, CLD_EXITED);
 
@@ -889,10 +864,9 @@ static void test_exec_systemcallfilter(Manager *m) {
         test(m, "exec-systemcallfilter-failing3.service", SIGSYS, CLD_KILLED);
 
         r = find_executable("python3", /* ret_filename= */ NULL);
-        if (r < 0) {
-                log_notice_errno(r, "Skipping remaining tests in %s, could not find python3 binary: %m", __func__);
-                return;
-        }
+        if (r < 0)
+                return (void) log_notice_errno(r, "Skipping remaining tests in %s, could not find python3 binary: %m",
+                                               __func__);
 
         test(m, "exec-systemcallfilter-with-errno-name.service", errno_from_name("EILSEQ"), CLD_EXITED);
         test(m, "exec-systemcallfilter-with-errno-number.service", 255, CLD_EXITED);
@@ -905,10 +879,8 @@ static void test_exec_systemcallfilter(Manager *m) {
         test(m, "exec-systemcallfilter-nonewprivileges-protectclock.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 
         r = find_executable("capsh", /* ret_filename= */ NULL);
-        if (r < 0) {
-                log_notice_errno(r, "Skipping %s, could not find capsh binary: %m", __func__);
-                return;
-        }
+        if (r < 0)
+                return (void) log_notice_errno(r, "Skipping %s, could not find capsh binary: %m", __func__);
 
         test(m, "exec-systemcallfilter-nonewprivileges-bounding1.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
         test(m, "exec-systemcallfilter-nonewprivileges-bounding2.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
@@ -919,16 +891,13 @@ static void test_exec_systemcallerrornumber(Manager *m) {
 #if HAVE_SECCOMP && !HAS_FEATURE_ADDRESS_SANITIZER
         int r;
 
-        if (!is_seccomp_available()) {
-                log_notice("Seccomp not available, skipping %s", __func__);
-                return;
-        }
+        if (!is_seccomp_available())
+                return (void) log_notice("Seccomp not available, skipping %s", __func__);
 
         r = find_executable("python3", /* ret_filename= */ NULL);
-        if (r < 0) {
-                log_notice_errno(r, "Skipping %s, could not find python3 binary: %m", __func__);
-                return;
-        }
+        if (r < 0)
+                return (void) log_notice_errno(r, "Skipping %s, could not find python3 binary: %m",
+                                               __func__);
 
         test(m, "exec-systemcallerrornumber-name.service", errno_from_name("EACCES"), CLD_EXITED);
         test(m, "exec-systemcallerrornumber-number.service", 255, CLD_EXITED);
@@ -937,10 +906,8 @@ static void test_exec_systemcallerrornumber(Manager *m) {
 
 static void test_exec_restrictnamespaces(Manager *m) {
 #if HAVE_SECCOMP
-        if (!is_seccomp_available()) {
-                log_notice("Seccomp not available, skipping %s", __func__);
-                return;
-        }
+        if (!is_seccomp_available())
+                return (void) log_notice("Seccomp not available, skipping %s", __func__);
 
         test(m, "exec-restrictnamespaces-no.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
         test(m, "exec-restrictnamespaces-yes.service", 1, CLD_EXITED);
@@ -959,22 +926,18 @@ static void test_exec_systemcallfilter_system(Manager *m) {
  * the seccomp stuff.
  */
 #if HAVE_SECCOMP && !HAS_FEATURE_ADDRESS_SANITIZER
-        if (!is_seccomp_available()) {
-                log_notice("Seccomp not available, skipping %s", __func__);
-                return;
-        }
+        if (!is_seccomp_available())
+                return (void) log_notice("Seccomp not available, skipping %s", __func__);
 
         test(m, "exec-systemcallfilter-system-user.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 
-        if (!check_nobody_user_and_group()) {
-                log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
-                return;
-        }
+        if (!check_nobody_user_and_group())
+                return (void) log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s",
+                                         __func__);
 
-        if (!STR_IN_SET(NOBODY_USER_NAME, "nobody", "nfsnobody")) {
-                log_notice("Unsupported nobody user name '%s', skipping remaining tests in %s", NOBODY_USER_NAME, __func__);
-                return;
-        }
+        if (!STR_IN_SET(NOBODY_USER_NAME, "nobody", "nfsnobody"))
+                return (void) log_notice("Unsupported nobody user name '%s', skipping remaining tests in %s",
+                                         NOBODY_USER_NAME, __func__);
 
         test(m, "exec-systemcallfilter-system-user-" NOBODY_USER_NAME ".service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 #endif
@@ -983,15 +946,13 @@ static void test_exec_systemcallfilter_system(Manager *m) {
 static void test_exec_user(Manager *m) {
         test(m, "exec-user.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 
-        if (!check_nobody_user_and_group()) {
-                log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
-                return;
-        }
+        if (!check_nobody_user_and_group())
+                return (void) log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s",
+                                         __func__);
 
-        if (!STR_IN_SET(NOBODY_USER_NAME, "nobody", "nfsnobody")) {
-                log_notice("Unsupported nobody user name '%s', skipping remaining tests in %s", NOBODY_USER_NAME, __func__);
-                return;
-        }
+        if (!STR_IN_SET(NOBODY_USER_NAME, "nobody", "nfsnobody"))
+                return (void) log_notice("Unsupported nobody user name '%s', skipping remaining tests in %s",
+                                         NOBODY_USER_NAME, __func__);
 
         test(m, "exec-user-" NOBODY_USER_NAME ".service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 }
@@ -999,15 +960,13 @@ static void test_exec_user(Manager *m) {
 static void test_exec_group(Manager *m) {
         test(m, "exec-group.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 
-        if (!check_nobody_user_and_group()) {
-                log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
-                return;
-        }
+        if (!check_nobody_user_and_group())
+                return (void) log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s",
+                                         __func__);
 
-        if (!STR_IN_SET(NOBODY_GROUP_NAME, "nobody", "nfsnobody", "nogroup")) {
-                log_notice("Unsupported nobody group name '%s', skipping remaining tests in %s", NOBODY_GROUP_NAME, __func__);
-                return;
-        }
+        if (!STR_IN_SET(NOBODY_GROUP_NAME, "nobody", "nfsnobody", "nogroup"))
+                return (void) log_notice("Unsupported nobody group name '%s', skipping remaining tests in %s",
+                                         NOBODY_GROUP_NAME, __func__);
 
         test(m, "exec-group-" NOBODY_GROUP_NAME ".service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 }
@@ -1040,16 +999,12 @@ static char* private_directory_bad(Manager *m) {
 }
 
 static void test_exec_dynamicuser(Manager *m) {
-        if (MANAGER_IS_USER(m)) {
-                log_notice("Skipping %s for user manager", __func__);
-                return;
-        }
+        if (MANAGER_IS_USER(m))
+                return (void) log_notice("Skipping %s for user manager", __func__);
 
         _cleanup_free_ char *bad = private_directory_bad(m);
-        if (bad) {
-                log_warning("%s: %s has bad permissions, skipping test.", __func__, bad);
-                return;
-        }
+        if (bad)
+                return (void) log_warning("%s: %s has bad permissions, skipping test.", __func__, bad);
 
         int status = can_unshare ? 0 : EXIT_NAMESPACE;
 
@@ -1162,15 +1117,13 @@ static void test_exec_runtimedirectory(Manager *m) {
         test(m, "exec-runtimedirectory-mode.service", 0, CLD_EXITED);
         test(m, "exec-runtimedirectory-owner.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 
-        if (!check_nobody_user_and_group()) {
-                log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
-                return;
-        }
+        if (!check_nobody_user_and_group())
+                return (void) log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s",
+                                         __func__);
 
-        if (!STR_IN_SET(NOBODY_GROUP_NAME, "nobody", "nfsnobody", "nogroup")) {
-                log_notice("Unsupported nobody group name '%s', skipping remaining tests in %s", NOBODY_GROUP_NAME, __func__);
-                return;
-        }
+        if (!STR_IN_SET(NOBODY_GROUP_NAME, "nobody", "nfsnobody", "nogroup"))
+                return (void) log_notice("Unsupported nobody group name '%s', skipping remaining tests in %s",
+                                         NOBODY_GROUP_NAME, __func__);
 
         test(m, "exec-runtimedirectory-owner-" NOBODY_GROUP_NAME ".service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 }
@@ -1179,17 +1132,14 @@ static void test_exec_capabilityboundingset(Manager *m) {
         int r;
 
         r = find_executable("capsh", /* ret_filename= */ NULL);
-        if (r < 0) {
-                log_notice_errno(r, "Skipping %s, could not find capsh binary: %m", __func__);
-                return;
-        }
+        if (r < 0)
+                return (void) log_notice_errno(r, "Skipping %s, could not find capsh binary: %m", __func__);
 
         if (have_effective_cap(CAP_CHOWN) <= 0 ||
             have_effective_cap(CAP_FOWNER) <= 0 ||
-            have_effective_cap(CAP_KILL) <= 0) {
-                log_notice("Skipping %s, this process does not have enough capabilities", __func__);
-                return;
-        }
+            have_effective_cap(CAP_KILL) <= 0)
+                return (void) log_notice("Skipping %s, this process does not have enough capabilities",
+                                         __func__);
 
         test(m, "exec-capabilityboundingset-simple.service", 0, CLD_EXITED);
         test(m, "exec-capabilityboundingset-reset.service", 0, CLD_EXITED);
@@ -1215,16 +1165,14 @@ static void test_exec_ambientcapabilities(Manager *m) {
          * capabilities is fine, since we are expecting them to be unset
          * in the first place for the tests. */
         r = prctl_safe(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0);
-        if (r < 0 && IN_SET(r, -EINVAL, -EOPNOTSUPP, -ENOSYS)) {
-                log_notice("Skipping %s, the kernel does not support ambient capabilities", __func__);
-                return;
-        }
+        if (r < 0 && IN_SET(r, -EINVAL, -EOPNOTSUPP, -ENOSYS))
+                return (void) log_notice("Skipping %s, the kernel does not support ambient capabilities",
+                                         __func__);
 
         if (have_effective_cap(CAP_CHOWN) <= 0 ||
-            have_effective_cap(CAP_NET_RAW) <= 0) {
-                log_notice("Skipping %s, this process does not have enough capabilities", __func__);
-                return;
-        }
+            have_effective_cap(CAP_NET_RAW) <= 0)
+                return (void) log_notice("Skipping %s, this process does not have enough capabilities",
+                                         __func__);
 
         test(m, "exec-ambientcapabilities.service", 0, CLD_EXITED);
         test(m, "exec-ambientcapabilities-merge.service", 0, CLD_EXITED);
@@ -1232,15 +1180,13 @@ static void test_exec_ambientcapabilities(Manager *m) {
         if (have_effective_cap(CAP_SETUID) > 0)
                 test(m, "exec-ambientcapabilities-dynuser.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
 
-        if (!check_nobody_user_and_group()) {
-                log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
-                return;
-        }
+        if (!check_nobody_user_and_group())
+                return (void) log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s",
+                                         __func__);
 
-        if (!STR_IN_SET(NOBODY_USER_NAME, "nobody", "nfsnobody")) {
-                log_notice("Unsupported nobody user name '%s', skipping remaining tests in %s", NOBODY_USER_NAME, __func__);
-                return;
-        }
+        if (!STR_IN_SET(NOBODY_USER_NAME, "nobody", "nfsnobody"))
+                return (void) log_notice("Unsupported nobody user name '%s', skipping remaining tests in %s",
+                                         NOBODY_USER_NAME, __func__);
 
         test(m, "exec-ambientcapabilities-" NOBODY_USER_NAME ".service", 0, CLD_EXITED);
         test(m, "exec-ambientcapabilities-merge-" NOBODY_USER_NAME ".service", 0, CLD_EXITED);
@@ -1256,10 +1202,8 @@ static void test_exec_privatenetwork(Manager *m) {
                 return (void)log_notice("Skipping %s, do not have user namespace privileges", __func__);
 
         r = find_executable("ip", /* ret_filename= */ NULL);
-        if (r < 0) {
-                log_notice_errno(r, "Skipping %s, could not find ip binary: %m", __func__);
-                return;
-        }
+        if (r < 0)
+                return (void) log_notice_errno(r, "Skipping %s, could not find ip binary: %m", __func__);
 
         test(m, "exec-privatenetwork-yes-privatemounts-no.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_NETWORK : EXIT_FAILURE, CLD_EXITED);
         test(m, "exec-privatenetwork-yes-privatemounts-yes.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_NETWORK : EXIT_NAMESPACE, CLD_EXITED);
@@ -1278,10 +1222,8 @@ static void test_exec_networknamespacepath(Manager *m) {
                 return (void)log_notice("Skipping %s, do not have user namespace privileges", __func__);
 
         r = find_executable("ip", /* ret_filename= */ NULL);
-        if (r < 0) {
-                log_notice_errno(r, "Skipping %s, could not find ip binary: %m", __func__);
-                return;
-        }
+        if (r < 0)
+                return (void) log_notice_errno(r, "Skipping %s, could not find ip binary: %m", __func__);
 
         test(m, "exec-networknamespacepath-privatemounts-no.service", MANAGER_IS_SYSTEM(m) ? EXIT_SUCCESS : EXIT_FAILURE, CLD_EXITED);
         test(m, "exec-networknamespacepath-privatemounts-yes.service", can_unshare ? EXIT_SUCCESS : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
@@ -1290,10 +1232,9 @@ static void test_exec_networknamespacepath(Manager *m) {
 static void test_exec_oomscoreadjust(Manager *m) {
         test(m, "exec-oomscoreadjust-positive.service", 0, CLD_EXITED);
 
-        if (detect_container() > 0) {
-                log_notice("Testing in container, skipping remaining tests in %s", __func__);
-                return;
-        }
+        if (detect_container() > 0)
+                return (void) log_notice("Testing in container, skipping remaining tests in %s", __func__);
+
         test(m, "exec-oomscoreadjust-negative.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_FAILURE, CLD_EXITED);
 }
 
@@ -1302,10 +1243,9 @@ static void test_exec_ioschedulingclass(Manager *m) {
         test(m, "exec-ioschedulingclass-idle.service", 0, CLD_EXITED);
         test(m, "exec-ioschedulingclass-best-effort.service", 0, CLD_EXITED);
 
-        if (detect_container() > 0) {
-                log_notice("Testing in container, skipping remaining tests in %s", __func__);
-                return;
-        }
+        if (detect_container() > 0)
+                return (void) log_notice("Testing in container, skipping remaining tests in %s", __func__);
+
         test(m, "exec-ioschedulingclass-realtime.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_IOPRIO, CLD_EXITED);
 }
 
@@ -1353,10 +1293,9 @@ static void test_exec_condition(Manager *m) {
 static void test_exec_umask_namespace(Manager *m) {
         /* exec-specifier-credentials-dir.service creates /run/credentials and enables implicit
          * InaccessiblePath= for the directory for all later services with mount namespace. */
-        if (!is_inaccessible_available()) {
-                log_notice("Testing without inaccessible, skipping %s", __func__);
-                return;
-        }
+        if (!is_inaccessible_available())
+                return (void) log_notice("Testing without inaccessible, skipping %s", __func__);
+
         test(m, "exec-umask-namespace.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_NAMESPACE : EXIT_GROUP, CLD_EXITED);
 }
 

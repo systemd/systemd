@@ -510,10 +510,8 @@ static void json_stream_rearm_time_source(JsonStream *s) {
         }
 
         r = sd_event_source_set_time(s->time_event_source, deadline);
-        if (r < 0) {
-                json_stream_log_errno(s, r, "Failed to set time source deadline: %m");
-                return;
-        }
+        if (r < 0)
+                return (void) json_stream_log_errno(s, r, "Failed to set time source deadline: %m");
 
         (void) sd_event_source_set_enabled(s->time_event_source, SD_EVENT_ON);
 }

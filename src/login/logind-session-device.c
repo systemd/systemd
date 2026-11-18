@@ -236,10 +236,8 @@ static void session_device_stop(SessionDevice *sd) {
         switch (sd->type) {
 
         case DEVICE_TYPE_DRM:
-                if (sd->fd < 0) {
-                        log_error("Failed to de-activate DRM fd, as the fd was lost (maybe logind restart went wrong?)");
-                        return;
-                }
+                if (sd->fd < 0)
+                        return (void) log_error("Failed to de-activate DRM fd, as the fd was lost (maybe logind restart went wrong?)");
 
                 /* On DRM devices we simply drop DRM-Master but keep it open.
                  * This allows the user to keep resources allocated. The

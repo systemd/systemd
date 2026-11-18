@@ -47,10 +47,8 @@ void udev_watch_begin(UdevWorker *worker, sd_device *dev) {
         /* Ignore the request of watching the device node on remove event, as the device node specified by
          * DEVNAME= has already been removed, and may already be assigned to another device. Consider the
          * case e.g. a USB stick memory was unplugged and then another one is plugged. */
-        if (device_for_action(dev, SD_DEVICE_REMOVE)) {
-                log_device_debug(dev, "Not adding device watch on remove uevent.");
-                return;
-        }
+        if (device_for_action(dev, SD_DEVICE_REMOVE))
+                return (void) log_device_debug(dev, "Not adding device watch on remove uevent.");
 
         if (worker->fanotify_fd < 0)
                 return inotify_watch_begin(worker, dev);

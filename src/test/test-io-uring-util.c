@@ -163,10 +163,9 @@ TEST(cqe32_payload) {
 
                 IO_URING_FOREACH_CQE(cqe, &ring) {
                         /* Older kernels ignore nop_flags and return 0 instead of the injected result. */
-                        if (i == 0 && IN_SET(cqe->cqe.res, 0, -EINVAL)) {
-                                log_tests_skipped("IORING_NOP_CQE32 unavailable");
-                                return;
-                        }
+                        if (i == 0 && IN_SET(cqe->cqe.res, 0, -EINVAL))
+                                return (void) log_tests_skipped("IORING_NOP_CQE32 unavailable");
+
                         ASSERT_EQ(cqe->cqe.res, 1);
                         ASSERT_EQ(cqe->cqe.user_data, i);
                         ASSERT_EQ(cqe->cqe.big_cqe[0], UINT64_MAX - i);

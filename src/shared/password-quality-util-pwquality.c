@@ -38,24 +38,19 @@ static void pwq_maybe_disable_dictionary(pwquality_settings_t *pwq) {
         assert(pwq);
 
         r = sym_pwquality_get_str_value(pwq, PWQ_SETTING_DICT_PATH, &path);
-        if (r < 0) {
-                log_debug("Failed to read libpwquality dictionary path, ignoring: %s",
-                          sym_pwquality_strerror(buf, sizeof(buf), r, /* auxerror= */ NULL));
-                return;
-        }
+        if (r < 0)
+                return (void) log_debug("Failed to read libpwquality dictionary path, ignoring: %s",
+                                        sym_pwquality_strerror(buf, sizeof(buf), r, /* auxerror= */ NULL));
 
-        if (isempty(path)) {
-                log_debug("Weird, no dictionary file configured, ignoring.");
-                return;
-        }
+        if (isempty(path))
+                return (void) log_debug("Weird, no dictionary file configured, ignoring.");
 
         if (access(path, F_OK) >= 0)
                 return;
 
-        if (errno != ENOENT) {
-                log_debug_errno(errno, "Failed to check if dictionary file %s exists, ignoring: %m", path);
-                return;
-        }
+        if (errno != ENOENT)
+                return (void) log_debug_errno(errno, "Failed to check if dictionary file %s exists, ignoring: %m",
+                                              path);
 
         r = sym_pwquality_set_int_value(pwq, PWQ_SETTING_DICT_CHECK, /* value= */ 0);
         if (r < 0)

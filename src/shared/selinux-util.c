@@ -341,10 +341,8 @@ void mac_selinux_maybe_reload(void) {
          * Relevant libselinux commit: https://github.com/SELinuxProject/selinux/commit/05bdc03130d741e53e1fb45a958d0a2c184be503
          * Debian Bullseye is going to ship libselinux 3.1, so stay compatible for backports. */
         policyload = sym_selinux_status_policyload();
-        if (policyload < 0) {
-                log_debug_errno(errno, "Failed to get SELinux policyload from status page: %m");
-                return;
-        }
+        if (policyload < 0)
+                return (void) log_debug_errno(errno, "Failed to get SELinux policyload from status page: %m");
 
         if (policyload != last_policyload) {
                 mac_selinux_reload(policyload);

@@ -117,10 +117,9 @@ TEST(transient_directory_roundtrip) {
         bus->state = BUS_RUNNING; /* Only construct messages locally; no bus connection is needed. */
 
         r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL, &manager);
-        if (manager_errno_skip_test(r)) {
-                log_notice_errno(r, "Skipping test: manager_new: %m");
-                return;
-        }
+        if (manager_errno_skip_test(r))
+                return (void) log_notice_errno(r, "Skipping test: manager_new: %m");
+
         ASSERT_OK(r);
         ASSERT_OK(manager_startup(manager, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL));
 
@@ -204,10 +203,9 @@ TEST(fragment_private_destination) {
         int r;
 
         r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL, &manager);
-        if (manager_errno_skip_test(r)) {
-                log_notice_errno(r, "Skipping test: manager_new: %m");
-                return;
-        }
+        if (manager_errno_skip_test(r))
+                return (void) log_notice_errno(r, "Skipping test: manager_new: %m");
+
         ASSERT_OK(r);
         ASSERT_OK(manager_startup(manager, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL));
         ASSERT_OK(unit_new_for_name(manager, sizeof(Service), "test-exec-directory.service", &unit));
