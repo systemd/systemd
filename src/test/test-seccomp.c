@@ -587,7 +587,6 @@ TEST(memory_deny_write_execute_mmap) {
 #if HAVE_VALGRIND_VALGRIND_H
         if (RUNNING_ON_VALGRIND)
                 return (void) log_notice("Running on valgrind, skipping %s", __func__);
-
 #endif
 #if HAS_FEATURE_ADDRESS_SANITIZER
         log_notice("Running on address sanitizer, skipping %s", __func__);
@@ -646,7 +645,6 @@ TEST(memory_deny_write_execute_shmat) {
 #if HAVE_VALGRIND_VALGRIND_H
         if (RUNNING_ON_VALGRIND)
                 return (void) log_notice("Running on valgrind, skipping %s", __func__);
-
 #endif
 #if HAS_FEATURE_ADDRESS_SANITIZER
         log_notice("Running on address sanitizer, skipping %s", __func__);

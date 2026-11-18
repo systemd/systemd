@@ -279,7 +279,6 @@ TEST(pid_get_cmdline_harder) {
          * See https://github.com/systemd/systemd/pull/3555#issuecomment-226564908 */
         if (RUNNING_ON_VALGRIND)
                 return (void) log_info("Skipping %s: running on valgrind", __func__);
-
 #endif
 
         r = ASSERT_OK(pidref_safe_fork("(cmdline)", FORK_WAIT|FORK_LOG|FORK_DEATHSIG_SIGKILL, /* ret= */ NULL));

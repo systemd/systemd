@@ -806,7 +806,7 @@ static void test_exec_mount_apivfs(Manager *m) {
                                                __func__);
 
         if (MANAGER_IS_USER(m) && !have_userns_privileges())
-                return (void)log_notice("Skipping %s, do not have user namespace privileges", __func__);
+                return (void) log_notice("Skipping %s, do not have user namespace privileges", __func__);
 
         ASSERT_OK(find_libraries(fullpath_touch, &libraries));
         ASSERT_OK(find_libraries(fullpath_test, &libraries_test));
