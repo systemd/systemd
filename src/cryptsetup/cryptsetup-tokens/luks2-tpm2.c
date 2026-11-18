@@ -57,33 +57,6 @@ int acquire_luks2_key(
                 device = auto_device;
         }
 
-        if ((flags & TPM2_FLAGS_USE_PIN) && !pin)
-                return -ENOANO;
-
-        if (argon2id) {
-                if (isempty(pin))
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOANO), "Argon2id PIN requires a non-empty PIN.");
-                if (!iovec_is_set(salt))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Argon2id PIN requires salt in LUKS2 token.");
-
-                r = tpm2_argon2id_derive_split(pin, salt, argon2id_params, &key1, &b64_pin);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to perform Argon2id: %m");
-
-                pin = b64_pin;
-        } else if (pin && iovec_is_set(salt)) {
-                uint8_t salted_pin[SHA256_DIGEST_SIZE] = {};
-                CLEANUP_ERASE(salted_pin);
-                r = tpm2_util_pbkdf2_hmac_sha256(pin, strlen(pin), salt->iov_base, salt->iov_len, salted_pin);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to perform PBKDF2: %m");
-
-                r = base64mem(salted_pin, sizeof(salted_pin), &b64_pin);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to base64 encode salted pin: %m");
-                pin = b64_pin;
-        }
-
         if (pubkey_pcr_mask != 0) {
                 r = tpm2_load_pcr_signature(signature_path, &signature_json);
                 if (r < 0)
@@ -108,6 +81,65 @@ int acquire_luks2_key(
         r = tpm2_context_new_or_warn(device, &tpm2_context);
         if (r < 0)
                 return r;
+
+        if (FLAGS_SET(flags, TPM2_FLAGS_USE_PIN)) {
+                /* Before the PIN is involved, check that the policy can be satisfied at all. If it can't, no
+                 * PIN will unlock the volume: asking for one anyway only makes the user believe they mistyped
+                 * it, and trying one the TPM rejects counts towards dictionary attack lockout. The latter
+                 * also matters when we already have a PIN, because a different token accepted it. */
+                r = tpm2_check_unseal_policy(
+                                tpm2_context,
+                                hash_pcr_mask,
+                                pcr_bank,
+                                pubkey,
+                                pubkey_policy_ref,
+                                pubkey_pcr_mask,
+                                signature_json,
+                                FLAGS_SET(flags, TPM2_FLAGS_USE_PCRLOCK) ? &pcrlock_policy : NULL,
+                                policy_hash,
+                                n_policy_hash);
+                if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r)) {
+                        log_warning_errno(r, "TPM policy does not match current system state, %s. Either system has been tampered with or policy out-of-date: %m",
+                                          pin ? "not trying PIN" : "not asking for PIN");
+                        /* Normalize to -EPERM, -ENOANO would mean "needs PIN". */
+                        return -EPERM;
+                }
+                if (r == -ENOSTR)
+                        return log_warning_errno(r, "No signature for current PCR policy in TPM2 signature JSON, token does not apply to current boot state, %s: %m",
+                                                 pin ? "not trying PIN" : "not asking for PIN");
+                if (r == -EADDRNOTAVAIL)
+                        return log_warning_errno(r, "NV index referenced by token is missing, unwritten, or unusable, it could be for another system, %s: %m",
+                                                 pin ? "not trying PIN" : "not asking for PIN");
+                if (r < 0)
+                        log_debug_errno(r, "Failed to check TPM2 policy before using PIN, ignoring: %m");
+
+                if (!pin)
+                        return -ENOANO;
+        }
+
+        if (argon2id) {
+                if (isempty(pin))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOANO), "Argon2id PIN requires a non-empty PIN.");
+                if (!iovec_is_set(salt))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Argon2id PIN requires salt in LUKS2 token.");
+
+                r = tpm2_argon2id_derive_split(pin, salt, argon2id_params, &key1, &b64_pin);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to perform Argon2id: %m");
+
+                pin = b64_pin;
+        } else if (pin && iovec_is_set(salt)) {
+                uint8_t salted_pin[SHA256_DIGEST_SIZE] = {};
+                CLEANUP_ERASE(salted_pin);
+                r = tpm2_util_pbkdf2_hmac_sha256(pin, strlen(pin), salt->iov_base, salt->iov_len, salted_pin);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to perform PBKDF2: %m");
+
+                r = base64mem(salted_pin, sizeof(salted_pin), &b64_pin);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to base64 encode salted pin: %m");
+                pin = b64_pin;
+        }
 
         _cleanup_(iovec_done_erase) struct iovec unsealed = {};
         r = tpm2_unseal(tpm2_context,
