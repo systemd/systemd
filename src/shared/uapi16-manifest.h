@@ -12,6 +12,7 @@
 typedef struct Uapi16Contents {
         char *file;
         char *url;
+        char **http_headers;  /* name/value pairs of additional HTTP request header fields for "url" */
         struct iovec literal;
         char *encoding;
         uint64_t encoded_size;
