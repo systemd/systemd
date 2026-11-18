@@ -829,17 +829,8 @@ bool strv_overlap(char * const *a, char * const *b) {
         return false;
 }
 
-static int str_compare(char * const *a, char * const *b) {
-        /* This is called from qsort()s inner loops. Correctly implemented qsort will never pass NULL so we
-           just suppress the check via POINTER_MAY_BE_NULL instead of assert() to avoid the runtime cost. */
-        POINTER_MAY_BE_NULL(a);
-        POINTER_MAY_BE_NULL(b);
-
-        return strcmp(*a, *b);
-}
-
 char** strv_sort(char **l) {
-        typesafe_qsort(l, strv_length(l), str_compare);
+        typesafe_qsort(l, strv_length(l), cmp_string);
         return l;
 }
 
@@ -866,7 +857,7 @@ char** strv_sort_uniq_full(char **l, int (*compare)(char * const *a, char * cons
 }
 
 char** strv_sort_uniq(char **l) {
-        return strv_sort_uniq_full(l, str_compare);
+        return strv_sort_uniq_full(l, cmp_string);
 }
 
 int strv_compare(char * const *a, char * const *b) {
