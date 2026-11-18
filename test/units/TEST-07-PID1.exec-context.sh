@@ -510,3 +510,16 @@ if [[ ! -v ASAN_OPTIONS ]]; then
    systemd-run --wait --pipe unshare -T true
    (! systemd-run --wait --pipe -p RestrictNamespaces=~time unshare -T true)
 fi
+
+# Check that the exec and noexec attributes are propagated to the mounts below.
+systemd-run --wait --pipe \
+    -p NoExecPaths=/root \
+    -p TemporaryFileSystem=/root/noexec \
+    -p BindPaths=/bin:/root/noexec/mnt \
+    -p TemporaryFileSystem=/root/exec \
+    -p BindPaths=/bin:/root/exec/mnt \
+    -p ExecPaths=/root/exec/mnt \
+    bash -xec '
+        (! /root/noexec/mnt/true)
+        /root/exec/mnt/true
+    '
