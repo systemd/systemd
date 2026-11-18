@@ -1509,7 +1509,7 @@ static int vl_get_link(sd_varlink *vlink, int ifindex, Link **ret_link) {
 }
 
 static int vl_method_link_set_dns(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        static sd_json_dispatch_field dispatch_table[] = {
+        static const sd_json_dispatch_field dispatch_table[] = {
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 { "servers", SD_JSON_VARIANT_ARRAY,         dispatch_dns_server_context_array, offsetof(DNSConfiguration, dns_servers), SD_JSON_MANDATORY               },
                 { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,             offsetof(DNSConfiguration, ifindex),     SD_JSON_MANDATORY|SD_JSON_RELAX },
@@ -1572,7 +1572,7 @@ static int vl_method_link_set_dns(sd_varlink *link, sd_json_variant *parameters,
 }
 
 static int vl_method_link_set_domains(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        static sd_json_dispatch_field dispatch_table[] = {
+        static const sd_json_dispatch_field dispatch_table[] = {
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 { "ifindex",      _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,                offsetof(DNSConfiguration, ifindex),        SD_JSON_MANDATORY|SD_JSON_RELAX },
                 { "searchDomains", SD_JSON_VARIANT_ARRAY,        dispatch_search_domain_context_array, offsetof(DNSConfiguration, search_domains), SD_JSON_MANDATORY               },
