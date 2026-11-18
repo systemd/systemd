@@ -1499,12 +1499,17 @@ static int vl_get_link(sd_varlink *vlink, int ifindex, Link **ret_link) {
         if (link->is_managed)
                 return sd_varlink_error(vlink, "io.systemd.Resolve.Link.ManagedByNetworkd", /* parameters= */ NULL);
 
+        /* The interface name may be unknown yet, e.g. when the associated RTM_NEWLINK message
+         * carries no IFLA_IFNAME. Refuse to configure such an interface for now. */
+        if (!link->ifname)
+                return sd_varlink_error(vlink, "io.systemd.Resolve.Link.InterfaceNotReady", /* parameters= */ NULL);
+
         *ret_link = link;
         return 0;
 }
 
 static int vl_method_link_set_dns(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        static sd_json_dispatch_field dispatch_table[] = {
+        static const sd_json_dispatch_field dispatch_table[] = {
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 { "servers", SD_JSON_VARIANT_ARRAY,         dispatch_dns_server_context_array, offsetof(DNSConfiguration, dns_servers), SD_JSON_MANDATORY               },
                 { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,             offsetof(DNSConfiguration, ifindex),     SD_JSON_MANDATORY|SD_JSON_RELAX },
@@ -1527,15 +1532,6 @@ static int vl_method_link_set_dns(sd_varlink *link, sd_json_variant *parameters,
         if (r < 0)
                 return r;
 
-        r = verify_polkit_full(
-                        link,
-                        parameters,
-                        "org.freedesktop.resolve1.set-dns-servers",
-                        SD_JSON_ALLOW_EXTENSIONS,
-                        (const char**) STRV_MAKE("interface", l->ifname));
-        if (r <= 0)
-                return r;
-
         struct in_addr_full **dns_servers = NULL;
         size_t n_dns_servers = 0;
         CLEANUP_ARRAY(dns_servers, n_dns_servers, in_addr_full_free_array);
@@ -1544,6 +1540,9 @@ static int vl_method_link_set_dns(sd_varlink *link, sd_json_variant *parameters,
         ORDERED_SET_FOREACH(s, c->dns_servers) {
                 if (!GREEDY_REALLOC0(dns_servers, n_dns_servers + 1))
                         return log_oom();
+
+                if (s->ifindex != 0 && s->ifindex != l->ifindex)
+                        return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("ifindex"));
 
                 r = in_addr_full_new(
                                 s->family,
@@ -1556,6 +1555,15 @@ static int vl_method_link_set_dns(sd_varlink *link, sd_json_variant *parameters,
                         return r;
         }
 
+        r = verify_polkit_full(
+                        link,
+                        parameters,
+                        "org.freedesktop.resolve1.set-dns-servers",
+                        SD_JSON_ALLOW_EXTENSIONS,
+                        (const char**) STRV_MAKE("interface", l->ifname));
+        if (r <= 0)
+                return r;
+
         r = link_set_dns_servers(l, dns_servers, n_dns_servers, RESOLVE_CONFIG_SOURCE_VARLINK);
         if (r < 0)
                 return r;
@@ -1564,7 +1572,7 @@ static int vl_method_link_set_dns(sd_varlink *link, sd_json_variant *parameters,
 }
 
 static int vl_method_link_set_domains(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        static sd_json_dispatch_field dispatch_table[] = {
+        static const sd_json_dispatch_field dispatch_table[] = {
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 { "ifindex",      _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,                offsetof(DNSConfiguration, ifindex),        SD_JSON_MANDATORY|SD_JSON_RELAX },
                 { "searchDomains", SD_JSON_VARIANT_ARRAY,        dispatch_search_domain_context_array, offsetof(DNSConfiguration, search_domains), SD_JSON_MANDATORY               },
@@ -1668,7 +1676,6 @@ static int vl_method_link_set_dnssec_negative_trust_anchors(sd_varlink *link, sd
 
         return sd_varlink_reply(link, /* parameters= */ NULL);
 }
-
 
 static int vl_method_link_set_dns_default_route(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         struct {

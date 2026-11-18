@@ -236,7 +236,7 @@ int vl_method_link_reconfigure(sd_varlink *vlink, sd_json_variant *parameters, s
 }
 
 static int dispatch_resolve_link(sd_varlink *vlink, sd_json_variant *parameters, Manager *manager, Link **ret) {
-        static sd_json_dispatch_field dispatch_table[] = {
+        static const sd_json_dispatch_field dispatch_table[] = {
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex, 0, SD_JSON_MANDATORY|SD_JSON_RELAX },
                 {},
@@ -260,15 +260,15 @@ static int dispatch_resolve_link(sd_varlink *vlink, sd_json_variant *parameters,
         if (FLAGS_SET(link->flags, IFF_LOOPBACK))
                 return sd_varlink_error(vlink, "io.systemd.Resolve.Link.IsLoopback", /* parameters= */ NULL);
 
-         if (link->state == LINK_STATE_UNMANAGED)
+        if (link->state == LINK_STATE_UNMANAGED)
                 return sd_varlink_error(vlink, "io.systemd.Network.Link.InterfaceUnmanaged", /* parameters= */ NULL);
 
-         *ret = link;
-         return 0;
+        *ret = link;
+        return 0;
 }
 
 int vl_method_link_set_dns(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        static sd_json_dispatch_field dispatch_table[] = {
+        static const sd_json_dispatch_field dispatch_table[] = {
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 { "servers", SD_JSON_VARIANT_ARRAY,         dispatch_dns_server_context_array, offsetof(DNSConfiguration, dns_servers), SD_JSON_MANDATORY               },
                 { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,             offsetof(DNSConfiguration, ifindex),     SD_JSON_MANDATORY|SD_JSON_RELAX },
@@ -290,15 +290,6 @@ int vl_method_link_set_dns(sd_varlink *vlink, sd_json_variant *parameters, sd_va
 
         r = sd_json_dispatch(parameters, dispatch_table, SD_JSON_LOG, c);
         if (r < 0)
-                return r;
-
-        r = varlink_verify_polkit_async(
-                        vlink,
-                        manager->bus,
-                        "org.freedesktop.network1.set-dns-servers",
-                        (const char**) STRV_MAKE("interface", link->ifname),
-                        &manager->polkit_registry);
-        if (r <= 0)
                 return r;
 
         struct in_addr_full **dns_servers = NULL;
@@ -324,6 +315,15 @@ int vl_method_link_set_dns(sd_varlink *vlink, sd_json_variant *parameters, sd_va
                         return r;
         }
 
+        r = varlink_verify_polkit_async(
+                        vlink,
+                        manager->bus,
+                        "org.freedesktop.network1.set-dns-servers",
+                        (const char**) STRV_MAKE("interface", link->ifname),
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
         link_set_dns(link, TAKE_PTR(dns_servers), n_dns_servers);
 
         r = link_save_and_clean_full(link, /* also_save_manager= */ true);
@@ -334,7 +334,7 @@ int vl_method_link_set_dns(sd_varlink *vlink, sd_json_variant *parameters, sd_va
 }
 
 int vl_method_link_set_domains(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        static sd_json_dispatch_field dispatch_table[] = {
+        static const sd_json_dispatch_field dispatch_table[] = {
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 { "ifindex",       _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,                offsetof(DNSConfiguration, ifindex),        SD_JSON_MANDATORY|SD_JSON_RELAX },
                 { "searchDomains", SD_JSON_VARIANT_ARRAY,         dispatch_search_domain_context_array, offsetof(DNSConfiguration, search_domains), SD_JSON_MANDATORY               },
