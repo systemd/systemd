@@ -46,6 +46,7 @@
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "netlink-internal.h"
+#include "object-tags.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "quota-util.h"
@@ -893,6 +894,7 @@ Unit* unit_free(Unit *u) {
 
         free(u->description);
         strv_free(u->documentation);
+        strv_free(u->tags);
         free(u->fragment_path);
         free(u->source_path);
         strv_free(u->dropin_paths);
@@ -1697,6 +1699,24 @@ static int unit_validate_on_termination_job_modes(Unit *u) {
         return 0;
 }
 
+static int unit_validate(Unit *u) {
+        int r;
+
+        assert(u);
+
+        r = unit_validate_on_termination_job_modes(u);
+        if (r < 0)
+                return r;
+
+        if (u->job_running_timeout != USEC_INFINITY && u->job_running_timeout > u->job_timeout)
+                log_unit_warning(u, "JobRunningTimeoutSec= is greater than JobTimeoutSec=, it has no effect.");
+
+        if (u->survive_final_kill_signal && !MANAGER_IS_SYSTEM(u->manager))
+                log_unit_warning(u, "SurviveFinalKillSignal= is only supported in the system manager, ignoring.");
+
+        return 0;
+}
+
 int unit_load(Unit *u) {
         int r;
 
@@ -1750,12 +1770,9 @@ int unit_load(Unit *u) {
                 if (r < 0)
                         goto fail;
 
-                r = unit_validate_on_termination_job_modes(u);
+                r = unit_validate(u);
                 if (r < 0)
                         goto fail;
-
-                if (u->job_running_timeout != USEC_INFINITY && u->job_running_timeout > u->job_timeout)
-                        log_unit_warning(u, "JobRunningTimeoutSec= is greater than JobTimeoutSec=, it has no effect.");
 
                 /* We finished loading, let's ensure our parents recalculate the members mask */
                 unit_invalidate_cgroup_members_masks(u);
@@ -7325,4 +7342,67 @@ unsigned unit_normalize_markers(unsigned existing_markers, unsigned new_markers)
                 CLEAR_BIT(markers, UNIT_MARKER_NEEDS_START);
 
         return markers;
+}
+
+int unit_polkit_details(const UnitPolkitDetails *details, char ***ret) {
+        _cleanup_strv_free_ char **out = NULL;
+        int r;
+
+        assert(details);
+        assert(ret);
+
+        const char *id = details->id;
+        if (!id && details->unit)
+                id = details->unit->id;
+        if (id) {
+                r = strv_extend_many(&out, "unit", id);
+                if (r < 0)
+                        return -ENOMEM;
+        }
+
+        if (details->verb) {
+                r = strv_extend_many(&out, "verb", details->verb);
+                if (r < 0)
+                        return -ENOMEM;
+        }
+
+        if (details->message) {
+                r = strv_extend_many(&out,
+                                     "polkit.message", details->message,
+                                     "polkit.gettext_domain", GETTEXT_PACKAGE);
+                if (r < 0)
+                        return -ENOMEM;
+        }
+
+        if (!details->unit) {
+                *ret = TAKE_PTR(out);
+                return 0;
+        }
+
+        STRV_FOREACH(tag, details->unit->tags) {
+                _cleanup_free_ char *tag_name = NULL, *tag_value = NULL;
+                r = object_tag_split(*tag, &tag_name, &tag_value);
+                if (r < 0 && r != -ENODATA)
+                        return r;
+
+                if (r == -ENODATA) {
+                        /* machine-tags were designed with a quirk, that it's permissible for un-parameterized
+                         * and parameterized tags to have colliding names. This means we must use different
+                         * namespaces */
+                        tag_name = strjoin("btag.", *tag);
+                        tag_value = strdup("1");
+                } else {
+                        _cleanup_free_ char *prefixed_name = strjoin("tag.", tag_name);
+                        free_and_replace(tag_name, prefixed_name);
+                }
+                if (!tag_name || !tag_value)
+                        return -ENOMEM;
+
+                r = strv_consume_pair(&out, TAKE_PTR(tag_name), TAKE_PTR(tag_value));
+                if (r < 0)
+                        return -ENOMEM;
+        }
+
+        *ret = TAKE_PTR(out);
+        return 0;
 }

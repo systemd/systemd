@@ -10,12 +10,13 @@
 #include "fileio.h"
 #include "glob-util.h"
 #include "hashmap.h"
+#include "json-util.h"
 #include "log.h"
-#include "machine-tags.h"
+#include "object-tags.h"
 #include "string-util.h"
 #include "strv.h"
 
-bool machine_tag_is_valid(const char *s) {
+bool object_tag_is_valid(const char *s) {
         size_t n = strlen_ptr(s);
         if (n <= 0 || n >= 256)
                 return false;
@@ -42,7 +43,7 @@ bool machine_tag_is_valid(const char *s) {
         return in_charset(s, ALPHANUMERICAL "-.=");
 }
 
-static int machine_tag_key(const char *tag, char **ret) {
+static int object_tag_key(const char *tag, char **ret) {
         assert(tag);
         assert(ret);
 
@@ -59,11 +60,39 @@ static int machine_tag_key(const char *tag, char **ret) {
         return 0;
 }
 
-int machine_tag_list_is_valid(char **l, bool to_add) {
+int object_tag_split(const char *tag, char **ret_key, char **ret_value) {
+        assert(tag);
+
+        const char *eq = strchr(tag, '=');
+        if (!eq)
+                return -ENODATA;
+
+        _cleanup_free_ char *key = NULL;
+        if (ret_key) {
+                key = strndup(tag, eq - tag);
+                if (!key)
+                        return -ENOMEM;
+        }
+
+        _cleanup_free_ char *value = NULL;
+        if (ret_value) {
+                value = strdup(eq + 1);
+                if (!value)
+                        return -ENOMEM;
+        }
+
+        if (ret_key)
+                *ret_key = TAKE_PTR(key);
+        if (ret_value)
+                *ret_value = TAKE_PTR(value);
+        return 0;
+}
+
+int object_tag_list_is_valid(char **l, bool to_add) {
         int r;
 
         if (to_add) {
-                r = machine_tags_from_strv(l, /* graceful= */ false, /* ret= */ NULL);
+                r = object_tags_from_strv(l, /* graceful= */ false, /* ret= */ NULL);
                 switch (r) {
                 case -EINVAL:
                 case -E2BIG:
@@ -77,7 +106,7 @@ int machine_tag_list_is_valid(char **l, bool to_add) {
                 size_t n = 0, n_globs = 0;
 
                 STRV_FOREACH(i, l) {
-                        if (++n > MACHINE_TAGS_MAX)
+                        if (++n > OBJECT_TAGS_MAX)
                                 return false;
                         if (!in_charset(*i, ALPHANUMERICAL "-.=[]?*"))
                                 return false;
@@ -88,7 +117,7 @@ int machine_tag_list_is_valid(char **l, bool to_add) {
 
                         /* Globs are potentially quite expensive to evaluate. Use a stricter limit for them. */
                         n_globs += string_is_glob(*i);
-                        if (n_globs > MACHINE_TAG_GLOBS_MAX)
+                        if (n_globs > OBJECT_TAG_GLOBS_MAX)
                                 return false;
                 }
 
@@ -96,36 +125,34 @@ int machine_tag_list_is_valid(char **l, bool to_add) {
         }
 }
 
-int machine_tags_from_string(const char *s, bool graceful, char ***ret) {
+int object_tags_from_string(const char *s, const char *separators, bool graceful, char ***ret) {
         assert(ret);
-
-        /* Parse the colon-separated TAGS= machine-info field into a sorted, deduplicated strv. */
 
         if (isempty(s)) {
                 *ret = NULL;
                 return 0;
         }
 
-        _cleanup_strv_free_ char **l = strv_split(s, ":");
+        _cleanup_strv_free_ char **l = strv_split(s, separators);
         if (!l)
                 return -ENOMEM;
 
-        return machine_tags_from_strv(l, graceful, ret);
+        return object_tags_from_strv(l, graceful, ret);
 }
 
-int machine_tags_from_strv(char **l, bool graceful, char ***ret) {
+int object_tags_from_strv(char **l, bool graceful, char ***ret) {
         int r;
 
         /* Go through a list of tags and verify each tag. Invalid tags are silently dropped if 'graceful',
          * and -EINVAL is returned otherwise. The same valueless tag may specified more than once. If the
          * same tag with listed with different values, the last value wins if 'graceful', otherwise -EINVAL
-         * is returned, too. At most MACHINE_TAGS_MAX valid tags are accepted. The result is sorted only
+         * is returned, too. At most OBJECT_TAGS_MAX valid tags are accepted. The result is sorted only
          * after deduplication, and is NULL if no (valid) tags remain. */
 
         /* Maps the key of each tag to the tag itself (borrowed from 'l'). */
         _cleanup_hashmap_free_ Hashmap *h = NULL;
         STRV_FOREACH(i, l) {
-                if (!machine_tag_is_valid(*i)) {
+                if (!object_tag_is_valid(*i)) {
                         if (graceful)
                                 continue;
 
@@ -133,7 +160,7 @@ int machine_tags_from_strv(char **l, bool graceful, char ***ret) {
                 }
 
                 _cleanup_free_ char *k = NULL;
-                r = machine_tag_key(*i, &k);
+                r = object_tag_key(*i, &k);
                 if (r < 0)
                         return r;
 
@@ -152,7 +179,7 @@ int machine_tags_from_strv(char **l, bool graceful, char ***ret) {
                         TAKE_PTR(k);  /* successfully added the new value */
 
                         /* bail if we are over the limit */
-                        if (hashmap_size(h) > MACHINE_TAGS_MAX)
+                        if (hashmap_size(h) > OBJECT_TAGS_MAX)
                                 return -E2BIG;
                 }
         }
@@ -174,7 +201,7 @@ int machine_tags_from_strv(char **l, bool graceful, char ***ret) {
         return 0;
 }
 
-/* The accumulated tag list is kept in a Hashmap that maps the key of each tag (see machine_tag_key()) to the
+/* The accumulated tag list is kept in a Hashmap that maps the key of each tag (see object_tag_key()) to the
  * tag itself, so that adding a tag replaces any tag with the same key. Both keys and values are owned by the
  * hashmap. */
 
@@ -185,7 +212,7 @@ static int tags_add(Hashmap **h, const char *tag) {
         assert(tag);
 
         _cleanup_free_ char *k = NULL;
-        r = machine_tag_key(tag, &k);
+        r = object_tag_key(tag, &k);
         if (r < 0)
                 return r;
 
@@ -243,13 +270,13 @@ static int tags_hashmap_to_strv(Hashmap *h, char ***ret) {
 
         size_t n = hashmap_size(h);
 
-        if (n > MACHINE_TAGS_MAX)
-                return log_error_errno(SYNTHETIC_ERRNO(E2BIG),
-                                       "Too many machine tags configured (%u > %u).",
-                                       hashmap_size(h), MACHINE_TAGS_MAX);
+        if (n > OBJECT_TAGS_MAX)
+                return log_debug_errno(SYNTHETIC_ERRNO(E2BIG),
+                                       "Too many tags configured (%u > %u).",
+                                       hashmap_size(h), OBJECT_TAGS_MAX);
         char **s = NULL;
         if (n > 0) {
-                s  = hashmap_values_to_strv(h);
+                s = hashmap_values_to_strv(h);
                 if (!s)
                         return log_oom();
         }
@@ -260,7 +287,7 @@ static int tags_hashmap_to_strv(Hashmap *h, char ***ret) {
         return 0;
 }
 
-int machine_tags_edit(char* const *base, char* const *add, char* const *remove, char ***ret) {
+int object_tags_edit(char* const *base, char* const *add, char* const *remove, char ***ret) {
         _cleanup_hashmap_free_ Hashmap *h = NULL;
         int r;
 
@@ -331,7 +358,7 @@ static int apply_conf_file(ConfFile *c, Hashmap **h) {
                                 e++;
 
                         /* Either a valid tag to add or remove, or a glob pattern to remove. */
-                        if (!machine_tag_is_valid(e) && !(remove && string_is_glob(e))) {
+                        if (!object_tag_is_valid(e) && !(remove && string_is_glob(e))) {
                                 log_syntax(NULL, LOG_WARNING, c->original_path, line, SYNTHETIC_ERRNO(EINVAL),
                                            "Invalid machine tag pattern '%s', ignoring.", word);
                                 continue;
@@ -397,4 +424,29 @@ int machine_tags_apply_config(const char *root, char * const *base, char ***ret)
         }
 
         return tags_hashmap_to_strv(h, ret);
+}
+
+int json_dispatch_object_tags(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        char ***ret = ASSERT_PTR(userdata);
+        int r;
+
+        if (sd_json_variant_is_null(variant)) {
+                *ret = strv_free(*ret);
+                return 0;
+        }
+
+        _cleanup_strv_free_ char **tags = NULL;
+        r = sd_json_dispatch_strv(name, variant, flags, &tags);
+        if (r < 0)
+                return r;
+
+        r = object_tags_from_strv(tags, /* graceful= */ false, /* ret= */ NULL);
+        if (r == -EINVAL)
+                return json_log(variant, flags, r, "JSON field '%s' contains invalid tag.", strna(name));
+        if (r == -E2BIG)
+                return json_log(variant, flags, r, "JSON field '%s' contains too many tags.", strna(name));
+        if (r < 0)
+                return r;
+
+        return strv_free_and_replace(*ret, tags);
 }
