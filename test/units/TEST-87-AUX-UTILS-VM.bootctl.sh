@@ -1071,4 +1071,517 @@ EOF
     assert_eq "$(echo "$vreply" | jq -r '.ids | length')" "0"
 }
 
+cleanup_install_extra() {
+    if [[ -n "${EXTRA_ROOT:-}" ]]; then
+        rm -rf "$EXTRA_ROOT"
+        unset EXTRA_ROOT
+    fi
+}
+
+# Prints the files that a UAPI.16 manifest lists, in the format of sha256sum(1).
+extra_manifest_sums() {
+    tr --delete '\036' <"$1" | jq --raw-output 'select(.sha256) | "\(.sha256)  \(.name)"'
+}
+
+# Prints the number of files that a UAPI.16 manifest lists, without the systemd-boot binaries in EFI/systemd/.
+extra_manifest_count() {
+    extra_manifest_sums "$1" | { grep --invert-match "  EFI/systemd/systemd-boot" || :; } | wc -l
+}
+
+# Compares the files in the ESP with the hashes that the manifest of the extra files lists.
+extra_manifest_check() {
+    extra_manifest_sums "$1/EFI/systemd/installed.Uapi16Manifest" | (cd "$1" && sha256sum --check --strict)
+}
+
+testcase_install_extra() {
+    local arch arch_upper bootlibdir extra esp manifest pending sd_boot
+    arch="$(bootctl --print-efi-architecture)"
+    arch_upper="${arch^^}"
+    bootlibdir=/usr/lib/systemd/boot/efi
+
+    # Operate on a scratch root directory, so that the test does not depend on the ESP and the extra files of
+    # the image.
+    EXTRA_ROOT="$(mktemp --directory /tmp/test-bootctl-extra.XXXXXXXXXX)"
+    trap cleanup_install_extra RETURN ERR
+
+    extra="$EXTRA_ROOT$bootlibdir/extra"
+    esp="$EXTRA_ROOT/efi"
+    manifest="$esp/EFI/systemd/installed.Uapi16Manifest"
+    pending="$esp/EFI/systemd/installed-pending.Uapi16Manifest"
+    sd_boot="$EXTRA_ROOT$bootlibdir/systemd-boot$arch.efi"
+
+    mkdir -p "$extra/EFI/Boot" "$extra/EFI/systemd" "$EXTRA_ROOT/usr/lib/first-stage" "$EXTRA_ROOT/etc" "$esp"
+    echo "ID=test" >"$EXTRA_ROOT/etc/os-release"
+    if [[ -e "$bootlibdir/systemd-boot$arch.efi.signed" ]]; then
+        cp "$bootlibdir/systemd-boot$arch.efi.signed" "$sd_boot"
+    else
+        cp "$bootlibdir/systemd-boot$arch.efi" "$sd_boot"
+    fi
+    # bootctl prefers the .signed file. Data after the last section makes the file differ from the unsigned
+    # one without changing its version.
+    cp "$sd_boot" "$sd_boot.signed"
+    echo "signed" >>"$sd_boot.signed"
+
+    # loader.efi and helper.efi are installed like a first stage boot loader such as shim. Absolute symlinks
+    # are resolved inside of the root directory. The directory is spelled "EFI/Boot" on purpose: it has to
+    # end up in "EFI/BOOT".
+    echo "first stage v1" >"$EXTRA_ROOT/usr/lib/first-stage/loader.efi"
+    echo "helper v1" >"$EXTRA_ROOT/usr/lib/first-stage/helper.efi"
+    ln -s /usr/lib/first-stage/loader.efi "$extra/EFI/Boot/BOOT$arch_upper.EFI"
+    ln -s /usr/lib/first-stage/helper.efi "$extra/EFI/Boot/helper.efi"
+    ln -s "../../../systemd-boot$arch.efi" "$extra/EFI/Boot/second-stage$arch.efi"
+    ln -s /usr/lib/first-stage/loader.efi "$extra/EFI/systemd/boot$arch.efi"
+    ln -s "../../../systemd-boot$arch.efi" "$extra/EFI/systemd/second-stage$arch.efi"
+    # A name that looks like a backup file is installed like any other file.
+    echo "config v1" >"$extra/EFI/Boot/first-stage.cfg.bak"
+
+    local -a cmd=(env SYSTEMD_RELAX_ESP_CHECKS=yes bootctl --root="$EXTRA_ROOT" --esp-path=/efi
+                  --install-source=image --no-variables --make-entry-directory=no --random-seed=no)
+
+    "${cmd[@]}" install
+    test ! -e "$esp/EFI/Boot"
+    # The extra file is the default boot loader, systemd-boot is only installed under its own name.
+    assert_eq "$(cat "$esp/EFI/BOOT/BOOT$arch_upper.EFI")" "first stage v1"
+    assert_eq "$(cat "$esp/EFI/systemd/boot$arch.efi")" "first stage v1"
+    assert_eq "$(cat "$esp/EFI/BOOT/helper.efi")" "helper v1"
+    assert_eq "$(cat "$esp/EFI/BOOT/first-stage.cfg.bak")" "config v1"
+    # A symlink to systemd-boot$arch.efi installs systemd-boot$arch.efi.signed, like for systemd-boot itself.
+    cmp "$esp/EFI/systemd/systemd-boot$arch.efi" "$sd_boot.signed"
+    cmp "$esp/EFI/BOOT/second-stage$arch.efi" "$sd_boot.signed"
+    cmp "$esp/EFI/systemd/second-stage$arch.efi" "$sd_boot.signed"
+    extra_manifest_check "$esp"
+    assert_eq "$(extra_manifest_count "$manifest")" "6"
+    # The manifest lists systemd-boot as well.
+    extra_manifest_sums "$manifest" | grep "  EFI/systemd/systemd-boot$arch.efi\$" >/dev/null
+
+    # The symlink also works if only the .signed file exists.
+    mv "$sd_boot" "$sd_boot.away"
+    "${cmd[@]}" --graceful update
+    mv "$sd_boot.away" "$sd_boot"
+
+    # An update replaces a file whose contents changed, although it has no version information.
+    echo "first stage v2" >"$EXTRA_ROOT/usr/lib/first-stage/loader.efi"
+    "${cmd[@]}" --graceful update
+    assert_eq "$(cat "$esp/EFI/BOOT/BOOT$arch_upper.EFI")" "first stage v2"
+    assert_eq "$(cat "$esp/EFI/systemd/boot$arch.efi")" "first stage v2"
+    extra_manifest_check "$esp"
+
+    # A dangling symlink is an error, and the ESP is left alone.
+    mv "$EXTRA_ROOT/usr/lib/first-stage/helper.efi" "$EXTRA_ROOT/usr/lib/first-stage/helper.away"
+    (! "${cmd[@]}" --graceful update)
+    assert_eq "$(cat "$esp/EFI/BOOT/BOOT$arch_upper.EFI")" "first stage v2"
+    assert_eq "$(cat "$esp/EFI/BOOT/helper.efi")" "helper v1"
+    assert_eq "$(extra_manifest_count "$manifest")" "6"
+    mv "$EXTRA_ROOT/usr/lib/first-stage/helper.away" "$EXTRA_ROOT/usr/lib/first-stage/helper.efi"
+
+    # If the systemd-boot binaries are gone, the extra files in the ESP are not treated as obsolete.
+    mv "$sd_boot" "$sd_boot.away"
+    mv "$sd_boot.signed" "$sd_boot.signed.away"
+    "${cmd[@]}" --graceful update
+    assert_eq "$(cat "$esp/EFI/BOOT/BOOT$arch_upper.EFI")" "first stage v2"
+    assert_eq "$(extra_manifest_count "$manifest")" "6"
+    mv "$sd_boot.away" "$sd_boot"
+    mv "$sd_boot.signed.away" "$sd_boot.signed"
+
+    # If the extra directory is a symlink whose target does not exist, the update fails and the extra files
+    # in the ESP are not treated as obsolete.
+    mv "$extra" "$extra.away"
+    ln -s /does/not/exist "$extra"
+    (! "${cmd[@]}" --graceful update)
+    assert_eq "$(cat "$esp/EFI/BOOT/BOOT$arch_upper.EFI")" "first stage v2"
+    assert_eq "$(extra_manifest_count "$manifest")" "6"
+    rm "$extra"
+    mv "$extra.away" "$extra"
+
+    # If a file cannot be copied, the entry points are not updated, and the manifest keeps listing the files
+    # that are still in place. installed-pending.Uapi16Manifest lists the file that could not be copied
+    # with the new hash. The file size limit makes the copy of the 256K helper fail.
+    head -c 262144 /dev/urandom >"$EXTRA_ROOT/usr/lib/first-stage/helper.efi"
+    echo "first stage v3" >"$EXTRA_ROOT/usr/lib/first-stage/loader.efi"
+    (trap '' XFSZ; ulimit -f 64; ! "${cmd[@]}" --graceful update)
+    assert_eq "$(cat "$esp/EFI/BOOT/BOOT$arch_upper.EFI")" "first stage v2"
+    assert_eq "$(cat "$esp/EFI/systemd/boot$arch.efi")" "first stage v2"
+    assert_eq "$(cat "$esp/EFI/BOOT/helper.efi")" "helper v1"
+    extra_manifest_check "$esp"
+    assert_eq "$(extra_manifest_count "$manifest")" "6"
+    assert_eq "$(extra_manifest_sums "$pending")" "$(sha256sum <"$EXTRA_ROOT/usr/lib/first-stage/helper.efi" | cut -d' ' -f1)  EFI/BOOT/helper.efi"
+    "${cmd[@]}" --graceful update
+    assert_eq "$(cat "$esp/EFI/BOOT/BOOT$arch_upper.EFI")" "first stage v3"
+    cmp "$esp/EFI/BOOT/helper.efi" "$EXTRA_ROOT/usr/lib/first-stage/helper.efi"
+    extra_manifest_check "$esp"
+    test ! -e "$pending"
+    assert_eq "$(extra_manifest_count "$manifest")" "6"
+
+    # Without --graceful, "update" fails if systemd-boot is up-to-date and nothing else changed. It
+    # succeeds if it installed an extra file.
+    (! "${cmd[@]}" update)
+    echo "first stage v3b" >"$EXTRA_ROOT/usr/lib/first-stage/loader.efi"
+    "${cmd[@]}" update
+    assert_eq "$(cat "$esp/EFI/BOOT/BOOT$arch_upper.EFI")" "first stage v3b"
+    echo "first stage v3" >"$EXTRA_ROOT/usr/lib/first-stage/loader.efi"
+    "${cmd[@]}" update
+
+    # A path that was a file is a directory now, and the other way around.
+    echo "vendor" >"$extra/EFI/vendor"
+    mkdir "$extra/EFI/tools"
+    echo "tool" >"$extra/EFI/tools/tool.cfg"
+    "${cmd[@]}" --graceful update
+    rm -r "$extra/EFI/vendor" "$extra/EFI/tools"
+    mkdir "$extra/EFI/vendor"
+    echo "vendor" >"$extra/EFI/vendor/vendor.cfg"
+    echo "tools" >"$extra/EFI/tools"
+    "${cmd[@]}" --graceful update
+    assert_eq "$(cat "$esp/EFI/vendor/vendor.cfg")" "vendor"
+    assert_eq "$(cat "$esp/EFI/tools")" "tools"
+    extra_manifest_check "$esp"
+    rm -r "$extra/EFI/vendor" "$extra/EFI/tools"
+    "${cmd[@]}" --graceful update
+    test ! -e "$esp/EFI/tools"
+    assert_eq "$(extra_manifest_count "$manifest")" "6"
+
+    # An update leaves a file alone that something else replaced, and does not list it anymore.
+    echo "other boot loader" >"$esp/EFI/BOOT/BOOT$arch_upper.EFI"
+    echo "first stage v4" >"$EXTRA_ROOT/usr/lib/first-stage/loader.efi"
+    "${cmd[@]}" --graceful update
+    assert_eq "$(cat "$esp/EFI/BOOT/BOOT$arch_upper.EFI")" "other boot loader"
+    assert_eq "$(cat "$esp/EFI/systemd/boot$arch.efi")" "first stage v4"
+    (! grep "EFI/BOOT/BOOT$arch_upper.EFI" "$manifest" >/dev/null)
+    assert_eq "$(extra_manifest_count "$manifest")" "5"
+
+    # An update does not take over a file that something else placed in the ESP, even if it is identical.
+    echo "identical" >"$extra/EFI/Boot/identical.cfg"
+    echo "identical" >"$esp/EFI/BOOT/identical.cfg"
+    "${cmd[@]}" --graceful update
+    (! grep "identical.cfg" "$manifest" >/dev/null)
+    rm "$extra/EFI/Boot/identical.cfg"
+    "${cmd[@]}" --graceful update
+    test -f "$esp/EFI/BOOT/identical.cfg"
+
+    # An update removes a file that is not provided anymore.
+    rm "$extra/EFI/Boot/helper.efi"
+    "${cmd[@]}" --graceful update
+    test ! -e "$esp/EFI/BOOT/helper.efi"
+    assert_eq "$(extra_manifest_count "$manifest")" "4"
+
+    # Two files that only differ in case are the same file on VFAT.
+    echo "collision" >"$extra/EFI/systemd/SECOND-STAGE$arch_upper.EFI"
+    (! "${cmd[@]}" --graceful update 2>&1 | tee "$EXTRA_ROOT/bootctl.log")
+    grep "only differ in case" "$EXTRA_ROOT/bootctl.log" >/dev/null
+    rm "$extra/EFI/systemd/SECOND-STAGE$arch_upper.EFI"
+
+    # A file and a directory whose names only differ in case collide as well.
+    mkdir -p "$extra/efi/boot/FIRST-STAGE.CFG.BAK"
+    echo "collision" >"$extra/efi/boot/FIRST-STAGE.CFG.BAK/file"
+    (! "${cmd[@]}" --graceful update 2>&1 | tee "$EXTRA_ROOT/bootctl.log")
+    grep "a file and a directory of the same name" "$EXTRA_ROOT/bootctl.log" >/dev/null
+    rm -r "$extra/efi"
+
+    # File names that are reserved for systemd-boot are refused.
+    echo "reserved" >"$extra/EFI/systemd/systemd-boot-test.efi"
+    (! "${cmd[@]}" --graceful update)
+    rm "$extra/EFI/systemd/systemd-boot-test.efi"
+
+    # A file name that is not valid UTF-8 cannot be listed in the manifest and is refused.
+    echo "latin1" >"$extra/EFI/Boot/caf"$'\xe9'".cfg"
+    (! "${cmd[@]}" --graceful update)
+    rm "$extra/EFI/Boot/caf"$'\xe9'".cfg"
+
+    # An update that was interrupted after it copied a file leaves the old hash of the file in
+    # installed.Uapi16Manifest and the new hash in installed-pending.Uapi16Manifest. The next update
+    # still replaces the file.
+    echo "config v2" >"$esp/EFI/BOOT/first-stage.cfg.bak"
+    printf '\x1e%s\n' \
+           '{"features":["sha256"],"mediaType":"application/vnd.uapi.16.manifest"}' \
+           '{"name":"EFI","type":"dir"}' \
+           '{"name":"EFI/BOOT","type":"dir"}' \
+           "{\"name\":\"EFI/BOOT/first-stage.cfg.bak\",\"sha256\":\"$(sha256sum <"$esp/EFI/BOOT/first-stage.cfg.bak" | cut -d' ' -f1)\"}" \
+           '{"mediaType":"application/vnd.uapi.16.trailer"}' >"$pending"
+    echo "config v3" >"$extra/EFI/Boot/first-stage.cfg.bak"
+    "${cmd[@]}" --graceful update
+    assert_eq "$(cat "$esp/EFI/BOOT/first-stage.cfg.bak")" "config v3"
+    test ! -e "$pending"
+    extra_manifest_check "$esp"
+    assert_eq "$(extra_manifest_count "$manifest")" "4"
+
+    # If something replaced a file that is not provided anymore with a directory, the update leaves the
+    # directory alone and still succeeds.
+    echo "obsolete" >"$extra/EFI/Boot/obsolete.cfg"
+    "${cmd[@]}" --graceful update
+    rm "$extra/EFI/Boot/obsolete.cfg" "$esp/EFI/BOOT/obsolete.cfg"
+    mkdir "$esp/EFI/BOOT/obsolete.cfg"
+    "${cmd[@]}" --graceful update
+    test -d "$esp/EFI/BOOT/obsolete.cfg"
+    assert_eq "$(extra_manifest_count "$manifest")" "4"
+    rmdir "$esp/EFI/BOOT/obsolete.cfg"
+
+    # An update touches neither the extra files nor the manifest if the manifest cannot be parsed.
+    cp "$manifest" "$EXTRA_ROOT/manifest.bak"
+    echo "not a manifest line" >>"$manifest"
+    cp "$manifest" "$EXTRA_ROOT/manifest.damaged"
+    echo "config v4" >"$extra/EFI/Boot/first-stage.cfg.bak"
+    "${cmd[@]}" --graceful update
+    assert_eq "$(cat "$esp/EFI/BOOT/first-stage.cfg.bak")" "config v3"
+    cmp "$manifest" "$EXTRA_ROOT/manifest.damaged"
+    cp "$EXTRA_ROOT/manifest.bak" "$manifest"
+    "${cmd[@]}" --graceful update
+    assert_eq "$(cat "$esp/EFI/BOOT/first-stage.cfg.bak")" "config v4"
+
+    # "remove" deletes the files that were installed, but neither the file that something else replaced
+    # nor a file that was modified.
+    echo "edited" >>"$esp/EFI/BOOT/first-stage.cfg.bak"
+    "${cmd[@]}" remove
+    test ! -e "$esp/EFI/systemd"
+    test ! -e "$esp/EFI/BOOT/second-stage$arch.efi"
+    assert_eq "$(cat "$esp/EFI/BOOT/BOOT$arch_upper.EFI")" "other boot loader"
+    test -f "$esp/EFI/BOOT/first-stage.cfg.bak"
+    test -f "$esp/EFI/BOOT/identical.cfg"
+
+    # Without extra files systemd-boot is the default boot loader, and the manifest only lists systemd-boot.
+    rm -rf "$extra" "$esp"
+    mkdir "$esp"
+    "${cmd[@]}" install
+    cmp "$esp/EFI/BOOT/BOOT$arch_upper.EFI" "$sd_boot.signed"
+    extra_manifest_check "$esp"
+    assert_eq "$(extra_manifest_sums "$manifest" | cut -d' ' -f3 | sort | paste --serial --delimiters=' ')" \
+              "EFI/BOOT/BOOT$arch_upper.EFI EFI/systemd/systemd-boot$arch.efi"
+    test ! -e "$pending"
+
+    # An ESP that an older bootctl installed has no manifest. An update writes the manifest, and it does not
+    # replace systemd-boot, which the manifest did not list, with a first stage boot loader. "install" does.
+    rm "$manifest"
+    mkdir -p "$extra/EFI/BOOT" "$extra/EFI/systemd"
+    echo "first stage v5" >"$extra/EFI/BOOT/BOOT$arch_upper.EFI"
+    echo "first stage v5" >"$extra/EFI/systemd/boot$arch.efi"
+    "${cmd[@]}" --graceful update
+    cmp "$esp/EFI/BOOT/BOOT$arch_upper.EFI" "$sd_boot.signed"
+    assert_eq "$(cat "$esp/EFI/systemd/boot$arch.efi")" "first stage v5"
+    (! grep "EFI/BOOT/BOOT$arch_upper.EFI" "$manifest" >/dev/null)
+    extra_manifest_sums "$manifest" | grep "  EFI/systemd/systemd-boot$arch.efi\$" >/dev/null
+    "${cmd[@]}" --graceful update
+    cmp "$esp/EFI/BOOT/BOOT$arch_upper.EFI" "$sd_boot.signed"
+    "${cmd[@]}" install
+    assert_eq "$(cat "$esp/EFI/BOOT/BOOT$arch_upper.EFI")" "first stage v5"
+    assert_eq "$(extra_manifest_count "$manifest")" "2"
+
+    # An update replaces a systemd-boot that the manifest lists as the default boot loader with a first stage
+    # boot loader, and the other way around.
+    rm "$extra/EFI/BOOT/BOOT$arch_upper.EFI"
+    "${cmd[@]}" --graceful update
+    cmp "$esp/EFI/BOOT/BOOT$arch_upper.EFI" "$sd_boot.signed"
+    grep "EFI/BOOT/BOOT$arch_upper.EFI" "$manifest" >/dev/null
+    echo "first stage v5" >"$extra/EFI/BOOT/BOOT$arch_upper.EFI"
+    "${cmd[@]}" --graceful update
+    assert_eq "$(cat "$esp/EFI/BOOT/BOOT$arch_upper.EFI")" "first stage v5"
+    extra_manifest_check "$esp"
+    assert_eq "$(extra_manifest_count "$manifest")" "2"
+
+    # If the default boot loader is not provided anymore, an update replaces it with systemd-boot.
+    rm "$extra/EFI/BOOT/BOOT$arch_upper.EFI"
+    "${cmd[@]}" --graceful update
+    cmp "$esp/EFI/BOOT/BOOT$arch_upper.EFI" "$sd_boot.signed"
+    assert_eq "$(cat "$esp/EFI/systemd/boot$arch.efi")" "first stage v5"
+    extra_manifest_check "$esp"
+    assert_eq "$(extra_manifest_count "$manifest")" "2"
+
+    # An update that changes nothing does not write the manifest again.
+    local inode
+    inode="$(stat --format=%i "$manifest")"
+    "${cmd[@]}" --graceful update
+    assert_eq "$(stat --format=%i "$manifest")" "$inode"
+
+    # An update replaces a copy of systemd-boot that was installed as an extra file like any other extra
+    # file.
+    ln -s "../../../systemd-boot$arch.efi" "$extra/EFI/systemd/second-stage.efi"
+    "${cmd[@]}" --graceful update
+    cmp "$esp/EFI/systemd/second-stage.efi" "$sd_boot.signed"
+    rm "$extra/EFI/systemd/second-stage.efi"
+    echo "second stage" >"$extra/EFI/systemd/second-stage.efi"
+    "${cmd[@]}" --graceful update
+    assert_eq "$(cat "$esp/EFI/systemd/second-stage.efi")" "second stage"
+    rm "$extra/EFI/systemd/second-stage.efi"
+
+    # If "install" cannot copy a file that an earlier invocation installed, the old file stays in the
+    # manifest. The file size limit is larger than systemd-boot and smaller than the extra file.
+    head --bytes=8M /dev/zero >"$extra/EFI/systemd/large.bin"
+    "${cmd[@]}" install
+    grep "EFI/systemd/large.bin" "$manifest" >/dev/null
+    echo "changed" >>"$extra/EFI/systemd/large.bin"
+    (trap '' XFSZ; ulimit -f 4096; ! "${cmd[@]}" install)
+    extra_manifest_sums "$manifest" | grep "^$(sha256sum <"$esp/EFI/systemd/large.bin" | cut -d' ' -f1)  EFI/systemd/large.bin\$" >/dev/null
+    rm "$extra/EFI/systemd/large.bin"
+    "${cmd[@]}" --graceful update
+    test ! -e "$esp/EFI/systemd/large.bin"
+
+    # "install" does not report the default boot loader as modified after systemd-boot replaced it.
+    echo "first stage v6" >"$extra/EFI/BOOT/BOOT$arch_upper.EFI"
+    "${cmd[@]}" install
+    rm "$extra/EFI/BOOT/BOOT$arch_upper.EFI"
+    "${cmd[@]}" install 2>&1 | tee "$EXTRA_ROOT/bootctl.log"
+    cmp "$esp/EFI/BOOT/BOOT$arch_upper.EFI" "$sd_boot.signed"
+    (! grep "modified since" "$EXTRA_ROOT/bootctl.log" >/dev/null)
+
+    # If systemd-boot cannot replace a default boot loader that is not provided anymore, the update fails
+    # and the default boot loader stays in the ESP. The file size limit is smaller than systemd-boot.
+    echo "first stage v6" >"$extra/EFI/BOOT/BOOT$arch_upper.EFI"
+    "${cmd[@]}" install
+    rm "$extra/EFI/BOOT/BOOT$arch_upper.EFI"
+    (trap '' XFSZ; ulimit -f 16; ! "${cmd[@]}" --graceful update)
+    assert_eq "$(cat "$esp/EFI/BOOT/BOOT$arch_upper.EFI")" "first stage v6"
+    grep "EFI/BOOT/BOOT$arch_upper.EFI" "$manifest" >/dev/null
+    "${cmd[@]}" --graceful update
+    cmp "$esp/EFI/BOOT/BOOT$arch_upper.EFI" "$sd_boot.signed"
+
+    # If the manifest cannot be parsed, an update does not replace a default boot loader that is not provided
+    # anymore.
+    echo "first stage v7" >"$extra/EFI/BOOT/BOOT$arch_upper.EFI"
+    "${cmd[@]}" install
+    rm "$extra/EFI/BOOT/BOOT$arch_upper.EFI"
+    echo "not a manifest line" >>"$manifest"
+    "${cmd[@]}" --graceful update
+    assert_eq "$(cat "$esp/EFI/BOOT/BOOT$arch_upper.EFI")" "first stage v7"
+    sed -i '$d' "$manifest"
+    "${cmd[@]}" --graceful update
+    cmp "$esp/EFI/BOOT/BOOT$arch_upper.EFI" "$sd_boot.signed"
+
+    # A manifest that cannot be read does not block the update of systemd-boot.
+    mv "$manifest" "$EXTRA_ROOT/manifest.bak"
+    mkdir "$manifest"
+    "${cmd[@]}" --graceful update
+    rmdir "$manifest"
+
+    # "install" replaces a manifest that cannot be parsed, even if no extra file is provided.
+    rm -r "$extra"
+    echo "not a manifest line" >"$manifest"
+    "${cmd[@]}" install
+    extra_manifest_check "$esp"
+    assert_eq "$(extra_manifest_count "$manifest")" "1"
+}
+
+efi_boot_entries() {
+    # Print the file of each entry in the firmware's boot loader list, in boot order.
+    bootctl status | sed -n '/Boot Loaders Listed in EFI Variables/,/^[^ ]/p' | { grep "File:" || :; }
+}
+
+assert_no_efi_boot_entry() {
+    local entries pattern
+    entries="$(efi_boot_entries)"
+
+    for pattern in "$@"; do
+        (! grep -i "$pattern" <<<"$entries" >/dev/null)
+    done
+}
+
+cleanup_install_extra_variables() {
+    if mountpoint /usr/lib/systemd/boot/efi >/dev/null; then
+        umount /usr/lib/systemd/boot/efi
+    fi
+    if [[ -n "${EXTRA_BOOTLIBDIR:-}" ]]; then
+        rm -rf "$EXTRA_BOOTLIBDIR"
+        unset EXTRA_BOOTLIBDIR
+    fi
+    if [[ -n "${FAKE_ESP:-}" ]]; then
+        rm -rf "$FAKE_ESP"
+        unset FAKE_ESP
+    fi
+    if [[ -n "${FAKE_BOOT:-}" ]]; then
+        rm -rf "$FAKE_BOOT"
+        unset FAKE_BOOT
+    fi
+    bootctl remove || :
+    restore_esp
+}
+
+testcase_install_extra_variables() {
+    if [ ! -d /sys/firmware/efi ]; then
+        echo "Not booted with EFI, skipping the test of the firmware's boot loader list."
+        return 0
+    fi
+
+    local arch arch_upper bootlibdir dir entry_point sd_boot_entry
+    arch="$(bootctl --print-efi-architecture)"
+    arch_upper="${arch^^}"
+    bootlibdir=/usr/lib/systemd/boot/efi
+    entry_point="/EFI/systemd/boot$arch.efi"
+    sd_boot_entry="/EFI/systemd/systemd-boot$arch.efi"
+
+    backup_esp
+    trap cleanup_install_extra_variables RETURN ERR
+
+    # The extra files are taken from the host here, hence mount a writable copy of the directory with the
+    # systemd-boot binaries over the original. A copy of systemd-boot is installed as the first stage boot
+    # loader, so that the firmware can start the registered binary.
+    EXTRA_BOOTLIBDIR="$(mktemp --directory /tmp/test-bootctl-bootlibdir.XXXXXXXXXX)"
+    cp -r "$bootlibdir/." "$EXTRA_BOOTLIBDIR/"
+    ln -s "../../../systemd-boot$arch.efi" "$EXTRA_BOOTLIBDIR/extra/EFI/systemd/boot$arch.efi"
+    mount --bind "$EXTRA_BOOTLIBDIR" "$bootlibdir"
+
+    # systemd installs options.csv for shim in UTF-16LE, with a byte order mark.
+    for dir in BOOT systemd; do
+        assert_eq "$(iconv --from-code=UTF-16 --to-code=UTF-8 "$bootlibdir/extra/EFI/$dir/options.csv")" \
+                  "\\EFI\\systemd\\systemd-boot$arch.efi,"
+    done
+
+    # The extra entry point is registered instead of systemd-boot, at the top of the boot order.
+    bootctl install
+    cmp "$(bootctl --print-esp-path)/EFI/BOOT/options.csv" "$bootlibdir/extra/EFI/BOOT/options.csv"
+    cmp "$(bootctl --print-esp-path)/EFI/systemd/options.csv" "$bootlibdir/extra/EFI/systemd/options.csv"
+    efi_boot_entries | sed -n 1p | grep -i "$entry_point" >/dev/null
+    assert_no_efi_boot_entry "$sd_boot_entry"
+
+    # If the entry point is not provided anymore, systemd-boot takes its position in the boot order.
+    rm "$bootlibdir/extra/EFI/systemd/boot$arch.efi"
+    bootctl update --graceful
+    test ! -e "$(bootctl --print-esp-path)$entry_point"
+    efi_boot_entries | sed -n 1p | grep -i "$sd_boot_entry" >/dev/null
+    assert_no_efi_boot_entry "$entry_point"
+
+    # An update does not register an entry point in the ESP that bootctl did not install.
+    ln -s "../../../systemd-boot$arch.efi" "$bootlibdir/extra/EFI/systemd/boot$arch.efi"
+    echo "other boot loader" >"$(bootctl --print-esp-path)$entry_point"
+    bootctl update --graceful
+    efi_boot_entries | sed -n 1p | grep -i "$sd_boot_entry" >/dev/null
+    assert_no_efi_boot_entry "$entry_point"
+    rm "$(bootctl --print-esp-path)$entry_point"
+
+    # An update that does not touch the EFI variables installs the entry point, and the next update
+    # registers it, even if systemd-boot itself is up-to-date.
+    bootctl update --graceful --variables=no
+    test -f "$(bootctl --print-esp-path)$entry_point"
+    efi_boot_entries | sed -n 1p | grep -i "$sd_boot_entry" >/dev/null
+    bootctl update
+    (! bootctl update)
+    efi_boot_entries | sed -n 1p | grep -i "$entry_point" >/dev/null
+    assert_no_efi_boot_entry "$sd_boot_entry"
+
+    # An update that does not touch the EFI variables keeps an entry point that is not provided anymore,
+    # because its boot entry still refers to it. The next update replaces the boot entry and removes the file.
+    rm "$bootlibdir/extra/EFI/systemd/boot$arch.efi"
+    bootctl update --graceful --variables=no
+    test -f "$(bootctl --print-esp-path)$entry_point"
+    efi_boot_entries | sed -n 1p | grep -i "$entry_point" >/dev/null
+    bootctl update --graceful
+    test ! -e "$(bootctl --print-esp-path)$entry_point"
+    efi_boot_entries | sed -n 1p | grep -i "$sd_boot_entry" >/dev/null
+    assert_no_efi_boot_entry "$entry_point"
+
+    # The Varlink method installs the extra files of the host as well.
+    ln -s "../../../systemd-boot$arch.efi" "$bootlibdir/extra/EFI/systemd/boot$arch.efi"
+    echo "first stage" >"$bootlibdir/extra/EFI/BOOT/BOOT$arch_upper.EFI"
+    FAKE_ESP="$(mktemp --directory /tmp/test-bootctl-esp.XXXXXXXXXX)"
+    FAKE_BOOT="$(mktemp --directory /tmp/test-bootctl-boot.XXXXXXXXXX)"
+    SYSTEMD_RELAX_ESP_CHECKS=yes SYSTEMD_RELAX_XBOOTLDR_CHECKS=yes SYSTEMD_LOG_TARGET=console \
+            varlinkctl call --quiet "$(type -p bootctl)" io.systemd.BootControl.Install \
+            "{\"operation\":\"new\",\"touchVariables\":false,\"espPath\":\"$FAKE_ESP\",\"xbootldrPath\":\"$FAKE_BOOT\",\"makeEntryDirectory\":false}"
+    assert_eq "$(cat "$FAKE_ESP/EFI/BOOT/BOOT$arch_upper.EFI")" "first stage"
+    test -f "$FAKE_ESP/EFI/systemd/boot$arch.efi"
+    extra_manifest_check "$FAKE_ESP"
+    rm "$bootlibdir/extra/EFI/BOOT/BOOT$arch_upper.EFI"
+
+    # "remove" deletes the boot entry of the extra entry point.
+    bootctl update --graceful
+    efi_boot_entries | sed -n 1p | grep -i "$entry_point" >/dev/null
+    bootctl remove
+    assert_no_efi_boot_entry "$entry_point" "$sd_boot_entry"
+}
+
 run_testcases
