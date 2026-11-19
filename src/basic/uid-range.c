@@ -551,24 +551,33 @@ int uid_range_translate(const UIDRange *outside, const UIDRange *inside, uid_t u
 }
 
 int uid_range_translate_userns_fd(int userns_fd, UIDRangeUsernsMode mode, uid_t uid, uid_t *ret) {
+        static const UIDRangeUsernsMode other_side[_UID_RANGE_USERNS_MODE_MAX] = {
+                [UID_RANGE_USERNS_INSIDE]  = UID_RANGE_USERNS_OUTSIDE,
+                [UID_RANGE_USERNS_OUTSIDE] = UID_RANGE_USERNS_INSIDE,
+                [GID_RANGE_USERNS_INSIDE]  = GID_RANGE_USERNS_OUTSIDE,
+                [GID_RANGE_USERNS_OUTSIDE] = GID_RANGE_USERNS_INSIDE,
+        };
         int r;
 
         assert(userns_fd >= 0);
-        assert(IN_SET(mode, UID_RANGE_USERNS_OUTSIDE, GID_RANGE_USERNS_OUTSIDE));
+        assert(mode >= 0 && mode < _UID_RANGE_USERNS_MODE_MAX);
 
-        _cleanup_(uid_range_freep) UIDRange *outside_range = NULL;
-        r = uid_range_load_userns_by_fd_full(userns_fd, mode, /* coalesce= */ false, &outside_range);
+        /* Translates the given UID/GID from the side of the user namespace that mode refers to, to the other
+         * side. For example, with UID_RANGE_USERNS_OUTSIDE a UID of the parent user namespace is translated
+         * to the UID it has inside of the user namespace, with UID_RANGE_USERNS_INSIDE the other way
+         * round. */
+
+        _cleanup_(uid_range_freep) UIDRange *from_range = NULL;
+        r = uid_range_load_userns_by_fd_full(userns_fd, mode, /* coalesce= */ false, &from_range);
         if (r < 0)
                 return r;
 
-        mode = mode == UID_RANGE_USERNS_OUTSIDE ? UID_RANGE_USERNS_INSIDE : GID_RANGE_USERNS_INSIDE;
-
-        _cleanup_(uid_range_freep) UIDRange *inside_range = NULL;
-        r = uid_range_load_userns_by_fd_full(userns_fd, mode, /* coalesce= */ false, &inside_range);
+        _cleanup_(uid_range_freep) UIDRange *to_range = NULL;
+        r = uid_range_load_userns_by_fd_full(userns_fd, other_side[mode], /* coalesce= */ false, &to_range);
         if (r < 0)
                 return r;
 
-        return uid_range_translate(outside_range, inside_range, uid, ret);
+        return uid_range_translate(from_range, to_range, uid, ret);
 }
 
 bool uid_range_equal(const UIDRange *a, const UIDRange *b) {

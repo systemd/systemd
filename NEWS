@@ -328,6 +328,15 @@ CHANGES WITH 263 in spe:
           unit if the corresponding mount fails, just as OnFailure= does in
           a mount unit.
 
+        * Units that combine PrivateDevices=yes with PrivateUsers=managed now
+          get their own /dev/pts/ instance instead of the host's, like a
+          container manager would set up. Pseudo TTYs allocated by the unit
+          hence belong to the tty group of its user namespace rather than to
+          the nobody group. Pseudo TTYs passed in with TTYPath= or acquired
+          from systemd-ptybrokerd remain usable via the standard I/O file
+          descriptors and /dev/tty, but are no longer accessible below
+          /dev/pts/ from within such units.
+
         New pseudo TTY broker:
 
         * The new systemd-ptybrokerd service allocates pseudo TTYs and keeps
