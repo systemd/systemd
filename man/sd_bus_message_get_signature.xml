@@ -102,7 +102,7 @@
     <title>History</title>
     <para><function>sd_bus_message_get_signature()</function>,
     <function>sd_bus_message_is_empty()</function>, and
-    <function>sd_bus_message_has_signature()</function> were added in version 240.</para>
+    <function>sd_bus_message_has_signature()</function> were added in version 221.</para>
   </refsect1>
 
   <refsect1>

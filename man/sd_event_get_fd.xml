@@ -98,7 +98,7 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_event_get_fd()</function> was added in version 217.</para>
+    <para><function>sd_event_get_fd()</function> was added in version 221.</para>
   </refsect1>
 
   <refsect1>
