@@ -136,7 +136,7 @@ int user_record_authenticate(
                 log_info("None of the supplied plaintext passwords unlock the user record's hashed passwords or recovery keys.");
         else if (need_password)
                 log_info("None of the supplied plaintext passwords unlock the user record's hashed passwords.");
-        else
+        else if (need_recovery_key)
                 log_info("None of the supplied plaintext passwords unlock the user record's hashed recovery keys.");
 
         /* Next, test cached PKCS#11 passwords */
@@ -489,8 +489,10 @@ int home_setup_done(HomeSetup *setup) {
         setup->volume_key = erase_and_free(setup->volume_key);
         setup->volume_key_size = 0;
 
-        if (setup->do_drop_caches)
+        if (setup->do_drop_caches) {
+                setup->do_drop_caches = false;
                 drop_caches_now();
+        }
 
         setup->mount_suffix = mfree(setup->mount_suffix);
 
@@ -1075,6 +1077,8 @@ static int copy_skel(UserRecord *h, int root_fd, const char *skel) {
                 log_info("Skeleton directory %s missing, ignoring.", skel);
                 return 0;
         }
+        if (r < 0)
+                return log_error_errno(r, "Failed to open skeleton directory %s: %m", skel);
 
         r = copy_tree_at(
                         skel_fd, /* from= */ NULL,
@@ -1406,7 +1410,7 @@ static int home_create(UserRecord *h, Hashmap *blobs, UserRecord **ret_home) {
                                 UID_INVALID,
                                 GID_INVALID);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to change storage type to LUKS: %m");
+                        return log_error_errno(r, "Failed to add default storage binding to record: %m");
         }
 
         r = user_record_test_image_path_and_warn(h);
@@ -1552,8 +1556,13 @@ static int home_remove(UserRecord *h) {
 
         if (hd) {
                 if (rmdir(hd) < 0) {
-                        if (errno != ENOENT)
-                                return log_error_errno(errno, "Failed to remove %s, ignoring: %m", hd);
+                        if (errno != ENOENT) {
+                                /* If we already removed the image, there's no point in failing now */
+                                if (!deleted)
+                                        return log_error_errno(errno, "Failed to remove %s: %m", hd);
+
+                                log_warning_errno(errno, "Failed to remove %s, ignoring: %m", hd);
+                        }
                 } else
                         deleted = true;
         }
@@ -1969,18 +1978,23 @@ static int home_unlock(UserRecord *h) {
         if (r < 0)
                 return r;
 
+        /* Connect to the service manager before resuming the device, so that we fail while the device is
+         * still suspended if that doesn't work. */
+        _cleanup_(unit_freezer_freep) UnitFreezer *f = NULL;
+        r = user_session_freezer_new(h->uid, &f);
+        if (r < 0)
+                return r;
+
         r = home_unlock_luks(h, &setup, &cache);
         if (r < 0)
                 return r;
 
-        _cleanup_(unit_freezer_freep) UnitFreezer *f = NULL;
-
         /* We want to thaw the session only after it's safe to access $HOME */
-        r = user_session_freezer_new(h->uid, &f);
-        if (r > 0)
+        if (f) {
                 r = unit_freezer_thaw(f);
-        if (r < 0)
-                return r;
+                if (r < 0)
+                        return r;
+        }
 
         log_info("Everything completed.");
         return 1;
@@ -2220,7 +2234,7 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         r = dispatch_verb(args, &c);
-        if (IN_SET(r, -ENOKEY, -EREMOTEIO) && c.home && !strv_isempty(c.home->password)) {
+        if (IN_SET(r, -ENOKEY, -EBADSLT, -EREMOTEIO) && c.home && !strv_isempty(c.home->password)) {
                 /* There were passwords specified but they were incorrect */
                 usec_t end, n, d;
 
@@ -2244,8 +2258,15 @@ static int run(int argc, char *argv[]) {
         /* We always pass the new record back, regardless if it changed or not. This allows our caller to
          * prepare a fresh record, send to us, and only if it works use it without having to keep a local
          * copy. */
-        if (c.new_home)
-                sd_json_variant_dump(c.new_home->json, SD_JSON_FORMAT_NEWLINE, stdout, /* prefix= */ NULL);
+        if (c.new_home) {
+                /* stdout is how we pass the resulting record to homed, make sure it was fully written */
+                r = sd_json_variant_dump(c.new_home->json,
+                                         SD_JSON_FORMAT_NEWLINE|SD_JSON_FORMAT_FLUSH,
+                                         stdout,
+                                         /* prefix= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write resulting user record: %m");
+        }
 
         return 0;
 }
