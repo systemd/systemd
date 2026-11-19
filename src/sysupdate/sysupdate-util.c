@@ -14,6 +14,18 @@
 #include "strv.h"
 #include "sysupdate-util.h"
 
+bool sysupdate_version_is_pending(
+                const char *installed_version,
+                const char *booted_version) {
+
+        return installed_version && booted_version &&
+               strverscmp_improved(installed_version, booted_version) > 0;
+}
+
+bool sysupdate_update_set_has_partial_or_pending(UpdateSetFlags flags) {
+        return (flags & (UPDATE_PARTIAL|UPDATE_PENDING)) != 0;
+}
+
 int reboot_now(void) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
