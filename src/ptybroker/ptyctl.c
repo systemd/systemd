@@ -40,6 +40,7 @@ COMMAND(
         "ptyctl\0",
         "Interact with the pseudo TTY broker.",
         .man_pages = "ptyctl(1)\0",
+        .flags = COMMAND_EXPERIMENTAL,
 );
 
 VERB_COMMON_HELP_AUTO_HIDDEN();

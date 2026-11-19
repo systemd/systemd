@@ -236,9 +236,10 @@ static SD_VARLINK_DEFINE_ERROR(TrackingNotEnabled);
 static SD_VARLINK_DEFINE_ERROR(TooManyPtys);
 static SD_VARLINK_DEFINE_ERROR(TooManyMonitors);
 
-SD_VARLINK_DEFINE_INTERFACE(
+SD_VARLINK_DEFINE_INTERFACE_FULL(
                 io_systemd_PTYBroker,
                 "io.systemd.PTYBroker",
+                SD_VARLINK_EXPERIMENTAL,
                 SD_VARLINK_INTERFACE_COMMENT("An API for acquiring a pseudo-terminal"),
                 SD_VARLINK_SYMBOL_COMMENT("Allocates a PTY pair, and configures what to do with each side."),
                 &vl_method_AcquirePty,
