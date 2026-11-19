@@ -1293,16 +1293,13 @@ static char* settle_runtime_dir(RuntimeScope scope) {
         return runtime_dir;
 }
 
-static int create_temporary_mount_point(RuntimeScope scope, char **ret) {
-        _cleanup_free_ char *runtime_dir = NULL, *temporary_mount = NULL;
+static int create_temporary_mount_point(const char *private_namespace_dir, char **ret) {
+        _cleanup_free_ char *temporary_mount = NULL;
 
+        assert(private_namespace_dir);
         assert(ret);
 
-        runtime_dir = settle_runtime_dir(scope);
-        if (!runtime_dir)
-                return log_oom_debug();
-
-        temporary_mount = path_join(runtime_dir, "systemd/namespace-XXXXXX");
+        temporary_mount = path_join(private_namespace_dir, "namespace-XXXXXX");
         if (!temporary_mount)
                 return log_oom_debug();
 
@@ -1330,7 +1327,7 @@ static int mount_private_dev(const MountEntry *m, const NamespaceParameters *p) 
         assert(m);
         assert(p);
 
-        r = create_temporary_mount_point(p->runtime_scope, &temporary_mount);
+        r = create_temporary_mount_point(p->private_namespace_dir, &temporary_mount);
         if (r < 0)
                 return r;
 
@@ -1462,7 +1459,7 @@ static int mount_private_apivfs(
                 const char *entry_path,
                 const char *bind_source,
                 const char *opts,
-                RuntimeScope scope) {
+                const char *private_namespace_dir) {
 
         _cleanup_(rmdir_and_freep) char *temporary_mount = NULL;
         int r;
@@ -1489,7 +1486,7 @@ static int mount_private_apivfs(
                 // FIXME: This compatibility code path shall be removed once kernel 5.12
                 //        becomes the new minimal baseline
 
-                r = create_temporary_mount_point(scope, &temporary_mount);
+                r = create_temporary_mount_point(private_namespace_dir, &temporary_mount);
                 if (r < 0)
                         return r;
 
@@ -1555,13 +1552,13 @@ static int mount_private_apivfs(
 static int mount_private_sysfs(const MountEntry *m, const NamespaceParameters *p) {
         assert(m);
         assert(p);
-        return mount_private_apivfs("sysfs", mount_entry_path(m), "/sys", /* opts= */ NULL, p->runtime_scope);
+        return mount_private_apivfs("sysfs", mount_entry_path(m), "/sys", /* opts= */ NULL, p->private_namespace_dir);
 }
 
 static int mount_private_cgroup2fs(const MountEntry *m, const NamespaceParameters *p) {
         assert(m);
         assert(p);
-        return mount_private_apivfs("cgroup2", mount_entry_path(m), "/sys/fs/cgroup", /* opts= */ NULL, p->runtime_scope);
+        return mount_private_apivfs("cgroup2", mount_entry_path(m), "/sys/fs/cgroup", /* opts= */ NULL, p->private_namespace_dir);
 }
 
 static int mount_procfs(const MountEntry *m, const NamespaceParameters *p) {
@@ -1590,7 +1587,7 @@ static int mount_procfs(const MountEntry *m, const NamespaceParameters *p) {
          * one. i.e we don't reuse existing mounts here under any condition, we want a new instance owned by
          * our user namespace and with our hidepid= settings applied. Hence, let's get rid of everything
          * mounted on /proc/ first. */
-        return mount_private_apivfs("proc", mount_entry_path(m), "/proc", opts, p->runtime_scope);
+        return mount_private_apivfs("proc", mount_entry_path(m), "/proc", opts, p->private_namespace_dir);
 }
 
 static int mount_tmpfs(const MountEntry *m) {

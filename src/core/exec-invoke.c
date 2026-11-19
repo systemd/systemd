@@ -4398,14 +4398,18 @@ static int apply_mount_namespace(
         } else {
                 assert(params->runtime_scope == RUNTIME_SCOPE_USER);
 
-                if (asprintf(&private_namespace_dir, "/run/user/" UID_FMT "/systemd", geteuid()) < 0)
+                if (!params->prefix[EXEC_DIRECTORY_RUNTIME])
+                        return -EINVAL;
+
+                private_namespace_dir = path_join(params->prefix[EXEC_DIRECTORY_RUNTIME], "systemd");
+                if (!private_namespace_dir)
                         return -ENOMEM;
 
-                if (setup_os_release_symlink &&
-                    asprintf(&host_os_release_stage,
-                             "/run/user/" UID_FMT "/systemd/propagate/.os-release-stage",
-                             geteuid()) < 0)
-                        return -ENOMEM;
+                if (setup_os_release_symlink) {
+                        host_os_release_stage = path_join(private_namespace_dir, "propagate/.os-release-stage");
+                        if (!host_os_release_stage)
+                                return -ENOMEM;
+                }
         }
 
         if (rootfs->image) {

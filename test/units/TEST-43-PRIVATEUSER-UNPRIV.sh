@@ -125,6 +125,12 @@ runas testuser systemd-run --wait --user --unit=test-root-dir-bind \
     grep MARKER=1 /etc/os-release
 umount /tmp/img_bind
 
+# The host's os-release is staged below the user manager's runtime directory, and the executor has to look
+# for it in the same place.
+runas testuser systemd-run --wait --pipe --user --unit=test-root-dir-host-os-release \
+    -p RootDirectory=/tmp/img -p MountAPIVFS=yes \
+    cat /run/host/os-release | cmp - /etc/os-release
+
 # Unprivileged overlayfs was added to Linux 5.11, so try to detect it first
 mkdir -p /tmp/a /tmp/b /tmp/c
 if unshare --mount --user --map-root-user mount -t overlay overlay /tmp/c -o lowerdir=/tmp/a:/tmp/b; then

@@ -198,6 +198,7 @@ TEST(fd_is_namespace) {
 TEST(protect_kernel_logs) {
         static const NamespaceParameters p = {
                 .runtime_scope = RUNTIME_SCOPE_SYSTEM,
+                .private_namespace_dir = "/run/systemd",
                 .protect_kernel_logs = true,
         };
         int r;
