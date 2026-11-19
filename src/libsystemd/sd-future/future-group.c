@@ -17,6 +17,7 @@ typedef enum FutureGroupFlags {
          * itself until the stack overflows. */
         FUTURE_GROUP_CANCELLING     = 1 << 3,
         FUTURE_GROUP_CHILDREN_ADDED = 1 << 4,
+        FUTURE_GROUP_CANCELLED      = 1 << 5,
 } FutureGroupFlags;
 
 typedef struct FutureGroup {
@@ -54,7 +55,7 @@ static int future_group_parent_resolved(sd_future *parent, void *userdata) {
 
 static int future_group_check(sd_future *g);
 
-static int future_group_cancel_children(sd_future *g) {
+static int future_group_cancel_children(sd_future *g, sd_future_cancel_mode_t mode) {
         FutureGroup *fg = ASSERT_PTR(sd_future_get_private(g));
         int r = 0;
 
@@ -68,26 +69,26 @@ static int future_group_cancel_children(sd_future *g) {
         FOREACH_ARRAY(slot_p, fg->slots, fg->n_slots) {
                 sd_future *child = sd_future_slot_get_future(*slot_p);
                 if (sd_future_state(child) == SD_FUTURE_PENDING)
-                        RET_GATHER(r, sd_future_cancel(child));
+                        RET_GATHER(r, sd_future_cancel_full(child, mode));
         }
         fg->flags &= ~FUTURE_GROUP_CANCELLING;
 
         return r;
 }
 
-static int future_group_finalize(sd_future *g, int result, bool propagate_error) {
+static int future_group_finalize(sd_future *g, int result, bool propagate_error, sd_future_cancel_mode_t mode) {
         FutureGroup *fg = ASSERT_PTR(sd_future_get_private(g));
         int r = 0;
 
         /* The first outcome is final. A later call, such as a repeated sd_future_cancel(), cancels the
-         * children again. Some children only resolve after repeated cancellation. Without the repeated
-         * cancellation, sd_future_cancel_wait_unref() on the group would wait forever for such a child. */
+         * children again. Some children only resolve after a second cancel, for example a fiber child
+         * whose cleanup code runs under a soft shield. */
         if (!FLAGS_SET(fg->flags, FUTURE_GROUP_FINALIZING)) {
                 fg->flags |= FUTURE_GROUP_FINALIZING;
                 fg->result = result;
         }
 
-        RET_GATHER(r, future_group_cancel_children(g));
+        RET_GATHER(r, future_group_cancel_children(g, mode));
 
         /* If a child error selects the outcome and IGNORE_ERRORS is not set, cancel the parent fiber. The
          * parent then sees the failure even if it does not await the group yet. A parent that awaits the
@@ -98,7 +99,7 @@ static int future_group_finalize(sd_future *g, int result, bool propagate_error)
             fg->parent &&
             fg->parent != sd_fiber_get_current() &&
             sd_fiber_get_awaiting(fg->parent) != g)
-                RET_GATHER(r, sd_future_cancel(fg->parent));
+                RET_GATHER(r, sd_future_cancel_full(fg->parent, SD_FUTURE_CANCEL_SOFT));
 
         RET_GATHER(r, future_group_check(g));
         return r;
@@ -129,11 +130,11 @@ static int future_group_check(sd_future *g) {
                         sd_future *child = sd_future_slot_get_future(*slot_p);
 
                         if (sd_future_state(child) == SD_FUTURE_RESOLVED && sd_future_result(child) >= 0)
-                                return future_group_finalize(g, sd_future_result(child), /* propagate_error= */ true);
+                                return future_group_finalize(g, sd_future_result(child), /* propagate_error= */ true, SD_FUTURE_CANCEL_SOFT);
                 }
 
         if (!ignore_errors && fg->first_error != 0)
-                return future_group_finalize(g, fg->first_error, /* propagate_error= */ true);
+                return future_group_finalize(g, fg->first_error, /* propagate_error= */ true, SD_FUTURE_CANCEL_SOFT);
 
         /* The owner can add more children until it seals the group. */
         if (!FLAGS_SET(fg->flags, FUTURE_GROUP_SEALED) || fg->n_slots > 0)
@@ -145,11 +146,23 @@ static int future_group_check(sd_future *g) {
         return future_group_finalize(
                         g,
                         fg->first_error ?: (wait_any ? -ECHILD : 0),
-                        /* propagate_error= */ false);
+                        /* propagate_error= */ false,
+                        SD_FUTURE_CANCEL_SOFT);
 }
 
-static int future_group_cancel(sd_future *f) {
-        return future_group_finalize(f, -ECANCELED, /* propagate_error= */ false);
+static int future_group_cancel(sd_future *f, sd_future_cancel_mode_t mode) {
+        FutureGroup *fg = ASSERT_PTR(sd_future_get_private(f));
+
+        /* Selecting an outcome already cancels the children softly. Another soft request must not
+         * interrupt their cleanup, so only a hard request cancels the children again. */
+        bool first = !FLAGS_SET(fg->flags, FUTURE_GROUP_CANCELLED);
+        if (mode == SD_FUTURE_CANCEL_DEFAULT)
+                mode = first ? SD_FUTURE_CANCEL_SOFT : SD_FUTURE_CANCEL_HARD;
+        fg->flags |= FUTURE_GROUP_CANCELLED;
+        if (mode == SD_FUTURE_CANCEL_SOFT && FLAGS_SET(fg->flags, FUTURE_GROUP_FINALIZING))
+                return 0;
+
+        return future_group_finalize(f, -ECANCELED, /* propagate_error= */ false, mode);
 }
 
 static int future_group_set_child_priority(sd_future *child, int64_t priority) {
@@ -267,7 +280,7 @@ static int group_child_resolved(sd_future *child, void *userdata) {
                 return future_group_check(g);
 
         if (cr >= 0 && FLAGS_SET(fg->policy, SD_FUTURE_GROUP_WAIT_ANY))
-                return future_group_finalize(g, cr, /* propagate_error= */ true);
+                return future_group_finalize(g, cr, /* propagate_error= */ true, SD_FUTURE_CANCEL_SOFT);
 
         if (cr < 0 && fg->first_error == 0)
                 fg->first_error = cr;

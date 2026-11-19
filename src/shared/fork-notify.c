@@ -188,7 +188,7 @@ static void fork_notify_terminate_internal(PidRef *pidref) {
         if (r < 0 && r != -ESRCH)
                 log_debug_errno(r, "Failed to send SIGTERM to child " PID_FMT ", ignoring: %m", pidref->pid);
 
-        (void) pidref_wait_for_terminate_and_check(/* name= */ NULL, pidref, /* flags= */ 0);
+        (void) pidref_wait_for_terminate_uninterruptible(pidref);
 }
 
 void fork_notify_terminate(PidRef *pidref) {

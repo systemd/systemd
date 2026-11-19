@@ -39,11 +39,18 @@ typedef int (*sd_fiber_func_t)(void *userdata);
 typedef _sd_destroy_t sd_fiber_destroy_t;
 typedef _sd_destroy_t sd_channel_destroy_t;
 
+__extension__ typedef enum _SD_ENUM_TYPE_S64(sd_future_cancel_mode_t) {
+        SD_FUTURE_CANCEL_DEFAULT,
+        SD_FUTURE_CANCEL_SOFT,
+        SD_FUTURE_CANCEL_HARD,
+        _SD_ENUM_FORCE_S64(SD_FUTURE_CANCEL_MODE)
+} sd_future_cancel_mode_t;
+
 struct sd_future_ops {
         size_t size;
         size_t private_size;
         void (*free)(sd_future *f);
-        int (*cancel)(sd_future *f);
+        int (*cancel)(sd_future *f, sd_future_cancel_mode_t mode);
         int (*set_priority)(sd_future *f, int64_t priority);
 };
 
@@ -56,6 +63,9 @@ __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_future_state_t) {
 /* SD_EVENT_DEFAULT selects the calling thread's existing default event loop, or fails with -ENOPKG. */
 int sd_future_new(sd_event *e, const sd_future_ops *ops, sd_future **ret);
 int sd_future_cancel(sd_future *f);
+/* DEFAULT escalates repeated requests. SOFT and HARD select a fixed level, including when propagated
+ * through a group. sd_future_cancel() uses DEFAULT. */
+int sd_future_cancel_full(sd_future *f, sd_future_cancel_mode_t mode);
 /* sd_future_resolve() only fails if f is NULL or already resolved. */
 int sd_future_resolve(sd_future *f, int result);
 
@@ -74,7 +84,11 @@ void sd_future_cancel_unref_array_clear(sd_future *array[], size_t n);
 void sd_future_cancel_unref_array(sd_future *array[], size_t n);
 
 /* Cancel and release the caller's reference after resolution. The target must not be the calling
- * fiber. Asynchronous cancellation must be awaited from a fiber on the same event loop. */
+ * fiber. Asynchronous cancellation must be awaited from a fiber on the same event loop. The wait hides
+ * every interruption of the calling fiber, because the target can use memory of the caller. A timeout
+ * doesn't end the wait, so the target has to finish after its cancellation. When the calling fiber is
+ * cancelled hard, the target is cancelled again instead. The interruptions stay in effect after the
+ * wait. */
 sd_future* sd_future_cancel_wait_unref(sd_future *f);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_future, sd_future_cancel_wait_unref);
 void sd_future_cancel_wait_unref_array_clear(sd_future *array[], size_t n);
@@ -128,7 +142,10 @@ __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_future_group_policy_t) {
 
 /* If the calling fiber runs on e, it becomes the parent of the group. Unless IGNORE_ERRORS is set, a
  * child error cancels the parent. The parent is not cancelled while it awaits the group with
- * sd_fiber_await(). Cancelling the group does not cancel the parent. */
+ * sd_fiber_await(). Cancelling the group does not cancel the parent. Every cancel of the group cancels
+ * its children again, so a second cancel cancels fiber children hard. If the policy has already
+ * selected the outcome and cancelled the children, the first cancel of the group doesn't cancel them
+ * again. */
 int sd_future_group_new(sd_event *e, sd_future **ret);
 int sd_future_group_set_policy(sd_future *f, uint64_t policy);
 /* The group and all its children must belong to the same event loop. sd_future_group_add() takes a
@@ -174,24 +191,55 @@ int sd_fiber_sleep(uint64_t usec);
  * target resolved before the fiber saw the interruption, the wait returns 0, and the next suspension
  * point returns the interruption instead. The target's outcome is available through sd_future_result()
  * afterwards; the caller must hold its own reference to read it. An already-resolved target returns 0
- * without consuming a pending interruption. The target must belong to the calling fiber's event loop.
+ * without suspending. The target must belong to the calling fiber's event loop.
  * Resolving the target queues the waiting fiber in the same event loop iteration as the target's
  * callbacks. The fiber can therefore run before callbacks of the same priority that were added with
  * sd_future_add_callback(). */
 int sd_fiber_await(sd_future *target);
-/* sd_fiber_interrupted() returns a queued -ECANCELED or -ETIME and clears it, so that no later
- * suspension point returns it again. It returns 0 if no interruption is queued. Call it before starting
- * an operation that can complete without suspending. Otherwise a cancelled fiber never sees its
- * cancellation if none of its operations suspend. To report a cleared interruption later instead,
- * queue it again with sd_fiber_resume() on the current fiber. */
+/* Cancellation and timeouts are level-triggered. Once a fiber is cancelled, every suspension point returns
+ * -ECANCELED. Once the timer of an SD_FIBER_TIMEOUT() scope expired, every suspension point inside the
+ * scope returns -ETIME, and -ECANCELED takes precedence. Neither is cleared by reporting it, so code that
+ * ignores an interruption gets it again from the next suspension point. Cancelling a fiber a second time
+ * makes the cancellation hard, and so does the exit of the event loop.
+ *
+ * sd_fiber_interrupted() returns the interruption that the next suspension point would return, or 0. Call
+ * it before starting an operation that can complete without suspending. Otherwise a cancelled fiber never
+ * sees its cancellation if none of its operations suspend. */
 int sd_fiber_interrupted(void);
 int sd_fiber_suspend(void);
+/* sd_fiber_resume() wakes a suspended fiber, whose suspension point then returns result once. An
+ * interruption takes precedence over result. */
 int sd_fiber_resume(sd_future *f, int result);
+
+/* A shield hides an ordinary cancellation of the calling fiber, and the timeouts of the SD_FIBER_TIMEOUT()
+ * scopes that enclose the shield. Cleanup code that has to keep waiting after a cancellation runs under a
+ * shield. A hard cancellation still interrupts the shield, and so does the timeout of an SD_FIBER_TIMEOUT()
+ * scope inside the shield, so open one to bound the cleanup. Shields nest, and end in the reverse order of
+ * their creation. Off a fiber, a shield does nothing. */
+typedef struct sd_fiber_shield {
+        sd_future *fiber;
+        int saved_level;
+        size_t saved_n_shielded_timeouts;
+} sd_fiber_shield;
+
+sd_fiber_shield sd_fiber_shield_begin(void);
+void sd_fiber_shield_end(sd_fiber_shield *shield);
+
+#define SD_FIBER_SHIELD() _SD_FIBER_SHIELD(_SD_UNIQ)
+#define _SD_FIBER_SHIELD(uniq)                                                                                                                  \
+        sd_fiber_shield _SD_CONCATENATE(_sd_fsh_, uniq) __attribute__((cleanup(sd_fiber_shield_end), unused)) = sd_fiber_shield_begin()
+
+#define SD_FIBER_WITH_SHIELD() _SD_FIBER_WITH_SHIELD(_SD_UNIQ)
+#define _SD_FIBER_WITH_SHIELD(uniq)                                                                                                             \
+        for (sd_fiber_shield _SD_CONCATENATE(_sd_fsh_, uniq) __attribute__((cleanup(sd_fiber_shield_end), unused)) = sd_fiber_shield_begin(), \
+                             *_SD_CONCATENATE(_sd_fsh_b_, uniq) = &_SD_CONCATENATE(_sd_fsh_, uniq);                                                 \
+             _SD_CONCATENATE(_sd_fsh_b_, uniq);                                                                                                 \
+             _SD_CONCATENATE(_sd_fsh_b_, uniq) = NULL)
 
 sd_future* sd_fiber_timeout(uint64_t timeout);
 /* sd_fiber_timeout_unref() ends the scope of a timer from sd_fiber_timeout(). It has to release every such
- * timer, in the reverse order of their creation. A queued -ETIME is dropped at the end of the scope, unless
- * the timer of an enclosing scope expired. */
+ * timer, in the reverse order of their creation. Suspension points after the end of the scope no longer
+ * return the -ETIME of its timer. */
 sd_future* sd_fiber_timeout_unref(sd_future *timer);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_future, sd_fiber_timeout_unref);
 

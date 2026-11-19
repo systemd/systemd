@@ -335,9 +335,9 @@ static int bus_connect_user_unit(const char *unit, sd_bus **ret) {
                 return log_error_errno(r, "User id of user service manager unit %s is not a valid UID: %m", user);
 
         /* On the failure paths below, the bus may still be connecting when the cleanup runs.
-         * sd_bus_flush() waits without a timeout until the connection is established. With a frozen user
-         * manager, that wait never ends. No messages are queued yet, so closing without a flush loses
-         * nothing. */
+         * sd_bus_flush() waits until the connection is established. With a frozen user manager, that wait
+         * lasts until the deadline of the operation. No messages are queued yet, so closing without a
+         * flush loses nothing. */
         _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         r = bus_connect_user_systemd_by_uid(uid, unit, &bus);
         if (r == -ENOMEM)
@@ -407,9 +407,9 @@ typedef struct ManagerOperation ManagerOperation;
 
 typedef int (*ManagerOperationFunc)(sd_bus *bus, const ManagerOperation *op);
 
-/* When the deadline of a user manager operation expires, only the next suspension point returns -ETIME.
- * Later suspension points wait without a deadline. The operations therefore return -ETIME from a method
- * call instead of ignoring it like other errors. */
+/* When the deadline of a user manager operation expires, every later suspension point returns -ETIME. The
+ * operations return -ETIME from a method call instead of ignoring it like other errors, so that they don't
+ * go on with calls that fail right away. */
 struct ManagerOperation {
         ManagerOperationFunc func;
         char **units;
@@ -645,8 +645,7 @@ static int user_manager_operation_fiber(void *userdata) {
         if (!deadline)
                 return log_oom();
 
-        /* Every method call waits for its reply, so no message is left to flush at the end. A flush
-         * after the deadline expired would wait without a deadline. */
+        /* Every method call waits for its reply, so no message is left to flush at the end. */
         _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         r = bus_connect_user_unit(o->unit, &bus);
         if (r <= 0)

@@ -214,7 +214,7 @@ static void channel_waiter_free(sd_future *f) {
         sd_channel_unref(w->channel);
 }
 
-static int channel_waiter_cancel(sd_future *f) {
+static int channel_waiter_cancel(sd_future *f, sd_future_cancel_mode_t mode) {
         ChannelWaiter *w = ASSERT_PTR(sd_future_get_private(f));
 
         /* sd_future_cancel() only calls this for a pending future, and a pending ChannelWaiter is

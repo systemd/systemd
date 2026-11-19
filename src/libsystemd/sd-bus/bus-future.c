@@ -20,7 +20,7 @@ static void bus_future_free(sd_future *f) {
         sd_bus_message_unref(bf->reply);
 }
 
-static int bus_future_cancel(sd_future *f) {
+static int bus_future_cancel(sd_future *f, sd_future_cancel_mode_t mode) {
         BusFuture *bf = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
 
         bf->slot = sd_bus_slot_unref(bf->slot);

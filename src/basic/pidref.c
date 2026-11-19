@@ -456,6 +456,24 @@ bool pidref_is_self(PidRef *pidref) {
         return pidref->fd_id == self_id;
 }
 
+static int pidref_waitid(PidRef *pidref, siginfo_t *ret_si) {
+        siginfo_t si = {};
+        int r;
+
+        do {
+                if (pidref->fd >= 0)
+                        r = RET_NERRNO(waitid(P_PIDFD, pidref->fd, &si, WEXITED));
+                else
+                        r = RET_NERRNO(waitid(P_PID, pidref->pid, &si, WEXITED));
+        } while (r == -EINTR);
+        if (r < 0)
+                return r;
+
+        if (ret_si)
+                *ret_si = si;
+        return 0;
+}
+
 int pidref_wait_for_terminate_full(PidRef *pidref, usec_t timeout, siginfo_t *ret_si) {
         int r;
 
@@ -502,18 +520,33 @@ int pidref_wait_for_terminate_full(PidRef *pidref, usec_t timeout, siginfo_t *re
                                 return r;
                 }
 
-                siginfo_t si = {};
+                return pidref_waitid(pidref, ret_si);
+        }
+}
 
-                if (pidref->fd >= 0)
-                        r = RET_NERRNO(waitid(P_PIDFD, pidref->fd, &si, WEXITED));
-                else
-                        r = RET_NERRNO(waitid(P_PID, pidref->pid, &si, WEXITED));
-                if (r >= 0) {
-                        if (ret_si)
-                                *ret_si = si;
-                        return 0;
-                }
-                if (r != -EINTR)
+int pidref_wait_for_terminate_uninterruptible(PidRef *pidref) {
+        int r;
+
+        WITH_FIBER_OPS_SHIELD(FIBER_CANCEL_SOFT)
+                r = pidref_wait_for_terminate(pidref, /* ret_si= */ NULL);
+        if (r != -ECANCELED)
+                return r;
+
+        /* A hard cancellation interrupted the wait: the fiber was cancelled a second time, or its event
+         * loop exits. Kill the process with SIGKILL, which it can't ignore, and wait under a full shield,
+         * which nothing interrupts. */
+        (void) pidref_kill(pidref, SIGKILL);
+
+        for (;;) {
+                /* While the event loop of the fiber exits, a wait fails with -ECANCELED right away even
+                 * under a shield, and retrying it would spin until the process exits. Block in waitid()
+                 * instead. */
+                if (fiber_ops_exiting())
+                        return pidref_waitid(pidref, /* ret_si= */ NULL);
+
+                WITH_FIBER_OPS_SHIELD(FIBER_CANCEL_HARD)
+                        r = pidref_wait_for_terminate(pidref, /* ret_si= */ NULL);
+                if (r != -ECANCELED)
                         return r;
         }
 }

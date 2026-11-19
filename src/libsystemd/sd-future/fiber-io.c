@@ -47,18 +47,14 @@ static ssize_t fiber_io_uring_await(sd_future *io) {
         if (r >= 0)
                 return io_uring_result(io);
 
-        /* An interrupted wait leaves the SQE in flight, and the kernel can complete it before it processes
-         * the cancellation. Wait for the CQE and return its result. Otherwise an accepted fd leaks, and
-         * data that the kernel already received is lost. */
+        /* The kernel can complete the SQE before it processes the cancellation. Discarding the result would
+         * leak an accepted fd or lose received data. The interruption stays in effect, so the next suspension
+         * point reports it. */
         (void) sd_future_cancel_wait_unref(sd_future_ref(io));
         n = io_uring_result(io);
         if (n == -ECANCELED)
                 return r;
 
-        /* The SQE completed, so the next suspension point reports the interruption. sd_fiber_await()
-         * returns -EBUSY for a wakeup without an error, so there is nothing to report for -EBUSY. */
-        if (r != -EBUSY)
-                assert_se(sd_fiber_resume(sd_fiber_get_current(), r) >= 0);
         return n;
 }
 
@@ -568,8 +564,10 @@ int sd_fiber_ppoll(struct pollfd *fds, size_t n_fds, const struct timespec *time
                         return r;
         }
 
+        /* sd_fiber_await() doesn't clear an interruption. Report the fds that are ready anyway, and let the
+         * next suspension point return the interruption. */
         r = sd_fiber_await(group);
-        if (r < 0 && r != -ETIME)
+        if (r < 0 && !IN_SET(r, -ETIME, -ECANCELED))
                 return r;
         if (r >= 0) {
                 r = sd_future_result(group);
@@ -581,15 +579,8 @@ int sd_fiber_ppoll(struct pollfd *fds, size_t n_fds, const struct timespec *time
          * the same event-loop tick (or the fd can become ready between the timer firing and us being
          * scheduled), and ppoll() semantics give events precedence over the timeout in that case. */
         int n = RET_NERRNO(ppoll(fds, n_fds, &(const struct timespec) {}, /* sigmask= */ NULL));
-        if (n != 0) {
-                /* sd_fiber_await() returned the expired timeout of an SD_FIBER_TIMEOUT() scope and cleared
-                 * it. Queue it again, so that the next suspension point returns it. Otherwise every later
-                 * wait in the scope runs without a deadline. */
-                if (r == -ETIME)
-                        assert_se(sd_fiber_resume(sd_fiber_get_current(), r) >= 0);
-
+        if (n != 0)
                 return n;
-        }
 
         /* No fds ready. The group's result is the winning child's result: 0 means the timer
          * (created with result=0) fired; r > 0 means an IO future fired (revents mask) but the

@@ -352,11 +352,16 @@ int sd_future_set_priority(sd_future *f, int64_t priority) {
         return f->ops->set_priority(f, priority);
 }
 
-int sd_future_cancel(sd_future *f) {
+int sd_future_cancel_full(sd_future *f, sd_future_cancel_mode_t mode) {
         assert_return(f, -EINVAL);
+        assert_return(IN_SET(mode, SD_FUTURE_CANCEL_DEFAULT, SD_FUTURE_CANCEL_SOFT, SD_FUTURE_CANCEL_HARD), -EINVAL);
 
         if (f->state == SD_FUTURE_RESOLVED)
                 return 0;
 
-        return f->ops->cancel(f);
+        return f->ops->cancel(f, mode);
+}
+
+int sd_future_cancel(sd_future *f) {
+        return sd_future_cancel_full(f, SD_FUTURE_CANCEL_DEFAULT);
 }
