@@ -121,7 +121,7 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_event_source_get_pending()</function> was added in version 229.</para>
+    <para><function>sd_event_source_get_pending()</function> was added in version 221.</para>
   </refsect1>
 
   <refsect1>

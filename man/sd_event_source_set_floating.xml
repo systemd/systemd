@@ -85,7 +85,7 @@
           <listitem><para><parameter>source</parameter> is not a valid pointer to an
           <structname>sd_event_source</structname> object.</para>
 
-          <xi:include href="version-info.xml" xpointer="v244"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v240"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -93,7 +93,7 @@
 
           <listitem><para>The event loop has been created in a different process, library or module instance.</para>
 
-          <xi:include href="version-info.xml" xpointer="v244"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v240"/></listitem>
 
         </varlistentry>
 
@@ -106,7 +106,7 @@
   <refsect1>
     <title>History</title>
     <para><function>sd_event_source_set_floating()</function> and
-    <function>sd_event_source_get_floating()</function> were added in version 244.</para>
+    <function>sd_event_source_get_floating()</function> were added in version 240.</para>
   </refsect1>
 
   <refsect1>

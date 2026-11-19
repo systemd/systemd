@@ -97,7 +97,7 @@
           <citerefentry><refentrytitle>systemd-hwdb</refentrytitle><manvolnum>8</manvolnum></citerefentry>
           for more information.</para>
 
-          <xi:include href="version-info.xml" xpointer="v246"/>
+          <xi:include href="version-info.xml" xpointer="v240"/>
           </listitem>
         </varlistentry>
 
@@ -107,7 +107,7 @@
           <listitem><para>The located binary hardware database file is in an incompatible format.
           </para>
 
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v240"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -115,7 +115,7 @@
 
           <listitem><para>Memory allocation failed.</para>
 
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v240"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -127,7 +127,7 @@
     <title>History</title>
     <para><function>sd_hwdb_new()</function>,
     <function>sd_hwdb_ref()</function>, and
-    <function>sd_hwdb_unref()</function> were added in version 246.</para>
+    <function>sd_hwdb_unref()</function> were added in version 240.</para>
     <para><function>sd_hwdb_new_from_path()</function> was added in version 252.</para>
   </refsect1>
 

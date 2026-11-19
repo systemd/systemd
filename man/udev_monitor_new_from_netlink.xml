@@ -73,7 +73,7 @@
     <title>History</title>
     <para><function>udev_monitor_new_from_netlink()</function>,
     <function>udev_monitor_ref()</function>, and
-    <function>udev_monitor_unref()</function> were added in version 221.</para>
+    <function>udev_monitor_unref()</function> were added in version 183.</para>
   </refsect1>
 
   <refsect1>

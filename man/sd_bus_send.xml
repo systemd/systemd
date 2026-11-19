@@ -106,7 +106,7 @@
           <listitem><para>The input parameter <parameter>m</parameter> is <constant>NULL</constant>.
           </para>
 
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v221"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -115,7 +115,7 @@
           <listitem><para>The bus connection does not support sending file descriptors.
           </para>
 
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v221"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -124,7 +124,7 @@
           <listitem><para>The bus connection was allocated in a parent process and is being reused in a child
           process after <function>fork()</function>.</para>
 
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v221"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -132,7 +132,7 @@
 
           <listitem><para>The bus connection's write queue is full.</para>
 
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v221"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -141,7 +141,7 @@
           <listitem><para>The input parameter <parameter>bus</parameter> is
           <constant>NULL</constant> or the bus is not connected.</para>
 
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v221"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -150,7 +150,7 @@
           <listitem><para>The bus connection was closed while waiting for the response.
           </para>
 
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v221"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -158,7 +158,7 @@
 
           <listitem><para>Memory allocation failed.</para>
 
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v221"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -169,7 +169,7 @@
   <refsect1>
     <title>History</title>
     <para><function>sd_bus_send()</function> and
-    <function>sd_bus_send_to()</function> were added in version 246.</para>
+    <function>sd_bus_send_to()</function> were added in version 221.</para>
     <para><function>sd_bus_message_send()</function> was added in version 248.</para>
   </refsect1>
 

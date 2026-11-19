@@ -129,7 +129,7 @@
     <function>udev_enumerate_add_match_sysname()</function>,
     <function>udev_enumerate_add_match_tag()</function>,
     <function>udev_enumerate_add_match_parent()</function>, and
-    <function>udev_enumerate_add_match_is_initialized()</function> were added in version 221.</para>
+    <function>udev_enumerate_add_match_is_initialized()</function> were added in version 183.</para>
   </refsect1>
 
   <refsect1>
