@@ -1556,8 +1556,13 @@ EOF
     jq --seq -s -e ".[] | select(.name == \"${defs#/}/verity-data.conf\") | has(\"size\") and has(\"sha256\") and (has(\"mode\") | not)" <"$root_manifest" >/dev/null
     # In offline mode the tree is populated from a staging directory, whose file system identity has nothing
     # to do with the one of the partition, hence it must not be recorded
+    # The root object declares the requested fields as features, minus the ones that do not apply
     if [[ "$OFFLINE" == "yes" ]]; then
         jq --seq -s -e '.[0] | (has("fsUUID") or has("fsLabel") or has("fatSerial")) | not' <"$root_manifest" >/dev/null
+        jq --seq -s -e '.[0].features == ["sha256","size"]' <"$root_manifest" >/dev/null
+    else
+        # FS_IOC_GETFSUUID requires kernel 6.9, fs-uuid is not declared if the UUID cannot be queried
+        jq --seq -s -e '.[0] | .features == (["fat-serial","fs-label"] + (if has("fsUUID") then ["fs-uuid"] else [] end) + ["sha256","size"])' <"$root_manifest" >/dev/null
     fi
     # The manifest is signed with the manifest key, not the verity key
     systemd-manifest verify --certificate="$defs/manifest.crt" / "$root_manifest"
@@ -1566,6 +1571,14 @@ EOF
 
     gpt_manifest="$imgs/verity.Uapi16Manifest"
     jq --seq -s -e '.[] | select(.mediaType == "application/vnd.uapi.16.signature") | .mechanism == "pkcs7"' <"$gpt_manifest" >/dev/null
+    # The root object declares the recorded features, which include extended attributes only if configured.
+    # The individual partition attribute flags are only included if set, as their features are listed.
+    if [[ ${#match_args[@]} -gt 0 ]]; then
+        jq --seq -s -e '.[0].features == ["gpt-disk-uuid","gpt-flag-grow-file-system","gpt-flag-no-auto","gpt-flags","gpt-label","gpt-type-uuid","gpt-uuid","read-only","sha256","size","user-xattr"]' <"$gpt_manifest" >/dev/null
+    else
+        jq --seq -s -e '.[0].features == ["gpt-disk-uuid","gpt-flag-grow-file-system","gpt-flag-no-auto","gpt-flags","gpt-label","gpt-type-uuid","gpt-uuid","read-only","sha256","size"]' <"$gpt_manifest" >/dev/null
+    fi
+    jq --seq -s -e 'all(.[]; .gptFlagNoAuto != false and .gptFlagGrowFileSystem != false and .readOnly != false)' <"$gpt_manifest" >/dev/null
     # The image as a whole is covered too
     jq --seq -s -e ".[] | select(.name == \"verity\") | .size == $(stat -c %s "$imgs/verity") and .sha256 == \"$(sha256sum "$imgs/verity" | cut -d' ' -f1)\"" <"$gpt_manifest" >/dev/null
     root_split=$(jq -r ".[] | select(.type == \"root-${architecture}\") | .split_path" <<<"$output")

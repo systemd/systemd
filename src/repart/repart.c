@@ -9205,11 +9205,23 @@ static int context_manifest_gpt(Context *context) {
                         return log_error_errno(r, "Failed to build extended attributes JSON object: %m");
         }
 
+        /* The objects carry sizes and hashes, the GPT fields, and extended attributes if configured. Declare
+         * that, since the default set of features lacks most of these. Note that if the features of the
+         * individual partition attribute flags are listed, the absence of their fields means the flag is
+         * cleared. */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *features = NULL;
+        r = uapi16_features_build_json(
+                        MANIFEST_FIELD_SIZE|MANIFEST_FIELD_HASH|_MANIFEST_FIELD_GPT_ALL|(xattrs ? MANIFEST_FIELD_USER_XATTR : 0),
+                        &features);
+        if (r < 0)
+                return log_error_errno(r, "Failed to build features JSON array: %m");
+
         /* The root object carries the fields of the GPT header */
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         r = sd_json_buildo(
                         &v,
                         SD_JSON_BUILD_PAIR("mediaType", JSON_BUILD_CONST_STRING(UAPI16_MANIFEST_MEDIA_TYPE)),
+                        SD_JSON_BUILD_PAIR_VARIANT("features", features),
                         SD_JSON_BUILD_PAIR_UUID("gptDiskUuid", context->disk_uuid));
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON object: %m");
@@ -9295,8 +9307,8 @@ static int context_manifest_gpt(Context *context) {
 
                 /* For existing partitions report the flags on disk (we never change them), for new ones
                  * the flags we just wrote. The individual flag fields are derived from these, so that they
-                 * are consistent with "gptFlags", i.e. are left out for partition types that do not
-                 * support them. */
+                 * are consistent with "gptFlags". As their features are listed, they are only included if
+                 * set, as their absence means they are cleared. */
                 uint64_t flags;
                 if (PARTITION_EXISTS(p)) {
                         r = fdisk_partition_get_attrs_as_uint64(p->current_partition, &flags);
@@ -9314,12 +9326,9 @@ static int context_manifest_gpt(Context *context) {
                                 SD_JSON_BUILD_PAIR_UUID("gptUuid", uuid),
                                 SD_JSON_BUILD_PAIR_UUID("gptTypeUuid", p->type.uuid),
                                 SD_JSON_BUILD_PAIR_UNSIGNED("gptFlags", flags),
-                                SD_JSON_BUILD_PAIR_CONDITION(p->no_auto >= 0 && gpt_partition_type_knows_no_auto(p->type),
-                                                             "gptFlagNoAuto", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(flags, SD_GPT_FLAG_NO_AUTO))),
-                                SD_JSON_BUILD_PAIR_CONDITION(p->growfs >= 0 && gpt_partition_type_knows_growfs(p->type),
-                                                             "gptFlagGrowFileSystem", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(flags, SD_GPT_FLAG_GROWFS))),
-                                SD_JSON_BUILD_PAIR_CONDITION(p->read_only >= 0 && gpt_partition_type_knows_read_only(p->type),
-                                                             "readOnly", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(flags, SD_GPT_FLAG_READ_ONLY))),
+                                SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, SD_GPT_FLAG_NO_AUTO), "gptFlagNoAuto", SD_JSON_BUILD_BOOLEAN(true)),
+                                SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, SD_GPT_FLAG_GROWFS), "gptFlagGrowFileSystem", SD_JSON_BUILD_BOOLEAN(true)),
+                                SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, SD_GPT_FLAG_READ_ONLY), "readOnly", SD_JSON_BUILD_BOOLEAN(true)),
                                 SD_JSON_BUILD_PAIR_CONDITION(!!xattrs, "extendedAttributes", SD_JSON_BUILD_VARIANT(xattrs)),
                                 SD_JSON_BUILD_PAIR_VARIANT("contents", contents));
                 if (r < 0)

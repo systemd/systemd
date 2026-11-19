@@ -1581,11 +1581,10 @@ test "$(printf '%o' "$(jq -r '.mode' <<<"$ENTRY")")" = "644"
 # A non-hardlinked entry must not have an inodeToken
 test "$(jq 'has("inodeToken")' <<<"$ENTRY")" = "false"
 
-# Empty file: size 0, sha256 of the empty input
+# Empty file: size 0, and no sha256, as it is implied by the size
 ENTRY=$(get_entry empty.txt)
 test "$(jq -r '.size' <<<"$ENTRY")" = "0"
-test "$(jq -r '.sha256' <<<"$ENTRY")" = \
-    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+test "$(jq 'has("sha256")' <<<"$ENTRY")" = "false"
 
 # Directory
 ENTRY=$(get_entry subdir)
