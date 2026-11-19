@@ -964,6 +964,7 @@ $ gdbus introspect --system \
 
   <refsect1>
     <title>History</title>
+    <para>The <interfacename>org.freedesktop.resolve1</interfacename> D-Bus API was added in version 216.</para>
     <refsect2>
       <title>The Manager Object</title>
 

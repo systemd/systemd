@@ -107,6 +107,9 @@
 
   <refsect1>
     <title>History</title>
+    <para><function>sd_get_seats()</function>,
+    <function>sd_get_sessions()</function>, and
+    <function>sd_get_uids()</function> were added in version 31.</para>
     <para><function>sd_get_machine_names()</function> was added in version 203.</para>
   </refsect1>
 
