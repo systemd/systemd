@@ -1667,6 +1667,7 @@ node /org/freedesktop/login1/session/1 {
 
   <refsect1>
     <title>History</title>
+    <para>The <interfacename>org.freedesktop.login1</interfacename> D-Bus API was added in version 30.</para>
     <refsect2>
       <title>The Manager Object</title>
       <para><varname>HandlePowerKeyLongPress</varname>,

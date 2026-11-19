@@ -587,6 +587,8 @@ node /org/freedesktop/portable1 {
 
   <refsect1>
     <title>History</title>
+    <para>The <interfacename>org.freedesktop.portable1</interfacename> D-Bus API was added in version 239 as
+    an experimental interface, and has been considered stable since version 240.</para>
     <refsect2>
       <title>The Manager Object</title>
       <para><function>GetImageStateWithExtensions()</function> was added in version 251.</para>
