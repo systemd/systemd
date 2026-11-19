@@ -202,6 +202,7 @@ int machine_save(Machine *m) {
 
         /* We continue to call this "SCOPE=" because it is internal only, and we want to stay compatible with old files */
         env_file_fputs_assignment(f, "SCOPE=", m->unit);
+        env_file_fputs_assignment(f, "SUBGROUP=", m->subgroup);
         env_file_fputs_assignment(f, "SCOPE_JOB=", m->scope_job);
 
         env_file_fputs_assignment(f, "SERVICE=", m->service);
@@ -313,6 +314,48 @@ static void parse_pid_and_pidfdid(
         }
 }
 
+static void machine_load_unit(Machine *m) {
+        int r;
+
+        assert(m);
+        assert(m->manager);
+
+        if (m->subgroup) {
+                /* machine_save() doesn't save the cgroup of a machine in a subgroup. machine_watch_cgroup() and
+                 * machine_may_gc() need the cgroup to notice when the subgroup becomes empty. */
+                if (!pidref_is_set(&m->leader))
+                        return;
+
+                r = cg_pidref_get_path(&m->leader, &m->cgroup);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to determine cgroup of process " PID_FMT ", ignoring: %m", m->leader.pid);
+                return;
+        }
+
+        if (!m->unit)
+                return;
+
+        /* machined v258 to v260 doesn't save SUBGROUP=. Every version of machined creates the unit:<unit>
+         * symlink only for a machine that owns its unit. A missing symlink therefore means that the machine
+         * runs in a subgroup of the unit. If we treated the machine as the owner of the unit, machine_stop()
+         * would stop the unit, which can be user@.service or the user's session scope. */
+        const char *sl = strjoina(m->manager->state_dir, "/unit:", m->unit);
+        if (faccessat(AT_FDCWD, sl, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
+                return;
+
+        log_debug_errno(errno, "Failed to access '%s', assuming machine '%s' runs in a subgroup of unit '%s': %m",
+                        sl, m->name, m->unit);
+
+        m->unit = mfree(m->unit);
+
+        if (!pidref_is_set(&m->leader))
+                return;
+
+        r = machine_determine_unit(m);
+        if (r < 0)
+                log_debug_errno(r, "Failed to determine unit of machine '%s', ignoring: %m", m->name);
+}
+
 int machine_load(Machine *m) {
         _cleanup_free_ char *name = NULL, *realtime = NULL, *monotonic = NULL, *id = NULL,
                 *leader = NULL, *leader_pidfdid = NULL, *supervisor = NULL, *supervisor_pidfdid = NULL,
@@ -358,6 +401,8 @@ int machine_load(Machine *m) {
 
         parse_pid_and_pidfdid(&m->leader, leader, leader_pidfdid, "leader");
         parse_pid_and_pidfdid(&m->supervisor, supervisor, supervisor_pidfdid, "supervisor");
+
+        machine_load_unit(m);
 
         if (class) {
                 MachineClass c = machine_class_from_string(class);
