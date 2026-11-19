@@ -38,6 +38,7 @@
 #include "io-uring-filter.h"
 #include "io-util.h"
 #include "ioprio-util.h"
+#include "iovec-util.h"
 #include "log.h"
 #include "manager.h"
 #include "mkdir.h"
@@ -1797,10 +1798,8 @@ bool exec_context_get_effective_bind_log_sockets(const ExecContext *c) {
 void exec_context_free_log_extra_fields(ExecContext *c) {
         assert(c);
 
-        FOREACH_ARRAY(field, c->log_extra_fields, c->n_log_extra_fields)
-                free(field->iov_base);
-
-        c->log_extra_fields = mfree(c->log_extra_fields);
+        iovec_array_free(c->log_extra_fields, c->n_log_extra_fields);
+        c->log_extra_fields = NULL;
         c->n_log_extra_fields = 0;
 }
 
