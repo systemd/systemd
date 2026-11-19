@@ -984,10 +984,7 @@ int manager_open_stdout_socket(Manager *m, const char *stdout_socket) {
 }
 
 void stdout_stream_send_notify(StdoutStream *s) {
-        struct iovec iovec = {
-                .iov_base = (char*) "FDSTORE=1",
-                .iov_len = STRLEN("FDSTORE=1"),
-        };
+        struct iovec iovec = CONST_IOVEC_MAKE_STRING("FDSTORE=1");
         struct msghdr msghdr = {
                 .msg_iov = &iovec,
                 .msg_iovlen = 1,

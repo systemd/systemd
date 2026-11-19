@@ -12125,7 +12125,7 @@ int tpm2_argon2id_derive_split(
         assert(ret_b64_pin);
 
         r = kdf_argon2id_derive(
-                        &IOVEC_MAKE(pin, strlen(pin)),
+                        &IOVEC_MAKE_STRING(pin),
                         salt,
                         argon2id_params,
                         /* derive_size= */ 64, &derived);
