@@ -352,13 +352,14 @@ CHANGES WITH 263 in spe:
 
         New pseudo TTY broker:
 
-        * The new systemd-ptybrokerd service allocates pseudo TTYs and keeps
-          them open independently of the client that requested them. For
-          example, it is now possible to disconnect from a container console
-          and reconnect later without stopping the container. The broker is
-          socket-activated and available both system-wide and per user.
-          The new ptyctl tool lists terminals, attaches to them interactively
-          with "ptyctl monitor NAME", and hangs them up on request.
+        * The new experimental systemd-ptybrokerd service allocates pseudo TTYs
+          and keeps them open independently of the client that requested them.
+          For example, it is now possible to disconnect from a container
+          console and reconnect later without stopping the container. The
+          broker is socket-activated and available both system-wide and per
+          user. The new ptyctl tool lists terminals, attaches to them
+          interactively with "ptyctl monitor NAME", and hangs them up on
+          request.
 
         * StandardInput=, StandardOutput= and StandardError= in unit files
           gained "broker" and "broker-log" modes. systemd-nspawn,
@@ -366,11 +367,11 @@ CHANGES WITH 263 in spe:
           --console=. Both allow a client to attach later. "broker-log" also
           writes the terminal output to the journal.
 
-        * run0 now uses the broker for a plain local interactive shell. Such
-          shells use the systemd-ptybroker-shell PAM stack and the dedicated
-          io.systemd.PTYBroker.acquire-pty-with-shell polkit action. Running
-          an explicit command or requesting custom unit properties still uses
-          the transient service path.
+        * When systemd-ptybrokerd is available, run0 uses it for plain local
+          interactive shells. Such shells use the systemd-ptybroker-shell PAM
+          stack and the dedicated io.systemd.PTYBroker.acquire-pty-with-shell
+          polkit action. Running an explicit command or requesting custom unit
+          properties still uses the transient service path.
 
         Changes in systemd-logind:
 
