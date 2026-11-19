@@ -27,16 +27,20 @@
 #include "find-esp.h"
 #include "fs-util.h"
 #include "glyph-util.h"
+#include "hexdecoct.h"
 #include "id128-util.h"
 #include "install-file.h"
 #include "io-util.h"
 #include "json-util.h"
 #include "kernel-config.h"
 #include "log.h"
+#include "manifest-util.h"
 #include "parse-argument.h"
 #include "path-util.h"
 #include "pe-binary.h"
 #include "rm-rf.h"
+#include "sha256.h"
+#include "sort-util.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -55,6 +59,34 @@ typedef enum InstallOperation {
         _INSTALL_OPERATION_MAX,
         _INSTALL_OPERATION_INVALID = -1,
 } InstallOperation;
+
+/* bootctl copies the contents of this directory into the ESP in addition to systemd-boot. */
+#define EXTRA_FILES_DIR_NAME "extra"
+#define EXTRA_FILES_DIR BOOTLIBDIR "/" EXTRA_FILES_DIR_NAME
+
+/* bootctl lists the extra files that it installed in this file in the ESP, in the format of sha256sum(1). */
+#define EXTRA_FILES_MANIFEST_DIR "EFI/systemd"
+#define EXTRA_FILES_MANIFEST_NAME "extra-files.sha256"
+
+#define EXTRA_FILES_MAX 128U
+#define EXTRA_FILES_DEPTH_MAX 8U
+
+typedef enum ExtraAction {
+        EXTRA_ACTION_SKIP,   /* bootctl does not manage the file in the ESP and leaves it alone. */
+        EXTRA_ACTION_KEEP,   /* bootctl manages the file in the ESP and does not replace it. */
+        EXTRA_ACTION_COPY,
+        EXTRA_ACTION_FAILED,
+} ExtraAction;
+
+typedef struct ExtraFile {
+        char *path;        /* The path is relative to the root of the ESP. */
+        char *source_path; /* The source path is NULL for an entry that was read from the manifest. */
+        int source_fd;
+        uint8_t hash[SHA256_DIGEST_SIZE];
+        ExtraAction action;
+        bool dest_managed;                     /* The file exists in the ESP and bootctl manages it. */
+        uint8_t dest_hash[SHA256_DIGEST_SIZE]; /* dest_hash is only valid if dest_managed is set. */
+} ExtraFile;
 
 typedef struct InstallContext {
         InstallOperation operation;
@@ -80,6 +112,21 @@ typedef struct InstallContext {
         EVP_PKEY *secure_boot_private_key;
 #endif
         int touch_variables; /* tri-state */
+        DIR *source_dir;            /* source_dir is the BOOTLIBDIR that open_source_directory() selected.
+                                     * It is NULL if there is nothing to install. */
+        char *source_path;
+        bool source_from_image;     /* source_dir is located below c->root_fd and not on the host. */
+        bool changed;               /* An extra file or a boot entry was installed or removed. */
+        bool extra_manifest_damaged;
+        ExtraFile *extra_files;     /* extra_files lists the files below EXTRA_FILES_DIR. */
+        size_t n_extra_files;
+        ExtraFile *extra_manifest;  /* extra_manifest lists the files that an earlier invocation installed.
+                                     * A path is listed once per hash if an earlier invocation was
+                                     * interrupted. */
+        size_t n_extra_manifest;
+        ExtraFile *extra_installed; /* extra_installed lists the files that bootctl manages after
+                                     * install_extra_files() ran. */
+        size_t n_extra_installed;
 } InstallContext;
 
 #define INSTALL_CONTEXT_NULL                                            \
@@ -106,8 +153,31 @@ static const char* install_operation_table[_INSTALL_OPERATION_MAX] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(install_operation, InstallOperation);
 
+static void extra_file_array_free(ExtraFile *files, size_t n) {
+        FOREACH_ARRAY(f, files, n) {
+                free(f->path);
+                free(f->source_path);
+                safe_close(f->source_fd);
+        }
+
+        free(files);
+}
+
 static void install_context_done(InstallContext *c) {
         assert(c);
+
+        extra_file_array_free(c->extra_files, c->n_extra_files);
+        c->extra_files = NULL;
+        c->n_extra_files = 0;
+        extra_file_array_free(c->extra_manifest, c->n_extra_manifest);
+        c->extra_manifest = NULL;
+        c->n_extra_manifest = 0;
+        extra_file_array_free(c->extra_installed, c->n_extra_installed);
+        c->extra_installed = NULL;
+        c->n_extra_installed = 0;
+
+        c->source_dir = safe_closedir(c->source_dir);
+        c->source_path = mfree(c->source_path);
 
         c->root = mfree(c->root);
         c->root_fd = safe_close(c->root_fd);
@@ -601,6 +671,1015 @@ static int create_subdirs(const char *root, int root_fd, const char * const *sub
         return 0;
 }
 
+static bool extra_path_equal(const char *a, const char *b) {
+        assert(a);
+        assert(b);
+
+        /* VFAT is case insensitive, hence two paths that only differ in case name the same file.
+         * strcasecmp() cannot be used for the comparison, because it follows the locale: in a Turkish
+         * locale it does not treat "I" and "i" as the same letter. */
+        return ascii_strcasecmp_nn(a, strlen(a), b, strlen(b)) == 0;
+}
+
+static const char* extra_path_startswith(const char *path, const char *prefix) {
+        assert(path);
+        assert(prefix);
+
+        size_t n = strlen(prefix);
+        if (strlen(path) < n || ascii_strcasecmp_n(path, prefix, n) != 0)
+                return NULL;
+
+        return path + n;
+}
+
+static bool extra_path_endswith(const char *path, const char *suffix) {
+        assert(path);
+        assert(suffix);
+
+        size_t n = strlen(path), m = strlen(suffix);
+        return n >= m && ascii_strcasecmp_n(path + n - m, suffix, m) == 0;
+}
+
+static bool extra_filename_is_valid(const char *name) {
+        assert(name);
+
+        /* The manifest only stores UTF-8 file names. */
+        if (!filename_is_valid(name) || !utf8_is_valid(name))
+                return false;
+
+        /* VFAT refuses control characters and the characters listed below, and it strips trailing dots and
+         * spaces from file names. */
+        for (const char *p = name; *p; p++)
+                if ((unsigned char) *p < 0x20 || *p == 0x7f || strchr("\"*:<>?\\|", *p))
+                        return false;
+
+        return !endswith(name, ".") && !endswith(name, " ");
+}
+
+static bool extra_path_is_valid(const char *path) {
+        assert(path);
+
+        if (path_is_absolute(path) || !path_is_normalized(path))
+                return false;
+
+        for (const char *p = path;;) {
+                const char *e;
+                int r;
+
+                r = path_find_first_component(&p, /* accept_dot_dot= */ false, &e);
+                if (r < 0)
+                        return false;
+                if (r == 0)
+                        return true;
+
+                _cleanup_free_ char *component = strndup(e, r);
+                if (!component || !extra_filename_is_valid(component))
+                        return false;
+        }
+}
+
+static int extra_file_compare(const ExtraFile *a, const ExtraFile *b) {
+        return ascii_strcasecmp_nn(a->path, strlen(a->path), b->path, strlen(b->path));
+}
+
+static ExtraFile* extra_file_find(ExtraFile *files, size_t n, const char *path) {
+        assert(path);
+
+        path = skip_leading_slash(path);
+
+        FOREACH_ARRAY(f, files, n)
+                if (extra_path_equal(f->path, path))
+                        return f;
+
+        return NULL;
+}
+
+static bool extra_manifest_lists(InstallContext *c, const char *path, const uint8_t hash[static SHA256_DIGEST_SIZE]) {
+        assert(c);
+        assert(path);
+
+        path = skip_leading_slash(path);
+
+        FOREACH_ARRAY(m, c->extra_manifest, c->n_extra_manifest)
+                if (extra_path_equal(m->path, path) && memcmp(m->hash, hash, SHA256_DIGEST_SIZE) == 0)
+                        return true;
+
+        return false;
+}
+
+static void extra_manifest_forget(InstallContext *c, const char *path) {
+        assert(c);
+        assert(path);
+
+        path = skip_leading_slash(path);
+
+        for (size_t i = 0; i < c->n_extra_manifest;) {
+                ExtraFile *m = c->extra_manifest + i;
+
+                if (!extra_path_equal(m->path, path)) {
+                        i++;
+                        continue;
+                }
+
+                free(m->path);
+                memmove(m, m + 1, (c->n_extra_manifest - i - 1) * sizeof(ExtraFile));
+                c->n_extra_manifest--;
+        }
+}
+
+static bool extra_path_is_entry_point(const char *path) {
+        const char *e;
+
+        assert(path);
+
+        /* The firmware starts EFI/BOOT/BOOT<ARCH>.EFI and the binary that is registered in the boot loader
+         * list directly. install_extra_files() installs them after the files that they load. */
+        e = extra_path_startswith(path, "EFI/BOOT/BOOT") ?: extra_path_startswith(path, "EFI/systemd/boot");
+        return e && !strchr(e, '/') && extra_path_endswith(e, ".efi");
+}
+
+static int extra_files_add(
+                InstallContext *c,
+                const char *path,
+                const char *source_path,
+                int source_fd) {
+
+        int r;
+
+        assert(c);
+        assert(path);
+        assert(source_path);
+        assert(source_fd >= 0);
+
+        if (c->n_extra_files >= EXTRA_FILES_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(E2BIG),
+                                       "More than %u files below '%s', refusing.", EXTRA_FILES_MAX, EXTRA_FILES_DIR);
+
+        /* bootctl installs the systemd-boot binaries as EFI/systemd/systemd-boot*, and it writes the
+         * manifest. An extra file must not replace them. */
+        if (extra_path_startswith(path, "EFI/systemd/systemd-boot") ||
+            extra_path_equal(path, EXTRA_FILES_MANIFEST_DIR "/" EXTRA_FILES_MANIFEST_NAME))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "'%s' uses a file name that is reserved for systemd-boot, refusing.", source_path);
+
+        _cleanup_free_ char *p = strdup(path), *sp = strdup(source_path);
+        if (!p || !sp)
+                return log_oom();
+
+        _cleanup_close_ int fd = fd_reopen(source_fd, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to open '%s': %m", source_path);
+
+        uint8_t hash[SHA256_DIGEST_SIZE];
+        r = sha256_fd(fd, UINT64_MAX, hash);
+        if (r < 0)
+                return log_error_errno(r, "Failed to hash '%s': %m", source_path);
+
+        if (!GREEDY_REALLOC(c->extra_files, c->n_extra_files + 1))
+                return log_oom();
+
+        ExtraFile *f = c->extra_files + c->n_extra_files++;
+        *f = (ExtraFile) {
+                .path = TAKE_PTR(p),
+                .source_path = TAKE_PTR(sp),
+                .source_fd = TAKE_FD(fd),
+        };
+        memcpy(f->hash, hash, sizeof(hash));
+
+        return 0;
+}
+
+static int load_extra_directory(
+                InstallContext *c,
+                int root_fd,
+                const char *source,
+                const char *prefix,
+                unsigned depth) {
+
+        int r;
+
+        assert(c);
+        assert(source);
+
+        /* Symlinks are followed, so that a package can link the files of another package into
+         * EXTRA_FILES_DIR. A symlink to a parent directory hence makes the hierarchy infinitely deep. */
+        if (depth > EXTRA_FILES_DEPTH_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(ELOOP),
+                                       "Directory '%s' is nested more than %u levels deep, refusing.", source, EXTRA_FILES_DEPTH_MAX);
+
+        _cleanup_closedir_ DIR *d = NULL;
+        r = chase_and_opendirat(root_fd, root_fd, source, CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &d);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open directory '%s': %m", source);
+
+        FOREACH_DIRENT_ALL(de, d, return log_error_errno(errno, "Failed to read directory '%s': %m", source)) {
+                if (dot_or_dot_dot(de->d_name))
+                        continue;
+
+                _cleanup_free_ char *child = path_join(source, de->d_name);
+                if (!child)
+                        return log_oom();
+
+                if (!extra_filename_is_valid(de->d_name))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "'%s' is not a valid file name for the ESP, refusing.", child);
+
+                _cleanup_free_ char *path = path_join(prefix, de->d_name);
+                if (!path)
+                        return log_oom();
+
+                struct stat st;
+                if (fstatat(dirfd(d), de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0)
+                        return log_error_errno(errno, "Failed to stat '%s': %m", child);
+
+                /* If the target of a symlink does not exist, chaseat() returns the path of the target and
+                 * no file descriptor. */
+                _cleanup_free_ char *resolved = NULL;
+                _cleanup_close_ int fd = -EBADF;
+                r = chaseat(root_fd, root_fd, child, CHASE_NONEXISTENT, &resolved, &fd);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve '%s': %m", child);
+
+                /* install_binaries() prefers systemd-boot<arch>.efi.signed over systemd-boot<arch>.efi. A
+                 * symlink cannot name whichever of the two files exists, hence apply the same rule to the
+                 * target of a symlink: if the target is called "<name>.efi" and "<name>.efi.signed" exists
+                 * next to it, the signed file is installed under the name of the symlink. */
+                if (S_ISLNK(st.st_mode) && extra_path_endswith(resolved, ".efi")) {
+                        _cleanup_free_ char *signed_path = strjoin(resolved, ".signed");
+                        if (!signed_path)
+                                return log_oom();
+
+                        _cleanup_close_ int signed_fd = chase_and_openat(
+                                        root_fd,
+                                        root_fd,
+                                        signed_path,
+                                        CHASE_MUST_BE_REGULAR,
+                                        O_RDONLY|O_CLOEXEC|O_NOCTTY,
+                                        /* ret_path= */ NULL);
+                        if (signed_fd >= 0) {
+                                log_debug("'%s' points to '%s', installing '%s' instead.", child, resolved, signed_path);
+
+                                r = extra_files_add(c, path, signed_path, signed_fd);
+                                if (r < 0)
+                                        return r;
+
+                                continue;
+                        }
+                        if (signed_fd != -ENOENT)
+                                return log_error_errno(signed_fd, "Failed to open '%s': %m", signed_path);
+                }
+
+                if (fd < 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                               "'%s' points to '%s', which does not exist, refusing.", child, resolved);
+
+                if (fstat(fd, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat '%s': %m", child);
+
+                if (S_ISDIR(st.st_mode))
+                        r = load_extra_directory(c, root_fd, child, path, depth + 1);
+                else if (S_ISREG(st.st_mode))
+                        r = extra_files_add(c, path, child, fd);
+                else
+                        r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                            "'%s' is neither a regular file nor a directory, refusing.", child);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int load_extra_files(InstallContext *c) {
+        int r;
+
+        assert(c);
+        assert(c->n_extra_files == 0);
+
+        /* The extra files are taken from the root directory that contains the systemd-boot binaries. If
+         * open_source_directory() found no systemd-boot to install, for example because the package that
+         * contains BOOTLIBDIR was removed, the extra files in the ESP are left alone. A
+         * missing BOOTLIBDIR must not be mistaken for an EXTRA_FILES_DIR without files. */
+        if (!c->source_dir) {
+                log_debug("No systemd-boot binaries to install, leaving the extra files in the ESP alone.");
+                return 0;
+        }
+
+        int root_fd = c->source_from_image ? c->root_fd : XAT_FDROOT;
+
+        r = chase_and_accessat(root_fd, root_fd, EXTRA_FILES_DIR, CHASE_MUST_BE_DIRECTORY, F_OK, /* ret_path= */ NULL);
+        if (r == -ENOENT) {
+                /* A symlink whose target does not exist must not be mistaken for a missing directory,
+                 * because the extra files in the ESP would be removed. */
+                struct stat st;
+                if (fstatat(dirfd(c->source_dir), EXTRA_FILES_DIR_NAME, &st, AT_SYMLINK_NOFOLLOW) >= 0)
+                        return log_error_errno(r, "'%s' points to a directory that does not exist, refusing.", EXTRA_FILES_DIR);
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to stat '%s': %m", EXTRA_FILES_DIR);
+
+                log_debug("Directory '%s' does not exist, not installing any extra files.", EXTRA_FILES_DIR);
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to check for '%s': %m", EXTRA_FILES_DIR);
+
+        r = load_extra_directory(c, root_fd, EXTRA_FILES_DIR, /* prefix= */ NULL, /* depth= */ 0);
+        if (r < 0)
+                return r;
+
+        typesafe_qsort(c->extra_files, c->n_extra_files, extra_file_compare);
+
+        /* Refuse collisions before the ESP is modified. */
+        FOREACH_ARRAY(a, c->extra_files, c->n_extra_files)
+                FOREACH_ARRAY(b, c->extra_files, c->n_extra_files) {
+                        if (a >= b)
+                                continue;
+
+                        if (extra_path_equal(a->path, b->path))
+                                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                                       "'%s' and '%s' only differ in case and are the same file in the ESP, refusing.",
+                                                       a->source_path, b->source_path);
+
+                        const char *e = extra_path_startswith(b->path, a->path) ?: extra_path_startswith(a->path, b->path);
+                        if (e && e[0] == '/')
+                                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                                       "'%s' and '%s' need a file and a directory of the same name in the ESP, refusing.",
+                                                       a->source_path, b->source_path);
+                }
+
+        return 0;
+}
+
+static int extra_file_array_add(
+                ExtraFile **files,
+                size_t *n,
+                const char *path,
+                const uint8_t hash[static SHA256_DIGEST_SIZE]) {
+
+        assert(files);
+        assert(n);
+        assert(path);
+
+        _cleanup_free_ char *p = strdup(path);
+        if (!p)
+                return log_oom();
+
+        if (!GREEDY_REALLOC(*files, *n + 1))
+                return log_oom();
+
+        ExtraFile *f = *files + (*n)++;
+        *f = (ExtraFile) {
+                .path = TAKE_PTR(p),
+                .source_fd = -EBADF,
+        };
+        memcpy(f->hash, hash, SHA256_DIGEST_SIZE);
+
+        return 0;
+}
+
+static int load_extra_manifest(InstallContext *c) {
+        int r;
+
+        assert(c);
+        assert(c->n_extra_manifest == 0);
+
+        if (c->esp_fd < 0)
+                return c->esp_fd;
+
+        _cleanup_fclose_ FILE *f = NULL;
+        r = chase_and_fopenat_unlocked(
+                        c->esp_fd,
+                        c->esp_fd,
+                        EXTRA_FILES_MANIFEST_DIR "/" EXTRA_FILES_MANIFEST_NAME,
+                        CHASE_PROHIBIT_SYMLINKS|CHASE_MUST_BE_REGULAR,
+                        "re",
+                        /* ret_path= */ NULL,
+                        &f);
+        if (r == -ENOENT)
+                return 0;
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                /* A manifest that cannot be read is handled like a manifest that cannot be parsed. It must
+                 * block neither the installation of systemd-boot nor "bootctl remove". */
+                log_warning_errno(r, "Failed to open '%s' in the ESP, ignoring: %m", EXTRA_FILES_MANIFEST_DIR "/" EXTRA_FILES_MANIFEST_NAME);
+                c->extra_manifest_damaged = true;
+                return 0;
+        }
+
+        for (size_t line_nr = 0;;) {
+                _cleanup_(iovec_done) struct iovec digest = {};
+                _cleanup_free_ char *path = NULL;
+
+                r = manifest_parse_sums(f, &line_nr, &path, &digest);
+                if (r == -ENOMEM)
+                        return r;
+                if (r < 0) {
+                        /* manifest_parse_sums() logged the reason. run_install() does not rewrite a damaged
+                         * manifest during an update, because the files that the rest of the manifest lists
+                         * would not be managed by bootctl anymore. */
+                        log_warning("Ignoring the rest of '%s' in the ESP.", EXTRA_FILES_MANIFEST_DIR "/" EXTRA_FILES_MANIFEST_NAME);
+                        c->extra_manifest_damaged = true;
+                        break;
+                }
+                if (r == 0)
+                        break;
+
+                /* The paths are used to delete files in the ESP, hence only accept what bootctl writes.
+                 * An interrupted invocation leaves two hashes per path in the manifest. */
+                if (digest.iov_len != SHA256_DIGEST_SIZE || !extra_path_is_valid(path) || c->n_extra_manifest >= 2 * EXTRA_FILES_MAX) {
+                        log_warning("Ignoring invalid line %zu in '%s' in the ESP.", line_nr, EXTRA_FILES_MANIFEST_DIR "/" EXTRA_FILES_MANIFEST_NAME);
+                        c->extra_manifest_damaged = true;
+                        continue;
+                }
+
+                if (extra_manifest_lists(c, path, digest.iov_base))
+                        continue;
+
+                r = extra_file_array_add(&c->extra_manifest, &c->n_extra_manifest, path, digest.iov_base);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int write_extra_manifest(InstallContext *c, const ExtraFile *files, size_t n) {
+        int r;
+
+        assert(c);
+        assert(files || n == 0);
+
+        _cleanup_close_ int dir_fd = -EBADF;
+        r = chaseat(c->esp_fd,
+                    c->esp_fd,
+                    EXTRA_FILES_MANIFEST_DIR,
+                    CHASE_PROHIBIT_SYMLINKS|CHASE_MUST_BE_DIRECTORY|(n > 0 ? CHASE_MKDIR_0755 : 0),
+                    /* ret_path= */ NULL,
+                    &dir_fd);
+        if (r == -ENOENT && n == 0)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to open '%s' in the ESP: %m", EXTRA_FILES_MANIFEST_DIR);
+
+        if (n == 0) {
+                /* unlinkat() fails with EROFS for a file that does not exist if the ESP is read-only. */
+                if (faccessat(dir_fd, EXTRA_FILES_MANIFEST_NAME, F_OK, AT_SYMLINK_NOFOLLOW) < 0 && errno == ENOENT)
+                        return 0;
+
+                if (unlinkat(dir_fd, EXTRA_FILES_MANIFEST_NAME, 0) < 0 && errno != ENOENT)
+                        return log_error_errno(errno, "Failed to remove '%s' in the ESP: %m", EXTRA_FILES_MANIFEST_DIR "/" EXTRA_FILES_MANIFEST_NAME);
+
+                return 0;
+        }
+
+        _cleanup_free_ char *text = NULL;
+        FOREACH_ARRAY(f, files, n) {
+                _cleanup_free_ char *h = hexmem(f->hash, sizeof(f->hash));
+                if (!h)
+                        return log_oom();
+
+                if (!strextend(&text, h, "  ", f->path, "\n"))
+                        return log_oom();
+        }
+
+        /* "bootctl update" runs on every boot. Do not write to the ESP if the manifest is unchanged. */
+        _cleanup_free_ char *old_text = NULL;
+        if (read_full_file_at(dir_fd, EXTRA_FILES_MANIFEST_NAME, &old_text, /* ret_size= */ NULL) >= 0 && streq(old_text, text))
+                return 0;
+
+        r = write_string_file_at(
+                        dir_fd,
+                        EXTRA_FILES_MANIFEST_NAME,
+                        text,
+                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_AVOID_NEWLINE);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write '%s' in the ESP: %m", EXTRA_FILES_MANIFEST_DIR "/" EXTRA_FILES_MANIFEST_NAME);
+
+        return 0;
+}
+
+static int find_name_no_case(int dir_fd, const char *name, char **ret) {
+        assert(dir_fd >= 0);
+        assert(name);
+        assert(ret);
+
+        /* VFAT matches file names case insensitively, but the file systems that the ESP is assembled on
+         * when an image is built do not. Look for an existing entry that only differs in case, so that
+         * "EFI/Boot" and "EFI/BOOT" are the same directory on any file system. */
+
+        if (faccessat(dir_fd, name, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
+                return strdup_to_full(ret, name);
+        if (errno != ENOENT)
+                return -errno;
+
+        _cleanup_close_ int fd = fd_reopen(dir_fd, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        if (fd < 0)
+                return fd;
+
+        _cleanup_closedir_ DIR *d = take_fdopendir(&fd);
+        if (!d)
+                return -errno;
+
+        FOREACH_DIRENT_ALL(de, d, return -errno)
+                if (extra_path_equal(de->d_name, name))
+                        return strdup_to_full(ret, de->d_name);
+
+        *ret = NULL;
+        return 0;
+}
+
+static int extra_open_parent(
+                InstallContext *c,
+                const char *path,
+                bool create,
+                int *ret_dir_fd,
+                char **ret_filename,
+                char **ret_path) {
+
+        int r;
+
+        assert(c);
+        assert(path);
+        assert(ret_dir_fd);
+        assert(ret_filename);
+        assert(ret_path);
+
+        /* extra_open_parent() opens the directory in the ESP that contains the specified file. It returns the
+         * path in ret_path, spelled like the existing directories and files in the ESP. */
+
+        if (c->esp_fd < 0)
+                return c->esp_fd;
+
+        _cleanup_close_ int dir_fd = fd_reopen(c->esp_fd, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        if (dir_fd < 0)
+                return dir_fd;
+
+        _cleanup_free_ char *actual_path = NULL;
+        for (const char *p = path;;) {
+                const char *e;
+
+                r = path_find_first_component(&p, /* accept_dot_dot= */ false, &e);
+                if (r <= 0)
+                        return r < 0 ? r : -EINVAL;
+
+                _cleanup_free_ char *component = strndup(e, r);
+                if (!component)
+                        return -ENOMEM;
+
+                _cleanup_free_ char *actual = NULL;
+                r = find_name_no_case(dir_fd, component, &actual);
+                if (r < 0)
+                        return r;
+
+                bool last = isempty(p);
+                if (r == 0) {
+                        if (!last) {
+                                if (!create)
+                                        return -ENOENT;
+
+                                if (mkdirat(dir_fd, component, 0755) < 0 && errno != EEXIST)
+                                        return -errno;
+                        }
+
+                        actual = TAKE_PTR(component);
+                }
+
+                if (!path_extend(&actual_path, actual))
+                        return -ENOMEM;
+
+                if (last) {
+                        *ret_dir_fd = TAKE_FD(dir_fd);
+                        *ret_filename = TAKE_PTR(actual);
+                        *ret_path = TAKE_PTR(actual_path);
+                        return 0;
+                }
+
+                int fd = openat(dir_fd, actual, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+                if (fd < 0)
+                        return -errno;
+
+                close_and_replace(dir_fd, fd);
+        }
+}
+
+static int remove_extra_file(InstallContext *c, const ExtraFile *f, bool remove_directories) {
+        int r;
+
+        assert(c);
+        assert(f);
+
+        _cleanup_free_ char *j = path_join(c->root, c->esp_path);
+        if (!j)
+                return log_oom();
+
+        _cleanup_free_ char *filename = NULL, *path = NULL;
+        _cleanup_close_ int dir_fd = -EBADF;
+        r = extra_open_parent(c, f->path, /* create= */ false, &dir_fd, &filename, &path);
+        if (r == -ENOENT)
+                return 0;
+        if (IN_SET(r, -ENOTDIR, -ELOOP)) {
+                log_notice("Not removing '%s/%s', a directory in its path was replaced since it was installed.", j, f->path);
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to open the directory of '%s/%s': %m", j, f->path);
+
+        _cleanup_close_ int fd = xopenat_full(dir_fd, filename, O_RDONLY|O_NOCTTY|O_NOFOLLOW, XO_REGULAR, MODE_INVALID);
+        if (fd == -ENOENT)
+                return 0;
+        if (IN_SET(fd, -EISDIR, -ELOOP, -EBADFD)) {
+                log_notice("Not removing '%s/%s', it was replaced by something that is not a regular file.", j, path);
+                return 0;
+        }
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to open '%s/%s': %m", j, path);
+
+        uint8_t hash[SHA256_DIGEST_SIZE];
+        r = sha256_fd(fd, UINT64_MAX, hash);
+        if (r < 0)
+                return log_error_errno(r, "Failed to hash '%s/%s': %m", j, path);
+
+        /* Another boot loader or the user replaced the file if its contents changed since it was installed. */
+        if (!extra_manifest_lists(c, f->path, hash)) {
+                log_notice("Not removing '%s/%s', it was modified since it was installed.", j, path);
+                return 0;
+        }
+
+        if (unlinkat(dir_fd, filename, 0) < 0)
+                return log_error_errno(errno, "Failed to remove '%s/%s': %m", j, path);
+
+        log_info("Removed \"%s/%s\".", j, path);
+        c->changed = true;
+
+        if (!remove_directories)
+                return 0;
+
+        for (;;) {
+                _cleanup_free_ char *parent = NULL;
+
+                r = path_extract_directory(path, &parent);
+                if (r < 0) /* The file was located in the root directory of the ESP. */
+                        return 0;
+
+                if (unlinkat(c->esp_fd, parent, AT_REMOVEDIR) < 0) {
+                        if (!IN_SET(errno, ENOTEMPTY, EEXIST, ENOENT))
+                                log_debug_errno(errno, "Failed to remove directory '%s/%s', ignoring: %m", j, parent);
+                        return 0;
+                }
+
+                log_info("Removed directory \"%s/%s\".", j, parent);
+                free_and_replace(path, parent);
+        }
+}
+
+static int plan_extra_file(InstallContext *c, ExtraFile *f) {
+        int r;
+
+        assert(c);
+        assert(f);
+
+        /* plan_extra_file() sets f->action without modifying the ESP. "bootctl install" replaces every file.
+         * "bootctl update" only replaces a file that bootctl manages. */
+
+        f->action = EXTRA_ACTION_COPY;
+        f->dest_managed = false;
+
+        _cleanup_free_ char *j = path_join(c->root, c->esp_path);
+        if (!j)
+                return log_oom();
+
+        _cleanup_free_ char *filename = NULL, *path = NULL;
+        _cleanup_close_ int dir_fd = -EBADF;
+        r = extra_open_parent(c, f->path, /* create= */ false, &dir_fd, &filename, &path);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to open the directory of '%s/%s': %m", j, f->path);
+
+        /* extra_open_parent() returns the path as it is spelled in the ESP. */
+        free_and_replace(f->path, path);
+
+        _cleanup_free_ char *dest_path = path_join(j, f->path);
+        if (!dest_path)
+                return log_oom();
+
+        _cleanup_close_ int dest_fd = xopenat_full(dir_fd, filename, O_RDONLY|O_NOCTTY|O_NOFOLLOW, XO_REGULAR, MODE_INVALID);
+        if (dest_fd == -ENOENT)
+                return 0;
+        if (dest_fd < 0)
+                return log_error_errno(dest_fd, "Failed to open '%s': %m", dest_path);
+
+        r = sha256_fd(dest_fd, UINT64_MAX, f->dest_hash);
+        if (r < 0)
+                return log_error_errno(r, "Failed to hash '%s': %m", dest_path);
+
+        _cleanup_free_ char *source_version = NULL, *dest_version = NULL;
+        bool listed = extra_manifest_lists(c, f->path, f->dest_hash),
+                same = memcmp(f->dest_hash, f->hash, SHA256_DIGEST_SIZE) == 0,
+                source_is_sd_boot = get_file_version(f->source_fd, &source_version) >= 0 && startswith(source_version, "systemd-boot "),
+                dest_is_sd_boot = get_file_version(dest_fd, &dest_version) >= 0 && startswith(dest_version, "systemd-boot ");
+
+        /* "bootctl install" replaces the file in any case. If the copy fails, install_extra_files() keeps
+         * a file that the manifest lists in the manifest. */
+        if (c->operation == INSTALL_NEW) {
+                f->dest_managed = listed;
+                return 0;
+        }
+
+        if (dest_is_sd_boot && (source_is_sd_boot || !listed)) {
+                /* systemd-boot in the ESP is only replaced by a newer systemd-boot, like the copies that
+                 * copy_one_file() updates. A systemd-boot binary that the manifest does not list is not
+                 * replaced by another binary, because another installation that shares the ESP might have
+                 * installed it. */
+                f->dest_managed = listed || source_is_sd_boot;
+
+                if (!same && source_is_sd_boot && compare_version(source_version, dest_version) > 0)
+                        return 0;
+
+                if (same)
+                        log_debug("\"%s\" is up-to-date.", dest_path);
+                else if (source_is_sd_boot)
+                        log_info("Skipping \"%s\", same or newer boot loader version in place already.", dest_path);
+                else
+                        log_notice("Skipping \"%s\", it is a copy of systemd-boot that bootctl did not install from '%s'. Use \"bootctl install\" to replace it.", dest_path, EXTRA_FILES_DIR);
+
+                f->action = f->dest_managed ? EXTRA_ACTION_KEEP : EXTRA_ACTION_SKIP;
+                return 0;
+        }
+
+        if (!listed) {
+                if (same)
+                        log_debug("\"%s\" is up-to-date, but was not installed by bootctl, leaving it alone.", dest_path);
+                else
+                        log_notice("Skipping \"%s\", it was not installed by bootctl or was modified since.", dest_path);
+
+                f->action = EXTRA_ACTION_SKIP;
+                return 0;
+        }
+
+        /* Every other file is replaced whenever its contents differ. This includes binaries based on
+         * systemd-stub: their version is the version of the stub, which does not change when the kernel
+         * or the initrd inside of a UKI changes. */
+        f->dest_managed = true;
+        if (same) {
+                log_debug("\"%s\" is up-to-date.", dest_path);
+                f->action = EXTRA_ACTION_KEEP;
+        }
+
+        return 0;
+}
+
+static int install_extra_file(InstallContext *c, ExtraFile *f) {
+        int r;
+
+        assert(c);
+        assert(f);
+
+        _cleanup_free_ char *j = path_join(c->root, c->esp_path);
+        if (!j)
+                return log_oom();
+
+        _cleanup_free_ char *filename = NULL, *path = NULL;
+        _cleanup_close_ int dir_fd = -EBADF;
+        r = extra_open_parent(c, f->path, /* create= */ true, &dir_fd, &filename, &path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open the directory of '%s/%s': %m", j, f->path);
+
+        /* extra_open_parent() returns the path as it is spelled in the ESP. */
+        free_and_replace(f->path, path);
+
+        _cleanup_free_ char *dest_path = path_join(j, f->path);
+        if (!dest_path)
+                return log_oom();
+
+        r = copy_file_with_version_check(f->source_path, f->source_fd, dest_path, dir_fd, filename, /* dest_fd= */ -EBADF, /* force= */ true);
+        if (r < 0)
+                return r;
+
+        c->changed = true;
+        return 0;
+}
+
+static int remove_extra_conflicts(InstallContext *c) {
+        int r;
+
+        assert(c);
+
+        /* A path can be a file in one version of EXTRA_FILES_DIR and a directory in the next version. The
+         * file or the directory in the ESP then has to be removed before the new files are copied, although
+         * install_extra_files() removes every other file that is not provided anymore afterwards. */
+
+        for (size_t i = 0; i < c->n_extra_manifest;) {
+                ExtraFile *m = c->extra_manifest + i;
+                bool conflict = false;
+
+                FOREACH_ARRAY(f, c->extra_files, c->n_extra_files) {
+                        const char *e = extra_path_startswith(f->path, m->path) ?: extra_path_startswith(m->path, f->path);
+                        if (e && e[0] == '/') {
+                                conflict = true;
+                                break;
+                        }
+                }
+                if (!conflict) {
+                        i++;
+                        continue;
+                }
+
+                r = remove_extra_file(c, m, /* remove_directories= */ true);
+                if (r < 0)
+                        return r;
+
+                /* extra_manifest_forget() removes every entry of the path, including the entry at i. */
+                _cleanup_free_ char *path = strdup(m->path);
+                if (!path)
+                        return log_oom();
+
+                extra_manifest_forget(c, path);
+        }
+
+        /* An earlier invocation might have left an empty directory behind where a file is provided now. */
+        FOREACH_ARRAY(f, c->extra_files, c->n_extra_files) {
+                _cleanup_free_ char *filename = NULL, *path = NULL;
+                _cleanup_close_ int dir_fd = -EBADF;
+
+                if (extra_open_parent(c, f->path, /* create= */ false, &dir_fd, &filename, &path) < 0)
+                        continue;
+
+                (void) unlinkat(dir_fd, filename, AT_REMOVEDIR);
+        }
+
+        return 0;
+}
+
+static int find_slot(sd_id128_t uuid, const char *path, uint16_t *id);
+
+static bool extra_entry_point_is_registered(InstallContext *c, const char *path) {
+        assert(c);
+        assert(path);
+
+        const char *entry_point = strjoina("EFI/systemd/boot", get_efi_arch(), ".efi");
+        if (!extra_path_equal(path, entry_point))
+                return false;
+
+        uint16_t slot;
+        return find_slot(c->esp_uuid, strjoina("/", entry_point), &slot) > 0;
+}
+
+static int install_extra_files(InstallContext *c, bool update_variables) {
+        int r, ret = 0;
+
+        assert(c);
+        assert(c->n_extra_installed == 0);
+
+        r = remove_extra_conflicts(c);
+        if (r < 0)
+                return r;
+
+        bool failed = false, copy = false;
+        FOREACH_ARRAY(f, c->extra_files, c->n_extra_files) {
+                r = plan_extra_file(c, f);
+                if (r < 0) {
+                        f->action = EXTRA_ACTION_FAILED;
+                        failed = true;
+                        RET_GATHER(ret, r);
+                }
+
+                if (f->action != EXTRA_ACTION_COPY || extra_manifest_lists(c, f->path, f->hash))
+                        continue;
+
+                r = extra_file_array_add(&c->extra_manifest, &c->n_extra_manifest, f->path, f->hash);
+                if (r < 0)
+                        return r;
+
+                copy = true;
+        }
+
+        /* The manifest is written with the hashes of the files that are about to be copied before the
+         * first file is copied. If bootctl is interrupted, the next invocation hence still recognizes the
+         * files that were copied as files that bootctl installed. */
+        if (copy) {
+                r = write_extra_manifest(c, c->extra_manifest, c->n_extra_manifest);
+                if (r < 0)
+                        return r;
+        }
+
+        /* A boot loader that the firmware starts may load other extra files. The entry points are installed
+         * last, and only if every other file was installed. An interrupted or failed update hence does not
+         * combine a new entry point with the old version of a file that it loads. */
+        for (int entry_points = 0; entry_points <= 1; entry_points++)
+                FOREACH_ARRAY(f, c->extra_files, c->n_extra_files) {
+                        if (extra_path_is_entry_point(f->path) != !!entry_points)
+                                continue;
+
+                        const uint8_t *hash = NULL;
+                        switch (f->action) {
+
+                        case EXTRA_ACTION_SKIP:
+                                break;
+
+                        case EXTRA_ACTION_KEEP:
+                                hash = f->dest_hash;
+                                break;
+
+                        case EXTRA_ACTION_COPY:
+                                if (entry_points && failed) {
+                                        log_warning("Not installing '%s', because another extra file could not be installed.", f->source_path);
+                                        r = -ECANCELED;
+                                } else
+                                        r = install_extra_file(c, f);
+                                if (r >= 0) {
+                                        hash = f->hash;
+                                        break;
+                                }
+
+                                failed = true;
+                                RET_GATHER(ret, r);
+
+                                /* The copy can fail after the new file replaced the old file. Keep the
+                                 * hash of the new file and the hash of the file that an earlier invocation
+                                 * installed in the manifest, so that a later invocation can replace or
+                                 * remove either file. */
+                                if (r != -ECANCELED) {
+                                        r = extra_file_array_add(&c->extra_installed, &c->n_extra_installed, f->path, f->hash);
+                                        if (r < 0)
+                                                return r;
+                                }
+                                if (f->dest_managed)
+                                        hash = f->dest_hash;
+                                break;
+
+                        case EXTRA_ACTION_FAILED:
+                                /* The state of the file in the ESP is unknown, hence keep every hash that
+                                 * the manifest lists for it. */
+                                FOREACH_ARRAY(m, c->extra_manifest, c->n_extra_manifest)
+                                        if (extra_path_equal(m->path, f->path)) {
+                                                r = extra_file_array_add(&c->extra_installed, &c->n_extra_installed, m->path, m->hash);
+                                                if (r < 0)
+                                                        return r;
+                                        }
+                                break;
+
+                        default:
+                                assert_not_reached();
+                        }
+
+                        if (hash) {
+                                r = extra_file_array_add(&c->extra_installed, &c->n_extra_installed, f->path, hash);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+
+        /* The files that EXTRA_FILES_DIR does not contain anymore are removed after the new files are in
+         * place. If a file could not be installed, the old entry points are still in the ESP. An old entry
+         * point might load a file that is not provided anymore, hence no file is removed then. */
+        FOREACH_ARRAY(m, c->extra_manifest, c->n_extra_manifest) {
+                if (extra_file_find(c->extra_files, c->n_extra_files, m->path))
+                        continue;
+
+                if (failed)
+                        log_debug("Not removing '%s' from the ESP, because an extra file could not be installed.", m->path);
+                else if (!update_variables && extra_entry_point_is_registered(c, m->path))
+                        /* The firmware would skip a boot entry whose file does not exist. The file is
+                         * removed by the next invocation that also updates the boot entry. */
+                        log_notice("Not removing '%s' from the ESP, because the firmware's boot loader list refers to it and is not updated now.", m->path);
+                else {
+                        r = remove_extra_file(c, m, /* remove_directories= */ false);
+                        if (r >= 0)
+                                continue;
+
+                        RET_GATHER(ret, r);
+                }
+
+                r = extra_file_array_add(&c->extra_installed, &c->n_extra_installed, m->path, m->hash);
+                if (r < 0)
+                        return r;
+        }
+
+        return RET_GATHER(ret, write_extra_manifest(c, c->extra_installed, c->n_extra_installed));
+}
+
+static int remove_extra_files(InstallContext *c) {
+        int r;
+
+        assert(c);
+
+        r = load_extra_manifest(c);
+        if (r < 0)
+                return r;
+
+        FOREACH_ARRAY(m, c->extra_manifest, c->n_extra_manifest) {
+                /* remove_binaries() deletes EFI/systemd/ with everything in it. */
+                if (extra_path_startswith(m->path, EXTRA_FILES_MANIFEST_DIR "/"))
+                        continue;
+
+                RET_GATHER(r, remove_extra_file(c, m, /* remove_directories= */ true));
+        }
+
+        return r;
+}
+
 static int update_efi_boot_binaries(
                 InstallContext *c,
                 const char *source_path,
@@ -639,6 +1718,13 @@ static int update_efi_boot_binaries(
                         continue;
 
                 if (strcaseeq_ptr(ignore_filename, de->d_name))
+                        continue;
+
+                /* install_extra_files() replaces or removes the files that the manifest lists. */
+                _cleanup_free_ char *extra_path = path_join("EFI/BOOT", de->d_name);
+                if (!extra_path)
+                        return log_oom();
+                if (!c->extra_manifest_damaged && extra_file_find(c->extra_manifest, c->n_extra_manifest, extra_path))
                         continue;
 
                 fd = xopenat_full(dirfd(d), de->d_name, O_RDONLY|O_NONBLOCK|O_NOCTTY|O_NOFOLLOW, XO_REGULAR, MODE_INVALID);
@@ -815,16 +1901,57 @@ static int copy_one_file(
                 if (!default_dest_path)
                         return log_oom();
 
-                _cleanup_close_ int default_dest_fd = xopenat_full(default_dest_parent_fd, boot_dot_efi, O_RDONLY, XO_REGULAR, MODE_INVALID);
-                if (default_dest_fd < 0 && default_dest_fd != -ENOENT)
-                        return log_error_errno(default_dest_fd, "Failed to open '%s' under '%s/EFI/BOOT' directory: %m", boot_dot_efi, j);
+                /* If EXTRA_FILES_DIR provides the default boot loader, it is the intended entry point. It
+                 * is expected to load systemd-boot, hence don't replace it. */
+                _cleanup_free_ char *default_extra_path = path_join("EFI/BOOT", boot_dot_efi);
+                if (!default_extra_path)
+                        return log_oom();
 
-                RET_GATHER(ret, copy_file_with_version_check(source_path, source_fd, default_dest_path, default_dest_parent_fd, boot_dot_efi, default_dest_fd, force));
+                /* If the manifest does not list the default boot loader, install_extra_files() leaves it
+                 * alone during an update. It might be a copy of systemd-boot that an earlier invocation
+                 * installed, hence update_efi_boot_binaries() below must not ignore it. */
+                bool provided = extra_file_find(c->extra_files, c->n_extra_files, default_extra_path),
+                        listed = extra_file_find(c->extra_manifest, c->n_extra_manifest, default_extra_path);
+
+                if (provided)
+                        log_debug("\"%s\" is provided by '%s', not installing systemd-boot under this name.", default_dest_path, EXTRA_FILES_DIR);
+                else {
+                        _cleanup_close_ int default_dest_fd = xopenat_full(default_dest_parent_fd, boot_dot_efi, O_RDONLY, XO_REGULAR, MODE_INVALID);
+                        if (default_dest_fd < 0 && default_dest_fd != -ENOENT)
+                                return log_error_errno(default_dest_fd, "Failed to open '%s' under '%s/EFI/BOOT' directory: %m", boot_dot_efi, j);
+
+                        /* If an earlier invocation installed the default boot loader from EXTRA_FILES_DIR
+                         * and EXTRA_FILES_DIR does not provide it anymore, systemd-boot replaces it
+                         * directly. Removing the file first would leave the ESP without a default boot
+                         * loader if the copy fails. */
+                        bool obsolete = false;
+                        if (default_dest_fd >= 0 && !force && !c->extra_manifest_damaged && listed) {
+                                uint8_t hash[SHA256_DIGEST_SIZE];
+
+                                r = sha256_fd(default_dest_fd, UINT64_MAX, hash);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to hash '%s': %m", default_dest_path);
+
+                                obsolete = extra_manifest_lists(c, default_extra_path, hash);
+                        }
+
+                        r = copy_file_with_version_check(source_path, source_fd, default_dest_path, default_dest_parent_fd, boot_dot_efi, default_dest_fd, force || obsolete);
+                        if (r >= 0)
+                                /* systemd-boot replaced the extra file. install_extra_files() must not
+                                 * handle the path as an extra file that is not provided anymore. */
+                                extra_manifest_forget(c, default_extra_path);
+                        else if (obsolete)
+                                /* The -ESTALE or -ESRCH of the primary binary must not hide this error.
+                                 * run_install() would continue, and install_extra_files() would remove
+                                 * the default boot loader. */
+                                ret = r;
+                        RET_GATHER(ret, r);
+                }
 
                 /* If we were installed under any other name in /EFI/BOOT/, make sure we update those
                  * binaries as well. */
                 if (!force)
-                        RET_GATHER(ret, update_efi_boot_binaries(c, source_path, source_fd, boot_dot_efi));
+                        RET_GATHER(ret, update_efi_boot_binaries(c, source_path, source_fd, provided && !listed ? NULL : boot_dot_efi));
         }
 
         return ret;
@@ -855,13 +1982,15 @@ static int dir_has_boot_loader(DIR *d, const char *path, const char *arch) {
         return false;
 }
 
-static int install_binaries(
-                InstallContext *c,
-                const char *arch) {
-
-        int r, ret = 0;
+static int open_source_directory(InstallContext *c, const char *arch) {
+        int r;
 
         assert(c);
+        assert(!c->source_dir);
+
+        /* open_source_directory() selects the BOOTLIBDIR that the systemd-boot binaries and the extra files
+         * are taken from, and stores it in c->source_dir. c->source_dir stays NULL if there is nothing to
+         * install and that is not an error. */
 
         const char *fn = strjoina("systemd-boot", isempty(arch) ? "*" : arch, ".efi");
 
@@ -948,12 +2077,30 @@ static int install_binaries(
                                        "No '%s' boot loader binary found in '%s'.", fn, source_path);
         }
 
+        c->source_dir = TAKE_PTR(d);
+        c->source_path = TAKE_PTR(source_path);
+        c->source_from_image = from_image;
+        return 0;
+}
+
+static int install_binaries(
+                InstallContext *c,
+                const char *arch) {
+
+        int r, ret = 0;
+
+        assert(c);
+
+        DIR *d = c->source_dir;
+        if (!d)
+                return 0;
+
         rewinddir(d);
 
         const char *suffix = strjoina(strempty(arch), ".efi");
         const char *suffix_signed = strjoina(strempty(arch), ".efi.signed");
 
-        FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read \"%s\": %m", source_path)) {
+        FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read \"%s\": %m", c->source_path)) {
                 if (endswith_no_case(de->d_name, suffix)) {
                         /* skip the .efi file, if there's a .signed version of it */
                         _cleanup_free_ const char *s = strjoin(de->d_name, ".signed");
@@ -964,11 +2111,18 @@ static int install_binaries(
                 } else if (!endswith_no_case(de->d_name, suffix_signed))
                         continue;
 
-                r = copy_one_file(c, de->d_name, from_image, c->operation == INSTALL_NEW);
+                r = copy_one_file(c, de->d_name, c->source_from_image, c->operation == INSTALL_NEW);
                 /* Don't propagate an error code if no update necessary, installed version already equal or
                  * newer version, or other boot loader in place. */
-                if (c->graceful && IN_SET(r, -ESTALE, -ESRCH))
+                if (IN_SET(r, -ESTALE, -ESRCH)) {
+                        if (!c->graceful)
+                                RET_GATHER(ret, r);
                         continue;
+                }
+
+                /* run_install() continues after -ESTALE and -ESRCH, hence any other error replaces them. */
+                if (r < 0 && IN_SET(ret, -ESTALE, -ESRCH))
+                        ret = r;
                 RET_GATHER(ret, r);
         }
 
@@ -1578,6 +2732,7 @@ static int install_boot_option(
                 log_info("%s EFI boot entry \"%s\".",
                          existing ? "Updated" : "Created",
                          description);
+                c->changed = true;
         }
 
         r = insert_into_order(c, slot, after_slot);
@@ -1686,28 +2841,110 @@ static int load_secure_boot_auto_enroll(
 }
 #endif
 
+static int remove_boot_option(sd_id128_t uuid, const char *path, bool in_order) {
+        uint16_t slot;
+        int r;
+
+        r = find_slot(uuid, path, &slot);
+        if (r != 1)
+                return 0;
+
+        r = efi_remove_boot_option(slot);
+        if (r < 0)
+                return r;
+
+        if (in_order)
+                return remove_from_order(slot);
+
+        return 0;
+}
+
 static int install_variables(InstallContext *c, const char *arch) {
         int r;
 
         assert(c);
 
         const char *path = strjoina("/EFI/systemd/systemd-boot", arch, ".efi");
+        const char *fallback_path = strjoina("/EFI/systemd/systemd-boot-fallback", arch, ".efi");
+        const char *extra_path = strjoina("/EFI/systemd/boot", arch, ".efi");
 
         _cleanup_free_ char *description = NULL;
         r = pick_efi_boot_option_description(c->esp_fd, &description);
         if (r < 0)
                 return r;
 
+        /* If EXTRA_FILES_DIR provides EFI/systemd/boot<arch>.efi, the firmware is supposed to start that
+         * binary, and the binary is expected to load systemd-boot. A first stage boot loader such as shim
+         * is installed this way. The firmware might refuse to start systemd-boot directly then, hence don't
+         * register systemd-boot or its fallback. If BOOTLIBDIR is missing, the registration of the earlier
+         * invocation is kept. */
+        const ExtraFile
+                *provided = extra_file_find(c->extra_files, c->n_extra_files, extra_path),
+                *listed = extra_file_find(c->extra_manifest, c->n_extra_manifest, extra_path),
+                *extra = c->source_dir ? provided : listed;
+
+        /* install_extra_files() leaves a file alone that bootctl did not install or that was modified
+         * since. It is unknown what that file is, hence it is not registered, and the existing boot
+         * entries are kept. */
+        if (provided && !extra_file_find(c->extra_installed, c->n_extra_installed, extra_path)) {
+                log_notice("'%s' in the ESP is not managed by bootctl, not changing the firmware's boot loader list.", extra_path);
+                return 0;
+        }
+
+        const char *new_path = extra ? strjoina("/", extra->path) : path;
+
+        /* The boot entry of the other entry point is removed. A boot entry for EFI/systemd/boot<arch>.efi
+         * is only removed if an earlier invocation of bootctl installed that file, or if the file does not
+         * exist. The file does not exist if an invocation that did not touch the EFI variables removed
+         * it. Something else created the boot entry otherwise. */
+        const char *old_path = NULL;
+        if (extra)
+                old_path = path;
+        else if (c->source_dir) {
+                if (listed)
+                        old_path = extra_path;
+                else {
+                        r = chase_and_accessat(c->esp_fd, c->esp_fd, extra_path, CHASE_PROHIBIT_SYMLINKS, F_OK, /* ret_path= */ NULL);
+                        if (r == -ENOENT)
+                                old_path = extra_path;
+                }
+        }
+
+        /* If the entry point changed since the last invocation, an update inserts the new boot entry
+         * directly after the old boot entry. The old boot entry is removed afterwards, so that the new
+         * boot entry has the position of the old boot entry in the boot order. */
+        uint16_t old_slot = UINT16_MAX;
+        bool old_exists = old_path && find_slot(c->esp_uuid, old_path, &old_slot) > 0;
+
         uint16_t primary_slot = UINT16_MAX;
-        r = install_boot_option(c, path, description, /* require_existing= */ true, /* after_slot= */ UINT16_MAX, &primary_slot);
+        r = install_boot_option(
+                        c,
+                        new_path,
+                        description,
+                        /* require_existing= */ true,
+                        old_exists && c->operation != INSTALL_NEW ? old_slot : UINT16_MAX,
+                        &primary_slot);
         if (r < 0)
                 return r;
+        if (primary_slot != UINT16_MAX && old_exists) {
+                r = efi_remove_boot_option(old_slot);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to remove the EFI boot entry of '%s', ignoring: %m", old_path);
+                else {
+                        (void) remove_from_order(old_slot);
+                        c->changed = true;
+                }
+        }
+        if (extra) {
+                if (primary_slot != UINT16_MAX)
+                        (void) remove_boot_option(c->esp_uuid, fallback_path, /* in_order= */ true);
+                return 0;
+        }
+
         /* If primary registration was skipped (e.g. binary not on ESP), skip the fallback too
          * or else it would land at position 0 in BootOrder with no primary ahead of it. */
         if (primary_slot == UINT16_MAX)
                 return 0;
-
-        const char *fallback_path = strjoina("/EFI/systemd/systemd-boot-fallback", arch, ".efi");
 
         _cleanup_free_ char *fallback_description = strjoin("Fallback ", description);
         if (!fallback_description)
@@ -1756,6 +2993,8 @@ static int run_install(InstallContext *c) {
         if (!w)
                 return log_oom();
 
+        int k;
+        bool damaged, update_variables = should_touch_install_variables(c) && !arg_arch_all;
         WITH_UMASK(0002) {
                 if (c->operation == INSTALL_NEW) {
                         /* Don't create any of these directories when we are just updating. When we update
@@ -1771,9 +3010,38 @@ static int run_install(InstallContext *c) {
                                 return r;
                 }
 
-                r = install_binaries(c, arch);
+                r = open_source_directory(c, arch);
                 if (r < 0)
                         return r;
+
+                r = load_extra_manifest(c);
+                if (r < 0)
+                        return r;
+
+                r = load_extra_files(c);
+                if (r < 0)
+                        return r;
+
+                /* If the systemd-boot binaries in the ESP are up-to-date already or belong to another boot
+                 * loader, install_binaries() fails with -ESTALE or -ESRCH. The extra files and the boot
+                 * entry can still differ from what is installed, hence install_extra_files() and
+                 * install_variables() run before the error is returned. The error is not returned if
+                 * they changed something. */
+                k = install_binaries(c, arch);
+                if (k < 0 && !IN_SET(k, -ESTALE, -ESRCH))
+                        return k;
+
+                /* Without the manifest it is unknown which files and which boot entry an earlier invocation
+                 * installed, hence an update changes neither the extra files nor the EFI variables. */
+                damaged = c->extra_manifest_damaged && c->operation != INSTALL_NEW;
+                if (damaged)
+                        log_warning("'%s' in the ESP is damaged, not updating the extra files and the EFI variables. Use \"bootctl install\" to install them again.",
+                                    EXTRA_FILES_MANIFEST_DIR "/" EXTRA_FILES_MANIFEST_NAME);
+                else if (c->source_dir) {
+                        r = install_extra_files(c, update_variables);
+                        if (r < 0)
+                                return r;
+                }
 
                 if (c->operation == INSTALL_NEW) {
                         r = install_loader_config(c);
@@ -1806,15 +3074,20 @@ static int run_install(InstallContext *c) {
 
         (void) sync_everything();
 
-        if (!should_touch_install_variables(c))
-                return 0;
-
-        if (arg_arch_all) {
-                log_info("Not changing EFI variables with --all-architectures.");
-                return 0;
+        if (should_touch_install_variables(c) && !damaged) {
+                if (arg_arch_all)
+                        log_info("Not changing EFI variables with --all-architectures.");
+                else {
+                        r = install_variables(c, arch);
+                        if (r < 0)
+                                return r;
+                }
         }
 
-        return install_variables(c, arch);
+        if (k < 0 && c->changed)
+                return 0;
+
+        return k;
 }
 
 int verb_install(int argc, char *argv[], uintptr_t _data, void *userdata) {
@@ -1996,24 +3269,6 @@ static int remove_binaries(InstallContext *c) {
         return RET_GATHER(r, remove_boot_efi(c));
 }
 
-static int remove_boot_option(sd_id128_t uuid, const char *path, bool in_order) {
-        uint16_t slot;
-        int r;
-
-        r = find_slot(uuid, path, &slot);
-        if (r != 1)
-                return 0;
-
-        r = efi_remove_boot_option(slot);
-        if (r < 0)
-                return r;
-
-        if (in_order)
-                return remove_from_order(slot);
-
-        return 0;
-}
-
 static int remove_loader_variables(void) {
         int r = 0;
 
@@ -2054,6 +3309,11 @@ static int remove_variables(sd_id128_t uuid) {
         const char *fallback_path = strjoina("/EFI/systemd/systemd-boot-fallback", get_efi_arch(), ".efi");
         RET_GATHER(r, remove_boot_option(uuid, fallback_path, /* in_order= */ true));
 
+        /* remove_binaries() deleted EFI/systemd/ with all files in it, hence a boot entry for
+         * EFI/systemd/boot<arch>.efi points to a file that does not exist anymore. */
+        const char *extra_path = strjoina("/EFI/systemd/boot", get_efi_arch(), ".efi");
+        RET_GATHER(r, remove_boot_option(uuid, extra_path, /* in_order= */ true));
+
         return RET_GATHER(r, remove_loader_variables());
 }
 
@@ -2088,7 +3348,9 @@ int verb_remove(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (!w)
                 return log_oom();
 
-        r = remove_binaries(&c);
+        /* The manifest of the extra files is located in /EFI/systemd/, which remove_binaries() deletes. */
+        r = remove_extra_files(&c);
+        RET_GATHER(r, remove_binaries(&c));
         RET_GATHER(r, unlink_inode(j, c.esp_fd, "/loader/loader.conf", S_IFREG));
         RET_GATHER(r, unlink_inode(j, c.esp_fd, "/loader/random-seed", S_IFREG));
         RET_GATHER(r, unlink_inode(j, c.esp_fd, "/loader/entries.srel", S_IFREG));
@@ -2124,7 +3386,7 @@ int verb_remove(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return r;
         }
 
-        return remove_variables(c.esp_uuid);
+        return RET_GATHER(r, remove_variables(c.esp_uuid));
 }
 
 int verb_is_installed(int argc, char *argv[], uintptr_t _data, void *userdata) {
