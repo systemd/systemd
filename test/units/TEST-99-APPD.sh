@@ -340,6 +340,42 @@ testcase_notification_sockets() {
     rm -f "$log"
 }
 
+# Registrations are preserved across appd restarts
+testcase_appd_restart() {
+    if ! cgroupfs_supports_user_xattrs; then
+        echo "cgroupfd does not support user xattrs, skipping test for restarting appd"
+        return 0
+    fi
+
+    local pid out units pidfile
+    pidfile="$RUNTIME/appd-pid-restart.$RANDOM"
+
+    rm -f "$pidfile"
+    # systemd-run collapses "$$" to "$", so we need "$$$$"
+    systemd-run --user --machine "testuser@" --quiet -p Type=exec -- \
+        varlinkctl --exec call "$SOCK" io.systemd.AppInstance.Register \
+            '{"id":"com.example.Restart", "sandbox": "flatpak", "collection": "org.flathub"}' -- \
+                bash -c "echo \$\$\$\$ >'$pidfile'; exec sleep infinity" >&2
+    timeout 60 bash -c "until [[ -s '$pidfile' ]]; do sleep 0.2; done"
+    pid="$(cat "$pidfile")"
+
+    out="$(user_run_wait varlinkctl call "$SOCK" \
+        io.systemd.AppInstance.Query '{"targetPid":{"pid":'"$pid"'}}')"
+    assert_eq "$(jq -r .id <<<"$out")" "com.example.Restart"
+    assert_eq "$(jq -r .sandbox <<<"$out")" "flatpak"
+    assert_eq "$(jq -r .collection <<<"$out")" "org.flathub"
+
+    systemctl_user restart systemd-appd.service
+
+    out="$(user_run_wait varlinkctl call "$SOCK" \
+        io.systemd.AppInstance.Query '{"targetPid":{"pid":'"$pid"'}}')"
+    assert_eq "$(jq -r .id <<<"$out")" "com.example.Restart"
+    assert_eq "$(jq -r .sandbox <<<"$out")" "flatpak"
+    assert_eq "$(jq -r .collection <<<"$out")" "org.flathub"
+
+    kill "$pid" 2>/dev/null || true
+}
+
 run_testcases
 
 touch /testok
