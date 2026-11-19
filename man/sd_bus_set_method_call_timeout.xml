@@ -76,7 +76,7 @@
           <listitem><para>The parameters <parameter>bus</parameter> or <parameter>ret</parameter>
           are <constant>NULL</constant>.</para>
 
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v240"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -84,7 +84,7 @@
 
           <listitem><para>Bus object <parameter>bus</parameter> could not be resolved.</para>
 
-          <xi:include href="version-info.xml" xpointer="v246"/>
+          <xi:include href="version-info.xml" xpointer="v240"/>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -97,7 +97,7 @@
   <refsect1>
     <title>History</title>
     <para><function>sd_bus_set_method_call_timeout()</function> and
-    <function>sd_bus_get_method_call_timeout()</function> were added in version 246.</para>
+    <function>sd_bus_get_method_call_timeout()</function> were added in version 240.</para>
   </refsect1>
 
   <refsect1>

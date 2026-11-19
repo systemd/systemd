@@ -86,6 +86,6 @@
     <title>History</title>
     <para><function>sd_device_ref()</function>,
     <function>sd_device_unref()</function>, and
-    <function>sd_device_unrefp()</function> were added in version 251.</para>
+    <function>sd_device_unrefp()</function> were added in version 240.</para>
   </refsect1>
 </refentry>

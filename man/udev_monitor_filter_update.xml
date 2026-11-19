@@ -83,7 +83,7 @@
     <para><function>udev_monitor_filter_update()</function>,
     <function>udev_monitor_filter_remove()</function>,
     <function>udev_monitor_filter_add_match_subsystem_devtype()</function>, and
-    <function>udev_monitor_filter_add_match_tag()</function> were added in version 221.</para>
+    <function>udev_monitor_filter_add_match_tag()</function> were added in version 183.</para>
   </refsect1>
 
   <refsect1>

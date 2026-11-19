@@ -80,7 +80,7 @@
         <constant>SD_BUS_NAME_ALLOW_REPLACEMENT</constant> is not set on the original request, such a request by other
         peers will be denied.</para>
 
-        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v221"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -90,7 +90,7 @@
         has permitted takeover by setting <constant>SD_BUS_NAME_ALLOW_REPLACEMENT</constant> while acquiring
         it.</para>
 
-        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v221"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -98,7 +98,7 @@
 
         <listitem><para>Queue the acquisition of the name when the name is already taken.</para>
 
-        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v221"/></listitem>
       </varlistentry>
     </variablelist>
 
@@ -205,7 +205,7 @@
   <refsect1>
     <title>History</title>
     <para><function>sd_bus_request_name()</function> and
-    <function>sd_bus_release_name()</function> were added in version 209.</para>
+    <function>sd_bus_release_name()</function> were added in version 221.</para>
     <para><function>sd_bus_request_name_async()</function> and
     <function>sd_bus_release_name_async()</function> were added in version 237.</para>
   </refsect1>
