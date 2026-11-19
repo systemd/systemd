@@ -15,6 +15,7 @@ _systemd-manifest_commands() {
     _commands=(
         'make:Generate a manifest of a directory tree'
         'verify:Verify a directory tree against a manifest'
+        'join:Join multiple manifests into one'
         'help:Show help text'
     )
     _describe 'command' _commands
@@ -27,6 +28,10 @@ _systemd-manifest_args() {
             _arguments \
                 '1:directory:_directories' \
                 '2:manifest file:_files'
+            ;;
+        join)
+            _arguments \
+                '*:manifest file:_files'
             ;;
     esac
 }

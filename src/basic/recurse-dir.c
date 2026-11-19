@@ -71,6 +71,9 @@ int readdir_all(int dir_fd, RecurseDirFlags flags, DirectoryEntries **ret) {
         if ((flags & _RECURSE_DIR_MUST_BE_MASK) != 0) /* We need the type to validate it */
                 flags |= RECURSE_DIR_ENSURE_TYPE;
 
+        if (FLAGS_SET(flags, RECURSE_DIR_SEEK0) && lseek(dir_fd, 0, SEEK_SET) < 0)
+                return -errno;
+
         /* Returns an array with pointers to "struct dirent" directory entries, optionally sorted.
          *
          * Start with space for up to 8 directory entries. We expect at least 2 ("." + ".."), hence hopefully
@@ -480,7 +483,9 @@ int recurse_dir(
                                                 p,
                                                 statx_mask,
                                                 n_depth_max - 1,
-                                                flags & ~RECURSE_DIR_TOPLEVEL, /* we already called the callback for this entry */
+                                                /* We already called the callback for this entry, and the subdir fd is
+                                                 * freshly opened, hence needs no rewinding */
+                                                flags & ~(RECURSE_DIR_TOPLEVEL|RECURSE_DIR_SEEK0),
                                                 func,
                                                 userdata);
                                 if (r != 0)

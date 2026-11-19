@@ -188,6 +188,33 @@ static void test_must_be_flags(void) {
         check_readdir_all(tfd, RECURSE_DIR_MUST_BE_DIRECTORY|RECURSE_DIR_MUST_BE_SOCKET, STRV_MAKE("dir", "sock"));
 }
 
+static void test_seek0(void) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_free_ DirectoryEntries *de = NULL;
+        _cleanup_close_ int tfd = -EBADF;
+
+        log_info("/* %s */", __func__);
+
+        ASSERT_OK(tfd = mkdtemp_open(/* template= */ NULL, O_DIRECTORY, &t));
+
+        /* Entries added after the directory was opened are returned with RECURSE_DIR_SEEK0, even on file
+         * systems that only return entries that existed when the directory was opened (e.g. btrfs) */
+        ASSERT_OK_ERRNO(mkdirat(tfd, "a", 0777));
+        ASSERT_OK_ERRNO(mkdirat(tfd, "b", 0777));
+        ASSERT_OK(readdir_all(tfd, RECURSE_DIR_SEEK0, &de));
+        assert_entries(de, STRV_MAKE("a", "b"));
+
+        /* Reading again without rewinding yields nothing, as the fd offset was consumed */
+        de = mfree(de);
+        ASSERT_OK(readdir_all(tfd, /* flags= */ 0, &de));
+        ASSERT_EQ(de->n_entries, 0U);
+
+        /* ... but with RECURSE_DIR_SEEK0 we get everything again */
+        de = mfree(de);
+        ASSERT_OK(readdir_all(tfd, RECURSE_DIR_SEEK0, &de));
+        assert_entries(de, STRV_MAKE("a", "b"));
+}
+
 int main(int argc, char *argv[]) {
         _cleanup_strv_free_ char **list_recurse_dir = NULL;
         const char *p;
@@ -198,6 +225,7 @@ int main(int argc, char *argv[]) {
         test_setup_logging(LOG_INFO);
 
         test_must_be_flags();
+        test_seek0();
 
         if (argc > 1)
                 p = argv[1];

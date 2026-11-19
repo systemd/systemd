@@ -15,11 +15,14 @@ typedef enum RecurseDirFlags {
         RECURSE_DIR_MUST_BE_SYMLINK   = 1 << 5,  /* ignore all entries that aren't symlinks */
         RECURSE_DIR_MUST_BE_SOCKET    = 1 << 6,  /* ignore all entries that aren't socket */
         _RECURSE_DIR_MUST_BE_MASK     = RECURSE_DIR_MUST_BE_DIRECTORY|RECURSE_DIR_MUST_BE_REGULAR|RECURSE_DIR_MUST_BE_SYMLINK|RECURSE_DIR_MUST_BE_SOCKET,
+        RECURSE_DIR_SEEK0             = 1 << 7,  /* rewind the directory fd before reading it, in case it was read before, or
+                                                  * entries were added since it was opened (which some file systems, e.g.
+                                                  * btrfs, otherwise do not return) */
 
         /* Interpreted by recurse_dir() */
-        RECURSE_DIR_SAME_MOUNT        = 1 << 7,  /* skips over subdirectories that are submounts */
-        RECURSE_DIR_INODE_FD          = 1 << 8,  /* passes an opened inode fd (O_DIRECTORY fd in case of dirs, O_PATH otherwise) */
-        RECURSE_DIR_TOPLEVEL          = 1 << 9,  /* call RECURSE_DIR_ENTER/RECURSE_DIR_LEAVE once for top-level dir, too, with dir_fd=-1 and NULL dirent */
+        RECURSE_DIR_SAME_MOUNT        = 1 << 8,  /* skips over subdirectories that are submounts */
+        RECURSE_DIR_INODE_FD          = 1 << 9,  /* passes an opened inode fd (O_DIRECTORY fd in case of dirs, O_PATH otherwise) */
+        RECURSE_DIR_TOPLEVEL          = 1 << 10, /* call RECURSE_DIR_ENTER/RECURSE_DIR_LEAVE once for top-level dir, too, with dir_fd=-1 and NULL dirent */
 } RecurseDirFlags;
 
 typedef struct DirectoryEntries {
