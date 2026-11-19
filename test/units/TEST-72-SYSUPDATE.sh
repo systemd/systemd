@@ -12,6 +12,7 @@ VARLINK_SOCKET=/run/systemd/io.systemd.SysUpdate
 SECTOR_SIZES=(512 4096)
 WORKDIR="$(mktemp -d /var/tmp/test-72-XXXXXX)"
 CONFIGDIR="/run/sysupdate.d"
+OS_RELEASE_TEST_DROPIN="/run/systemd/system/systemd-sysupdate@.service.d/90-test-os-release.conf"
 BACKING_FILE="$WORKDIR/joined.raw"
 export SYSTEMD_ESP_PATH="$WORKDIR/esp"
 export SYSTEMD_XBOOTLDR_PATH="$WORKDIR/xbootldr"
@@ -64,6 +65,9 @@ RPTEST_GPGHOME=
 
 at_exit() {
     set +e
+
+    rm -f "$OS_RELEASE_TEST_DROPIN"
+    systemctl daemon-reload
 
     systemctl stop test-sysupdate-notify-recorder.socket
     rm -f /run/systemd/system/test-sysupdate-notify-recorder.socket \
@@ -281,6 +285,28 @@ verify_object_fields() {
        "${updatectl_output}" != *"Missing object field"* &&
        "${updatectl_output}" != *"Failed to dispatch JSON"* &&
        "${updatectl_output}" != *"Failed to parse JSON"* ]]
+}
+
+check_current_version_is_pending() {
+    local image_version="${1:?}"
+    local expected="${2:?}"
+
+    # Override os-release only inside the socket-activated service's mount namespace.
+    # This lets us test the host comparison without changing the test machine's os-release.
+    printf 'IMAGE_VERSION=%s\n' "$image_version" >"$WORKDIR/os-release"
+    cat >"$OS_RELEASE_TEST_DROPIN" <<EOF
+[Service]
+BindReadOnlyPaths=$WORKDIR/os-release:/etc/os-release
+EOF
+    systemctl daemon-reload
+
+    varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets |
+        jq -e --argjson expected "$expected" \
+            '.targets[] | select(.id.class == "host") | .currentVersion == "v9" and .currentVersionIsPending == $expected' \
+            >/dev/null
+
+    rm -f "$OS_RELEASE_TEST_DROPIN"
+    systemctl daemon-reload
 }
 
 for sector_size in "${SECTOR_SIZES[@]}"; do
@@ -702,6 +728,9 @@ EOF
     new_version "$sector_size" v9 "corrupt-checksum"
     (! update_now "$update_type" "$client")
     "$SYSUPDATE" --offline list v9 | grep "partial" >/dev/null
+    if [[ "$client" == "varlink" ]]; then
+        check_current_version_is_pending v8 false
+    fi
     verify_version_current "$blockdev" "$sector_size" v8 1
     # don’t verify the other part of the block device as it’s in an indeterminate state
     (! update_now "$update_type" "$client" "no-checks") |& tee "$WORKDIR"/update_now-9
@@ -737,6 +766,11 @@ EOF
     [[ $(jq -cr '.allVersions' <<<"$host") == '["v9","v8","v7","v6"]' ]]
     [[ $(jq -cr '.currentVersion' <<<"$host") == 'v9' ]]
     [[ $(jq -cr '.appStream' <<<"$host") == '["https://example.com/appstream/main.xml","https://example.com/appstream/second.xml","https://example.com/appstream/fourth.xml"]' ]]
+
+    if [[ "$client" == "varlink" ]]; then
+        check_current_version_is_pending v8 true
+        check_current_version_is_pending v9 false
+    fi
 
     # Cleanup
     [[ -b "$blockdev" ]] && losetup --detach "$blockdev"

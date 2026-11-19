@@ -1606,6 +1606,7 @@ static int context_build_target(Context *context, TargetClass class, const char 
         _cleanup_(target_freep) Target *t = NULL;
         _cleanup_strv_free_ char **versions = NULL, **appstream_urls = NULL;
         const char *current = NULL;
+        UpdateSetFlags current_flags = 0;
         bool current_is_pending = false;
         int r;
 
@@ -1619,12 +1620,31 @@ static int context_build_target(Context *context, TargetClass class, const char 
                 if (FLAGS_SET(us->flags, UPDATE_INSTALLED) &&
                     FLAGS_SET(us->flags, UPDATE_NEWEST)) {
                         current = us->version;
+                        current_flags = us->flags;
                         current_is_pending = FLAGS_SET(us->flags, UPDATE_PENDING);
                 }
 
                 r = strv_extend(&versions, us->version);
                 if (r < 0)
                         return log_oom();
+        }
+
+        /* For the running host, pending means the newest fully installed version is newer
+         * than the version we are currently booted into. UPDATE_PENDING and UPDATE_PARTIAL
+         * describe updates which have not been completely installed yet. */
+        if (class == TARGET_HOST && !context->component && current) {
+                current_is_pending = false;
+
+                if (!context->root && !context->image &&
+                    !FLAGS_SET(current_flags, UPDATE_PARTIAL|UPDATE_PENDING)) {
+                        _cleanup_free_ char *booted_version = NULL;
+
+                        r = parse_os_release(/* root= */ NULL, "IMAGE_VERSION", &booted_version);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to read IMAGE_VERSION from /etc/os-release, assuming the current version is not pending: %m");
+                        else
+                                current_is_pending = sysupdate_version_is_pending(current, booted_version);
+                }
         }
 
         r = target_new(class, name, &t);
