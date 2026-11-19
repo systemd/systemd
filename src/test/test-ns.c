@@ -10,39 +10,20 @@
 #include "tests.h"
 
 int main(int argc, char *argv[]) {
-        const char * const writable[] = {
-                "/home",
-                "-/home/lennart/projects/foobar", /* this should be masked automatically */
-                NULL
-        };
-
-        const char * const readonly[] = {
-                /* "/", */
-                /* "/usr", */
-                "/boot",
-                "/lib",
-                "/usr/lib",
-                "-/lib64",
-                "-/usr/lib64",
-                NULL
-        };
-
-        const char * const exec[] = {
-                "/lib",
-                "/usr",
-                "-/lib64",
-                "-/usr/lib64",
-                NULL
-        };
-
-        const char * const no_exec[] = {
-                "/var",
-                NULL
-        };
-
-        const char *inaccessible[] = {
-                "/home/lennart/projects",
-                NULL
+        AccessMount access_mounts[] = {
+                { .path = (char*) "/home",                         .mode = ACCESS_MOUNT_READ_WRITE,                  },
+                { .path = (char*) "/home/lennart/projects/foobar", .mode = ACCESS_MOUNT_READ_WRITE,   .ignore = true }, /* This should be masked automatically. */
+                { .path = (char*) "/boot",                         .mode = ACCESS_MOUNT_READ_ONLY,                   },
+                { .path = (char*) "/lib",                          .mode = ACCESS_MOUNT_READ_ONLY,                   },
+                { .path = (char*) "/usr/lib",                      .mode = ACCESS_MOUNT_READ_ONLY,                   },
+                { .path = (char*) "/lib64",                        .mode = ACCESS_MOUNT_READ_ONLY,    .ignore = true },
+                { .path = (char*) "/usr/lib64",                    .mode = ACCESS_MOUNT_READ_ONLY,    .ignore = true },
+                { .path = (char*) "/lib",                          .mode = ACCESS_MOUNT_EXEC,                        },
+                { .path = (char*) "/usr",                          .mode = ACCESS_MOUNT_EXEC,                        },
+                { .path = (char*) "/lib64",                        .mode = ACCESS_MOUNT_EXEC,         .ignore = true },
+                { .path = (char*) "/usr/lib64",                    .mode = ACCESS_MOUNT_EXEC,         .ignore = true },
+                { .path = (char*) "/var",                          .mode = ACCESS_MOUNT_NOEXEC,                      },
+                { .path = (char*) "/home/lennart/projects",        .mode = ACCESS_MOUNT_INACCESSIBLE,                },
         };
 
         static const BindMount bind_mount = {
@@ -71,9 +52,9 @@ int main(int argc, char *argv[]) {
         projects_directory = getenv("TEST_NS_PROJECTS");
 
         if (projects_directory)
-                inaccessible[0] = projects_directory;
+                access_mounts[ELEMENTSOF(access_mounts)-1].path = projects_directory;
 
-        log_info("Inaccessible directory: '%s'", inaccessible[0]);
+        log_info("Inaccessible directory: '%s'", access_mounts[ELEMENTSOF(access_mounts)-1].path);
         if (root_directory)
                 log_info("Chroot: '%s'", root_directory);
         else
@@ -91,12 +72,8 @@ int main(int argc, char *argv[]) {
 
                 .rootfs = &pr,
 
-                .read_write_paths = (char**) writable,
-                .read_only_paths = (char**) readonly,
-                .inaccessible_paths = (char**) inaccessible,
-
-                .exec_paths = (char**) exec,
-                .no_exec_paths = (char**) no_exec,
+                .access_mounts = access_mounts,
+                .n_access_mounts = ELEMENTSOF(access_mounts),
 
                 .tmp_dir = tmp_dir,
                 .var_tmp_dir = var_tmp_dir,
@@ -113,6 +90,7 @@ int main(int argc, char *argv[]) {
                 .protect_kernel_modules = true,
                 .protect_proc = PROTECT_PROC_NOACCESS,
                 .proc_subset = PROC_SUBSET_PID,
+                .host_os_release_fd = -EBADF,
         };
 
         r = setup_namespace(&p, /* reterr_path= */ NULL);
