@@ -604,6 +604,7 @@ $ gdbus introspect --system \
 
   <refsect1>
     <title>History</title>
+    <para>The <interfacename>org.freedesktop.network1</interfacename> D-Bus API was added in version 219.</para>
     <refsect2>
       <title>DHCP Server Object</title>
       <para><varname>PoolSize</varname> and <varname>PoolOffset</varname> were added in version 261.</para>
