@@ -17,5 +17,8 @@ executables += [
         generator_template + {
                 'name' : 'systemd-veritysetup-generator',
                 'sources' : files('veritysetup-generator.c'),
+                'dependencies' : [
+                        libcryptsetup_cflags,
+                ],
         },
 ]

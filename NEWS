@@ -87,6 +87,19 @@ CHANGES WITH 263 in spe:
           validates it in userspace with the certificates in
           /etc/verity.d/, like systemd-dissect does.
 
+        * The units that systemd-veritysetup-generator writes for roothash=
+          and usrhash= now pass root-hash-signature=auto. If the image has
+          a signature partition for the root hash, the kernel validates the
+          signature. The issuer and serial number of the signing certificate
+          are then measured into the "verity" NvPCR as well.
+
+        * systemd-veritysetup-generator now reads systemd.image_policy=. If
+          the policy allows "signed" but not "verity" for the root or /usr/
+          partition, the device for roothash= or usrhash= is only activated
+          with a validated root hash signature. Systems that trust the hash
+          on the kernel command line without a signature need a policy with
+          "verity", for example usr=verity+signed.
+
         * systemd-mountfsd now asks polkit if the image policy denies
           setting up Verity, or if the client's image policy doesn't
           overlap with its own. It doesn't ask polkit if the client's image

@@ -189,6 +189,32 @@ TEST(image_policy_get_verity_sig) {
         ASSERT_EQ(image_policy_get(p, PARTITION_ROOT_VERITY_SIG), _PARTITION_POLICY_FLAGS_INVALID);
 }
 
+TEST(image_policy_requires_signature) {
+        /* A policy requires a signature for a partition if it allows "signed" but not "verity" for the
+         * partition. Check policies with and without "verity", a policy for another partition, and the host
+         * policy, which allows "verity" for root and /usr/. */
+        _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
+
+        ASSERT_OK(image_policy_from_string("usr=signed", /* graceful= */ false, &p));
+        ASSERT_TRUE(image_policy_requires_signature(p, PARTITION_USR));
+        ASSERT_FALSE(image_policy_requires_signature(p, PARTITION_ROOT));
+        p = image_policy_free(p);
+
+        ASSERT_OK(image_policy_from_string("usr=signed+absent", /* graceful= */ false, &p));
+        ASSERT_TRUE(image_policy_requires_signature(p, PARTITION_USR));
+        p = image_policy_free(p);
+
+        ASSERT_OK(image_policy_from_string("usr=verity+signed", /* graceful= */ false, &p));
+        ASSERT_FALSE(image_policy_requires_signature(p, PARTITION_USR));
+        p = image_policy_free(p);
+
+        ASSERT_OK(image_policy_from_string("usr=verity", /* graceful= */ false, &p));
+        ASSERT_FALSE(image_policy_requires_signature(p, PARTITION_USR));
+
+        ASSERT_FALSE(image_policy_requires_signature(&image_policy_host, PARTITION_ROOT));
+        ASSERT_FALSE(image_policy_requires_signature(&image_policy_host, PARTITION_USR));
+}
+
 TEST(image_policy_intersect) {
         test_policy_intersect_one("", "", "", /* intersect= */ true);
         test_policy_intersect_one("-", "-", "-", /* intersect= */ true);
