@@ -7,7 +7,9 @@ on:
   pull_request:
     paths:
       - '**/meson.build'
-      - '.github/workflows/**'
+      - '.github/workflows/*.cross'
+      - '.github/workflows/build-test.*'
+      - '.github/workflows/requirements.txt'
       - 'meson_options.txt'
       - 'src/**'
       - 'test/fuzz/**'

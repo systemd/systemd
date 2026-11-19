@@ -8,6 +8,11 @@ on:
     branches:
       - main
       - v[0-9]+-stable
+    paths:
+      - '**'
+      - '!.github/**'
+      - '.github/workflows/cflite-pr.yml'
+      - '.github/workflows/requirements.txt'
 
 permissions: read-all
 
