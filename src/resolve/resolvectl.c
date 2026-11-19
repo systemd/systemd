@@ -2346,12 +2346,21 @@ static int varlink_call_link_method(const char *method, sd_json_variant *paramet
         if (streq_ptr(error_id, "io.systemd.Resolve.Link.IsLoopback"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Link %s is loopback device", FORMAT_IFNAME(arg_ifindex));
 
+        if (streq_ptr(error_id, "io.systemd.Resolve.Link.InterfaceNotReady"))
+                return log_error_errno(SYNTHETIC_ERRNO(EAGAIN), "Link %s is not ready yet, please retry", FORMAT_IFNAME(arg_ifindex));
+
         if (sd_varlink_error_is_invalid_parameter(error_id, reply, "ifindex")) {
                 if (arg_ifindex_permissive)
                         return 0;
 
                 return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "No such link %s", arg_ifname);
         }
+
+        if (streq_ptr(error_id, SD_VARLINK_ERROR_PERMISSION_DENIED))
+                return log_error_errno(SYNTHETIC_ERRNO(EACCES), "%s call failed: Access denied", method);
+
+        if (streq_ptr(error_id, SD_VARLINK_ERROR_INTERACTIVE_AUTHENTICATION_REQUIRED))
+                return log_error_errno(SYNTHETIC_ERRNO(EACCES), "%s call failed: Interactive authentication required", method);
 
         if (!isempty(error_id))
                 return log_error_errno(sd_varlink_error_to_errno(error_id, reply), "%s call failed: %s", method, error_id);
