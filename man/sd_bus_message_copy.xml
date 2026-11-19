@@ -99,6 +99,11 @@
   <xi:include href="libsystemd-notes.xml"/>
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_bus_message_copy()</function> was added in version 221.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para><simplelist type="inline">

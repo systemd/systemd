@@ -176,6 +176,14 @@
   <xi:include href="libsystemd-notes.xml"/>
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_bus_message_new_method_error()</function>,
+    <function>sd_bus_message_new_method_errorf()</function>,
+    <function>sd_bus_message_new_method_errno()</function>, and
+    <function>sd_bus_message_new_method_errnof()</function> were added in version 221.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para><simplelist type="inline">

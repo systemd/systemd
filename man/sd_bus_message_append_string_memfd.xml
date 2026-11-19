@@ -114,6 +114,13 @@
   <xi:include href="libsystemd-notes.xml"/>
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_bus_message_append_string_memfd()</function>,
+    <function>sd_bus_message_append_string_iovec()</function>, and
+    <function>sd_bus_message_append_string_space()</function> were added in version 221.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para><simplelist type="inline">

@@ -225,6 +225,12 @@ sd_bus_message_append(m, "ynqiuxtd", y, n, q, i, u, x, t, d);</programlisting>
   <xi:include href="libsystemd-notes.xml"/>
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_bus_message_append()</function> was added in version 221.</para>
+    <para><function>sd_bus_message_appendv()</function> was added in version 234.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para><simplelist type="inline">
