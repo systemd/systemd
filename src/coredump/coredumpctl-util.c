@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "chase.h"
 #include "coredumpctl-util.h"
 #include "log.h"
-#include "string-util.h"
+#include "path-util.h"
 
 int resolve_filename(const char *root, char **p) {
         char *resolved = NULL;
@@ -16,7 +17,7 @@ int resolve_filename(const char *root, char **p) {
 
         r = chase(*p, root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved, /* ret_fd= */ NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to resolve \"%s%s\": %m", strempty(root), *p);
+                return log_error_errno(r, "Failed to resolve \"%s%s\": %m", empty_or_root_to_empty(root), *p);
 
         free_and_replace(*p, resolved);
 
