@@ -17,12 +17,13 @@ struct PseudoTTYMonitor {
         struct iovec buffer;         /* Data still to be written to the monitor connection */
         bool hang_up_on_disconnect;  /* If true, hang up the pty once this monitor is disconnected */
 
-        /* OSC 2811 terminal dimension tracking */
-        bool osc_winsize;            /* If true, subscribe to dimension changes of the monitor's terminal */
+        /* Terminal dimension tracking via private mode 2048 (in-band window resize notifications) */
+        bool inband_resize;          /* If true, enable size reports on the monitor's terminal */
         unsigned columns, lines;     /* Most recent dimensions reported by the monitor, 0 if not known yet */
         AnsiSeqParser output_parser; /* Tracks sequence boundaries on the stream we send to the monitor */
         AnsiSeqParser input_parser;  /* Tracks + captures sequences on the stream we receive from the monitor */
-        bool subscribe_pending;      /* Send a subscribe sequence at the next safe position of the output stream */
+        struct iovec output_hold;    /* Bytes of an incomplete sequence on the output stream, held back from the
+                                      * output buffer until we know whether to filter them out */
         struct iovec input_hold;     /* Bytes of an incomplete sequence on the input stream, held back from the
                                       * pty's frontend write buffer until we know whether to excise them */
 
@@ -35,7 +36,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(PseudoTTYMonitor*, pseudo_tty_monitor_free);
 void pseudo_tty_monitor_disconnect(PseudoTTYMonitor *monitor);
 void pseudo_tty_monitor_on_link_disconnect(PseudoTTYMonitor *monitor);
 
-int pseudo_tty_monitor_new(sd_varlink *link, bool osc_winsize, PseudoTTYMonitor **ret);
+int pseudo_tty_monitor_new(sd_varlink *link, bool inband_resize, PseudoTTYMonitor **ret);
 void pseudo_tty_monitor_link(PseudoTTYMonitor *monitor, PseudoTTY *pty);
 
 int pseudo_tty_monitor_push_pending(PseudoTTYMonitor *monitor);
