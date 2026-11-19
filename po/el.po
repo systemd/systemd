@@ -10,7 +10,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-26 10:57+0100\n"
+"POT-Creation-Date: 2026-11-19 10:44+0000\n"
 "PO-Revision-Date: 2026-08-15 13:18+0000\n"
 "Last-Translator: Lefteris T <lefteris592@gmail.com>\n"
 "Language-Team: Greek <https://translate.fedoraproject.org/projects/systemd/"
@@ -220,11 +220,11 @@ msgstr "Συγγνώμη, εισαγάγετε ξανά το κλειδί ανά
 msgid "Security token of user %s not inserted."
 msgstr "Το διακριτικό ασφαλείας του χρήστη %s δεν έχει εισαχθεί."
 
-#: src/home/pam_systemd_home.c:394 src/home/pam_systemd_home.c:397
+#: src/home/pam_systemd_home.c:394 src/home/pam_systemd_home.c:402
 msgid "Try again with password: "
 msgstr "Δοκιμάστε ξανά με κωδικό πρόσβασης: "
 
-#: src/home/pam_systemd_home.c:396
+#: src/home/pam_systemd_home.c:400
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
@@ -233,30 +233,30 @@ msgstr ""
 "Ο κωδικός πρόσβασης είναι εσφαλμένος ή ανεπαρκής, και το ρυθμισμένο "
 "διακριτικό ασφαλείας του χρήστη %s δεν έχει εισαχθεί."
 
-#: src/home/pam_systemd_home.c:416
+#: src/home/pam_systemd_home.c:421
 msgid "Security token PIN: "
 msgstr "PIN διακριτικού ασφαλείας: "
 
-#: src/home/pam_systemd_home.c:433
+#: src/home/pam_systemd_home.c:438
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr ""
 "Παρακαλούμε ταυτοποιηθείτε φυσικά στο διακριτικό ασφαλείας του χρήστη %s."
 
-#: src/home/pam_systemd_home.c:444
+#: src/home/pam_systemd_home.c:449
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr ""
 "Παρακαλούμε επιβεβαιώστε την παρουσία σας στο διακριτικό ασφαλείας του "
 "χρήστη %s."
 
-#: src/home/pam_systemd_home.c:455
+#: src/home/pam_systemd_home.c:460
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr ""
 "Παρακαλούμε επαληθεύστε τον χρήστη στο διακριτικό ασφαλείας του χρήστη %s."
 
-#: src/home/pam_systemd_home.c:464
+#: src/home/pam_systemd_home.c:469
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
@@ -264,85 +264,85 @@ msgstr ""
 "Το PIN του διακριτικού ασφαλείας είναι κλειδωμένο, παρακαλούμε ξεκλειδώστε "
 "το πρώτα. (Συμβουλή: Η αφαίρεση και επανεισαγωγή ίσως αρκεί.)"
 
-#: src/home/pam_systemd_home.c:472
+#: src/home/pam_systemd_home.c:477
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "Το PIN του διακριτικού ασφαλείας είναι εσφαλμένο για τον χρήστη %s."
 
-#: src/home/pam_systemd_home.c:473 src/home/pam_systemd_home.c:492
-#: src/home/pam_systemd_home.c:511
+#: src/home/pam_systemd_home.c:478 src/home/pam_systemd_home.c:497
+#: src/home/pam_systemd_home.c:516
 msgid "Sorry, retry security token PIN: "
 msgstr "Συγγνώμη, προσπαθήστε ξανά το PIN του διακριτικού ασφαλείας: "
 
-#: src/home/pam_systemd_home.c:491
+#: src/home/pam_systemd_home.c:496
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
 "Το PIN διακριτικού ασφαλείας του χρήστη %s είναι εσφαλμένο (απέμειναν "
 "ελάχιστες προσπάθειες!)"
 
-#: src/home/pam_systemd_home.c:510
+#: src/home/pam_systemd_home.c:515
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
 "Το PIN διακριτικού ασφαλείας του χρήστη %s είναι εσφαλμένο (απέμεινε μόνο "
 "μία προσπάθεια!)"
 
-#: src/home/pam_systemd_home.c:677
+#: src/home/pam_systemd_home.c:686
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
 "Ο αρχικός κατάλογος του χρήστη %s δεν είναι ενεργός, παρακαλούμε συνδεθείτε "
 "τοπικά πρώτα."
 
-#: src/home/pam_systemd_home.c:679
+#: src/home/pam_systemd_home.c:693
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
 "Ο αρχικός κατάλογος του χρήστη %s είναι κλειδωμένος, παρακαλούμε ξεκλειδώστε "
 "τοπικά πρώτα."
 
-#: src/home/pam_systemd_home.c:713
+#: src/home/pam_systemd_home.c:728
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr ""
 "Πάρα πολλές αποτυχημένες προσπάθειες σύνδεσης για τον χρήστη %s, άρνηση."
 
-#: src/home/pam_systemd_home.c:1015
+#: src/home/pam_systemd_home.c:1030
 msgid "User record is blocked, prohibiting access."
 msgstr "Η εγγραφή χρήστη είναι αποκλεισμένη, απαγορεύεται η πρόσβαση."
 
-#: src/home/pam_systemd_home.c:1019
+#: src/home/pam_systemd_home.c:1034
 msgid "User record is not valid yet, prohibiting access."
 msgstr "Η εγγραφή χρήστη δεν είναι ακόμη έγκυρη, απαγορεύεται η πρόσβαση."
 
-#: src/home/pam_systemd_home.c:1023
+#: src/home/pam_systemd_home.c:1038
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "Η εγγραφή χρήστη δεν είναι πλέον έγκυρη, απαγορεύεται η πρόσβαση."
 
-#: src/home/pam_systemd_home.c:1028 src/home/pam_systemd_home.c:1077
+#: src/home/pam_systemd_home.c:1043 src/home/pam_systemd_home.c:1092
 msgid "User record not valid, prohibiting access."
 msgstr "Η εγγραφή χρήστη δεν είναι έγκυρη, απαγορεύεται η πρόσβαση."
 
-#: src/home/pam_systemd_home.c:1038
+#: src/home/pam_systemd_home.c:1053
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "Πάρα πολλές συνδέσεις, δοκιμάστε ξανά σε %s."
 
-#: src/home/pam_systemd_home.c:1049
+#: src/home/pam_systemd_home.c:1064
 msgid "Password change required."
 msgstr "Απαιτείται αλλαγή κωδικού πρόσβασης."
 
-#: src/home/pam_systemd_home.c:1053
+#: src/home/pam_systemd_home.c:1068
 msgid "Password expired, change required."
 msgstr "Ο κωδικός πρόσβασης έληξε, απαιτείται αλλαγή."
 
-#: src/home/pam_systemd_home.c:1059
+#: src/home/pam_systemd_home.c:1074
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
 "Ο κωδικός πρόσβασης έληξε αλλά δεν μπορεί να αλλαχθεί, άρνηση σύνδεσης."
 
-#: src/home/pam_systemd_home.c:1063
+#: src/home/pam_systemd_home.c:1078
 msgid "Password will expire soon, please change."
 msgstr "Ο κωδικός πρόσβασης θα λήξει σύντομα, παρακαλούμε αλλάξτε τον."
 
