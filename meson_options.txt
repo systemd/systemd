@@ -601,6 +601,8 @@ option('efi-stub-extra-sections', type : 'integer', value : 120,
        description : 'minimum number of sections to keep free in stub PE header')
 option('efi-addon-extra-sections', type : 'integer', value : 15,
        description : 'minimum number of sections to keep free in addon PE header')
+option('efi-coverage', type : 'boolean', value : false,
+       description : 'gcov instrumentation for the EFI binaries, the .gcda files are written to the ESP at exit')
 
 option('bashcompletiondir', type : 'string',
        description : 'directory for bash completion scripts ["no" disables]')

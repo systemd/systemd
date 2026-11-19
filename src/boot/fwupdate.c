@@ -574,6 +574,9 @@ void fwupdate_install(const EFI_DEVICE_PATH *boot_disk_path) {
         log_debug("Applied %zu updates, resetting system.", n_capsules);
         log_wait();
 
+        /* Flush gcov counters before the system state changes and our memory
+         * goes away (no-op unless built with -Defi-coverage=true). */
+        efi_gcov_exit();
         RT->ResetSystem(reset_type, EFI_SUCCESS, /* DataSize= */ 0, /* ResetData= */ NULL);
         assert_not_reached();
 }

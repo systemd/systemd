@@ -144,7 +144,8 @@ elif get_option('sbat-distro') != ''
 endif
 
 summary({
-                'UEFI architectures' : efi_arch + (efi_arch_alt == '' ? '' : ', ' + efi_arch_alt)
+                'UEFI architectures' : efi_arch + (efi_arch_alt == '' ? '' : ', ' + efi_arch_alt),
+                'EFI coverage'       : get_option('efi-coverage') ? 'enabled' : 'disabled',
         },
         section : 'UEFI')
 
@@ -261,6 +262,28 @@ endif
 efi_c_args += efi_disabled_c_args
 efi_c_ld_args += efi_disabled_c_args
 
+efi_coverage_c_args = []
+efi_coverage_ld_args = []
+if get_option('efi-coverage')
+        if cc.get_id() != 'gcc'
+                error('efi-coverage requires the GCC toolchain (the instrumented EFI ' +
+                      'binaries link the host libgcov, which clang cannot use); found: ' + cc.get_id())
+        endif
+        # Instrument the EFI binaries for gcov. The gcda data files are written to the
+        # ESP by efi-gcov.c when the boot loader exits. This links the host libgcov,
+        # so the EFI compiler must be the same gcc as the one that provides it, and
+        # only the native arch is instrumented: a secondary target (e.g. ia32 on an
+        # x64 host) would need a matching 32-bit libgcov, which the host does not
+        # provide. EFI_COVERAGE is therefore carried in the per-arch c_args below
+        # (archspec['arch'] == efi_arch), not in the shared efi config, so the
+        # secondary target builds plain with the no-op efi-gcov stubs.
+        # The addon is excluded from the instrumentation: its code never runs (ukify
+        # only takes its PE sections), it does not link libefi, and would therefore
+        # be missing the efi-gcov shims libgcov needs at link time.
+        efi_coverage_c_args = ['-DEFI_COVERAGE=1', '-ftest-coverage', '-fprofile-arcs']
+        efi_coverage_ld_args = ['-lgcov']
+endif
+
 if cc.get_id() == 'clang'
         # clang is too picky sometimes.
         efi_c_args += '-Wno-unused-command-line-argument'
@@ -366,6 +389,10 @@ if get_option('b_sanitize') == 'undefined'
         libefi_sources += files('ubsan.c')
 endif
 
+# Always built: when efi-coverage is disabled this is a no-op stub, when enabled it
+# provides the gcov runtime shims and dumps the counters to the ESP at exit.
+libefi_sources += files('efi-gcov.c')
+
 if host_machine.cpu_family() in ['x86', 'x86_64']
         stub_sources += files('linux_x86.c')
 endif
@@ -412,6 +439,12 @@ if efi_arch_alt != ''
 endif
 
 foreach archspec : efi_archspecs
+        # Only the native arch is instrumented and links the host libgcov
+        # (see the efi-coverage block above); the secondary target gets
+        # neither the flags nor the EFI_COVERAGE define.
+        cov_c_args = archspec['arch'] == efi_arch ? efi_coverage_c_args : []
+        cov_ld_args = archspec['arch'] == efi_arch ? efi_coverage_ld_args : []
+
         libefi = static_library(
                 'efi' + archspec['arch'],
                 fundamental_sources,
@@ -419,7 +452,7 @@ foreach archspec : efi_archspecs
                 version_h,
                 include_directories : efi_includes,
                 implicit_include_directories : false,
-                c_args : archspec['c_args'],
+                c_args : archspec['c_args'] + cov_c_args,
                 gnu_symbol_visibility : 'hidden',
                 override_options : efi_override_options,
                 pic : true)
@@ -434,19 +467,25 @@ foreach archspec : efi_archspecs
                 'pie' : true,
         }
 
+        # The boot manager and the stub are instrumented; the addon is not (see above).
+        covered_kwargs = kwargs + {
+                'c_args' : kwargs['c_args'] + cov_c_args,
+                'link_args' : kwargs['link_args'] + cov_ld_args,
+        }
+
         efi_elf_binaries += executable(
                 'systemd-boot' + archspec['arch'],
                 sources : [systemd_boot_sources, version_h],
                 link_with : libefi,
                 name_suffix : 'elf',
-                kwargs : kwargs)
+                kwargs : covered_kwargs)
 
         efi_elf_binaries += executable(
                 'linux' + archspec['arch'],
                 sources : [stub_sources, version_h],
                 link_with : libefi,
                 name_suffix : 'elf.stub',
-                kwargs : kwargs)
+                kwargs : covered_kwargs)
 
         efi_elf_binaries += executable(
                 'addon' + archspec['arch'],

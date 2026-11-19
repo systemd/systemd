@@ -199,6 +199,11 @@ static inline void *PHYSICAL_ADDRESS_TO_POINTER(EFI_PHYSICAL_ADDRESS addr) {
  * be attached. See debug-sd-boot.sh for how this can be done. */
 void notify_debugger(const char *identity, bool wait);
 
+/* Gcov instrumentation hooks (no-ops unless built with -Defi-coverage=true, see efi-gcov.c).
+ * enter() must run before any instrumented code, exit() flushes the counters to the ESP. */
+void efi_gcov_enter(EFI_HANDLE image);
+void efi_gcov_exit(void);
+
 /* On x86 the compiler assumes a different incoming stack alignment than what we get.
  * This will cause long long variables to be misaligned when building with
  * '-mlong-double' (for correct struct layouts). Normally, the compiler realigns the
@@ -221,9 +226,11 @@ void notify_debugger(const char *identity, bool wait);
                 BS = system_table->BootServices;                                       \
                 RT = system_table->RuntimeServices;                                    \
                 __stack_chk_guard_init();                                              \
+                efi_gcov_enter(image);                                                 \
                 notify_debugger((identity), (wait_for_debugger));                      \
                 EFI_STATUS err = func(image);                                          \
                 log_wait();                                                            \
+                efi_gcov_exit();                                                       \
                 return err;                                                            \
         }
 

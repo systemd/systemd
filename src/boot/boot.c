@@ -474,11 +474,17 @@ static EFI_STATUS set_reboot_into_firmware(void) {
 }
 
 _noreturn_ static EFI_STATUS call_poweroff_system(const BootEntry *entry, EFI_FILE *root_dir, EFI_HANDLE parent_image) {
+        /* Flush gcov counters before the system state changes and our memory
+         * goes away (no-op unless built with -Defi-coverage=true). */
+        efi_gcov_exit();
         RT->ResetSystem(EfiResetShutdown, EFI_SUCCESS, 0, NULL);
         assert_not_reached();
 }
 
 _noreturn_ static EFI_STATUS call_reboot_system(const BootEntry *entry, EFI_FILE *root_dir, EFI_HANDLE parent_image) {
+        /* Flush gcov counters before the system state changes and our memory
+         * goes away (no-op unless built with -Defi-coverage=true). */
+        efi_gcov_exit();
         RT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
         assert_not_reached();
 }
@@ -2256,6 +2262,9 @@ static EFI_STATUS call_boot_windows_bitlocker(const BootEntry *entry, EFI_FILE *
                                 EFI_VARIABLE_NON_VOLATILE);
                         if (err != EFI_SUCCESS)
                                 return err;
+                        /* Flush gcov counters before the system state changes and our memory
+                         * goes away (no-op unless built with -Defi-coverage=true). */
+                        efi_gcov_exit();
                         RT->ResetSystem(EfiResetWarm, EFI_SUCCESS, 0, NULL);
                         assert_not_reached();
                 }
@@ -3180,6 +3189,15 @@ static EFI_STATUS call_image_start(
                         compat_entry = (EFI_IMAGE_ENTRY_POINT)
                                 ((uint8_t *) loaded_image->ImageBase + compat_address);
         }
+
+        /* Flush gcov counters before handing over to the started image:
+         * for images that never return (a normal kernel boot) this is
+         * the last chance to dump, and for images that can (an EFI app
+         * or compat kernel entry that exits back to the menu) the dump
+         * must still happen now, because efi_gcov_exit() also closes
+         * the counter window (see there). No-op unless built with
+         * -Defi-coverage=true. */
+        efi_gcov_exit();
 
         efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeExecUSec", /* usec= */ 0);
         err = BS->StartImage(image, NULL, NULL);
