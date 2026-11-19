@@ -1854,6 +1854,7 @@ foreach tuple : [
                 ['randomseed'],
                 ['resolve'],
                 ['rfkill'],
+                ['rtwatch'],
                 ['smack'],
                 ['sysext'],
                 ['sysinstall'],
@@ -2472,6 +2473,7 @@ subdir('src/reply-password')
 subdir('src/resolve')
 subdir('src/rfkill')
 subdir('src/rpm')
+subdir('src/rtwatch')
 subdir('src/run')
 subdir('src/run-generator')
 subdir('src/sbsign')
@@ -3555,6 +3557,7 @@ foreach tuple : [
         ['report'],
         ['resolve'],
         ['rfkill'],
+        ['rtwatch'],
         ['rust',                   have_rust],
         ['sleep'],
         ['storage'],

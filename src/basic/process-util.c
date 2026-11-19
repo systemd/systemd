@@ -93,14 +93,18 @@ static int get_process_state(pid_t pid) {
         return (unsigned char) state;
 }
 
-int pid_get_comm(pid_t pid, char **ret) {
+int pid_get_thread_comm(pid_t pid, pid_t tid, char **ret) {
         _cleanup_free_ char *escaped = NULL, *comm = NULL;
         int r;
 
         assert(pid >= 0);
+        assert(tid >= 0);
         assert(ret);
 
-        if (pid == 0 || pid == getpid_cached()) {
+        /* If tid is specified, reads the name of the thread from /proc/$PID/task/$TID/comm, which also
+         * verifies that the thread is actually part of the specified process. */
+
+        if (tid == 0 && (pid == 0 || pid == getpid_cached())) {
                 comm = new0(char, TASK_COMM_LEN + 1); /* Must fit in 16 byte according to prctl(2) */
                 if (!comm)
                         return -ENOMEM;
@@ -109,9 +113,18 @@ int pid_get_comm(pid_t pid, char **ret) {
                 if (r < 0)
                         return r;
         } else {
+                char path[STRLEN("/proc//task//comm") + DECIMAL_STR_MAX(pid_t) * 2];
                 const char *p;
 
-                p = procfs_file_alloca(pid, "comm");
+                if (tid > 0) {
+                        if (pid == 0)
+                                xsprintf(path, "/proc/self/task/" PID_FMT "/comm", tid);
+                        else
+                                xsprintf(path, "/proc/" PID_FMT "/task/" PID_FMT "/comm", pid, tid);
+
+                        p = path;
+                } else
+                        p = procfs_file_alloca(pid, "comm");
 
                 /* Note that process names of kernel threads can be much longer than TASK_COMM_LEN */
                 r = read_one_line_file(p, &comm);
@@ -130,6 +143,10 @@ int pid_get_comm(pid_t pid, char **ret) {
 
         *ret = TAKE_PTR(escaped);
         return 0;
+}
+
+int pid_get_comm(pid_t pid, char **ret) {
+        return pid_get_thread_comm(pid, /* tid= */ 0, ret);
 }
 
 int pidref_get_comm(const PidRef *pid, char **ret) {
@@ -516,6 +533,83 @@ int pidref_get_uid(const PidRef *pid, uid_t *ret) {
 
         if (ret)
                 *ret = uid;
+        return 0;
+}
+
+int pid_get_euid(pid_t pid, uid_t *ret) {
+        _cleanup_free_ char *status = NULL;
+        const char *p;
+        int r;
+
+        assert(pid >= 0);
+        assert(ret);
+
+        if (pid == 0 || pid == getpid_cached()) {
+                *ret = geteuid();
+                return 0;
+        }
+
+        /* The "Uid:" line of /proc/$PID/status lists the real, effective, saved and filesystem UIDs, in
+         * this order. Note that we don't use the owner of /proc/$PID/ here, since that is root for
+         * non-dumpable processes. */
+
+        r = read_full_virtual_file(procfs_file_alloca(pid, "status"), &status, /* ret_size= */ NULL);
+        if (r == -ENOENT)
+                return -ESRCH;
+        if (r < 0)
+                return r;
+
+        p = find_line_startswith(status, "Uid:");
+        if (!p)
+                return -EIO;
+
+        /* Skip the real UID */
+        p += strspn(p, WHITESPACE);
+        p += strcspn(p, WHITESPACE);
+        p += strspn(p, WHITESPACE);
+
+        _cleanup_free_ char *euid = strndup(p, strcspn(p, WHITESPACE));
+        if (!euid)
+                return -ENOMEM;
+
+        return parse_uid(euid, ret);
+}
+
+int pidref_get_euid(const PidRef *pid, uid_t *ret) {
+        int r;
+
+        assert(ret);
+
+        if (!pidref_is_set(pid))
+                return -ESRCH;
+
+        if (pidref_is_remote(pid))
+                return -EREMOTE;
+
+        if (pid->fd >= 0) {
+                struct pidfd_info info = { .mask = PIDFD_INFO_CREDS };
+
+                r = pidfd_get_info(pid->fd, &info);
+                if (r >= 0) {
+                        assert(FLAGS_SET(info.mask, PIDFD_INFO_CREDS));
+                        *ret = info.euid;
+                        return 0;
+                }
+                if (!ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                        return r;
+        }
+
+        uid_t uid;
+        r = pid_get_euid(pid->pid, &uid);
+        if (r < 0)
+                return r;
+
+        /* Make sure the PID wasn't recycled before we use the UID we just read */
+        r = pidref_verify(pid);
+        if (r < 0)
+                return r;
+
+        *ret = uid;
         return 0;
 }
 
@@ -1294,6 +1388,20 @@ int sched_get_priority_max_safe(int policy) {
                 return r;
 
         return 0;
+}
+
+bool sched_priority_is_valid(int policy, int priority) {
+        /* Checks whether the specified static priority is valid for the specified scheduling policy, as
+         * reported by the kernel. SCHED_RESET_ON_FORK may be included in the policy, and is ignored. Returns
+         * false for unknown policies. */
+
+        policy &= ~SCHED_RESET_ON_FORK;
+
+        if (!sched_policy_is_valid(policy))
+                return false;
+
+        return priority >= sched_get_priority_min_safe(policy) &&
+                priority <= sched_get_priority_max_safe(policy);
 }
 
 /* The cached PID, possible values:
@@ -2354,6 +2462,7 @@ static const char* const sched_policy_table[] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sched_policy, int, INT_MAX);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(sched_policy, int);
 
 _noreturn_ void report_errno_and_exit(int errno_fd, int error) {
         int r;
