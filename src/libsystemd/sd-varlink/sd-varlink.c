@@ -3413,7 +3413,8 @@ _public_ int sd_varlink_server_new(sd_varlink_server **ret, sd_varlink_server_fl
                                  SD_VARLINK_SERVER_FD_PASSING_INPUT_STRICT|
                                  SD_VARLINK_SERVER_HANDLE_SIGINT|
                                  SD_VARLINK_SERVER_HANDLE_SIGTERM|
-                                 SD_VARLINK_SERVER_UPGRADABLE)) == 0, -EINVAL);
+                                 SD_VARLINK_SERVER_UPGRADABLE|
+                                 SD_VARLINK_SERVER_ACCOUNT_UID_EXCLUDE_ROOT)) == 0, -EINVAL);
 
         s = new(sd_varlink_server, 1);
         if (!s)
@@ -3532,7 +3533,8 @@ static int validate_connection(sd_varlink_server *server, const struct ucred *uc
                 }
 
                 c = PTR_TO_UINT(hashmap_get(server->by_uid, UID_TO_PTR(ucred->uid)));
-                if (c >= server->connections_per_uid_max) {
+                if (c >= server->connections_per_uid_max &&
+                    !(ucred->uid == 0 && FLAGS_SET(server->flags, SD_VARLINK_SERVER_ACCOUNT_UID_EXCLUDE_ROOT))) {
                         varlink_server_log(server, "Per-UID connection limit of %u for '" UID_FMT "' reached, refusing.",
                                            server->connections_per_uid_max, ucred->uid);
                         return 0;

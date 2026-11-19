@@ -54,12 +54,144 @@ COMMAND(
 
 #define PSEUDO_TTY_MAX 1024U
 #define MONITOR_MAX 16U
+#define WATCHER_MAX 16U
+
+struct UnitReference {
+        Manager *manager;
+        PseudoTTY *pty;
+        char *unit;
+        sd_varlink *link;
+        int result;
+};
+
+static void manager_schedule_idle_check(Manager *m);
+
+UnitReference* unit_reference_free(UnitReference *ref) {
+        if (!ref)
+                return NULL;
+
+        if (ref->pty && ref->pty->unit_reference == ref)
+                ref->pty->unit_reference = NULL;
+
+        sd_varlink_close_unref(ref->link);
+        free(ref->unit);
+        return mfree(ref);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(UnitReference*, unit_reference_free);
+
+static int on_unit_ref_reply(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                const char *error_id,
+                sd_varlink_reply_flags_t flags,
+                void *userdata) {
+
+        UnitReference *ref = ASSERT_PTR(userdata);
+
+        assert(link == ref->link);
+
+        if (!error_id && FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES)) {
+                ref->result = 0;
+                return 0;
+        }
+
+        ref->result = log_error_errno(
+                        error_id ? sd_varlink_error_to_errno(error_id, parameters) : -EPROTO,
+                        "Reference to unit '%s' failed: %s", ref->unit, error_id ?: "AcquireReference() call ended.");
+        if (!ref->manager) /* The acquiring call still owns the reference until its first acknowledgement. */
+                return 0;
+
+        Manager *m = ref->manager;
+        PseudoTTY *pty = ASSERT_PTR(ref->pty);
+        pseudo_tty_close_watchers(pty);
+        unit_reference_free(ref);
+        if (pty->state == PSEUDO_TTY_HUNG_UP)
+                pseudo_tty_close(pty);
+        manager_schedule_idle_check(m);
+        return 0;
+}
+
+static int acquire_unit_reference(Manager *m, sd_varlink *link, PseudoTTY *pty, const char *unit) {
+        _cleanup_(unit_reference_freep) UnitReference *ref = NULL;
+        _cleanup_free_ char *address = NULL;
+        int r;
+
+        assert(m);
+        assert(link);
+        assert(pty);
+        assert(!pty->unit_reference);
+        assert(unit);
+
+        ref = new(UnitReference, 1);
+        if (!ref)
+                return log_oom();
+
+        *ref = (UnitReference) {
+                .pty = pty,
+                .unit = strdup(unit),
+                .result = -EINPROGRESS,
+        };
+        if (!ref->unit)
+                return log_oom();
+
+        r = runtime_directory_generic(m->scope, "systemd/io.systemd.Manager", &address);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine service manager socket path: %m");
+
+        r = sd_varlink_connect_address(&ref->link, address);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to service manager for unit reference: %m");
+
+        sd_varlink_set_userdata(ref->link, ref);
+        r = sd_varlink_bind_reply(ref->link, on_unit_ref_reply);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind unit reference reply callback: %m");
+
+        r = sd_varlink_observebo(
+                        ref->link,
+                        "io.systemd.Unit.AcquireReference",
+                        SD_JSON_BUILD_PAIR_STRV("names", STRV_MAKE(unit)));
+        if (r < 0)
+                return log_error_errno(r, "Failed to request reference to unit '%s': %m", unit);
+
+        /* Wait for the pin before starting even a short-lived command. sd_varlink_wait() yields the
+         * acquiring fiber, while other PTYs keep their independent reference connections. */
+        while (ref->result == -EINPROGRESS) {
+                r = sd_varlink_process(ref->link);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to process unit reference reply: %m");
+                if (r > 0)
+                        continue;
+
+                r = sd_varlink_wait(ref->link, USEC_INFINITY);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to wait for unit reference: %m");
+        }
+        if (ref->result < 0)
+                return ref->result;
+
+        if (sd_varlink_is_connected(link) <= 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ECONNRESET), "Client disconnected before starting shell for unit '%s'.", unit);
+
+        r = sd_varlink_set_relative_timeout(ref->link, USEC_INFINITY);
+        if (r < 0)
+                return log_error_errno(r, "Failed to disable unit reference timeout: %m");
+
+        r = sd_varlink_attach_event(ref->link, m->event, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach unit reference to event loop: %m");
+
+        ref->manager = m;
+        pty->unit_reference = TAKE_PTR(ref);
+        return 0;
+}
 
 static Manager* manager_free(Manager *m) {
         if (!m)
                 return NULL;
 
-        hashmap_free(m->ptys);
+        hashmap_free(TAKE_PTR(m->ptys));
         assert(!m->ptys_free_queue);
         set_free(m->reserved_pty_names);
 
@@ -280,6 +412,10 @@ static int start_shell(
                         return log_oom();
         }
 
+        r = acquire_unit_reference(m, link, pty, unit);
+        if (r < 0)
+                return r;
+
         _cleanup_free_ char *socket_path = NULL;
         r = runtime_directory_generic(m->scope, "systemd/io.systemd.Manager", &socket_path);
         if (r < 0)
@@ -366,9 +502,13 @@ static int start_shell(
                 return sd_varlink_error(link, error_id, reply);
         }
 
+        if (!pty->unit_reference)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOLINK), "Reference to unit '%s' was lost while starting it.", unit);
+
         log_debug("Transient unit '%s' for PTY '%s' started.", unit, pty->name);
 
         pty->unit = TAKE_PTR(unit);
+
         return 0;
 }
 
@@ -448,12 +588,22 @@ static const char* polkit_action_from_backend_type(BackendType type) {
         }
 }
 
-static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        Manager *m = ASSERT_PTR(userdata);
+static int parse_acquire_pty_parameters(
+                Manager *m,
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                AcquirePtyParameters *ret_parameters,
+                TerminalSettings *ret_terminal_settings,
+                char ***ret_details) {
+
         int r;
 
+        assert(m);
         assert(link);
         assert(parameters);
+        assert(ret_parameters);
+        assert(ret_terminal_settings);
+        assert(ret_details);
 
         _cleanup_(acquire_pty_parameters_done) AcquirePtyParameters p = {
                 .frontend_type = _FRONTEND_TYPE_INVALID,
@@ -515,12 +665,8 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
         if (p.tag && !pseudo_tty_tag_valid(p.tag))
                 return sd_varlink_error_invalid_parameter_name(link, "tag");
 
-        if (p.monitor) {
-                if (p.frontend_type == FRONTEND_TAKE)
-                        return sd_varlink_error_invalid_parameter_name(link, "monitor");
-                if (!FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE))
-                        return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_UPGRADE, /* parameters= */ NULL);
-        }
+        if (p.monitor && p.frontend_type == FRONTEND_TAKE)
+                return sd_varlink_error_invalid_parameter_name(link, "monitor");
 
         if (p.osc2811 && !p.monitor)
                 return sd_varlink_error_invalid_parameter_name(link, "osc2811");
@@ -669,14 +815,159 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
                 }
         }
 
-        r = varlink_verify_polkit_async(
-                        link,
-                        /* bus= */ NULL,
-                        polkit_action_from_backend_type(p.backend_type),
-                        (const char**) details,
-                        &m->polkit_registry);
-        if (r <= 0)
+        *ret_parameters = p;
+        p = (AcquirePtyParameters) {};
+        *ret_terminal_settings = TAKE_TERMINAL_SETTINGS(ts);
+        *ret_details = TAKE_PTR(details);
+        return 0;
+}
+
+static int vl_method_watch_pty(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        _cleanup_(pseudo_tty_freep) PseudoTTY *created = NULL;
+        struct {
+                const char *name;
+                bool wait;
+                sd_json_variant *acquire_parameters;
+        } p = {};
+        int r;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "name",              SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string,  voffsetof(p, name),               SD_JSON_MANDATORY },
+                { "wait",              SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,       voffsetof(p, wait),               SD_JSON_NULLABLE  },
+                { "acquireParameters", SD_JSON_VARIANT_OBJECT,  sd_json_dispatch_variant_noref, voffsetof(p, acquire_parameters), SD_JSON_NULLABLE  },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
                 return r;
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, /* parameters= */ NULL);
+        if (!pseudo_tty_name_valid(p.name))
+                return sd_varlink_error_invalid_parameter_name(link, "name");
+
+        if (sd_json_variant_is_null(p.acquire_parameters))
+                p.acquire_parameters = NULL;
+
+        PseudoTTY *pty = hashmap_get(m->ptys, p.name);
+        if (p.acquire_parameters && (!p.wait || pty))
+                return sd_varlink_error_invalid_parameter_name(link, "acquireParameters");
+        if (pty && (pty->state == PSEUDO_TTY_HUNG_UP || pty->in_free_queue))
+                return sd_varlink_error(link, "io.systemd.PTYBroker.NoSuchPty", /* parameters= */ NULL);
+        if (!pty) {
+                if (!p.wait)
+                        return sd_varlink_error(link, "io.systemd.PTYBroker.NoSuchPty", /* parameters= */ NULL);
+                if (set_contains(m->reserved_pty_names, p.name))
+                        return sd_varlink_error(link, "io.systemd.PTYBroker.PtyExists", /* parameters= */ NULL);
+                if (manager_pty_limit_reached(m))
+                        return sd_varlink_error(link, "io.systemd.PTYBroker.TooManyPtys", /* parameters= */ NULL);
+
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *acquire_parameters = NULL;
+                _cleanup_strv_free_ char **details = NULL;
+                const char *action = "io.systemd.PTYBroker.acquire-pty";
+                if (p.acquire_parameters) {
+                        sd_json_variant *name = sd_json_variant_by_key(p.acquire_parameters, "name");
+                        if (name && !sd_json_variant_is_null(name) &&
+                            (!sd_json_variant_is_string(name) || !streq(sd_json_variant_string(name), p.name)))
+                                return sd_varlink_error_invalid_parameter_name(link, "acquireParameters");
+
+                        acquire_parameters = sd_json_variant_ref(p.acquire_parameters);
+                        r = sd_json_variant_set_field_string(&acquire_parameters, "name", p.name);
+                        if (r < 0)
+                                return r;
+
+                        _cleanup_(acquire_pty_parameters_done) AcquirePtyParameters acquire = {};
+                        _cleanup_(terminal_settings_done) TerminalSettings ts = TERMINAL_SETTINGS_NULL;
+                        r = parse_acquire_pty_parameters(m, link, acquire_parameters, &acquire, &ts, &details);
+                        if (r != 0)
+                                return r;
+
+                        action = polkit_action_from_backend_type(acquire.backend_type);
+                } else {
+                        details = strv_new("name", p.name);
+                        if (!details)
+                                return log_oom();
+                }
+
+                r = varlink_verify_polkit_async(link, /* bus= */ NULL, action, (const char**) details, &m->polkit_registry);
+                if (r <= 0)
+                        return r;
+
+                r = pseudo_tty_new(&created);
+                if (r < 0)
+                        return r;
+                created->name = strdup(p.name);
+                if (!created->name)
+                        return log_oom();
+                r = sd_varlink_get_peer_uid(link, &created->owner_uid);
+                if (r < 0)
+                        return r;
+                r = sd_varlink_get_peer_gid(link, &created->owner_gid);
+                if (r < 0)
+                        return r;
+                created->acquire_parameters = TAKE_PTR(acquire_parameters);
+
+                r = pseudo_tty_link(created, m);
+                if (r < 0)
+                        return r;
+                pty = created;
+        } else {
+                r = varlink_verify_polkit_async_full(
+                                link,
+                                /* bus= */ NULL,
+                                "io.systemd.PTYBroker.monitor-pty",
+                                (const char**) STRV_MAKE("name", p.name),
+                                /* good_user= */ pty->owner_uid,
+                                /* flags= */ 0,
+                                &m->polkit_registry,
+                                /* ret_admin= */ NULL);
+                if (r <= 0)
+                        return r;
+        }
+
+        if (!pidref_is_set(&pty->owner_pidref)) {
+                r = varlink_get_peer_pidref(link, &pty->owner_pidref);
+                if (r < 0)
+                        return r;
+                pty->owner_pidref_is_trusted = r > 0;
+                (void) pidref_acquire_pidfd_id(&pty->owner_pidref);
+        }
+
+        if (pty->state == PSEUDO_TTY_RUNNING && pty->backend_type == BACKEND_SHELL && !pty->unit_reference)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOLINK), "Unit reference for PTY '%s' was lost.", p.name);
+        if (set_size(pty->watch_links) >= WATCHER_MAX)
+                return sd_varlink_error(link, "io.systemd.PTYBroker.TooManyWatchers", /* parameters= */ NULL);
+
+        r = set_ensure_put(&pty->watch_links, &varlink_hash_ops, link);
+        if (r < 0)
+                return r;
+        assert(r > 0);
+        sd_varlink_ref(link);
+
+        r = pseudo_tty_reply_description(pty, link, /* more= */ true);
+        if (r < 0) {
+                sd_varlink_unref(set_remove(pty->watch_links, link));
+                return r;
+        }
+
+        TAKE_PTR(created);
+        return 0;
+}
+
+static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        _cleanup_(acquire_pty_parameters_done) AcquirePtyParameters p = {};
+        _cleanup_(terminal_settings_done) TerminalSettings ts = TERMINAL_SETTINGS_NULL;
+        _cleanup_strv_free_ char **details = NULL;
+        int r;
+
+        r = parse_acquire_pty_parameters(m, link, parameters, &p, &ts, &details);
+        if (r != 0)
+                return r;
+        if (p.monitor && !FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_UPGRADE, /* parameters= */ NULL);
 
         uid_t uid;
         r = sd_varlink_get_peer_uid(link, &uid);
@@ -692,13 +983,41 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
         r = varlink_get_peer_pidref(link, &peer_pidref);
         if (r < 0)
                 return r;
+        bool peer_pidref_is_trusted = r > 0;
 
         /* Also acquire the pidfd inode number, so that the PID remains unambiguous even after the client
          * exited. Might not be available on old kernels, ignore that. */
         (void) pidref_acquire_pidfd_id(&peer_pidref);
 
+        PseudoTTY *waiting = p.name ? hashmap_get(m->ptys, p.name) : NULL;
+        bool authorized = false;
+        if (waiting && waiting->state == PSEUDO_TTY_RESERVED && !waiting->in_free_queue &&
+            waiting->acquire_parameters && waiting->owner_uid == uid && waiting->owner_gid == gid &&
+            waiting->owner_pidref_is_trusted && peer_pidref_is_trusted &&
+            pidref_equal(&waiting->owner_pidref, &peer_pidref)) {
+
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *acquire_parameters = sd_json_variant_ref(parameters);
+                r = sd_json_variant_filter(&acquire_parameters, STRV_MAKE("allowInteractiveAuthentication"));
+                if (r < 0)
+                        return r;
+
+                authorized = sd_json_variant_equal(waiting->acquire_parameters, acquire_parameters);
+        }
+        if (!authorized) {
+                r = varlink_verify_polkit_async(
+                                link,
+                                /* bus= */ NULL,
+                                polkit_action_from_backend_type(p.backend_type),
+                                (const char**) details,
+                                &m->polkit_registry);
+                if (r <= 0)
+                        return r;
+        }
+
         if (p.name) {
-                if (manager_pty_name_taken(m, p.name))
+                if (manager_pty_name_taken(m, p.name) &&
+                    (!waiting || waiting->state != PSEUDO_TTY_RESERVED ||
+                     waiting->in_free_queue || waiting->owner_uid != uid))
                         return sd_varlink_error(link, "io.systemd.PTYBroker.PtyExists", /* parameters= */ NULL);
         } else {
                 sd_id128_t id;
@@ -716,22 +1035,25 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
         if (r < 0)
                 return r;
 
-        if (manager_pty_limit_reached(m))
+        if (!waiting && manager_pty_limit_reached(m))
                 return sd_varlink_error(link, "io.systemd.PTYBroker.TooManyPtys", /* parameters= */ NULL);
 
-        /* start_shell() suspends the fiber until the service manager replies. The PTY is linked into the
-         * manager only after that. Without the reservation, a concurrent AcquirePty() or EnrollPty() call
+        /* start_shell() suspends the fiber until the service manager replies. Newly created PTYs are linked
+         * afterwards; watched reservations are protected by the ACQUIRING state. Without a reservation, another call
          * can take the same name or the last slot under PSEUDO_TTY_MAX after the service manager has
          * already queued the shell. */
         _cleanup_(pseudo_tty_reservation_done) PseudoTTYReservation reservation = {};
-        r = manager_reserve_pty_name(m, p.name, &reservation);
-        if (r < 0)
-                return r;
-
-        _cleanup_(pseudo_tty_freep) PseudoTTY *pty = NULL;
-        r = pseudo_tty_new(&pty);
-        if (r < 0)
-                return r;
+        _cleanup_(pseudo_tty_freep) PseudoTTY *pty = waiting;
+        if (!pty) {
+                r = manager_reserve_pty_name(m, p.name, &reservation);
+                if (r < 0)
+                        return r;
+                r = pseudo_tty_new(&pty);
+                if (r < 0)
+                        return r;
+        }
+        pty->state = PSEUDO_TTY_ACQUIRING;
+        pty->acquire_parameters = sd_json_variant_unref(pty->acquire_parameters);
 
         pty->frontend_fd = openpt_allocate(O_RDWR|O_NOCTTY, &pty->backend_path);
         if (pty->frontend_fd < 0)
@@ -749,16 +1071,23 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
         if (r < 0)
                 return log_error_errno(r, "Failed to set PTY dimensions: %m");
 
-        pty->name = TAKE_PTR(p.name);
+        if (!pty->name)
+                pty->name = TAKE_PTR(p.name);
         pty->description = TAKE_PTR(p.description);
         pty->tag = TAKE_PTR(p.tag);
         pty->terminal_settings = TAKE_TERMINAL_SETTINGS(ts);
         pty->frontend_type = p.frontend_type;
         pty->backend_type = p.backend_type;
         pty->ignore_hangup = p.ignore_hangup;
+        pidref_done(&pty->owner_pidref);
         pty->owner_pidref = TAKE_PIDREF(peer_pidref);
+        pty->owner_pidref_is_trusted = peer_pidref_is_trusted;
         pty->owner_uid = uid;
         pty->owner_gid = gid;
+
+        r = pseudo_tty_notify_watchers(pty);
+        if (r < 0)
+                log_warning_errno(r, "Failed to notify PTY watchers, ignoring: %m");
 
         /* Read back the settled terminal settings while the frontend fd is still open — for the
          * FRONTEND_TAKE case we close it below before handing it to the client, and would then no longer be
@@ -846,9 +1175,11 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
          * is enqueued the upgrade callback may fire, and it requires the monitor to be fully wired up (in
          * particular its connection userdata pointer). Doing all fallible linking up front also ensures we
          * never leave a connection half-upgraded if e.g. the hashmap insertion runs out of memory. */
-        r = pseudo_tty_link(pty, m);
-        if (r < 0)
-                return r;
+        if (!pty->manager) {
+                r = pseudo_tty_link(pty, m);
+                if (r < 0)
+                        return r;
+        }
 
         if (monitor) {
                 pseudo_tty_monitor_link(monitor, pty);
@@ -882,6 +1213,11 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
                 r = sd_varlink_reply(link, reply);
         if (r < 0)
                 return r;
+
+        pty->state = PSEUDO_TTY_RUNNING;
+        r = pseudo_tty_notify_watchers(pty);
+        if (r < 0)
+                log_warning_errno(r, "Failed to notify PTY watchers, ignoring: %m");
 
         TAKE_PTR(pty);
         TAKE_PTR(monitor);
@@ -1163,6 +1499,7 @@ static int vl_method_enroll_pty(sd_varlink *link, sd_json_variant *parameters, s
         if (r < 0)
                 return r;
 
+        pty->state = PSEUDO_TTY_RUNNING;
         TAKE_PTR(pty);
         TAKE_PTR(monitor);
 
@@ -1174,9 +1511,7 @@ static PseudoTTY* manager_get_alive_pty(Manager *m, const char *name) {
         assert(name);
 
         PseudoTTY *pty = hashmap_get(m->ptys, name);
-        if (!pty || pty->in_free_queue) /* A pty queued for removal is as good as gone, report it as such
-                                         * rather than hooking up to it and then dropping the client on the
-                                         * floor when the deferred free runs. */
+        if (!pty || pty->state != PSEUDO_TTY_RUNNING || pty->in_free_queue)
                 return NULL;
 
         return pty;
@@ -1380,24 +1715,6 @@ static int vl_method_configure_pty(sd_varlink *link, sd_json_variant *parameters
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("terminalSettings", tsj));
 }
 
-static int pseudo_tty_reply_description(PseudoTTY *pty, sd_varlink *link) {
-        assert(pty);
-        assert(link);
-
-        return sd_varlink_replybo(
-                        link,
-                        SD_JSON_BUILD_PAIR_STRING("name", pty->name),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("description", pty->description),
-                        JSON_BUILD_PAIR_ENUM("frontendType", frontend_type_to_string(pty->frontend_type)),
-                        JSON_BUILD_PAIR_ENUM("backendType", backend_type_to_string(pty->backend_type)),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("tag", pty->tag),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("backendPath", pty->backend_path),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("unit", pty->unit),
-                        JSON_BUILD_PAIR_PIDREF_NON_NULL("owner", &pty->owner_pidref),
-                        SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(pty->owner_uid), "ownerUID", SD_JSON_BUILD_UNSIGNED(pty->owner_uid)),
-                        SD_JSON_BUILD_PAIR_CONDITION(gid_is_valid(pty->owner_gid), "ownerGID", SD_JSON_BUILD_UNSIGNED(pty->owner_gid)));
-}
-
 static int vl_method_list_pty(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         int r;
@@ -1436,16 +1753,16 @@ static int vl_method_list_pty(sd_varlink *link, sd_json_variant *parameters, sd_
         if (name) {
                 pty = manager_get_alive_pty(m, name);
                 if (pty) {
-                        r = pseudo_tty_reply_description(pty, link);
+                        r = pseudo_tty_reply_description(pty, link, /* more= */ false);
                         if (r < 0)
                                 return r;
                 }
         } else
                 HASHMAP_FOREACH(pty, m->ptys) {
-                        if (pty->in_free_queue)
+                        if (pty->state != PSEUDO_TTY_RUNNING || pty->in_free_queue)
                                 continue;
 
-                        r = pseudo_tty_reply_description(pty, link);
+                        r = pseudo_tty_reply_description(pty, link, /* more= */ false);
                         if (r < 0)
                                 return r;
                 }
@@ -1475,7 +1792,7 @@ static int vl_method_hang_up_pty(sd_varlink *link, sd_json_variant *parameters, 
                 return sd_varlink_error_invalid_parameter_name(link, "name");
 
         PseudoTTY *pty = hashmap_get(m->ptys, name);
-        if (!pty)
+        if (!pty || IN_SET(pty->state, PSEUDO_TTY_RESERVED, PSEUDO_TTY_ACQUIRING))
                 return sd_varlink_error(link, "io.systemd.PTYBroker.NoSuchPty", /* parameters= */ NULL);
 
         /* The owner of the pty may hang it up without further authentication. (Note that once the
@@ -1493,7 +1810,7 @@ static int vl_method_hang_up_pty(sd_varlink *link, sd_json_variant *parameters, 
         if (r <= 0)
                 return r;
 
-        if (pty->in_free_queue)
+        if (pty->in_free_queue || pty->state == PSEUDO_TTY_HUNG_UP)
                 /* The hang-up already completed and its callback (which answers the registered calls) has
                  * run; the pty is merely waiting for the deferred free. Answer right away, registering in
                  * vhangup_links would mean never getting a reply. */
@@ -1522,10 +1839,7 @@ static int vl_method_hang_up_pty(sd_varlink *link, sd_json_variant *parameters, 
 static bool manager_is_idle(Manager *m) {
         assert(m);
 
-        /* "Idle" means that no Varlink client is currently connected *and* no PTYs are allocated anymore. We
-         * must check both: PTYs may outlive the connection that created them (e.g. for the 'take' frontend,
-         * where we hand the frontend fd to the client and drop the connection), so an absence of connections
-         * alone is not sufficient — that's also why we can't just use sd_varlink_server_set_exit_on_idle(). */
+        /* PTYs and their unit references may outlive the connection that allocated them. */
 
         return sd_varlink_server_current_connections(m->varlink_server) == 0 &&
                 hashmap_isempty(m->ptys);
@@ -1586,6 +1900,14 @@ static void manager_on_disconnect(sd_varlink_server *server, sd_varlink *link, v
         void *u = sd_varlink_get_userdata(link);
         if (u && u != m)
                 pseudo_tty_monitor_on_link_disconnect(u);
+
+        PseudoTTY *pty;
+        HASHMAP_FOREACH(pty, m->ptys)
+                if (set_remove(pty->watch_links, link)) {
+                        sd_varlink_unref(link);
+                        if (set_isempty(pty->watch_links) && IN_SET(pty->state, PSEUDO_TTY_RESERVED, PSEUDO_TTY_HUNG_UP))
+                                pseudo_tty_close(pty);
+                }
 
         manager_schedule_idle_check(m);
 }
@@ -1680,6 +2002,7 @@ static int manager_startup(Manager *m) {
                         m->varlink_server,
                         "io.systemd.PTYBroker.EnrollPty",    vl_method_enroll_pty,
                         "io.systemd.PTYBroker.MonitorPty",   vl_method_monitor_pty,
+                        "io.systemd.PTYBroker.WatchPty",     vl_method_watch_pty,
                         "io.systemd.PTYBroker.ConfigurePty", vl_method_configure_pty,
                         "io.systemd.PTYBroker.ListPty",      vl_method_list_pty,
                         "io.systemd.PTYBroker.HangUpPty",    vl_method_hang_up_pty);

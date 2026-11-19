@@ -289,6 +289,7 @@ typedef struct Unit {
 
         /* References to this unit from clients */
         sd_bus_track *bus_track;
+        Set *varlink_refs;
 
         /* If non-NULL, a varlink connection streaming unit state change notifications */
         sd_varlink *varlink_unit_change;
