@@ -3857,7 +3857,7 @@ static int refresh_apply_and_prune(const NamespaceParameters *p, MountList *ml) 
                                 return r;
                         /* Nothing happened? Then it is not a confext, prune it from the lists */
                         if (r == 0) {
-                                FOREACH_ARRAY(m, ml->mounts, ml->n_mounts) {
+                                for (MountEntry *m = f; m < ml->mounts + ml->n_mounts; m++) {
                                         if (m->mode != MOUNT_OVERLAY)
                                                 continue;
 
