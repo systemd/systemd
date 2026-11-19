@@ -32,11 +32,9 @@ size_t iovec_total_size(const struct iovec *iovec, size_t n) {
 
         assert(iovec || n == 0);
 
-        FOREACH_ARRAY(j, iovec, n) {
-                if (j->iov_len > SIZE_MAX - sum)
+        FOREACH_ARRAY(j, iovec, n)
+                if (!INC_SAFE(&sum, j->iov_len))
                         return SIZE_MAX; /* Indicate overflow. */
-                sum += j->iov_len;
-        }
 
         return sum;
 }
@@ -95,10 +93,13 @@ char* set_iovec_string_field(struct iovec *iovec, size_t *n_iovec, const char *f
 
         assert(iovec);
         assert(n_iovec);
+        assert(*n_iovec < SIZE_MAX);
 
         x = strjoin(field, value);
-        if (x)
-                iovec[(*n_iovec)++] = IOVEC_MAKE_STRING(x);
+        if (!x)
+                return NULL;
+
+        iovec[(*n_iovec)++] = IOVEC_MAKE_STRING(x);
         return x;
 }
 

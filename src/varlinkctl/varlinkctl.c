@@ -1714,13 +1714,6 @@ static Hashmap* monitor_json_buffers_free(Hashmap *h) {
         return hashmap_free(h);
 }
 
-static void monitor_json_buffer_consume(MonitorJsonBuffer *buf, size_t len) {
-        assert(len <= buf->data.iov_len);
-        buf->data.iov_len -= len;
-        if (buf->data.iov_len > 0)
-                memmove(buf->data.iov_base, (char*) buf->data.iov_base + len, buf->data.iov_len);
-}
-
 static void monitor_json_buffer_display_json(const MonitorJsonBuffer *buf, sd_json_variant *data, bool truncated) {
         assert(buf);
 
@@ -1864,7 +1857,7 @@ static void monitor_process_packet(
                 fflush(stdout);
 
                 buf->truncated = false;
-                monitor_json_buffer_consume(buf, msg_len + 1);
+                assert_se(iovec_consume(&buf->data, msg_len + 1));
         }
 
         if (buf->data.iov_len == 0)

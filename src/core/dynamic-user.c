@@ -259,7 +259,7 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
                 r = pwritev_full(lock_fd,
                                  (struct iovec[2]) {
                                          IOVEC_MAKE_STRING(name),
-                                         IOVEC_MAKE((char[1]) { '\n' }, 1),
+                                         IOVEC_MAKE_BYTE('\n'),
                                  }, 2, /* offset= */ 0, &written);
                 if (r < 0) {
                         (void) unlink(lock_path);
