@@ -19,6 +19,13 @@
 static_assert(CLONE_NEWTIME == 0x00000080, "");
 #endif
 
+/* 9d4e752a24f740b31ca827bfab07010e4e7f34b0 (7.4). */
+#ifndef UNSHARE_EMPTY_MNTNS
+#  define UNSHARE_EMPTY_MNTNS 0x00100000
+#else
+static_assert(UNSHARE_EMPTY_MNTNS == 0x00100000, "");
+#endif
+
 /* Not exposed yet. Defined at include/linux/sched.h */
 #ifndef PF_DUMPCORE
 #  define PF_DUMPCORE 0x00000200
