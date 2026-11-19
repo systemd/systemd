@@ -32,6 +32,16 @@
  * 0x1B 0x5c. */
 #define ANSI_ST "\e\\"
 
+/* XTGETTCAP for the "name" capability, i.e. the terminfo name, see
+ * https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h3-Device-Control-functions. The reply is
+ * either DCS 1+r <hex name>=<hex value> ST (OK) or DCS 0+r… ST (unsupported). The reply prefix below is
+ * the part following the DCS.
+ *
+ * python -c 'print("".join(hex(ord(i))[2:] for i in "name").upper())' */
+#define XTGETTCAP_NAME_HEX "6E616D65"
+#define XTGETTCAP_NAME_QUERY ANSI_DCS "+q" XTGETTCAP_NAME_HEX ANSI_ST
+#define XTGETTCAP_NAME_REPLY "1+r" XTGETTCAP_NAME_HEX "="
+
 bool isatty_safe(int fd);
 
 int terminal_reset_ansi_seq(int fd);
@@ -179,10 +189,9 @@ void termios_reset(const TermiosResetContext *c);
 #define FALLBACK_TERM "vt220"
 
 int get_default_background_color(double *ret_red, double *ret_green, double *ret_blue);
-int terminal_get_size(int input_fd, int output_fd, unsigned *ret_rows, unsigned *ret_columns, bool try_dsr, bool try_csi18);
+int terminal_query(int input_fd, int output_fd, unsigned *ret_rows, unsigned *ret_columns, char **ret_terminfo);
 int terminal_fix_size(int input_fd, int output_fd);
 
-int terminal_get_terminfo_by_dcs(int fd, char **ret_name);
 int have_terminfo_file(const char *name);
 int query_term_for_tty(const char *tty, char **ret_term);
 
