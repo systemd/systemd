@@ -201,6 +201,8 @@ static int verify_unmanaged_link(Link *l, sd_bus_error *error) {
                 return sd_bus_error_setf(error, BUS_ERROR_LINK_BUSY, "Link %s is loopback device.", l->ifname);
         if (l->is_managed)
                 return sd_bus_error_setf(error, BUS_ERROR_LINK_BUSY, "Link %s is managed.", l->ifname);
+        if (!l->ifname)
+                return sd_bus_error_setf(error, BUS_ERROR_LINK_BUSY, "Interface name of link %i is not known yet.", l->ifindex);
 
         return 0;
 }
