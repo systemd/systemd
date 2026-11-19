@@ -202,6 +202,11 @@ int machine_save(Machine *m) {
 
         /* We continue to call this "SCOPE=" because it is internal only, and we want to stay compatible with old files */
         env_file_fputs_assignment(f, "SCOPE=", m->unit);
+        /* machine_load_unit() treats a state file without SUBGROUP= as a file from machined v258 to v262. We
+         * write SUBGROUP=/ for a machine that owns its unit, so that its state file contains SUBGROUP= too. */
+        if (m->unit)
+                env_file_fputs_assignment(f, "SUBGROUP=", m->subgroup ?: "/");
+        env_file_fputs_assignment(f, "CGROUP=", m->cgroup);
         env_file_fputs_assignment(f, "SCOPE_JOB=", m->scope_job);
 
         env_file_fputs_assignment(f, "SERVICE=", m->service);
@@ -313,6 +318,98 @@ static void parse_pid_and_pidfdid(
         }
 }
 
+static int machine_scope_name(const char *name, char **ret) {
+        _cleanup_free_ char *escaped = NULL;
+
+        assert(name);
+        assert(ret);
+
+        escaped = unit_name_escape(name);
+        if (!escaped)
+                return -ENOMEM;
+
+        char *unit = strjoin("machine-", escaped, ".scope");
+        if (!unit)
+                return -ENOMEM;
+
+        *ret = unit;
+        return 0;
+}
+
+static void machine_unlink_stale_unit_symlink(Machine *m) {
+        _cleanup_free_ char *target = NULL;
+
+        assert(m);
+        assert(m->manager);
+        assert(m->unit);
+
+        /* machined v258 to v262 treats a machine in a subgroup as the owner of its unit after loading the
+         * state file, and creates the unit:<unit> symlink for it. sd_pid_get_machine_name() reads the symlink
+         * and reports the machine for every process in the unit. */
+        const char *sl = strjoina(m->manager->state_dir, "/unit:", m->unit);
+        if (readlink_malloc(sl, &target) >= 0 && streq(target, m->name))
+                (void) unlink(sl);
+}
+
+static void machine_load_unit(Machine *m) {
+        int r;
+
+        assert(m);
+        assert(m->manager);
+
+        if (!m->unit)
+                return;
+
+        if (m->subgroup) {
+                /* machine_save() writes SUBGROUP=/ for a machine that owns its unit. */
+                if (empty_or_root(m->subgroup))
+                        m->subgroup = mfree(m->subgroup);
+                return;
+        }
+
+        /* machined v258 to v262 doesn't save SUBGROUP=. If we treated a machine in a subgroup as the owner
+         * of its unit, machine_stop() would stop the unit, which can be user@.service or the user's session
+         * scope. machined starts machine-<name>.scope for a machine that it allocates a unit for, and the
+         * machine owns that scope. */
+        _cleanup_free_ char *scope = NULL;
+        r = machine_scope_name(m->name, &scope);
+        if (r < 0)
+                log_oom_debug();
+        else if (streq(m->unit, scope))
+                return;
+
+        if (pidref_is_set(&m->leader)) {
+                _cleanup_free_ char *unit = NULL, *subgroup = NULL;
+
+                r = manager_get_unit_by_pidref(m->manager, &m->leader, &unit, &subgroup);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to determine unit of process " PID_FMT ": %m", m->leader.pid);
+                else if (streq(unit, m->unit)) {
+                        if (subgroup) {
+                                machine_unlink_stale_unit_symlink(m);
+
+                                r = cg_pidref_get_path(&m->leader, &m->cgroup);
+                                if (r < 0)
+                                        log_debug_errno(r, "Failed to determine cgroup of process " PID_FMT ", ignoring: %m", m->leader.pid);
+                        }
+
+                        m->subgroup = TAKE_PTR(subgroup);
+                        return;
+                }
+        }
+
+        /* Without the leader in the saved unit we can't tell whether the machine owns the unit. Dropping the
+         * leader makes the next GC run remove the machine. Setting m->stopping prevents the GC from calling
+         * machine_stop(), so no process of the machine is killed. */
+        log_warning("Failed to determine whether machine '%s' owns unit '%s', removing machine without stopping it.",
+                    m->name, m->unit);
+
+        machine_unlink_stale_unit_symlink(m);
+        m->unit = mfree(m->unit);
+        pidref_done(&m->leader);
+        m->stopping = true;
+}
+
 int machine_load(Machine *m) {
         _cleanup_free_ char *name = NULL, *realtime = NULL, *monotonic = NULL, *id = NULL,
                 *leader = NULL, *leader_pidfdid = NULL, *supervisor = NULL, *supervisor_pidfdid = NULL,
@@ -328,6 +425,7 @@ int machine_load(Machine *m) {
                            "NAME",                 &name,
                            "SCOPE",                &m->unit,
                            "SUBGROUP",             &m->subgroup,
+                           "CGROUP",               &m->cgroup,
                            "SCOPE_JOB",            &m->scope_job,
                            "SERVICE",              &m->service,
                            "ROOT",                 &m->root_directory,
@@ -358,6 +456,8 @@ int machine_load(Machine *m) {
 
         parse_pid_and_pidfdid(&m->leader, leader, leader_pidfdid, "leader");
         parse_pid_and_pidfdid(&m->supervisor, supervisor, supervisor_pidfdid, "supervisor");
+
+        machine_load_unit(m);
 
         if (class) {
                 MachineClass c = machine_class_from_string(class);
@@ -427,7 +527,7 @@ static int machine_start_scope(
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
-        _cleanup_free_ char *escaped = NULL, *unit = NULL;
+        _cleanup_free_ char *unit = NULL;
         const char *description;
         int r;
 
@@ -436,12 +536,8 @@ static int machine_start_scope(
         assert(!machine->unit);
         assert(!machine->subgroup);
 
-        escaped = unit_name_escape(machine->name);
-        if (!escaped)
-                return log_oom();
-
-        unit = strjoin("machine-", escaped, ".scope");
-        if (!unit)
+        r = machine_scope_name(machine->name, &unit);
+        if (r < 0)
                 return log_oom();
 
         r = bus_message_new_method_call(
