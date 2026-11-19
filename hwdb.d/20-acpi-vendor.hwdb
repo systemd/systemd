@@ -90,6 +90,9 @@ acpi:CMHR*:
 acpi:CORE*:
  ID_VENDOR_FROM_DATABASE=CoreOS, Inc
 
+acpi:CORT*:
+ ID_VENDOR_FROM_DATABASE=Coretronic Corporation
+
 acpi:CPLM*:
  ID_VENDOR_FROM_DATABASE=Capella Microsystems Inc.
 
@@ -255,6 +258,9 @@ acpi:JUMP*:
 acpi:KAYA*:
  ID_VENDOR_FROM_DATABASE=KAYA N CO., LTD.
 
+acpi:KDCB*:
+ ID_VENDOR_FROM_DATABASE=Shenzhen K&D Technology Co., Ltd
+
 acpi:KIOX*:
  ID_VENDOR_FROM_DATABASE=Kionix, Inc.
 
@@ -272,6 +278,9 @@ acpi:LNUX*:
 
 acpi:LOON*:
  ID_VENDOR_FROM_DATABASE=Loongson Technology Corporation Limited
+
+acpi:LPRS*:
+ ID_VENDOR_FROM_DATABASE=Beijing LeapRise Technology Co., Ltd.
 
 acpi:LTSC*:
  ID_VENDOR_FROM_DATABASE=Lontium Semiconductor Corporation
@@ -411,6 +420,9 @@ acpi:SONY*:
 acpi:SOPH*:
  ID_VENDOR_FROM_DATABASE=Sophgo Technologies Ltd.
 
+acpi:SPPH*:
+ ID_VENDOR_FROM_DATABASE=SAPPHIRE TECHNOLOGY PTE. LTD.
+
 acpi:SSLC*:
  ID_VENDOR_FROM_DATABASE=SmartSens Technology (Shanghai) CO., Ltd.
 
@@ -434,6 +446,9 @@ acpi:TCAG*:
 
 acpi:TOSB*:
  ID_VENDOR_FROM_DATABASE=Dynabook Inc.
+
+acpi:TPSC*:
+ ID_VENDOR_FROM_DATABASE=TPS Co., Ltd.
 
 acpi:TXNW*:
  ID_VENDOR_FROM_DATABASE=Texas Instruments
@@ -476,6 +491,9 @@ acpi:WSDR*:
 
 acpi:XMCC*:
  ID_VENDOR_FROM_DATABASE=Xiaomi Inc.
+
+acpi:ZHIC*:
+ ID_VENDOR_FROM_DATABASE=Zhihe Computing
 
 acpi:AAA*:
  ID_VENDOR_FROM_DATABASE=Avolites Ltd
@@ -3214,7 +3232,7 @@ acpi:GTT*:
  ID_VENDOR_FROM_DATABASE=General Touch Technology Co., Ltd.
 
 acpi:GUD*:
- ID_VENDOR_FROM_DATABASE=Guntermann & Drunck GmbH
+ ID_VENDOR_FROM_DATABASE=Panoptec Europe GmbH
 
 acpi:GUP*:
  ID_VENDOR_FROM_DATABASE=GoUp Co.,Ltd
