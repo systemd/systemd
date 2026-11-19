@@ -7,8 +7,9 @@
 #include "sd-id128.h"
 #include "sd-json.h"
 
-#include "string-util.h"
+#include "manifest-util.h"
 #include "path-util.h"
+#include "string-util.h"
 
 typedef struct Uapi16Contents {
         char *file;
@@ -47,9 +48,32 @@ typedef enum Uapi16Validity {
         _UAPI16_VALIDITY_INVALID = -EINVAL,
 } Uapi16Validity;
 
+/* The features of a manifest, i.e. which fields its file objects may carry, are expressed as ManifestField
+ * bitmask. The features implied if the root file object does not declare any are exactly
+ * _MANIFEST_FIELD_DEFAULT. */
+
+/* Builds the JSON array for the "features" field, sorted as the specification recommends */
+int uapi16_features_build_json(ManifestField features, sd_json_variant **ret);
+
+/* The ordering of file objects a manifest declares in the "order" field of its root file object */
+typedef enum Uapi16Order {
+        UAPI16_ORDER_CODEPOINT,
+        _UAPI16_ORDER_MAX,
+        _UAPI16_ORDER_INVALID = -EINVAL,
+        _UAPI16_ORDER_UNKNOWN = -EOPNOTSUPP, /* declared, but to a value we do not know */
+} Uapi16Order;
+
+DECLARE_STRING_TABLE_LOOKUP(uapi16_order, Uapi16Order);
+
 typedef struct Uapi16Object {
         char *name;
         char *media_type;
+        /* The features of the manifest the object is part of, i.e. as declared on the root file object (or
+         * the default set, if not declared there) */
+        ManifestField features;
+        /* The ordering the manifest declares. Only set on the root file object, _UAPI16_ORDER_INVALID if not
+         * declared, and _UAPI16_ORDER_UNKNOWN if declared to a value we do not know. */
+        Uapi16Order order;
         mode_t type;  /* the inode type, i.e. S_IFREG, S_IFDIR, … – but no access mode bits */
         uint64_t size;
         mode_t mode;  /* the access bits, without inode type */
@@ -102,6 +126,8 @@ typedef struct Uapi16Object {
 } Uapi16Object;
 
 #define UAPI16_OBJECT_NULL (const Uapi16Object) {     \
+                .features = _MANIFEST_FIELD_INVALID,  \
+                .order = _UAPI16_ORDER_INVALID,       \
                 .size = UINT64_MAX,                   \
                 .mode = MODE_INVALID,                 \
                 .uid = UID_INVALID,                   \
@@ -144,6 +170,9 @@ static inline bool uapi16_manifest_filename_is_suffixed(const char *name) {
         return filename_is_valid(name) && /* refuse paths, insist on filenames */
                 (endswith(name, UAPI16_MANIFEST_SUFFIX) || !isempty(strstr(name, UAPI16_MANIFEST_SUFFIX ".")));
 }
+
+/* The maximum length of the "name" field of a file object, in bytes */
+#define UAPI16_NAME_MAX 4095U
 
 /* Validates the "name" field of a file object: a normalized relative path, that is not reserved. */
 bool uapi16_name_is_valid(const char *s) _pure_;
@@ -190,7 +219,10 @@ int uapi16_xattrs_build_json(const Uapi16Xattr *x, size_t n, sd_json_variant **r
 void uapi16_object_done(Uapi16Object *o);
 int uapi16_object_check_validity(Uapi16Object *o);
 
-int dispatch_uapi16_object(sd_json_variant *v, size_t n, sd_json_dispatch_flags_t flags, Uapi16Object *ret);
+/* Parses a file object. 'root' must be NULL when parsing the root file object of a manifest (i.e. its first
+ * object), and point to the already parsed root file object otherwise, since the manifest-wide fields
+ * declared on it (i.e. "features") govern the other file objects. */
+int dispatch_uapi16_object(sd_json_variant *v, const Uapi16Object *root, sd_json_dispatch_flags_t flags, Uapi16Object *ret);
 
 DECLARE_STRING_TABLE_LOOKUP(uapi16_validity, Uapi16Validity);
 
@@ -238,8 +270,9 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Uapi16Signer*, uapi16_signer_free);
 typedef int (*uapi16_object_handler_t)(Uapi16Object *o, size_t index, void *userdata);
 
 /* Reads a UAPI.16 manifest from the specified stream, record by record, without ever holding more than one
- * record in memory, and enforces the structure of the manifest (leading object, signature objects only
- * after file objects, trailer last). Objects of unknown media types are skipped. If certificates are
+ * record in memory, and enforces the structure of the manifest (leading object, file objects in tree order
+ * and in the declared ordering, signature objects only after file objects, trailer last). Objects of unknown
+ * media types are skipped. If certificates are
  * specified, a PKCS#7 signature by one of them is required. Note that it is only known at the very end
  * whether the signature checks out, i.e. after the handler has been called for all file objects: callers
  * must discard what they collected if this returns an error. */
