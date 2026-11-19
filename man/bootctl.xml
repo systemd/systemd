@@ -276,6 +276,10 @@
         <filename><replaceable>ESP</replaceable>/EFI/BOOT/BOOT*.EFI</filename>. The boot loader is then added
         to the top of the firmware's boot loader list.</para>
 
+        <para>The files below <filename>/usr/lib/systemd/boot/efi/extra/</filename> are copied into the EFI
+        system partition as well, for example to install a first stage boot loader that loads
+        <command>systemd-boot</command>. See the section "Extra Files" below.</para>
+
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
@@ -288,6 +292,9 @@
         default/fallback loader at <filename><replaceable>ESP</replaceable>/EFI/BOOT/BOOT*.EFI</filename>. The boot
         loader is then added to end of the firmware's boot loader list if missing.</para>
 
+        <para>The files below <filename>/usr/lib/systemd/boot/efi/extra/</filename> are updated as well, see
+        the section "Extra Files" below.</para>
+
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
@@ -295,7 +302,9 @@
         <term><option>remove</option></term>
 
         <listitem><para>Removes all installed versions of <command>systemd-boot</command> from the EFI system partition
-        and the firmware's boot loader list.</para>
+        and the firmware's boot loader list. The files that <option>install</option> and
+        <option>update</option> copied from <filename>/usr/lib/systemd/boot/efi/extra/</filename> are removed
+        as well, see the section "Extra Files" below.</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
@@ -331,6 +340,141 @@
       </varlistentry>
 
     </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Extra Files</title>
+
+    <para><command>bootctl install</command> and <command>bootctl update</command> copy every file below
+    <filename>/usr/lib/systemd/boot/efi/extra/</filename> to the same relative path in the EFI system
+    partition. For example, <filename>/usr/lib/systemd/boot/efi/extra/EFI/BOOT/BOOTX64.EFI</filename> is
+    installed as <filename><replaceable>ESP</replaceable>/EFI/BOOT/BOOTX64.EFI</filename>. Files of all
+    architectures are copied.</para>
+
+    <para>Symlinks are followed, so a package can link files of another package into the directory.
+    Symlinks are resolved relative to the root directory that contains
+    <filename>/usr/lib/systemd/boot/efi/</filename>. This is the directory or image specified with
+    <option>--root=</option> or <option>--image=</option>, or the host if the files are taken from the
+    host, see <option>--install-source=</option>. A symlink whose target does not exist is an error, and
+    nothing is installed. This includes <filename>/usr/lib/systemd/boot/efi/extra/</filename> itself.</para>
+
+    <para><filename>/usr/lib/systemd/boot/efi/extra/</filename> may contain up to 128 files in directories
+    that are nested up to 8 levels deep. File names must be valid UTF-8, must not contain control characters
+    or any of the characters <literal>"*:&lt;&gt;?\|</literal>, and must not end in a dot or a space,
+    because the file system of the EFI system partition does not store such names. If one of the rules is
+    violated, <command>bootctl install</command> and <command>bootctl update</command> fail, and neither
+    <command>systemd-boot</command> nor an extra file is installed.</para>
+
+    <para>If the target of a symlink is called
+    <filename><replaceable>name</replaceable>.efi</filename> and a file
+    <filename><replaceable>name</replaceable>.efi.signed</filename> exists next to it, the
+    <filename>.efi.signed</filename> file is installed under the name of the symlink. This is the rule
+    that <command>bootctl</command> applies to <command>systemd-boot</command> itself, which is installed
+    from <filename>systemd-boot<replaceable>arch</replaceable>.efi.signed</filename> if that file exists.
+    Hence always link the <filename>.efi</filename> name: the link then installs the signed binary on
+    systems that have a signed binary and the unsigned binary on all others, and it also works if only the
+    <filename>.efi.signed</filename> file exists. A link to the <filename>.efi.signed</filename> name fails
+    on systems without a signed binary. The rule does not apply to regular files inside of
+    <filename>/usr/lib/systemd/boot/efi/extra/</filename>.</para>
+
+    <para>File names in the EFI system partition are case insensitive. Two paths below
+    <filename>/usr/lib/systemd/boot/efi/extra/</filename> that only differ in case are refused, and so are
+    files in <filename>EFI/systemd/</filename> whose name begins with
+    <literal>systemd-boot</literal>.</para>
+
+    <para>Two paths have a special meaning:</para>
+
+    <itemizedlist>
+      <listitem><para>If <filename>EFI/BOOT/BOOT<replaceable>ARCH</replaceable>.EFI</filename> is provided,
+      it becomes the EFI default/fallback loader, and <command>systemd-boot</command> is only installed as
+      <filename>EFI/systemd/systemd-boot<replaceable>arch</replaceable>.efi</filename>.</para></listitem>
+
+      <listitem><para>If <filename>EFI/systemd/boot<replaceable>arch</replaceable>.efi</filename> is
+      provided, it is added to the firmware's boot loader list instead of
+      <command>systemd-boot</command>. If the file is no longer provided, <command>systemd-boot</command>
+      takes its position in the list. An invocation that does not change EFI variables, for example with
+      <option>--variables=no</option>, leaves the list alone, and it keeps a file in the EFI system
+      partition that is no longer provided as long as the list refers to it. The next invocation that
+      changes EFI variables updates the list and removes the file. <command>bootctl update</command> also
+      leaves the list alone if it did not install the file in the EFI system partition, see
+      below.</para></listitem>
+    </itemizedlist>
+
+    <para>The binary provided as <filename>EFI/BOOT/BOOT<replaceable>ARCH</replaceable>.EFI</filename> or
+    <filename>EFI/systemd/boot<replaceable>arch</replaceable>.efi</filename> is expected to load
+    <command>systemd-boot</command>. shim version 16 and newer reads <filename>options.csv</filename> from
+    the directory that it is started from, and loads the binary that the file names.
+    <filename>/usr/lib/systemd/boot/efi/extra/</filename> contains
+    <filename>EFI/BOOT/options.csv</filename> and <filename>EFI/systemd/options.csv</filename>, which name
+    <filename>EFI/systemd/systemd-boot<replaceable>arch</replaceable>.efi</filename>. To install shim, link
+    its binary into the directory, for example:</para>
+
+    <programlisting>/usr/lib/systemd/boot/efi/extra/EFI/BOOT/BOOTX64.EFI → /usr/lib/shim/shimx64.efi
+/usr/lib/systemd/boot/efi/extra/EFI/systemd/bootx64.efi → /usr/lib/shim/shimx64.efi</programlisting>
+
+    <para>The two <filename>options.csv</filename> files are installed on every system. Nothing reads them
+    if shim is not installed. They name the <command>systemd-boot</command> binary of the native
+    architecture only.</para>
+
+    <para>The extra files that <command>bootctl</command> installed are listed in
+    <filename><replaceable>ESP</replaceable>/EFI/systemd/extra-files.Uapi16Manifest</filename>, a
+    <ulink url="https://uapi-group.org/specifications/specs/file_manifest/">UAPI.16 File Manifest</ulink>
+    with the SHA256 hash of every file. While <command>bootctl</command> copies files, and after a file
+    could not be copied, <filename>extra-files-pending.Uapi16Manifest</filename> in the same directory lists
+    the new hash of every file for which it is unknown whether the old or the new version is in the EFI
+    system partition. <command>bootctl</command> manages a file if one of the two manifests lists it with
+    the hash that the file in the EFI system partition has.</para>
+
+    <para><command>bootctl update</command> replaces an extra file in the EFI system partition if the file in
+    <filename>/usr/lib/systemd/boot/efi/extra/</filename> differs from it, except in the following
+    cases:</para>
+
+    <itemizedlist>
+      <listitem><para>A file that the manifests do not list, or whose contents changed since it was
+      installed, is left alone, even if it is identical to the file in
+      <filename>/usr/lib/systemd/boot/efi/extra/</filename>. For example, if
+      <command>systemd-boot</command> is installed as
+      <filename>EFI/BOOT/BOOT<replaceable>ARCH</replaceable>.EFI</filename> and a first stage boot loader is
+      provided under that name later, <command>bootctl update</command> keeps
+      <command>systemd-boot</command>. Use <command>bootctl install</command> to replace such a
+      file.</para></listitem>
+
+      <listitem><para>If one file cannot be copied,
+      <filename>EFI/BOOT/BOOT<replaceable>ARCH</replaceable>.EFI</filename> and
+      <filename>EFI/systemd/boot<replaceable>arch</replaceable>.efi</filename> are not replaced
+      either.</para></listitem>
+    </itemizedlist>
+
+    <para>An extra file that is no longer provided is removed, unless its contents changed since it was
+    installed or another extra file could not be copied. Hence free space in the EFI system partition
+    manually if a file cannot be copied because the partition is full. If
+    <filename>EFI/BOOT/BOOT<replaceable>ARCH</replaceable>.EFI</filename> is no longer provided,
+    <command>systemd-boot</command> replaces it. If <filename>/usr/lib/systemd/boot/efi/</filename> does
+    not exist at all, the extra files in the EFI system partition are left alone.</para>
+
+    <para>Extra files other than <command>systemd-boot</command> have no version that
+    <command>bootctl</command> can compare. <command>bootctl update</command> hence also replaces a file
+    with an older file, and it removes the files that an older
+    <filename>/usr/lib/systemd/boot/efi/extra/</filename> does not provide. This happens after a package
+    downgrade, after booting an older snapshot or an older version of an image-based system, and if a
+    second operating system that shares the EFI system partition provides different extra files. An older
+    first stage boot loader may refuse to start on a system whose firmware has revoked it. If several
+    systems share one EFI system partition, provide the same extra files in all of them, or disable
+    <filename>systemd-boot-update.service</filename> in all but one.</para>
+
+    <para>Without <option>--graceful</option>, <command>bootctl update</command> fails if
+    <command>systemd-boot</command> in the EFI system partition is up-to-date. It succeeds if it installed
+    or removed an extra file or changed the firmware's boot loader list.</para>
+
+    <para>If one of the manifests cannot be read or parsed, <command>bootctl update</command> still updates <command>systemd-boot</command>, but leaves the extra files in the EFI
+    system partition and the firmware's boot loader list alone and logs a warning. Use <command>bootctl
+    install</command> to install the extra files and the manifests again.</para>
+
+    <para><command>bootctl remove</command> deletes the files that the manifests list, unless their contents changed since they were installed.
+    It deletes <filename><replaceable>ESP</replaceable>/EFI/systemd/</filename> with all files in it,
+    changed or not, and it removes the entry for
+    <filename>EFI/systemd/boot<replaceable>arch</replaceable>.efi</filename> from the firmware's boot loader
+    list.</para>
   </refsect1>
 
   <refsect1>
@@ -900,6 +1044,16 @@ Boot Loader Entries:
         credentials.</para>
 
         <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/usr/lib/systemd/boot/efi/extra/</filename></term>
+
+        <listitem><para>The files below this directory are copied into the EFI system partition by
+        <command>install</command> and <command>update</command>, see the section "Extra Files"
+        above.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
