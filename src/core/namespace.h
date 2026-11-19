@@ -199,6 +199,8 @@ typedef struct NamespaceParameters {
         bool protect_kernel_logs;
 
         bool private_dev;
+        bool private_devpts;          /* mount a new devpts instance for private_dev */
+        gid_t private_devpts_tty_gid; /* the group of the PTYs of that instance, as seen from the caller's user namespace */
         bool private_network;
         bool private_ipc;
 
