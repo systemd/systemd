@@ -204,6 +204,47 @@ TEST(pid_get_comm_escape) {
         ASSERT_OK(proc_set_comm(saved));
 }
 
+static void* thread_comm_thread(void *userdata) {
+        int *fds = ASSERT_PTR(userdata);
+        pid_t tid = gettid();
+        char c;
+
+        assert_se(pthread_setname_np(pthread_self(), "threadcomm") == 0);
+        assert_se(write(fds[1], &tid, sizeof(tid)) == sizeof(tid));
+        (void) read(fds[2], &c, sizeof(c)); /* Returns once the write end is closed */
+        return NULL;
+}
+
+TEST(pid_get_thread_comm) {
+        _cleanup_free_ char *a = NULL, *b = NULL, *c = NULL, *d = NULL;
+        int tid_pipe[2] = EBADF_PAIR, quit_pipe[2] = EBADF_PAIR;
+        pthread_t thread;
+        pid_t tid;
+
+        /* The main thread has the same name as the process */
+        ASSERT_OK(pid_get_comm(/* pid= */ 0, &a));
+        ASSERT_OK(pid_get_thread_comm(getpid_cached(), getpid_cached(), &b));
+        ASSERT_STREQ(a, b);
+        ASSERT_OK(pid_get_thread_comm(/* pid= */ 0, gettid(), &c));
+        ASSERT_STREQ(a, c);
+
+        /* Other threads may have their own names */
+        ASSERT_OK_ERRNO(pipe2(tid_pipe, O_CLOEXEC));
+        ASSERT_OK_ERRNO(pipe2(quit_pipe, O_CLOEXEC));
+        int fds[3] = { tid_pipe[0], tid_pipe[1], quit_pipe[0] };
+        ASSERT_EQ(pthread_create(&thread, /* attr= */ NULL, thread_comm_thread, fds), 0);
+        ASSERT_EQ(read(tid_pipe[0], &tid, sizeof(tid)), (ssize_t) sizeof(tid));
+        ASSERT_OK(pid_get_thread_comm(getpid_cached(), tid, &d));
+        ASSERT_STREQ(d, "threadcomm");
+        quit_pipe[1] = safe_close(quit_pipe[1]);
+        ASSERT_EQ(pthread_join(thread, /* retval= */ NULL), 0);
+        safe_close_pair(tid_pipe);
+        safe_close_pair(quit_pipe);
+
+        /* PID 1's main thread is not one of our threads */
+        ASSERT_ERROR(pid_get_thread_comm(getpid_cached(), /* tid= */ 1, &d), ESRCH);
+}
+
 TEST(pid_is_unwaited) {
         pid_t pid;
 
@@ -613,6 +654,53 @@ TEST(getpid_measure) {
         q = now(CLOCK_MONOTONIC) - t;
 
         log_info("getpid_cached(): %lf μs each", (double) q / iterations);
+}
+
+TEST(pid_get_euid) {
+        _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
+        _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
+        uid_t u;
+        char x;
+        int r;
+
+        ASSERT_OK(pid_get_euid(/* pid= */ 0, &u));
+        ASSERT_EQ(u, geteuid());
+
+        ASSERT_OK(pidref_get_euid(&PIDREF_MAKE_FROM_PID(getpid_cached()), &u));
+        ASSERT_EQ(u, geteuid());
+
+        ASSERT_ERROR(pidref_get_euid(&PIDREF_NULL, &u), ESRCH);
+
+        if (getuid() != 0)
+                return (void) log_tests_skipped("not root");
+
+        /* Fork off a child with differing real and effective UID, and check that we get the latter */
+        ASSERT_OK_ERRNO(pipe2(pfd, O_CLOEXEC));
+
+        r = ASSERT_OK(pidref_safe_fork("(test-euid)", FORK_DEATHSIG_SIGKILL|FORK_LOG, &child));
+        if (r == 0) {
+                pfd[0] = safe_close(pfd[0]);
+
+                if (setresuid(/* ruid= */ 0, /* euid= */ UID_NOBODY, /* suid= */ 0) < 0)
+                        _exit(EXIT_FAILURE);
+
+                if (write(pfd[1], "x", 1) != 1)
+                        _exit(EXIT_FAILURE);
+
+                freeze();
+        }
+
+        pfd[1] = safe_close(pfd[1]);
+        ASSERT_OK_EQ_ERRNO(read(pfd[0], &x, 1), 1);
+
+        ASSERT_OK(pid_get_euid(child.pid, &u));
+        ASSERT_EQ(u, UID_NOBODY);
+
+        ASSERT_OK(pidref_get_euid(&child, &u));
+        ASSERT_EQ(u, UID_NOBODY);
+
+        ASSERT_OK(pid_get_uid(child.pid, &u));
+        ASSERT_EQ(u, (uid_t) 0);
 }
 
 TEST(pidref_safe_fork) {
@@ -1104,6 +1192,49 @@ TEST(getenv_for_pid) {
 
                 _exit(EXIT_SUCCESS);
         }
+}
+
+TEST(sched_policy_to_string) {
+        ASSERT_STREQ(sched_policy_to_string(SCHED_OTHER), "other");
+        ASSERT_STREQ(sched_policy_to_string(SCHED_FIFO), "fifo");
+        ASSERT_STREQ(sched_policy_to_string(SCHED_RR), "rr");
+        ASSERT_NULL(sched_policy_to_string(-1));
+        ASSERT_NULL(sched_policy_to_string(4711));
+
+        for (int p = 0; p < 16; p++) {
+                const char *s = sched_policy_to_string(p);
+                if (s)
+                        ASSERT_EQ(sched_policy_from_string(s), p);
+        }
+}
+
+TEST(sched_priority_is_valid) {
+        int policy, min, max;
+
+        ASSERT_TRUE(sched_priority_is_valid(SCHED_OTHER, /* priority= */ 0));
+        ASSERT_FALSE(sched_priority_is_valid(SCHED_OTHER, 1));
+        ASSERT_FALSE(sched_priority_is_valid(SCHED_OTHER, -1));
+        ASSERT_TRUE(sched_priority_is_valid(SCHED_BATCH, /* priority= */ 0));
+        ASSERT_TRUE(sched_priority_is_valid(SCHED_IDLE, /* priority= */ 0));
+
+        FOREACH_ARGUMENT(policy, SCHED_FIFO, SCHED_RR) {
+                min = sched_get_priority_min_safe(policy);
+                max = sched_get_priority_max_safe(policy);
+
+                ASSERT_TRUE(sched_priority_is_valid(policy, min));
+                ASSERT_TRUE(sched_priority_is_valid(policy, max));
+                ASSERT_TRUE(sched_priority_is_valid(policy | SCHED_RESET_ON_FORK, max));
+                ASSERT_FALSE(sched_priority_is_valid(policy, min - 1));
+                ASSERT_FALSE(sched_priority_is_valid(policy, max + 1));
+                ASSERT_FALSE(sched_priority_is_valid(policy, INT_MAX));
+                ASSERT_FALSE(sched_priority_is_valid(policy, INT_MIN));
+        }
+
+        /* Unknown policies accept no priority at all */
+        ASSERT_FALSE(sched_priority_is_valid(4711, /* priority= */ 0));
+        ASSERT_FALSE(sched_priority_is_valid(4711, 1));
+        ASSERT_FALSE(sched_priority_is_valid(-1, /* priority= */ 0));
+        ASSERT_FALSE(sched_priority_is_valid(4711 | SCHED_RESET_ON_FORK, /* priority= */ 0));
 }
 
 TEST(invoked_as) {

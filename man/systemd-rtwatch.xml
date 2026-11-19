@@ -1,0 +1,159 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-rtwatch" conditional='ENABLE_RTWATCH'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-rtwatch</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-rtwatch</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-rtwatch</refname>
+    <refpurpose>Query or control the realtime scheduling policy service</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-rtwatch</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="opt">COMMAND</arg>
+      <arg choice="opt" rep="repeat">ARGUMENTS</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-rtwatch</command> may be used to query and control
+    <citerefentry><refentrytitle>systemd-rtwatchd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    the service that hands out realtime scheduling and high priority to threads of unprivileged processes.
+    It communicates with the service via its <literal>io.systemd.RTWatch</literal> Varlink
+    interface.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><command>status</command></term>
+
+        <listitem><para>Show the policy the service enforces and its current state. This is the default if
+        no command is specified.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>list</command></term>
+
+        <listitem><para>List the threads the service currently made realtime or high priority, together with
+        the process and thread they belong to, the unit of the process, its command line, and the name of the
+        thread. Unprivileged users only see threads of their own processes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>make-realtime</command> <replaceable>PID</replaceable> <replaceable>PRIORITY</replaceable></term>
+
+        <listitem><para>Make the main thread of the specified process (or the thread specified with
+        <option>--thread=</option>) realtime at the specified priority. The process must have set the hard
+        limit of <constant>RLIMIT_RTTIME</constant> appropriately, see
+        <citerefentry><refentrytitle>systemd-rtwatchd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>make-high-priority</command> <replaceable>PID</replaceable> <replaceable>NICE</replaceable></term>
+
+        <listitem><para>Set the nice level of the main thread of the specified process (or of the thread
+        specified with <option>--thread=</option>) to the specified value. Since nice levels are usually
+        negative, separate the arguments from the options with <literal>--</literal>, for example
+        <command>systemd-rtwatch make-high-priority -- 4711 -10</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>reset-known</command></term>
+
+        <listitem><para>Demote all threads the service handed out realtime scheduling or high priority
+        to.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>reset-all</command></term>
+
+        <listitem><para>Demote all realtime threads of the system (except for those owned by root, unless the
+        service is configured otherwise).</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>suspend</command></term>
+        <term><command>resume</command></term>
+
+        <listitem><para>Temporarily demote all known threads, and promote them again.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+    </variablelist>
+
+    <para><command>reset-known</command>, <command>reset-all</command>, <command>suspend</command> and
+    <command>resume</command> require privileges, and are authorized via polkit, see
+    <citerefentry><refentrytitle>systemd-rtwatchd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--thread=</option><replaceable>TID</replaceable></term>
+
+        <listitem><para>Use with <command>make-realtime</command> and <command>make-high-priority</command>
+        to operate on the specified thread of the process, instead of its main thread. Takes a kernel thread
+        ID.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="no-ask-password" />
+      <xi:include href="standard-options.xml" xpointer="json" />
+      <xi:include href="standard-options.xml" xpointer="j" />
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-rtwatchd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>sched</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
