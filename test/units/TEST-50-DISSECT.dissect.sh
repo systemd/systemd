@@ -273,6 +273,11 @@ udevadm wait --timeout=60 --settle "$loop"
                                         root-hash-signature=auto,root-hash-signature-required=yes)
 /usr/lib/systemd/systemd-veritysetup attach test-50-auto "$loop" "$MINIMAL_IMAGE.verity" "$MINIMAL_IMAGE_ROOTHASH" \
                                      root-hash-signature=auto
+# systemd-veritysetup checks whether the volume is already active before it reads the udev properties of the
+# data device. The data device has no signature, but the second attach with root-hash-signature-required=yes
+# succeeds because the volume is active.
+/usr/lib/systemd/systemd-veritysetup attach test-50-auto "$loop" "$MINIMAL_IMAGE.verity" "$MINIMAL_IMAGE_ROOTHASH" \
+                                     root-hash-signature=auto,root-hash-signature-required=yes
 /usr/lib/systemd/systemd-veritysetup detach test-50-auto
 losetup -d "$loop"
 

@@ -198,9 +198,8 @@ static int add_cryptsetup(
 }
 
 #if ENABLE_EFI
-static bool image_policy_requires_signature(PartitionDesignator d) {
-        PartitionPolicyFlags f = image_policy_get_exhaustively(arg_image_policy ?: &image_policy_host, d);
-        return f >= 0 && FLAGS_SET(f, PARTITION_POLICY_SIGNED) && !FLAGS_SET(f, PARTITION_POLICY_VERITY);
+static bool requires_signature(PartitionDesignator d) {
+        return image_policy_requires_signature(arg_image_policy ?: &image_policy_host, d);
 }
 
 static int add_veritysetup(
@@ -915,7 +914,7 @@ static int add_root_mount(void) {
                                 "/dev/disk/by-designator/root-verity",
                                 arg_root_options,
                                 MOUNT_MEASURE,
-                                /* require_signature= */ dissect && image_policy_requires_signature(PARTITION_ROOT));
+                                /* require_signature= */ dissect && requires_signature(PARTITION_ROOT));
                 if (r < 0)
                         return r;
         }
@@ -999,7 +998,7 @@ static int add_usr_mount(void) {
                                 "/dev/disk/by-designator/usr-verity",
                                 arg_usr_options,
                                 MOUNT_MEASURE,
-                                /* require_signature= */ image_policy_requires_signature(PARTITION_USR));
+                                /* require_signature= */ requires_signature(PARTITION_USR));
                 if (r < 0)
                         return r;
         }
@@ -1347,9 +1346,14 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 arg_root_rw = true;
         else if (streq(key, "ro") && !value)
                 arg_root_rw = false;
-        else if (proc_cmdline_key_streq(key, "systemd.image_policy"))
+        else if (proc_cmdline_key_streq(key, "systemd.image_policy")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
                 return parse_image_policy_argument(value, &arg_image_policy);
-        else if (proc_cmdline_key_streq(key, "systemd.image_filter")) {
+
+        } else if (proc_cmdline_key_streq(key, "systemd.image_filter")) {
                 _cleanup_(image_filter_freep) ImageFilter *f = NULL;
 
                 r = image_filter_parse(value, &f);
