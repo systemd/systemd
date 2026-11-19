@@ -238,6 +238,8 @@ option('portabled', type : 'boolean',
        description : 'install the systemd-portabled stack')
 option('pstore', type : 'boolean',
        description : 'install the pstore archival tool')
+option('ptybroker', type : 'feature',
+       description : 'install systemd-ptybroker and associated files')
 option('quotacheck', type : 'boolean',
        description : 'support for the quotacheck tools')
 option('randomseed', type : 'boolean',
