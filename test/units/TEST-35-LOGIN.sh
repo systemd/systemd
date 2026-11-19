@@ -802,6 +802,70 @@ EOF
     assert_eq "$(loginctl --no-legend | grep -v manager | grep tty | grep -c "logind-test-user")" 0
 }
 
+testcase_user_display_after_session_stop() (
+    local uid user_path first second second_path monitor_log check_signals
+    local -a sessions
+    local monitor_unit=logind-test-display-monitor.service
+
+    uid=$(id -u logind-test-user)
+    user_path="/org/freedesktop/login1/user/_$uid"
+    monitor_log=$(mktemp)
+    trap '
+        for unit in "$monitor_unit" logind-test-display-{first,second,background}.service; do
+            systemctl stop "$unit" 2>/dev/null || :
+        done
+        rm -f "$monitor_log"
+    ' EXIT
+
+    # Keep the user object around after both display candidates have stopped.
+    systemd-run --quiet --service-type=notify run0 --unit=logind-test-display-background.service \
+        -u logind-test-user --setenv=XDG_SESSION_CLASS=background sleep infinity
+    systemd-run --quiet --service-type=notify run0 --unit=logind-test-display-first.service \
+        -u logind-test-user --setenv=XDG_SESSION_CLASS=user sleep infinity
+    first=$(loginctl show-user -p Display --value "$uid")
+    [[ -n "$first" ]]
+
+    systemd-run --quiet --service-type=notify run0 --unit=logind-test-display-second.service \
+        -u logind-test-user --setenv=XDG_SESSION_CLASS=user sleep infinity
+    mapfile -t sessions < <(loginctl list-sessions --no-legend |
+        awk -v uid="$uid" -v first="$first" '$2 == uid && $6 == "user" && $1 != first { print $1 }')
+    assert_eq "${#sessions[@]}" 1
+    second=${sessions[0]}
+    second_path=$(busctl --json=short call org.freedesktop.login1 /org/freedesktop/login1 \
+        org.freedesktop.login1.Manager GetSession s "$second" | jq -er '.data[0]')
+    assert_eq "$(loginctl show-user -p Display --value "$uid")" "$first"
+
+    # Wait until both match rules are installed before stopping either session.
+    systemd-run --quiet --unit="$monitor_unit" --service-type=notify \
+        -p "StandardOutput=file:$monitor_log" \
+        busctl --json=short \
+        --match="type='signal',sender='org.freedesktop.login1',path='$user_path',interface='org.freedesktop.DBus.Properties',member='PropertiesChanged',arg0='org.freedesktop.login1.User'" \
+        --match="type='signal',sender='org.freedesktop.login1',path='/org/freedesktop/login1',interface='org.freedesktop.login1.Manager',member='SessionRemoved'" \
+        monitor
+
+    loginctl terminate-session "$first"
+    assert_eq "$(loginctl show-user -p Display --value "$uid")" "$second"
+
+    loginctl terminate-session "$second"
+    assert_eq "$(busctl get-property org.freedesktop.login1 "$user_path" org.freedesktop.login1.User Display)" '(so) "" "/"'
+
+    # A notification at finalization would follow SessionRemoved. Check that each
+    # Display value is announced at stop, before the corresponding removal.
+    check_signals='
+            def announced_before_removal($session; $display):
+                map(select(.member == "SessionRemoved" and .payload.data[0] == $session or
+                           .payload.data[1].Display?.data? == $display)) |
+                first.member == "PropertiesChanged";
+            announced_before_removal($first; [$second, $path]) and
+            announced_before_removal($second; ["", "/"])
+    '
+    timeout 30 bash -c '
+        until jq -e -s --arg first "$2" --arg second "$3" --arg path "$4" "$5" "$1" >/dev/null; do
+            sleep 0.1
+        done
+    ' bash "$monitor_log" "$first" "$second" "$second_path" "$check_signals"
+)
+
 testcase_ambient_caps() {
     local PAMSERVICE TRANSIENTUNIT SCRIPT
 
