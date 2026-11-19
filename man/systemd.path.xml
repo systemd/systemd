@@ -153,9 +153,25 @@
         not apply to <varname>PathChanged=</varname> and
         <varname>PathModified=</varname>.</para>
 
-        <para>If the path itself or any of the containing directories are not accessible,
-        <command>systemd</command> will watch for permission changes and notice that conditions are satisfied
-        when permissions allow that. </para>
+        <para>To watch a path, the service manager needs read access to it. This mostly affects the per-user
+        service manager, because the system service manager may read any file. If a directory on the way to the
+        path grants search access but not read access (for example mode <literal>0711</literal>), the service
+        manager skips that directory and watches the paths below it.</para>
+
+        <para>In the following cases, the service manager cannot notice changes and logs a warning:</para>
+
+        <itemizedlist>
+          <listitem><para>The service manager may not access the path, because it lacks read access to the path
+          or search access to a directory on the way. Changes to the path are not noticed.</para></listitem>
+
+          <listitem><para>The path does not exist, and its parent directory grants search access but not read
+          access. The creation of the path is not noticed.</para></listitem>
+        </itemizedlist>
+
+        <para>The service manager does not notice permission changes on a path or directory it cannot watch.
+        It sets up its watches again, and so checks permissions again, when the path unit is started, when the
+        unit it activated stops, after the service manager is reloaded, and when it sees a change on one of the
+        paths it watches.</para>
 
         <para>Note that files whose name starts with a dot (i.e. hidden files) are generally ignored when
         monitoring these paths.</para>
