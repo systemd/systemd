@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <sys/eventfd.h>
 #include <sys/mman.h>
+#include <sys/mount.h>
 #include <sys/personality.h>
 #include <sys/ptrace.h>
 #include <sys/shm.h>
@@ -375,6 +376,34 @@ TEST(restrict_namespace) {
                 ASSERT_ERROR_ERRNO(raw_clone(CLONE_NEWUTS), EPERM);
                 ASSERT_ERROR_ERRNO(raw_clone(CLONE_NEWIPC), EPERM);
                 ASSERT_ERROR_ERRNO(raw_clone(CLONE_NEWNET|CLONE_NEWUTS), EPERM);
+
+                /* Mount namespaces are retained, hence the mount API is not restricted: the kernel refuses
+                 * the invalid file descriptors with EBADF, while the filter would refuse them with EPERM. */
+                ASSERT_ERROR_ERRNO(open_tree(-EBADF, "x", OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC), EBADF);
+                ASSERT_ERROR_ERRNO(fsmount(-EBADF, 0, 0), EBADF);
+
+                /* Neither are empty mount namespaces (EINVAL on kernels not supporting them). This moves us
+                 * into a new mount namespace, hence do it last. */
+                r = RET_NERRNO(unshare(UNSHARE_EMPTY_MNTNS));
+                ASSERT_TRUE(r >= 0 || r == -EINVAL);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        r = ASSERT_OK(pidref_safe_fork("(restrict-namespace-mount-api)", FORK_LOG|FORK_WAIT, /* ret= */ NULL));
+        if (r == 0) {
+                ASSERT_OK(seccomp_restrict_namespaces(CLONE_NEWNET));
+
+                /* open_tree() without OPEN_TREE_CLONE does not create a mount namespace. */
+                _cleanup_close_ int fd = ASSERT_OK_ERRNO(open_tree(AT_FDCWD, "/", OPEN_TREE_CLOEXEC));
+
+                /* Anonymous and regular mount namespaces are prohibited. Without the filter, the kernel
+                 * would refuse the invalid file descriptors with EBADF. */
+                ASSERT_ERROR_ERRNO(open_tree(-EBADF, "x", OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC), EPERM);
+                ASSERT_ERROR_ERRNO(open_tree(-EBADF, "x", OPEN_TREE_NAMESPACE|OPEN_TREE_CLOEXEC), EPERM);
+                ASSERT_ERROR_ERRNO(fsmount(-EBADF, 0, 0), EPERM);
+                ASSERT_ERROR_ERRNO(fsmount(-EBADF, FSMOUNT_NAMESPACE, 0), EPERM);
+                ASSERT_ERROR_ERRNO(unshare(UNSHARE_EMPTY_MNTNS), EPERM);
 
                 _exit(EXIT_SUCCESS);
         }
