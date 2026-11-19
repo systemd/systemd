@@ -25,5 +25,6 @@ contact the maintainers or submit a **[subscription request](https://www.redhat.
 - Please ensure a fully working, end-to-end reproducer is provided.
 - Please ensure the reproducer is real-world and not simulated or abstracted.
 - Please ensure the reproducer demonstrably violates a security boundary.
+- Please ensure the reproducer is minimal and self-contained, and paste eventual scripts in the issue description. Refrain from attaching huge archives and requiring running untrusted setups (eg: custom docker instances).
 - Please understand that most of our maintainers are volunteers and already have a heavy review burden. While we will try to triage and fix issues in a timely manner, we cannot guarantee any fixed timeline for issue resolution.
 - While modern industry practices around coordinated disclosures encourage public disclosure to avoid vendors stonewalling researchers, we are an open source project that would gain little from needlessly stonewalling researchers. We thus kindly request that reporters do not publicly disclose issues they have reported to us before an agreed-to disclosure date.
