@@ -1536,6 +1536,9 @@ static int vl_method_link_set_dns(sd_varlink *link, sd_json_variant *parameters,
                 if (!GREEDY_REALLOC0(dns_servers, n_dns_servers + 1))
                         return log_oom();
 
+                if (s->ifindex != 0 && s->ifindex != l->ifindex)
+                        return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("servers"));
+
                 r = in_addr_full_new(
                                 s->family,
                                 &s->in_addr.address,
