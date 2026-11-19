@@ -2517,9 +2517,14 @@ static int seccomp_restrict_sxid(scmp_filter_ctx seccomp, mode_t m) {
 
 #if defined(__SNR_openat2)
         /* The new openat2() system call can't be filtered sensibly, since it moves the flags parameter into
-         * an indirect structure. Let's block it entirely for now. That should be a reasonably OK thing to do
-         * for now, since openat2() is very new and code generally needs fallback logic anyway to be
-         * compatible with kernels that are not absolutely recent. We would normally return EPERM for a
+         * an indirect structure. Let's block it entirely for now.
+         *
+         * Unfortunately blocking openat2() can hurt security in some cases. For example, GNU Tar uses
+         * openat2() with flags like RESOLVE_BENEATH to avoid security races when opening files, and blocking
+         * openat2() causes GNU Tar to fall back on racy alternatives like open() and openat(). Because of
+         * this, although seccomp_restrict_sxid is often a security win, it can be a security loss.
+         *
+         * We would normally return EPERM for a
          * policy check, but this isn't strictly a policy check. Instead, we return ENOSYS to force programs
          * to call open() or openat() instead. We can properly enforce policy for those functions. */
         r = sym_seccomp_rule_add_exact(
