@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-event.h"
-#include "sd-json.h"
 #include "sd-future.h"
 
 #include "alloc-util.h"
@@ -13,6 +12,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "json-util.h"
 #include "log.h"
 #include "pidref.h"
 #include "stat-util.h"
@@ -20,6 +20,8 @@
 #include "string-util.h"
 #include "unit-name.h"
 #include "xattr-util.h"
+
+#define SERIALIZED_INSTANCE_XATTR "user.systemd-app-instance"
 
 static AppInstance* app_instance_free(AppInstance *a) {
         if (!a)
@@ -88,6 +90,42 @@ static int app_instance_inotify(sd_event_source *s, const struct inotify_event *
         }
 
         app_instance_unmanage(instance);
+        return 0;
+}
+
+static int instance_deserialize_from_xattr(AppInstance *instance) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "generation",   SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint64,   offsetof(AppInstance, generation),   SD_JSON_MANDATORY },
+                { "published",    SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_stdbool,  offsetof(AppInstance, published),    SD_JSON_MANDATORY },
+                { "queried",      SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_stdbool,  offsetof(AppInstance, ever_queried), SD_JSON_MANDATORY },
+                { "collection",   SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,   offsetof(AppInstance, collection),   SD_JSON_NULLABLE  },
+                { "sandbox",      SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,   offsetof(AppInstance, sandbox),      SD_JSON_NULLABLE  },
+                { "permissions",  SD_JSON_VARIANT_OBJECT,   sd_json_dispatch_variant,  offsetof(AppInstance, permissions),  SD_JSON_NULLABLE  },
+                { "entitlements", SD_JSON_VARIANT_OBJECT,   sd_json_dispatch_variant,  offsetof(AppInstance, entitlements), SD_JSON_NULLABLE  },
+                {}
+        };
+        int r;
+
+        assert(instance);
+
+        _cleanup_free_ char *formatted = NULL;
+        r = fgetxattr_malloc(instance->cg_fd, SERIALIZED_INSTANCE_XATTR, &formatted, /* ret_size= */ NULL);
+        if (r == -ENODATA)
+                return 0;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read " SERIALIZED_INSTANCE_XATTR " xattr: %m");
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *serialized = NULL;
+        r = sd_json_parse(formatted, SD_JSON_PARSE_MUST_BE_OBJECT, &serialized,
+                          /* reterr_line= */ NULL, /* reterr_column= */ NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse serialized instance state: %m");
+
+        r = sd_json_dispatch(serialized, dispatch_table, /* flags= */ 0, instance);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to dispatch serialized instance state: %m");
+
+        log_debug("Restored serialized instance state from cgroup xattr");
         return 0;
 }
 
@@ -184,6 +222,10 @@ static int attempt_find_cgroup(Manager *manager, const char *in_path, const PidR
                 .app_id = TAKE_PTR(app_id),
         };
 
+        r = instance_deserialize_from_xattr(app);
+        if (r < 0)
+                return r;
+
         _cleanup_close_ int events_fd = xopenat(app->cg_fd, "cgroup.events", O_RDONLY);
         if (events_fd < 0)
                 return log_debug_errno(events_fd, "Failed to open cgroup.events for %s: %m", app->cg_path);
@@ -229,10 +271,35 @@ int app_instance_from_path(Manager *manager, const char *path, AppInstance **ret
 }
 
 int app_instance_commit(AppInstance *instance) {
+        int r;
+
         assert(instance);
 
         instance->generation++;
         log_debug("Committing instance %s, new generation: %" PRIu64, instance->unit, instance->generation);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *serialized = NULL;
+        r = sd_json_buildo(
+                        &serialized,
+                        SD_JSON_BUILD_PAIR_UNSIGNED("generation", instance->generation),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("published", instance->published),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("queried", instance->ever_queried),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("collection", instance->collection),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("sandbox", instance->sandbox),
+                        JSON_BUILD_PAIR_VARIANT_NON_EMPTY("permissions", instance->permissions),
+                        JSON_BUILD_PAIR_VARIANT_NON_EMPTY("entitlements", instance->entitlements));
+        if (r < 0)
+                return log_debug_errno(r, "Failed to serialize instance: %m");
+
+        _cleanup_free_ char *formatted = NULL;
+        r = sd_json_variant_format(serialized, /* flags= */ 0, &formatted);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to format serialized instance: %m");
+
+        r = xsetxattr(instance->cg_fd, /* path= */ NULL, /* at_flags= */ 0,
+                      SERIALIZED_INSTANCE_XATTR, formatted);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to write " SERIALIZED_INSTANCE_XATTR " xattr: %m");
 
         return 0;
 }
