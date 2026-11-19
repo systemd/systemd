@@ -14,7 +14,7 @@ _parser = tree.XMLParser(resolve_entities=False)
 tree.set_default_parser(_parser)
 
 
-def find_undocumented_functions(pages, ignorelist):
+def find_undocumented_functions(pages):
     undocumented = []
     for page in pages:
         filename = os.path.basename(page)
@@ -28,8 +28,7 @@ def find_undocumented_functions(pages, ignorelist):
             assert pagetree.findall(path) == [func]
 
             if hist_section is None or hist_section.find(f"para/function[.='{func.text}()']") is None:
-                if func.text not in ignorelist:
-                    undocumented.append((filename, func.text))
+                undocumented.append((filename, func.text))
     return undocumented
 
 
@@ -95,7 +94,7 @@ def process_pages(pages):
         command_pages.append(page)
 
     undocumented_commands = find_undocumented_commands(command_pages, command_ignorelist)
-    undocumented_functions = find_undocumented_functions(function_pages, function_ignorelist)
+    undocumented_functions = find_undocumented_functions(function_pages)
 
     return undocumented_commands, undocumented_functions
 
@@ -109,8 +108,6 @@ if __name__ == '__main__':
             fname, path = line.split(' ', 1)
             path = path.replace('\\n', '\n')
             command_ignorelist.append((fname, path))
-    with open(os.path.join(os.path.dirname(__file__), 'function_ignorelist')) as f:
-        function_ignorelist = f.read().splitlines()
 
     undocumented_commands, undocumented_functions = process_pages(sys.argv[1:])
 
