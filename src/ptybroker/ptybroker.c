@@ -50,7 +50,9 @@ COMMAND(
         .option_namespace = "service",
         .option_groups =
                 "Options\0"
-                "Runtime scope\0");
+                "Runtime scope\0",
+        .flags = COMMAND_EXPERIMENTAL,
+);
 
 #define PSEUDO_TTY_MAX 1024U
 #define MONITOR_MAX 16U
