@@ -86,7 +86,7 @@
     <para><function>udev_list_entry_get_next()</function>,
     <function>udev_list_entry_get_by_name()</function>,
     <function>udev_list_entry_get_name()</function>, and
-    <function>udev_list_entry_get_value()</function> were added in version 221.</para>
+    <function>udev_list_entry_get_value()</function> were added in version 183.</para>
   </refsect1>
 
   <refsect1>

@@ -149,7 +149,7 @@
 
           <listitem><para>The bus connection has been created in a different process, library or module instance.</para>
 
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v221"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -157,7 +157,7 @@
 
           <listitem><para>The bus connection has already been started.</para>
 
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v221"/></listitem>
         </varlistentry>
 
          <varlistentry>
@@ -165,7 +165,7 @@
 
           <listitem><para>The bus cannot be resolved.</para>
 
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v221"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -175,7 +175,7 @@
           <parameter>b</parameter> was zero and <parameter>id</parameter> did not equal
           <constant>SD_ID128_NULL</constant>.</para>
 
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v221"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -183,7 +183,7 @@
 
           <listitem><para>The bus is not connected.</para>
 
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v221"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -199,7 +199,7 @@
     <function>sd_bus_set_bus_client()</function>,
     <function>sd_bus_is_bus_client()</function>,
     <function>sd_bus_set_monitor()</function>, and
-    <function>sd_bus_is_monitor()</function> were added in version 246.</para>
+    <function>sd_bus_is_monitor()</function> were added in version 221.</para>
   </refsect1>
 
   <refsect1>
