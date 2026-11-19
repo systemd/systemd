@@ -17,6 +17,8 @@ typedef enum InstallOperation {
         _INSTALL_OPERATION_INVALID = -1,
 } InstallOperation;
 
+typedef struct ExtraFile ExtraFile;
+
 typedef struct InstallContext {
         InstallOperation operation;
         bool graceful;
@@ -45,6 +47,17 @@ typedef struct InstallContext {
                                      * It is NULL if there is nothing to install. */
         char *source_path;
         bool source_from_image;     /* source_dir is located below c->root_fd and not on the host. */
+        bool changed;               /* An extra file or a boot entry was installed or removed. */
+        bool extra_manifest_damaged;
+        ExtraFile *extra_files;     /* extra_files lists the files below EXTRA_FILES_DIR. */
+        size_t n_extra_files;
+        ExtraFile *extra_manifest;  /* extra_manifest lists the files that an earlier invocation installed.
+                                     * A path is listed once per hash if an earlier invocation was
+                                     * interrupted. */
+        size_t n_extra_manifest;
+        ExtraFile *extra_installed; /* extra_installed lists the files that bootctl manages after
+                                     * install_extra_files() ran. */
+        size_t n_extra_installed;
 } InstallContext;
 
 #define INSTALL_CONTEXT_NULL                                            \
