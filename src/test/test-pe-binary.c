@@ -406,7 +406,7 @@ static int call_uki_hash_with(SectionSpec spec) {
 
         void *hashes[_UNIFIED_SECTION_MAX] = {};
         size_t hash_size = 0;
-        r = uki_hash(fd, sym_EVP_sha256(), hashes, &hash_size);
+        r = uki_hash(fd, sym_EVP_sha256(), /* profile= */ 0, hashes, &hash_size);
         free_many(hashes, _UNIFIED_SECTION_MAX);
         return r;
 }
@@ -535,7 +535,7 @@ TEST_RET(uki_hash_one_bad_among_many_rejected) {
 
         void *hashes[_UNIFIED_SECTION_MAX] = {};
         size_t hash_size = 0;
-        ASSERT_ERROR(uki_hash(fd, sym_EVP_sha256(), hashes, &hash_size), EBADMSG);
+        ASSERT_ERROR(uki_hash(fd, sym_EVP_sha256(), /* profile= */ 0, hashes, &hash_size), EBADMSG);
         free_many(hashes, _UNIFIED_SECTION_MAX);
         return EXIT_SUCCESS;
 }
@@ -557,8 +557,82 @@ TEST_RET(uki_hash_empty_pe_does_not_reject) {
         void *hashes[_UNIFIED_SECTION_MAX] = {};
         size_t hash_size = 0;
         /* No UKI sections to hash — succeeds without hitting the cap path. */
-        ASSERT_OK(uki_hash(fd, sym_EVP_sha256(), hashes, &hash_size));
+        ASSERT_OK(uki_hash(fd, sym_EVP_sha256(), /* profile= */ 0, hashes, &hash_size));
         free_many(hashes, _UNIFIED_SECTION_MAX);
+        return EXIT_SUCCESS;
+}
+
+static int build_multi_profile_pe_file(void) {
+        /* The file contains only zero bytes, hence the sections get different sizes to get different hashes. */
+        size_t base = PE_TEST_SECTION_TABLE_OFFSET + 7 * sizeof(IMAGE_SECTION_HEADER);
+        SectionSpec specs[7] = {
+                /* The sections before the first .profile section are the base profile. */
+                { .name = ".linux",   .virtual_size = 16, .size_of_raw_data = 16, .pointer_to_raw_data = (uint32_t) base },
+                { .name = ".cmdline", .virtual_size = 8,  .size_of_raw_data = 8,  .pointer_to_raw_data = (uint32_t) base },
+                /* Profile @0 overrides nothing. */
+                { .name = ".profile", .virtual_size = 4,  .size_of_raw_data = 4,  .pointer_to_raw_data = (uint32_t) base },
+                /* Profile @1 overrides .cmdline. */
+                { .name = ".profile", .virtual_size = 5,  .size_of_raw_data = 5,  .pointer_to_raw_data = (uint32_t) base },
+                { .name = ".cmdline", .virtual_size = 12, .size_of_raw_data = 12, .pointer_to_raw_data = (uint32_t) base },
+                /* Profile @2 masks .cmdline. */
+                { .name = ".profile", .virtual_size = 6,  .size_of_raw_data = 6,  .pointer_to_raw_data = (uint32_t) base },
+                { .name = ".cmdline" },
+        };
+
+        return build_pe_file(specs, ELEMENTSOF(specs), /* override_file_size= */ 0);
+}
+
+TEST_RET(uki_hash_multi_profile) {
+        if (dlopen_libcrypto(LOG_DEBUG) < 0)
+                return log_tests_skipped("openssl not available");
+
+        _cleanup_close_ int fd = build_multi_profile_pe_file();
+        void *h0[_UNIFIED_SECTION_MAX] = {}, *h1[_UNIFIED_SECTION_MAX] = {}, *h2[_UNIFIED_SECTION_MAX] = {},
+                *h3[_UNIFIED_SECTION_MAX] = {};
+        size_t hash_size = 0;
+
+        ASSERT_OK_POSITIVE(uki_hash(fd, sym_EVP_sha256(), /* profile= */ 0, h0, &hash_size));
+        ASSERT_OK_POSITIVE(uki_hash(fd, sym_EVP_sha256(), /* profile= */ 1, h1, &hash_size));
+        ASSERT_OK_POSITIVE(uki_hash(fd, sym_EVP_sha256(), /* profile= */ 2, h2, &hash_size));
+        ASSERT_OK_ZERO(uki_hash(fd, sym_EVP_sha256(), /* profile= */ 3, h3, &hash_size));
+
+        /* Every profile inherits .linux from the base profile. */
+        ASSERT_NOT_NULL(h0[UNIFIED_SECTION_LINUX]);
+        ASSERT_EQ(memcmp(h0[UNIFIED_SECTION_LINUX], h1[UNIFIED_SECTION_LINUX], hash_size), 0);
+        ASSERT_EQ(memcmp(h0[UNIFIED_SECTION_LINUX], h2[UNIFIED_SECTION_LINUX], hash_size), 0);
+
+        /* Every profile has its own .profile section. */
+        ASSERT_NE(memcmp(h0[UNIFIED_SECTION_PROFILE], h1[UNIFIED_SECTION_PROFILE], hash_size), 0);
+        ASSERT_NE(memcmp(h1[UNIFIED_SECTION_PROFILE], h2[UNIFIED_SECTION_PROFILE], hash_size), 0);
+
+        /* Profile @0 inherits .cmdline, profile @1 overrides it, and profile @2 masks it. */
+        ASSERT_NOT_NULL(h0[UNIFIED_SECTION_CMDLINE]);
+        ASSERT_NE(memcmp(h0[UNIFIED_SECTION_CMDLINE], h1[UNIFIED_SECTION_CMDLINE], hash_size), 0);
+        ASSERT_NULL(h2[UNIFIED_SECTION_CMDLINE]);
+
+        FOREACH_ELEMENT(h, h3)
+                ASSERT_NULL(*h);
+
+        free_many(h0, _UNIFIED_SECTION_MAX);
+        free_many(h1, _UNIFIED_SECTION_MAX);
+        free_many(h2, _UNIFIED_SECTION_MAX);
+        return EXIT_SUCCESS;
+}
+
+TEST_RET(uki_hash_duplicate_section_in_profile_rejected) {
+        if (dlopen_libcrypto(LOG_DEBUG) < 0)
+                return log_tests_skipped("openssl not available");
+
+        size_t base = PE_TEST_SECTION_TABLE_OFFSET + 2 * sizeof(IMAGE_SECTION_HEADER);
+        SectionSpec specs[2] = {
+                { .name = ".dtbauto", .virtual_size = 8,  .size_of_raw_data = 8,  .pointer_to_raw_data = (uint32_t) base },
+                { .name = ".dtbauto", .virtual_size = 12, .size_of_raw_data = 12, .pointer_to_raw_data = (uint32_t) base },
+        };
+        _cleanup_close_ int fd = build_pe_file(specs, ELEMENTSOF(specs), /* override_file_size= */ 0);
+
+        void *hashes[_UNIFIED_SECTION_MAX] = {};
+        size_t hash_size = 0;
+        ASSERT_ERROR(uki_hash(fd, sym_EVP_sha256(), /* profile= */ 0, hashes, &hash_size), EBADMSG);
         return EXIT_SUCCESS;
 }
 

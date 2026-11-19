@@ -1101,10 +1101,6 @@ static int trim_cmdline(char **cmdline) {
         return 1;
 }
 
-/* Maximum PE section we are willing to load (Note that sections we are not interested in may be larger, but
- * the ones we do care about and we are willing to load into memory have this size limit.) */
-#define PE_SECTION_SIZE_MAX (4U*1024U*1024U)
-
 int pe_find_uki_sections(
                 int fd,
                 const char *path,
@@ -1156,16 +1152,8 @@ int pe_find_uki_sections(
         FOREACH_ELEMENT(t, table) {
                 const IMAGE_SECTION_HEADER *found;
 
-                /* First look in the profile part of the section table, and if we don't find anything there, look into the base part */
-                found = pe_section_table_find(psections, n_psections, t->name);
-                if (!found) {
-                        found = pe_section_table_find(bsections, n_bsections, t->name);
-                        if (!found)
-                                continue;
-                }
-
-                /* Permit "masking" of sections in the base profile */
-                if (le32toh(found->VirtualSize) == 0)
+                found = pe_find_profile_section(psections, n_psections, bsections, n_bsections, t->name, /* ret_duplicate= */ NULL);
+                if (!found)
                         continue;
 
                 r = pe_read_section_data(fd, found, PE_SECTION_SIZE_MAX, (void**) t->data, /* ret_size= */ NULL);

@@ -82,7 +82,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
                 /* uki_hash() can return partway through with some hashes already
                  * allocated; free unconditionally. */
-                (void) uki_hash(fd, sym_EVP_sha256(), hashes, &hash_size);
+                (void) uki_hash(fd, sym_EVP_sha256(), /* profile= */ 0, hashes, &hash_size);
                 free_many(hashes, _UNIFIED_SECTION_MAX);
         }
 #endif
