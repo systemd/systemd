@@ -1627,6 +1627,19 @@ static int context_build_target(Context *context, TargetClass class, const char 
                         return log_oom();
         }
 
+        /* For the host, pending means the newest installed version is newer than the
+         * version we are currently booted into. UPDATE_PENDING only describes resources
+         * which have been acquired but not installed yet. */
+        if (class == TARGET_HOST && !context->component && current) {
+                _cleanup_free_ char *booted_version = NULL;
+
+                r = parse_os_release(context->root, "IMAGE_VERSION", &booted_version);
+                if (r < 0 && r != -ENOENT)
+                        return log_error_errno(r, "Failed to parse /etc/os-release: %m");
+
+                current_is_pending = sysupdate_version_is_pending(current, booted_version);
+        }
+
         r = target_new(class, name, &t);
         if (r < 0)
                 return log_oom();

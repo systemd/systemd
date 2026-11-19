@@ -28,6 +28,14 @@ TEST(component_name_valid) {
         ASSERT_FALSE(component_name_valid("\xff"));           /* not valid UTF-8 */
 }
 
+TEST(sysupdate_version_is_pending) {
+        ASSERT_TRUE(sysupdate_version_is_pending("v9", "v8"));
+        ASSERT_FALSE(sysupdate_version_is_pending("v8", "v8"));
+        ASSERT_FALSE(sysupdate_version_is_pending("v7", "v8"));
+        ASSERT_FALSE(sysupdate_version_is_pending("v9", NULL));
+        ASSERT_FALSE(sysupdate_version_is_pending(NULL, "v8"));
+}
+
 TEST(component_json) {
         _cleanup_(component_done) Component c = COMPONENT_NULL;
 
