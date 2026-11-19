@@ -302,7 +302,7 @@ int vl_method_link_set_dns(sd_varlink *vlink, sd_json_variant *parameters, sd_va
                         return log_oom();
 
                 if (s->ifindex != 0 && s->ifindex != link->ifindex)
-                        return sd_varlink_error_invalid_parameter(vlink, JSON_VARIANT_STRING_CONST("ifindex"));
+                        return sd_varlink_error_invalid_parameter(vlink, JSON_VARIANT_STRING_CONST("servers"));
 
                 r = in_addr_full_new(
                                 s->family,
