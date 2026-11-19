@@ -1242,6 +1242,12 @@ testcase_fscrypt() {
     inspect fscrypttest | grep "Real Name: Fscrypt Test" >/dev/null
 
     PASSWORD=fsfsfs1234 NEWPASSWORD=newfsfs5678 homectl passwd fscrypttest
+
+    # The new password got a new slot above the old one, and the old slot is gone
+    (! getfattr --absolute-names --only-values -n trusted.fscrypt_slot0 "$MNT/fscrypttest")
+    SLOT="$(getfattr --absolute-names --only-values -n trusted.fscrypt_slot1 "$MNT/fscrypttest")"
+    [[ "${SLOT:0:4}" == "\$v2:" ]]
+
     PASSWORD=newfsfs5678 homectl authenticate fscrypttest
     (! PASSWORD=fsfsfs1234 timeout 10s homectl authenticate fscrypttest </dev/null)
 
@@ -1251,6 +1257,13 @@ testcase_fscrypt() {
     systemctl stop user@"$(id -u fscrypttest)".service 2>/dev/null || true
     homectl deactivate fscrypttest 2>/dev/null || true
     wait_for_state fscrypttest inactive
+
+    # Changing it again puts the new slot above the existing one, not at the number of passwords
+    PASSWORD=newfsfs5678 NEWPASSWORD=fsfsfs1234 homectl passwd fscrypttest
+    (! getfattr --absolute-names --only-values -n trusted.fscrypt_slot1 "$MNT/fscrypttest")
+    SLOT="$(getfattr --absolute-names --only-values -n trusted.fscrypt_slot2 "$MNT/fscrypttest")"
+    [[ "${SLOT:0:4}" == "\$v2:" ]]
+    PASSWORD=fsfsfs1234 homectl authenticate fscrypttest
 
     homectl remove fscrypttest
 }

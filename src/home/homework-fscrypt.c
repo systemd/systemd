@@ -1421,16 +1421,18 @@ int home_passwd_fscrypt(
                 UserRecord *h,
                 HomeSetup *setup,
                 const PasswordCache *cache,         /* the passwords acquired via PKCS#11/FIDO2 security tokens */
-                char **effective_passwords          /* new passwords */) {
+                char **effective_passwords,         /* new passwords */
+                uint32_t *ret_first_new_slot) {
 
         _cleanup_(iovec_done_erase) struct iovec volume_key = {};
         _cleanup_free_ char *xattr_buf = NULL;
-        uint32_t slot = 0;
+        uint32_t base = 0, slot = 0;
         int r;
 
         assert(h);
         assert(user_record_storage(h) == USER_FSCRYPT);
         assert(setup);
+        assert(ret_first_new_slot);
 
         r = fscrypt_setup(
                         cache,
@@ -1440,14 +1442,10 @@ int home_passwd_fscrypt(
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(p, effective_passwords) {
-                r = fscrypt_slot_set(setup->root_fd, &volume_key, *p, slot);
-                if (r < 0)
-                        return r;
-
-                slot++;
-        }
-
+        /* Add the new slots at indexes above all existing ones. The old slots are only removed by
+         * home_remove_slots_fscrypt() once the new record has been written too. Otherwise a failure
+         * half-way through would leave us with some of the old slots destroyed, and hence the user
+         * potentially locked out. */
         r = flistxattr_malloc(setup->root_fd, &xattr_buf);
         if (r < 0)
                 return log_error_errno(r, "Failed to retrieve xattr list: %m");
@@ -1463,13 +1461,58 @@ int home_passwd_fscrypt(
                 if (safe_atou32(nr, &z) < 0)
                         continue;
 
-                if (z < slot)
-                        continue;
+                if (z == UINT32_MAX)
+                        return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "Key slot index out of range.");
 
-                if (fremovexattr(setup->root_fd, xa) < 0)
-                        if (errno != ENODATA)
-                                log_warning_errno(errno, "Failed to remove xattr %s: %m", xa);
+                base = MAX(base, z + 1);
         }
 
+        if (strv_length(effective_passwords) > UINT32_MAX - base)
+                return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "Key slot index out of range.");
+
+        STRV_FOREACH(p, effective_passwords) {
+                r = fscrypt_slot_set(setup->root_fd, &volume_key, *p, base + slot);
+                if (r < 0) {
+                        /* Remove the new slots again, the old ones are still in place */
+                        home_remove_slots_fscrypt(setup, base, UINT32_MAX);
+                        return r;
+                }
+
+                slot++;
+        }
+
+        *ret_first_new_slot = base;
         return 0;
+}
+
+void home_remove_slots_fscrypt(HomeSetup *setup, uint32_t from, uint32_t to) {
+        _cleanup_free_ char *xattr_buf = NULL;
+        int r;
+
+        assert(setup);
+
+        /* Removes the key slots with an index in the range [from, to). Failures are logged, but not
+         * propagated: by the time this is called there's nothing better left to do. */
+
+        r = flistxattr_malloc(setup->root_fd, &xattr_buf);
+        if (r < 0) {
+                log_error_errno(r, "Failed to retrieve xattr list: %m");
+                return;
+        }
+
+        NULSTR_FOREACH(xa, xattr_buf) {
+                const char *nr;
+                uint32_t z;
+
+                nr = startswith(xa, "trusted.fscrypt_slot");
+                if (!nr)
+                        continue;
+                if (safe_atou32(nr, &z) < 0)
+                        continue;
+                if (z < from || z >= to)
+                        continue;
+
+                if (fremovexattr(setup->root_fd, xa) < 0 && errno != ENODATA)
+                        log_error_errno(errno, "Failed to remove key slot %s: %m", xa);
+        }
 }
