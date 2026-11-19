@@ -28,14 +28,14 @@
       <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
 
       <funcprototype>
-        <funcdef>int sd_bus_message_dump</funcdef>
+        <funcdef>int <function>sd_bus_message_dump</function></funcdef>
         <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>FILE *<parameter>f</parameter></paramdef>
         <paramdef>uint64_t <parameter>flags</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
-        <funcdef>int sd_bus_message_dump_json</funcdef>
+        <funcdef>int <function>sd_bus_message_dump_json</function></funcdef>
         <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>uint64_t <parameter>flags</parameter></paramdef>
         <paramdef>sd_json_variant **<parameter>ret</parameter></paramdef>

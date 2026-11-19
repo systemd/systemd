@@ -31,7 +31,7 @@
       <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
 
       <funcprototype>
-        <funcdef>int sd_bus_message_append_array</funcdef>
+        <funcdef>int <function>sd_bus_message_append_array</function></funcdef>
         <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>char <parameter>type</parameter></paramdef>
         <paramdef>const void *<parameter>ptr</parameter></paramdef>
@@ -39,7 +39,7 @@
       </funcprototype>
 
       <funcprototype>
-        <funcdef>int sd_bus_message_append_array_memfd</funcdef>
+        <funcdef>int <function>sd_bus_message_append_array_memfd</function></funcdef>
         <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>char <parameter>type</parameter></paramdef>
         <paramdef>int <parameter>memfd</parameter></paramdef>
@@ -48,7 +48,7 @@
       </funcprototype>
 
       <funcprototype>
-        <funcdef>int sd_bus_message_append_array_iovec</funcdef>
+        <funcdef>int <function>sd_bus_message_append_array_iovec</function></funcdef>
         <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>char <parameter>type</parameter></paramdef>
         <paramdef>const struct iovec *<parameter>iov</parameter></paramdef>
@@ -56,7 +56,7 @@
       </funcprototype>
 
       <funcprototype>
-        <funcdef>int sd_bus_message_append_array_space</funcdef>
+        <funcdef>int <function>sd_bus_message_append_array_space</function></funcdef>
         <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>char <parameter>type</parameter></paramdef>
         <paramdef>size_t <parameter>size</parameter></paramdef>

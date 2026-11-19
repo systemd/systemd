@@ -29,7 +29,7 @@
       <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
 
       <funcprototype>
-        <funcdef>int sd_bus_message_append_string_memfd</funcdef>
+        <funcdef>int <function>sd_bus_message_append_string_memfd</function></funcdef>
         <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>int <parameter>memfd</parameter></paramdef>
         <paramdef>uint64_t <parameter>offset</parameter></paramdef>
@@ -37,14 +37,14 @@
       </funcprototype>
 
       <funcprototype>
-        <funcdef>int sd_bus_message_append_string_iovec</funcdef>
+        <funcdef>int <function>sd_bus_message_append_string_iovec</function></funcdef>
         <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>const struct iovec *<parameter>iov</parameter></paramdef>
         <paramdef>unsigned <parameter>n</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
-        <funcdef>int sd_bus_message_append_string_space</funcdef>
+        <funcdef>int <function>sd_bus_message_append_string_space</function></funcdef>
         <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>size_t <parameter>size</parameter></paramdef>
         <paramdef>char **<parameter>ret</parameter></paramdef>
