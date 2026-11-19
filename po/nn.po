@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-26 10:57+0100\n"
+"POT-Creation-Date: 2026-11-19 10:44+0000\n"
 "PO-Revision-Date: 2026-09-26 08:18+0000\n"
 "Last-Translator: Roy-Magne Mo <rmo@sunnmore.net>\n"
 "Language-Team: Norwegian Nynorsk <https://translate.fedoraproject.org/"
@@ -210,11 +210,11 @@ msgstr "Skriv inn gjenopprettingsnøkkelen på nytt: "
 msgid "Security token of user %s not inserted."
 msgstr "Sikkerheitstokenet til brukaren %s er ikkje sett inn."
 
-#: src/home/pam_systemd_home.c:394 src/home/pam_systemd_home.c:397
+#: src/home/pam_systemd_home.c:394 src/home/pam_systemd_home.c:402
 msgid "Try again with password: "
 msgstr "Prøv på nytt med passord: "
 
-#: src/home/pam_systemd_home.c:396
+#: src/home/pam_systemd_home.c:400
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
@@ -223,26 +223,26 @@ msgstr ""
 "Passordet er feil eller ikkje nok, og sikkerheitstokenet som er sett opp for "
 "brukaren %s, er ikkje sett inn."
 
-#: src/home/pam_systemd_home.c:416
+#: src/home/pam_systemd_home.c:421
 msgid "Security token PIN: "
 msgstr "PIN-kode for sikkerheitstoken: "
 
-#: src/home/pam_systemd_home.c:433
+#: src/home/pam_systemd_home.c:438
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr "Autentiser deg fysisk på sikkerheitstokenet til brukaren %s."
 
-#: src/home/pam_systemd_home.c:444
+#: src/home/pam_systemd_home.c:449
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr "Stadfest at du er til stades, på sikkerheitstokenet til brukaren %s."
 
-#: src/home/pam_systemd_home.c:455
+#: src/home/pam_systemd_home.c:460
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr "Verifiser brukaren på sikkerheitstokenet til brukaren %s."
 
-#: src/home/pam_systemd_home.c:464
+#: src/home/pam_systemd_home.c:469
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
@@ -250,78 +250,79 @@ msgstr ""
 "PIN-koden for sikkerheitstokenet er låst. Lås han opp først. (Tips: Det kan "
 "vere nok å ta tokenet ut og setje det inn att.)"
 
-#: src/home/pam_systemd_home.c:472
+#: src/home/pam_systemd_home.c:477
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "Feil PIN-kode for sikkerheitstokenet til brukaren %s."
 
-#: src/home/pam_systemd_home.c:473 src/home/pam_systemd_home.c:492
-#: src/home/pam_systemd_home.c:511
+#: src/home/pam_systemd_home.c:478 src/home/pam_systemd_home.c:497
+#: src/home/pam_systemd_home.c:516
 msgid "Sorry, retry security token PIN: "
 msgstr "Prøv PIN-koden for sikkerheitstokenet på nytt: "
 
-#: src/home/pam_systemd_home.c:491
+#: src/home/pam_systemd_home.c:496
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
 "Feil PIN-kode for sikkerheitstokenet til brukaren %s (berre nokre få forsøk "
 "att!)"
 
-#: src/home/pam_systemd_home.c:510
+#: src/home/pam_systemd_home.c:515
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
 "Feil PIN-kode for sikkerheitstokenet til brukaren %s (berre eitt forsøk att!)"
 
-#: src/home/pam_systemd_home.c:677
+#: src/home/pam_systemd_home.c:686
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
-msgstr "Heimeområdet til brukaren %s er ikkje aktivt no. Logg inn lokalt først."
+msgstr ""
+"Heimeområdet til brukaren %s er ikkje aktivt no. Logg inn lokalt først."
 
-#: src/home/pam_systemd_home.c:679
+#: src/home/pam_systemd_home.c:693
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr "Heimeområdet til brukaren %s er låst no. Lås det opp lokalt først."
 
-#: src/home/pam_systemd_home.c:713
+#: src/home/pam_systemd_home.c:728
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr "For mange mislukka innloggingsforsøk for brukaren %s, nektar."
 
-#: src/home/pam_systemd_home.c:1015
+#: src/home/pam_systemd_home.c:1030
 msgid "User record is blocked, prohibiting access."
 msgstr "Brukaroppføringa er blokkert, tilgang vert nekta."
 
-#: src/home/pam_systemd_home.c:1019
+#: src/home/pam_systemd_home.c:1034
 msgid "User record is not valid yet, prohibiting access."
 msgstr "Brukaroppføringa er ikkje gyldig enno, tilgang vert nekta."
 
-#: src/home/pam_systemd_home.c:1023
+#: src/home/pam_systemd_home.c:1038
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "Brukaroppføringa er ikkje gyldig lenger, tilgang vert nekta."
 
-#: src/home/pam_systemd_home.c:1028 src/home/pam_systemd_home.c:1077
+#: src/home/pam_systemd_home.c:1043 src/home/pam_systemd_home.c:1092
 msgid "User record not valid, prohibiting access."
 msgstr "Brukaroppføringa er ikkje gyldig, tilgang vert nekta."
 
-#: src/home/pam_systemd_home.c:1038
+#: src/home/pam_systemd_home.c:1053
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "For mange innloggingar, prøv på nytt om %s."
 
-#: src/home/pam_systemd_home.c:1049
+#: src/home/pam_systemd_home.c:1064
 msgid "Password change required."
 msgstr "Passordet må endrast."
 
-#: src/home/pam_systemd_home.c:1053
+#: src/home/pam_systemd_home.c:1068
 msgid "Password expired, change required."
 msgstr "Passordet har gått ut og må endrast."
 
-#: src/home/pam_systemd_home.c:1059
+#: src/home/pam_systemd_home.c:1074
 msgid "Password is expired, but can't change, refusing login."
 msgstr "Passordet har gått ut, men kan ikkje endrast. Nektar innlogging."
 
-#: src/home/pam_systemd_home.c:1063
+#: src/home/pam_systemd_home.c:1078
 msgid "Password will expire soon, please change."
 msgstr "Passordet går snart ut. Endre det."
 
@@ -351,7 +352,8 @@ msgstr "Set maskininformasjon"
 
 #: src/hostname/org.freedesktop.hostname1.policy:42
 msgid "Authentication is required to set local machine information."
-msgstr "Autentisering er påkravd for å setje informasjon om den lokale maskina."
+msgstr ""
+"Autentisering er påkravd for å setje informasjon om den lokale maskina."
 
 #: src/hostname/org.freedesktop.hostname1.policy:51
 msgid "Get product UUID"
@@ -742,7 +744,8 @@ msgstr "Handsam aktive økter, brukarar og sete"
 
 #: src/login/org.freedesktop.login1.policy:333
 msgid "Authentication is required to manage active sessions, users and seats."
-msgstr "Autentisering er påkravd for å handsame aktive økter, brukarar og sete."
+msgstr ""
+"Autentisering er påkravd for å handsame aktive økter, brukarar og sete."
 
 #: src/login/org.freedesktop.login1.policy:342
 msgid "Lock or unlock active sessions"
@@ -849,7 +852,8 @@ msgstr "Få ein pseudo-TTY i ein lokal container"
 #: src/machine/org.freedesktop.machine1.policy:65
 msgid ""
 "Authentication is required to acquire a pseudo TTY in a local container."
-msgstr "Autentisering er påkravd for å få ein pseudo-TTY i ein lokal container."
+msgstr ""
+"Autentisering er påkravd for å få ein pseudo-TTY i ein lokal container."
 
 #: src/machine/org.freedesktop.machine1.policy:74
 msgid "Acquire a pseudo TTY on the local host"
@@ -1378,8 +1382,8 @@ msgid ""
 "Authentication is required to delete files and directories associated with '$"
 "(unit)'."
 msgstr ""
-"Autentisering er påkravd for å slette filer og mapper som høyrer til «$(unit)"
-"»."
+"Autentisering er påkravd for å slette filer og mapper som høyrer til «$"
+"(unit)»."
 
 #: src/core/dbus-unit.c:839
 msgid ""

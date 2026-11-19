@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-26 10:57+0100\n"
+"POT-Creation-Date: 2026-11-19 10:44+0000\n"
 "PO-Revision-Date: 2026-08-02 00:07+0000\n"
 "Last-Translator: Anonymous <noreply@weblate.org>\n"
 "Language-Team: Tibetan <https://translate.fedoraproject.org/projects/systemd/"
@@ -190,37 +190,37 @@ msgstr "དགོངས་དག སླར་གསོ་ལྡེ་མིག�
 msgid "Security token of user %s not inserted."
 msgstr "སྤྱོད་མཁན %s ཡི་བདེ་འཇགས་རྟགས་མ་བཙུགས་པ།"
 
-#: src/home/pam_systemd_home.c:394 src/home/pam_systemd_home.c:397
+#: src/home/pam_systemd_home.c:394 src/home/pam_systemd_home.c:402
 msgid "Try again with password: "
 msgstr "གསང་ཚིག་སྤྱད་ནས་ཡང་བསྐྱར་ཚོད་ལྟ: "
 
-#: src/home/pam_systemd_home.c:396
+#: src/home/pam_systemd_home.c:400
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
 "%s not inserted."
 msgstr "གསང་ཚིག་ནོར་འཁྲུལ་ཡིན་པའམ་མི་འདང་། སྤྱོད་མཁན %s ཡི་སྒྲིག་བཀོད་བདེ་འཇགས་རྟགས་ཀྱང་མ་བཙུགས།"
 
-#: src/home/pam_systemd_home.c:416
+#: src/home/pam_systemd_home.c:421
 msgid "Security token PIN: "
 msgstr "བདེ་འཇགས་རྟགས PIN: "
 
-#: src/home/pam_systemd_home.c:433
+#: src/home/pam_systemd_home.c:438
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr "སྤྱོད་མཁན %s ཡི་བདེ་འཇགས་རྟགས་སྟེང་ལུས་ངོས་ར་སྤྲོད་གནང་རོགས།"
 
-#: src/home/pam_systemd_home.c:444
+#: src/home/pam_systemd_home.c:449
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr "སྤྱོད་མཁན %s ཡི་བདེ་འཇགས་རྟགས་སྟེང་ཡོད་པ་ངེས་གཏན་གནང་རོགས།"
 
-#: src/home/pam_systemd_home.c:455
+#: src/home/pam_systemd_home.c:460
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr "སྤྱོད་མཁན %s ཡི་བདེ་འཇགས་རྟགས་སྟེང་སྤྱོད་མཁན་ཞིབ་བཤེར་གནང་རོགས།"
 
-#: src/home/pam_systemd_home.c:464
+#: src/home/pam_systemd_home.c:469
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
@@ -228,75 +228,75 @@ msgstr ""
 "བདེ་འཇགས་རྟགས PIN སྒོ་ལྕགས་བཀག་ཟིན། སྔོན་ལ་སྒྲོལ་རོགས། (ཁ་སྣོན: ཕྱིར་བཏོན་ནས་ཡང་བསྐྱར་བཙུགས་ན་"
 "འགྲིག་སྲིད།)"
 
-#: src/home/pam_systemd_home.c:472
+#: src/home/pam_systemd_home.c:477
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "སྤྱོད་མཁན %s ཡི་བདེ་འཇགས་རྟགས PIN ནོར་འཁྲུལ།"
 
-#: src/home/pam_systemd_home.c:473 src/home/pam_systemd_home.c:492
-#: src/home/pam_systemd_home.c:511
+#: src/home/pam_systemd_home.c:478 src/home/pam_systemd_home.c:497
+#: src/home/pam_systemd_home.c:516
 msgid "Sorry, retry security token PIN: "
 msgstr "དགོངས་དག བདེ་འཇགས་རྟགས PIN ཡང་བསྐྱར་ཚོད་ལྟ: "
 
-#: src/home/pam_systemd_home.c:491
+#: src/home/pam_systemd_home.c:496
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr "སྤྱོད་མཁན %s ཡི་བདེ་འཇགས་རྟགས PIN ནོར་འཁྲུལ། (ཚོད་ལྟ་ཆེས་ཉུང་ཙམ་ལས་མེད!)"
 
-#: src/home/pam_systemd_home.c:510
+#: src/home/pam_systemd_home.c:515
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr "སྤྱོད་མཁན %s ཡི་བདེ་འཇགས་རྟགས PIN ནོར་འཁྲུལ། (ཚོད་ལྟ་གཅིག་ལས་མེད!)"
 
-#: src/home/pam_systemd_home.c:677
+#: src/home/pam_systemd_home.c:686
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr "སྤྱོད་མཁན %s ཡི་ཁྱིམ་དཀར་ཆག་ད་ལྟ་སྐུལ་སློང་མེད། སྔོན་ལ་ས་གནས་ནས་ནང་འཛུལ་གནང་རོགས།"
 
-#: src/home/pam_systemd_home.c:679
+#: src/home/pam_systemd_home.c:693
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr "སྤྱོད་མཁན %s ཡི་ཁྱིམ་དཀར་ཆག་ད་ལྟ་སྒོ་ལྕགས་བཀག་ཡོད། སྔོན་ལ་ས་གནས་ནས་སྒྲོལ་རོགས།"
 
-#: src/home/pam_systemd_home.c:713
+#: src/home/pam_systemd_home.c:728
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr "སྤྱོད་མཁན %s ཡི་ནང་འཛུལ་མ་ལེགས་པའི་ཚོད་ལྟ་མང་དྲགས་པས་ངོས་ལེན་མི་བྱེད།"
 
-#: src/home/pam_systemd_home.c:1015
+#: src/home/pam_systemd_home.c:1030
 msgid "User record is blocked, prohibiting access."
 msgstr "སྤྱོད་མཁན་ཐོ་བཀག་ཟིན་པས་ལྟ་སྤྱོད་བཀག་ཡོད།"
 
-#: src/home/pam_systemd_home.c:1019
+#: src/home/pam_systemd_home.c:1034
 msgid "User record is not valid yet, prohibiting access."
 msgstr "སྤྱོད་མཁན་ཐོ་ད་དུང་ནུས་ལྡན་མིན་པས་ལྟ་སྤྱོད་བཀག་ཡོད།"
 
-#: src/home/pam_systemd_home.c:1023
+#: src/home/pam_systemd_home.c:1038
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "སྤྱོད་མཁན་ཐོ་ད་ནས་ནུས་མེད་པས་ལྟ་སྤྱོད་བཀག་ཡོད།"
 
-#: src/home/pam_systemd_home.c:1028 src/home/pam_systemd_home.c:1077
+#: src/home/pam_systemd_home.c:1043 src/home/pam_systemd_home.c:1092
 msgid "User record not valid, prohibiting access."
 msgstr "སྤྱོད་མཁན་ཐོ་ནུས་མེད་པས་ལྟ་སྤྱོད་བཀག་ཡོད།"
 
-#: src/home/pam_systemd_home.c:1038
+#: src/home/pam_systemd_home.c:1053
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "ནང་འཛུལ་མང་དྲགས་པས %s རྗེས་སུ་ཡང་བསྐྱར་ཚོད་ལྟ་བྱེད།"
 
-#: src/home/pam_systemd_home.c:1049
+#: src/home/pam_systemd_home.c:1064
 msgid "Password change required."
 msgstr "གསང་ཚིག་བསྒྱུར་དགོས།"
 
-#: src/home/pam_systemd_home.c:1053
+#: src/home/pam_systemd_home.c:1068
 msgid "Password expired, change required."
 msgstr "གསང་ཚིག་དུས་ཡོལ་ཟིན་པས་བསྒྱུར་དགོས།"
 
-#: src/home/pam_systemd_home.c:1059
+#: src/home/pam_systemd_home.c:1074
 msgid "Password is expired, but can't change, refusing login."
 msgstr "གསང་ཚིག་དུས་ཡོལ་ཟིན་ཡང་བསྒྱུར་མི་ཐུབ་པས་ནང་འཛུལ་ཁས་མི་ལེན།"
 
-#: src/home/pam_systemd_home.c:1063
+#: src/home/pam_systemd_home.c:1078
 msgid "Password will expire soon, please change."
 msgstr "གསང་ཚིག་མི་རིང་བར་དུས་ཡོལ་འགྲོ་གི་ཡོད་པས་བསྒྱུར་རོགས།"
 
