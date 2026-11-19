@@ -230,6 +230,18 @@ CHANGES WITH 263 in spe:
           name, value or path, may now be rejected or warned about. Check
           existing rules with "udevadm verify".
 
+        * sd-json now refuses JSON objects that contain the same key more
+          than once. sd_json_variant_new_object() — and thus also
+          sd_json_parse() and related calls, as well as sd_json_build() —
+          now fail with -ENOTUNIQ in this case. Previously such objects were
+          accepted, and lookups by key would return the first matching
+          field, while many other JSON implementations use the last one, which
+          could lead to different consumers of the same JSON data seeing
+          different values. This affects all JSON input processed by systemd
+          components, including Varlink messages, JSON user/group records,
+          and JSON configuration files: these must not contain duplicate keys
+          anymore. This is in line with the I-JSON profile of RFC 7493.
+
         Changes in the system and service manager:
 
         * systemd-inhibit gained a new --signal= option. Used together with

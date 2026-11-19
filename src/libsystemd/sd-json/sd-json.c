@@ -28,6 +28,7 @@
 #include "pidref.h"
 #include "ratelimit.h"
 #include "signal-util.h"
+#include "sort-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -717,10 +718,53 @@ _public_ int sd_json_variant_new_array_strv(sd_json_variant **ret, char **l) {
         return 0;
 }
 
+static int json_object_keys_unique(sd_json_variant **array, size_t n) {
+        _cleanup_free_ const char **keys = NULL;
+        size_t n_keys = n / 2;
+
+        assert(array || n == 0);
+        assert(n % 2 == 0);
+
+        /* Returns > 0 if all keys of the specified key/value pair array are unique, 0 if there are
+         * duplicates, negative errno on error. Assumes every second element is a string. */
+
+        if (n_keys <= 1)
+                return true;
+
+        /* For small objects compare all keys with each other, that's cheaper than allocating anything */
+        if (n_keys <= 16) {
+                for (size_t i = 0; i < n_keys; i++)
+                        for (size_t j = i + 1; j < n_keys; j++)
+                                if (streq(sd_json_variant_string(array[i*2]),
+                                          sd_json_variant_string(array[j*2])))
+                                        return false;
+
+                return true;
+        }
+
+        /* For larger objects sort a copy of the key list and compare neighbours, so that adversarial input
+         * with lots of keys doesn't make us go quadratic. */
+        keys = new(const char*, n_keys);
+        if (!keys)
+                return -ENOMEM;
+
+        for (size_t i = 0; i < n_keys; i++)
+                keys[i] = sd_json_variant_string(array[i*2]);
+
+        typesafe_qsort(keys, n_keys, cmp_const_string);
+
+        for (size_t i = 1; i < n_keys; i++)
+                if (streq(keys[i-1], keys[i]))
+                        return false;
+
+        return true;
+}
+
 _public_ int sd_json_variant_new_object(sd_json_variant **ret, sd_json_variant **array, size_t n) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         const char *prev = NULL;
         bool sorted = true, normalized = true;
+        int r;
 
         assert_return(ret, -EINVAL);
         if (n == 0) {
@@ -772,6 +816,16 @@ _public_ int sd_json_variant_new_object(sd_json_variant **ret, sd_json_variant *
 
                 json_variant_set(w, c);
                 json_variant_copy_source(w, c);
+        }
+
+        /* Refuse objects with duplicate keys. If the keys are strictly ordered they are necessarily unique,
+         * hence we only need to check explicitly if they are not. */
+        if (!sorted) {
+                r = json_object_keys_unique(array, n);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -ENOTUNIQ;
         }
 
         v->normalized = normalized;
@@ -5892,14 +5946,13 @@ _public_ int sd_json_variant_sort(sd_json_variant **v) {
 
         qsort(a, m/2, sizeof(sd_json_variant*)*2, json_cmp_strings);
 
-        r = sd_json_variant_new_object(&n, a, m);
+        r = sd_json_variant_new_object(&n, a, m); /* Fails with -ENOTUNIQ on duplicate keys */
         if (r < 0)
                 return r;
 
         json_variant_propagate_sensitive(*v, n);
 
-        if (!n->sorted) /* Check if this worked. This will fail if there are multiple identical keys used. */
-                return -ENOTUNIQ;
+        assert(n->sorted); /* Keys are unique, hence sorting must have worked */
 
         json_variant_unref_and_replace(*v, n);
 
@@ -5949,9 +6002,9 @@ _public_ int sd_json_variant_normalize(sd_json_variant **v) {
 
         json_variant_propagate_sensitive(*v, n);
 
-        if (!n->normalized) { /* Let's see if normalization worked. It will fail if there are multiple
-                               * identical keys used in the same object anywhere, or if there are floating
-                               * point numbers used (see below) */
+        if (!n->normalized) { /* Let's see if normalization worked. Duplicate keys are already refused by
+                               * sd_json_variant_new_object(), but this will still fail if there are
+                               * floating point numbers used (see below) */
                 r = -ENOTUNIQ;
                 goto finish;
         }
