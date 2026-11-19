@@ -64,6 +64,7 @@ typedef enum MountMode {
         MOUNT_IMAGE,
         MOUNT_BIND,
         MOUNT_BIND_RECURSIVE,
+        MOUNT_PRIVATE_TMPFS,       /* A private tmpfs mounted directly on the mount point (PrivateTmp=disconnected) */
         MOUNT_PRIVATE_TMP,
         MOUNT_PRIVATE_DEV,
         MOUNT_BIND_DEV,
@@ -77,8 +78,6 @@ typedef enum MountMode {
         MOUNT_NOEXEC,
         MOUNT_EXEC,
         MOUNT_TMPFS,
-        MOUNT_RUN,
-        MOUNT_PRIVATE_TMPFS,       /* Mounted outside the root directory, and used by subsequent mounts */
         MOUNT_EXTENSION_DIRECTORY, /* Bind-mounted outside the root directory, and used by subsequent mounts */
         MOUNT_EXTENSION_IMAGE,     /* Mounted outside the root directory, and used by subsequent mounts */
         MOUNT_MQUEUEFS,
@@ -137,14 +136,21 @@ static const BindMount bind_log_sockets_table[] = {
         { (char*) "/run/systemd/journal/dev-log", (char*) "/run/systemd/journal/dev-log", .read_only = true, .nosuid = true, .noexec = true, .nodev = true, .ignore_enoent = true },
 };
 
-/* If MountAPIVFS= is used, let's mount /proc/, /dev/, /sys/, and /run/, but only as a fallback if the user
- * hasn't mounted something already. These mounts are hence overridden by any other explicitly configured
- * mounts. */
+/* If MountAPIVFS= is used, let's mount /proc/, /dev/ and /sys/, but only as a fallback if the user hasn't
+ * mounted something already. These mounts are hence overridden by any other explicitly configured mounts. */
 static const MountEntry apivfs_table[] = {
         { "/proc",               MOUNT_PROCFS,       false },
         { "/dev",                MOUNT_BIND_DEV,     false },
         { "/sys",                MOUNT_BIND_SYSFS,   false },
-        { "/run",                MOUNT_RUN,          false, .options_const = "mode=0755" TMPFS_LIMITS_RUN, .flags = MS_NOSUID|MS_NODEV|MS_STRICTATIME },
+};
+
+/* The writable /run/ tmpfs of MountAPIVFS=. Only set up when a separate root directory is used: there /run/
+ * is a private tmpfs that must be writable (e.g. for /run/host/). Without a separate root directory /run/ is
+ * the host's, and left out here so that it stays subject to the read-only remount of ProtectSystem=strict
+ * (and does not leak as writable). A fresh tmpfs is always mounted here, so that even a /run/ already present
+ * in the root tree (e.g. the host's bind-mounted in) is replaced by a private one. */
+static const MountEntry apivfs_run_table[] = {
+        { "/run",                MOUNT_TMPFS,        false, .options_const = "mode=0755" TMPFS_LIMITS_RUN, .flags = MS_NOSUID|MS_NODEV|MS_STRICTATIME },
 };
 
 /* ProtectKernelTunables= option and the related filesystem APIs */
@@ -287,7 +293,6 @@ static const char * const mount_mode_table[_MOUNT_MODE_MAX] = {
         [MOUNT_NOEXEC]                = "noexec",
         [MOUNT_EXEC]                  = "exec",
         [MOUNT_TMPFS]                 = "tmpfs",
-        [MOUNT_RUN]                   = "run",
         [MOUNT_PRIVATE_TMPFS]         = "private-tmpfs",
         [MOUNT_EXTENSION_DIRECTORY]   = "extension-directory",
         [MOUNT_EXTENSION_IMAGE]       = "extension-image",
@@ -404,37 +409,28 @@ static MountEntry* mount_list_extend(MountList *ml) {
         return ml->mounts + ml->n_mounts++;
 }
 
-static int append_access_mounts(MountList *ml, char **strv, MountMode mode, bool forcibly_require_prefix) {
+static int append_access_mounts(MountList *ml, const AccessMount *access_mounts, size_t n) {
+        static const MountMode mode_table[_ACCESS_MOUNT_MAX] = {
+                [ACCESS_MOUNT_READ_WRITE]   = MOUNT_READ_WRITE,
+                [ACCESS_MOUNT_READ_ONLY]    = MOUNT_READ_ONLY,
+                [ACCESS_MOUNT_INACCESSIBLE] = MOUNT_INACCESSIBLE,
+                [ACCESS_MOUNT_EXEC]         = MOUNT_EXEC,
+                [ACCESS_MOUNT_NOEXEC]       = MOUNT_NOEXEC,
+        };
+
         assert(ml);
 
-        /* Adds a list of user-supplied READ_WRITE/READ_WRITE_IMPLICIT/READ_ONLY/INACCESSIBLE entries */
+        /* Adds the compiled user-supplied READ_WRITE/READ_ONLY/INACCESSIBLE/EXEC/NOEXEC entries */
 
-        STRV_FOREACH(i, strv) {
-                bool ignore = false, needs_prefix = false;
-                const char *e = *i;
-
-                /* Look for any prefixes */
-                if (startswith(e, "-")) {
-                        e++;
-                        ignore = true;
-                }
-                if (startswith(e, "+")) {
-                        e++;
-                        needs_prefix = true;
-                }
-
-                if (!path_is_absolute(e))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Path is not absolute: %s", e);
-
+        FOREACH_ARRAY(a, access_mounts, n) {
                 MountEntry *me = mount_list_extend(ml);
                 if (!me)
                         return log_oom_debug();
 
                 *me = (MountEntry) {
-                        .path_const = e,
-                        .mode = mode,
-                        .ignore = ignore,
-                        .has_prefix = !needs_prefix && !forcibly_require_prefix,
+                        .path_const = a->path,
+                        .mode = mode_table[a->mode],
+                        .ignore = a->ignore,
                 };
         }
 
@@ -788,7 +784,7 @@ static int append_private_tmp_one(
                 *me = (MountEntry) {
                         .path_const = path,
                         .mode = MOUNT_PRIVATE_TMPFS,
-                        .options_const = "mode=0700" NESTED_TMPFS_LIMITS,
+                        .options_const = "mode=1777" NESTED_TMPFS_LIMITS,
                         .flags = MS_NODEV|MS_STRICTATIME,
                 };
 
@@ -803,64 +799,11 @@ static int append_private_tmp(MountList *ml, const NamespaceParameters *p) {
         assert(p->private_tmp >= 0 && p->private_tmp < _PRIVATE_TMP_MAX);
         assert(p->private_var_tmp >= 0 && p->private_var_tmp < _PRIVATE_TMP_MAX);
 
-        if (p->private_tmp != PRIVATE_TMP_DISCONNECTED || p->private_var_tmp != PRIVATE_TMP_DISCONNECTED) {
-                r = append_private_tmp_one(ml, p->private_tmp, "/tmp/", p->tmp_dir);
-                if (r < 0)
-                        return r;
+        r = append_private_tmp_one(ml, p->private_tmp, "/tmp/", p->tmp_dir);
+        if (r < 0)
+                return r;
 
-                r = append_private_tmp_one(ml, p->private_var_tmp, "/var/tmp/", p->var_tmp_dir);
-                if (r < 0)
-                        return r;
-
-                return 0;
-        }
-
-        /* Fully disconnected private tmp: we mount a single tmpfs instance with two subdirs which are
-         * bind mounted to /tmp/ and /var/tmp/. */
-
-        MountEntry *me;
-
-        _cleanup_free_ char *tmpfs_dir = NULL, *tmp_dir = NULL, *var_tmp_dir = NULL;
-        tmpfs_dir = path_join(p->private_namespace_dir, "unit-private-tmp");
-        tmp_dir = path_join(tmpfs_dir, "tmp");
-        var_tmp_dir = path_join(tmpfs_dir, "var-tmp");
-        if (!tmpfs_dir || !tmp_dir || !var_tmp_dir)
-                return log_oom_debug();
-
-        me = mount_list_extend(ml);
-        if (!me)
-                return log_oom_debug();
-        *me = (MountEntry) {
-                .path_malloc = TAKE_PTR(tmpfs_dir),
-                .mode = MOUNT_PRIVATE_TMPFS,
-                .options_const = "mode=0700" NESTED_TMPFS_LIMITS,
-                .flags = MS_NODEV|MS_STRICTATIME,
-                .has_prefix = true,
-        };
-
-        me = mount_list_extend(ml);
-        if (!me)
-                return log_oom_debug();
-        *me = (MountEntry) {
-                .source_malloc = TAKE_PTR(tmp_dir),
-                .path_const = "/tmp/",
-                .mode = MOUNT_BIND,
-                .source_dir_mode = 01777,
-                .create_source_dir = true,
-        };
-
-        me = mount_list_extend(ml);
-        if (!me)
-                return log_oom_debug();
-        *me = (MountEntry) {
-                .source_malloc = TAKE_PTR(var_tmp_dir),
-                .path_const = "/var/tmp/",
-                .mode = MOUNT_BIND,
-                .source_dir_mode = 01777,
-                .create_source_dir = true,
-        };
-
-        return 0;
+        return append_private_tmp_one(ml, p->private_var_tmp, "/var/tmp/", p->var_tmp_dir);
 }
 
 static int append_static_mounts(MountList *ml, const MountEntry *mounts, size_t n, bool ignore_protect) {
@@ -995,11 +938,6 @@ static int mount_path_compare(const MountEntry *a, const MountEntry *b) {
         if (d != 0)
                 return d;
         d = -CMP(a->mode == MOUNT_EXTENSION_DIRECTORY, b->mode == MOUNT_EXTENSION_DIRECTORY);
-        if (d != 0)
-                return d;
-
-        /* MOUNT_PRIVATE_TMPFS needs to be set up earlier, especially than MOUNT_BIND. */
-        d = -CMP(a->mode == MOUNT_PRIVATE_TMPFS, b->mode == MOUNT_PRIVATE_TMPFS);
         if (d != 0)
                 return d;
 
@@ -1177,10 +1115,8 @@ static void drop_outside_root(MountList *ml, const char *root_directory) {
         for (f = ml->mounts, t = ml->mounts; f < ml->mounts + ml->n_mounts; f++) {
 
                 /* ExtensionImages/Directories bases are opened in /run/[user/xyz/]systemd/unit-extensions
-                 * on the host, and a private (invisible to the guest) tmpfs instance is mounted on
-                 * /run/[user/xyz/]systemd/unit-private-tmp as the storage backend of private /tmp and
-                 * /var/tmp. */
-                if (!IN_SET(f->mode, MOUNT_EXTENSION_IMAGE, MOUNT_EXTENSION_DIRECTORY, MOUNT_PRIVATE_TMPFS) &&
+                 * on the host. */
+                if (!IN_SET(f->mode, MOUNT_EXTENSION_IMAGE, MOUNT_EXTENSION_DIRECTORY) &&
                     !path_startswith(mount_entry_path(f), root_directory)) {
                         log_debug("%s is outside of root directory.", mount_entry_path(f));
                         mount_entry_done(f);
@@ -1617,20 +1553,6 @@ static int mount_tmpfs(const MountEntry *m) {
                 return log_debug_errno(r, "Failed to fix label of '%s' as '%s': %m", entry_path, inner_path);
 
         return 1;
-}
-
-static int mount_run(const MountEntry *m) {
-        int r;
-
-        assert(m);
-
-        r = path_is_mount_point(mount_entry_path(m));
-        if (r < 0 && r != -ENOENT)
-                return log_debug_errno(r, "Unable to determine whether /run is already mounted: %m");
-        if (r > 0) /* make this a NOP if /run is already a mount point */
-                return 0;
-
-        return mount_tmpfs(m);
 }
 
 static int mount_mqueuefs(const MountEntry *m) {
@@ -2139,9 +2061,6 @@ static int apply_one_mount(
         case MOUNT_PRIVATE_CGROUP2FS:
                 return mount_private_cgroup2fs(m, p);
 
-        case MOUNT_RUN:
-                return mount_run(m);
-
         case MOUNT_MQUEUEFS:
                 return mount_mqueuefs(m);
 
@@ -2456,10 +2375,8 @@ static int apply_mounts(
                                 continue;
 
                         /* ExtensionImages/Directories are first opened in the propagate directory, not in
-                         * the root_directory. A private (invisible to the guest) tmpfs instance is mounted
-                         * on /run/[user/xyz/]systemd/unit-private-tmp as the storage backend of private
-                         * /tmp and /var/tmp. */
-                        r = follow_symlink(!IN_SET(m->mode, MOUNT_EXTENSION_IMAGE, MOUNT_EXTENSION_DIRECTORY, MOUNT_PRIVATE_TMPFS) ? root : NULL, m);
+                         * the root_directory. */
+                        r = follow_symlink(!IN_SET(m->mode, MOUNT_EXTENSION_IMAGE, MOUNT_EXTENSION_DIRECTORY) ? root : NULL, m);
                         if (r < 0) {
                                 mount_entry_path_debug_string(root, m, reterr_path);
                                 return r;
@@ -2541,49 +2458,43 @@ static int apply_mounts(
         return 1;
 }
 
-static bool root_read_only(
-                char **read_only_paths,
-                ProtectSystem protect_system) {
+static bool root_read_only(const NamespaceParameters *p) {
 
         /* Determine whether the root directory is going to be read-only given the configured settings. */
 
-        if (protect_system == PROTECT_SYSTEM_STRICT)
+        if (p->protect_system == PROTECT_SYSTEM_STRICT)
                 return true;
 
-        if (prefixed_path_strv_contains(read_only_paths, "/"))
-                return true;
+        FOREACH_ARRAY(a, p->access_mounts, p->n_access_mounts)
+                if (a->mode == ACCESS_MOUNT_READ_ONLY && path_equal(a->path, "/"))
+                        return true;
 
         return false;
 }
 
-static bool home_read_only(
-                char * const *read_only_paths,
-                char * const *inaccessible_paths,
-                char * const *empty_directories,
-                const BindMount *bind_mounts,
-                size_t n_bind_mounts,
-                const TemporaryFileSystem *temporary_filesystems,
-                size_t n_temporary_filesystems,
-                ProtectHome protect_home) {
+static bool home_read_only(const NamespaceParameters *p) {
 
         /* Determine whether the /home directory is going to be read-only given the configured settings. Yes,
          * this is a bit sloppy, since we don't bother checking for cases where / is affected by multiple
          * settings. */
 
-        if (protect_home != PROTECT_HOME_NO)
+        if (p->protect_home != PROTECT_HOME_NO)
                 return true;
 
-        if (prefixed_path_strv_contains(read_only_paths, "/home") ||
-            prefixed_path_strv_contains(inaccessible_paths, "/home") ||
-            prefixed_path_strv_contains(empty_directories, "/home"))
+        FOREACH_ARRAY(a, p->access_mounts, p->n_access_mounts)
+                if (IN_SET(a->mode, ACCESS_MOUNT_READ_ONLY, ACCESS_MOUNT_INACCESSIBLE) &&
+                    path_equal(a->path, "/home"))
+                        return true;
+
+        if (prefixed_path_strv_contains(p->empty_directories, "/home"))
                 return true;
 
-        FOREACH_ARRAY(i, temporary_filesystems, n_temporary_filesystems)
+        FOREACH_ARRAY(i, p->temporary_filesystems, p->n_temporary_filesystems)
                 if (path_equal(i->path, "/home"))
                         return true;
 
         /* If /home is overmounted with some dir from the host it's not writable. */
-        FOREACH_ARRAY(i, bind_mounts, n_bind_mounts)
+        FOREACH_ARRAY(i, p->bind_mounts, p->n_bind_mounts)
                 if (path_equal(i->destination, "/home"))
                         return true;
 
@@ -2593,12 +2504,11 @@ static bool home_read_only(
 static bool namespace_read_only(const NamespaceParameters *p) {
         assert(p);
 
-        return root_read_only(p->read_only_paths,
-                              p->protect_system) &&
-                home_read_only(p->read_only_paths, p->inaccessible_paths, p->empty_directories,
-                               p->bind_mounts, p->n_bind_mounts, p->temporary_filesystems, p->n_temporary_filesystems,
-                               p->protect_home) &&
-                strv_isempty(p->read_write_paths);
+        FOREACH_ARRAY(a, p->access_mounts, p->n_access_mounts)
+                if (a->mode == ACCESS_MOUNT_READ_WRITE)
+                        return false;
+
+        return root_read_only(p) && home_read_only(p);
 }
 
 int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
@@ -2608,7 +2518,6 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         _cleanup_strv_free_ char **hierarchies = NULL;
         _cleanup_(mount_list_done) MountList ml = {};
         _cleanup_close_ int userns_fd = -EBADF;
-        bool require_prefix = false;
         const char *root;
         DissectImageFlags dissect_image_flags =
                 DISSECT_IMAGE_GENERIC_ROOT |
@@ -2794,25 +2703,21 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 }
         }
 
-        if (p->rootfs && p->rootfs->directory)
-                root = p->rootfs->directory;
-        else {
-                /* /run/systemd should have been created by PID 1 early on already, but in some cases, like
-                 * when running tests (test-execute), it might not have been created yet so let's make sure
-                 * we create it if it doesn't already exist. */
-                (void) mkdir_p_label("/run/systemd", 0755);
+        /* /run/systemd should have been created by PID 1 early on already, but in some cases, like
+         * when running tests (test-execute), it might not have been created yet so let's make sure
+         * we create it if it doesn't already exist. */
+        (void) mkdir_p_label("/run/systemd", 0755);
 
-                /* Always create the mount namespace in a temporary directory, instead of operating directly
-                 * in the root. The temporary directory prevents any mounts from being potentially obscured
-                 * my other mounts we already applied.  We use the same mount point for all images, which is
-                 * safe, since they all live in their own namespaces after all, and hence won't see each
-                 * other. (Note: this directory is also created by PID 1 early on, we create it here for
-                 * similar reasons as /run/systemd/ first.) */
-                root = "/run/systemd/mount-rootfs";
-                (void) mkdir_label(root, 0555);
-
-                require_prefix = true;
-        }
+        /* Always create the mount namespace in a temporary directory, instead of operating directly
+         * in the root (also when a root directory is configured). The temporary directory prevents any
+         * mounts from being potentially obscured by other mounts we already applied — in particular,
+         * bind mount sources below paths that are overmounted before them, such as the log sockets
+         * below /run/, whose sources are resolved at application time. We use the same mount point
+         * for all images, which is safe, since they all live in their own namespaces after all, and
+         * hence won't see each other. (Note: this directory is also created by PID 1 early on, we
+         * create it here for similar reasons as /run/systemd/ first.) */
+        root = "/run/systemd/mount-rootfs";
+        (void) mkdir_label(root, 0555);
 
         if (p->n_extension_images > 0 || !strv_isempty(p->extension_directories)) {
                 /* Hierarchy population needs to be done for sysext and confext extension images */
@@ -2821,23 +2726,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         return r;
         }
 
-        r = append_access_mounts(&ml, p->read_write_paths, MOUNT_READ_WRITE, require_prefix);
-        if (r < 0)
-                return r;
-
-        r = append_access_mounts(&ml, p->read_only_paths, MOUNT_READ_ONLY, require_prefix);
-        if (r < 0)
-                return r;
-
-        r = append_access_mounts(&ml, p->inaccessible_paths, MOUNT_INACCESSIBLE, require_prefix);
-        if (r < 0)
-                return r;
-
-        r = append_access_mounts(&ml, p->exec_paths, MOUNT_EXEC, require_prefix);
-        if (r < 0)
-                return r;
-
-        r = append_access_mounts(&ml, p->no_exec_paths, MOUNT_NOEXEC, require_prefix);
+        r = append_access_mounts(&ml, p->access_mounts, p->n_access_mounts);
         if (r < 0)
                 return r;
 
@@ -2945,6 +2834,19 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                                          p->ignore_protect_paths);
                 if (r < 0)
                         return r;
+
+                /* Only set up a writable /run/ tmpfs when a separate root directory is used. Without one, /run/
+                 * is the host's; leaving it out here keeps it subject to the read-only remount of
+                 * ProtectSystem=strict (and avoids leaking the host's /run/ as writable). A writable /run/ (or
+                 * a subdirectory of it) can still be requested via ReadWritePaths= or RuntimeDirectory=. */
+                if (pinned_resource_is_set(p->rootfs)) {
+                        r = append_static_mounts(&ml,
+                                                 apivfs_run_table,
+                                                 ELEMENTSOF(apivfs_run_table),
+                                                 p->ignore_protect_paths);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         /* Only mount /proc/sys/kernel/hostname and domainname read-only if ProtectHostname=yes. Otherwise,
@@ -3150,20 +3052,6 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 if (r < 0)
                         return r;
 
-        } else if (p->rootfs && p->rootfs->directory) {
-
-                /* If we do not have root_mount_fd, but a directory was specified, then we can use it directly. */
-
-                /* A root directory is specified. Turn its directory into bind mount, if it isn't one yet. */
-                r = path_is_mount_point_full(root, /* root = */ NULL, AT_SYMLINK_FOLLOW);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to detect that %s is a mount point or not: %m", root);
-                if (r == 0) {
-                        r = mount_nofollow_verbose(LOG_DEBUG, root, root, /* fstype= */ NULL, MS_BIND|MS_REC, /* options= */ NULL);
-                        if (r < 0)
-                                return r;
-                }
-
         } else if (dissected_image) {
 
                 /* A root image is specified, mount it to the right place */
@@ -3200,8 +3088,15 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         return r;
 
         } else {
-                /* Let's mount the main root directory to the root directory to use */
-                r = mount_nofollow_verbose(LOG_DEBUG, "/", root, /* fstype= */ NULL, MS_BIND|MS_REC, /* options= */ NULL);
+                /* Bind the main root directory (the configured one, or our own root when none is
+                 * configured) to the staging directory. This is the fallback for a root directory when
+                 * we could not get a detached mount of it, e.g. in an unprivileged user manager. Bind
+                 * by path: the pinned fd was opened before the mount namespace was unshared, and binds
+                 * through /proc/self/fd/ of such an fd fail with EINVAL as the fd references a mount of
+                 * the old mount namespace. */
+                r = mount_nofollow_verbose(LOG_DEBUG,
+                                           p->rootfs && p->rootfs->directory ? p->rootfs->directory : "/",
+                                           root, /* fstype= */ NULL, MS_BIND|MS_REC, /* options= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -3217,18 +3112,6 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
 
         /* MS_MOVE does not work on MS_SHARED so the remount MS_SHARED will be done later */
         r = mount_switch_root(root, /* mount_propagation_flag = */ 0);
-        if (r == -EINVAL && p->rootfs && p->rootfs->directory) {
-                /* If we are using root_directory and we don't have privileges (ie: user manager in a user
-                 * namespace) and the root_directory is already a mount point in the parent namespace,
-                 * MS_MOVE will fail as we don't have permission to change it (with EINVAL rather than
-                 * EPERM). Attempt to bind-mount it over itself (like we do above if it's not already a
-                 * mount point) and try again. */
-                r = mount_nofollow_verbose(LOG_DEBUG, root, root, /* fstype= */ NULL, MS_BIND|MS_REC, /* options= */ NULL);
-                if (r < 0)
-                        return r;
-
-                r = mount_switch_root(root, /* mount_propagation_flag= */ 0);
-        }
         if (r < 0)
                 return log_debug_errno(r, "Failed to mount root with MS_MOVE: %m");
 
@@ -3254,6 +3137,15 @@ void bind_mount_free_many(BindMount *b, size_t n) {
         }
 
         free(b);
+}
+
+void access_mount_free_many(AccessMount *a, size_t n) {
+        assert(a || n == 0);
+
+        FOREACH_ARRAY(i, a, n)
+                free(i->path);
+
+        free(a);
 }
 
 int bind_mount_add(BindMount **b, size_t *n, const BindMount *item) {
@@ -4301,4 +4193,40 @@ bool pinned_resource_is_set(const PinnedResource *p) {
                 p->image ||
                 p->mstack_loaded ||
                 p->mstack;
+}
+
+bool pinned_resource_is_host_root(PinnedResource *p) {
+        int r;
+
+        assert(p);
+
+        /* Returns true if the service runs with our own root directory, i.e. if nothing is pinned
+         * (no root configured), or if the pinned directory is the same directory (same inode on the
+         * same device) as our own root. Meant to be called when the service is invoked, not when the
+         * resource is pinned: the file descriptor of RootDirectoryFileDescriptor= is a detached
+         * snapshot taken when it was received, which may refer to a tree that only becomes our own
+         * root later, e.g. in the initrd before switching root. If we cannot check, assume a
+         * separate root. The result is cached in .directory_fd_is_host_root, so that all calls
+         * return the same answer, even if the check failed. */
+
+        if (!pinned_resource_is_set(p))
+                return true;
+
+        if (p->directory_fd < 0)
+                /* An image or mount stack, always a separate tree. */
+                return false;
+
+        if (p->directory_fd_is_host_root < 0) {
+                /* AT_NO_AUTOMOUNT is passed to bypass the mount id comparison in inode_same_at(): a
+                 * detached snapshot of our own root (like RootDirectoryFileDescriptor= provides)
+                 * always has its own mount id, hence only the inode is compared. */
+                r = inode_same_at(p->directory_fd, /* filea= */ NULL, AT_FDCWD, "/",
+                                  AT_EMPTY_PATH|AT_NO_AUTOMOUNT);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to check if the pinned root directory is identical to the host root directory, assuming it is not: %m");
+
+                p->directory_fd_is_host_root = r > 0;
+        }
+
+        return p->directory_fd_is_host_root;
 }
