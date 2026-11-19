@@ -28,8 +28,8 @@ else
         project_minor_version = '0'
 endif
 
-libsystemd_version = '0.45.0'
-libudev_version = '1.7.15'
+libsystemd_version = '0.46.0'
+libudev_version = '1.7.16'
 
 conf = configuration_data()
 conf.set_quoted('PROJECT_URL', 'https://systemd.io/')
