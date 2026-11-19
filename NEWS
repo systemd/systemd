@@ -46,7 +46,7 @@ CHANGES WITH 263 in spe:
           of source:destination. Unknown flags are shown numerically so newer
           manager properties can still be displayed.
 
-        * The Varlink method io.systemd.Hostname.SetTags has been extedended to
+        * The Varlink method io.systemd.Hostname.SetTags has been extended to
           allow globs and now applies the 'remove' list before the 'add' list.
           Previously, both lists were only allowed to contain literal tag
           specifications. That meant that there was little reason to include
