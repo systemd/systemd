@@ -25,6 +25,7 @@ COMMAND(
         "systemd-report-diskhealth\0",
         "Report disk health metrics.",
         .man_page = "systemd-report-diskhealth@.service(8)",
+        .flags = COMMAND_EXPERIMENTAL,
         .option_namespace = "common",
 );
 
