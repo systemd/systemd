@@ -104,7 +104,10 @@
         <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details. This functionality supports all socket families
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> supports,
-        including <constant>AF_INET</constant> and <constant>AF_INET6</constant>.</para>
+        including <constant>AF_INET</constant> and <constant>AF_INET6</constant>. For <constant>AF_INET</constant> and
+        <constant>AF_INET6</constant> sockets MPTCP is used if the kernel supports it, and TCP otherwise
+        (see <varname>SocketProtocol=mptcp-auto</varname> in
+        <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>).</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
@@ -125,7 +128,10 @@
         socket to bind SSH to. The syntax should follow the one of <varname>ListenStream=</varname>, see
         <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details. This functionality supports all socket families systemd supports, including
-        <constant>AF_INET</constant> and <constant>AF_INET6</constant>.</para>
+        <constant>AF_INET</constant> and <constant>AF_INET6</constant>. For <constant>AF_INET</constant> and
+        <constant>AF_INET6</constant> sockets MPTCP is used if the kernel supports it, and TCP otherwise
+        (see <varname>SocketProtocol=mptcp-auto</varname> in
+        <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>).</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
