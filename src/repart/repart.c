@@ -274,7 +274,7 @@ COMMAND(
         "systemd-repart\0",
         "Grow and add partitions to a partition table, and generate disk images (DDIs).",
         .argspec = "[DEVICE]\0",
-        .man_pages = "systemd-repart(8)\0",
+        .man_page = "systemd-repart(8)",
         .pager_flags = &arg_pager_flags,
 );
 

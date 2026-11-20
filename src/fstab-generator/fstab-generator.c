@@ -98,13 +98,13 @@ COMMAND(
         "systemd-fstab-generator\0",
         "Generate mount, swap, and automount units from /etc/fstab.",
         .argspec = GENERATOR_ARGSPEC,
-        .man_pages = "systemd-fstab-generator(8)\0",
+        .man_page = "systemd-fstab-generator(8)",
         .option_namespace = "common",
 );
 COMMAND(
         "systemd-sysroot-fstab-check\0",
         "Optionally call daemon-reload based on contents of /sysroot/etc/fstab.",
-        .man_pages = "systemd-fstab-generator(8)\0",
+        .man_page = "systemd-fstab-generator(8)",
         .option_namespace = "common",
 );
 

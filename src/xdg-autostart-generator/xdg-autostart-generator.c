@@ -19,7 +19,7 @@ COMMAND(
         "systemd-xdg-autostart-generator\0",
         "Generate user units from XDG autostart files.",
         .argspec = GENERATOR_ARGSPEC,
-        .man_pages = "systemd-xdg-autostart-generator(8)\0",
+        .man_page = "systemd-xdg-autostart-generator(8)",
         .option_namespace = "common",
 );
 

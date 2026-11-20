@@ -70,7 +70,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_sections, free_sections);
 COMMAND(
         "systemd-measure\0",
         "Pre-calculate and sign PCR hash for a unified kernel image (UKI).",
-        .man_pages = "systemd-measure(1)\0",
+        .man_page = "systemd-measure(1)",
         .pager_flags = &arg_pager_flags,
         .flags = COMMAND_EXPERIMENTAL,
 );

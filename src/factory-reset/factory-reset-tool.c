@@ -26,7 +26,7 @@ static bool arg_varlink = false;
 COMMAND(
         "systemd-factory-reset\0",
         "Query, request, or cancel a factory reset operation.",
-        .man_pages = "systemd-factory-reset(8)\0",
+        .man_page = "systemd-factory-reset(8)",
 );
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {

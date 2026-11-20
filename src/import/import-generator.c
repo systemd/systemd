@@ -29,7 +29,7 @@ COMMAND(
         "systemd-import-generator\0",
         "Download disk images at boot.",
         .argspec = GENERATOR_ARGSPEC,
-        .man_pages = "systemd-import-generator(8)\0",
+        .man_page = "systemd-import-generator(8)",
         .option_namespace = "common",
 );
 

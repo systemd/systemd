@@ -13,7 +13,7 @@
 COMMAND(
         "systemd-mountfsd\0",
         "Mount disk image file systems for unprivileged clients.",
-        .man_pages = "systemd-mountfsd.service(8)\0",
+        .man_page = "systemd-mountfsd.service(8)",
         .option_namespace = "common",
 );
 

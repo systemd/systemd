@@ -14,7 +14,7 @@
 COMMAND(
         "systemd-nsresourced\0",
         "Delegate user namespace resources to unprivileged clients.",
-        .man_pages = "systemd-nsresourced.service(8)\0",
+        .man_page = "systemd-nsresourced.service(8)",
         .option_namespace = "common",
 );
 
