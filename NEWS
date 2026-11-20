@@ -37,6 +37,44 @@ CHANGES WITH 263 in spe:
           foo:bar. Unit file syntax and the signature of the plain D-Bus
           string array property are unchanged.
 
+        * RootDirectory=/ is now treated like any other root directory: it
+          implies MountAPIVFS=yes and BindLogSockets=yes, and /run/ is a
+          private tmpfs in the resulting mount namespace. Previously it was
+          inconsistently half-ignored: the mount namespace machinery used it
+          as the root, but the settings derived from "a root is configured"
+          (MountAPIVFS=, BindLogSockets=, …) suppressed it.
+
+        * PrivateTmp= now defaults to disconnected when one of RootDirectory=,
+          RootImage=, RootDirectoryFileDescriptor=, or RootMStack= is
+          configured: the root directory or image does not necessarily provide
+          usable /tmp/ and /var/tmp/ directories, for example when it is
+          read-only. Explicitly configured PrivateTmp=, including PrivateTmp=no,
+          continues to be honoured as-is.
+
+        * Mounts implied by the sandboxing options — ProtectHome=,
+          ProtectSystem=, MountAPIVFS=, PrivateTmp=, PrivateDevices=, and
+          friends — are now overridden by mounts explicitly configured on the
+          same path, such as TemporaryFileSystem= or BindPaths=. Previously
+          the precedence between them depended on the kind of the implied
+          mount, and an implied mount could silently shadow the explicitly
+          configured one. An explicitly configured mount also owns its
+          attributes now: it does not take the attributes implied for the
+          same path, so e.g. a TemporaryFileSystem= stays writable unless it
+          is configured read-only itself, even when ProtectSystem= covers
+          its path. Explicitly configured sandboxing options such as
+          ReadOnlyPaths= still tighten explicitly configured mounts, and the
+          implied mounts keep taking the implied protections.
+
+        * The host's os-release file is now made available to services that use
+          one of the root directory settings as a private copy at
+          /run/host/os-release, taken when the service is spawned, rather than
+          as a read-only bind mount of a file shared with the manager. A service
+          can therefore only modify its own copy, which dies with its mount
+          namespace. As a consequence, the file is no longer refreshed on soft
+          reboot for services that are configured to survive it. It is now also
+          available for user-manager services running with PrivateUsers=managed,
+          which never got it before.
+
         * Empty transient assignments to RuntimeDirectory=, StateDirectory=,
           CacheDirectory= and LogsDirectory= now reset the corresponding
           directory list instead of being ignored. ConfigurationDirectory=
