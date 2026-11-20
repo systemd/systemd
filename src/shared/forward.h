@@ -65,6 +65,7 @@ typedef struct CurlGlue CurlGlue;
 typedef struct CurlSlot CurlSlot;
 typedef struct DissectedImage DissectedImage;
 typedef struct DnsAnswer DnsAnswer;
+typedef struct DnsAnswerItem DnsAnswerItem;
 typedef struct DnsPacket DnsPacket;
 typedef struct DnsQuestion DnsQuestion;
 typedef struct DnsResourceKey DnsResourceKey;
