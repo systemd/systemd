@@ -329,6 +329,11 @@
         (<constant>IPPROTO_SCTP</constant>) or MPTCP
         (<constant>IPPROTO_MPTCP</constant>) protocol, respectively.</para>
 
+        <para>This setting only applies to <constant>AF_INET</constant> and <constant>AF_INET6</constant>
+        sockets of a matching socket type, and is ignored for all others.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/>
+
         <xi:include href="version-info.xml" xpointer="v229"/>
         </listitem>
       </varlistentry>
