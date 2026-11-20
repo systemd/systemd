@@ -14,7 +14,6 @@ on:
       - .github/workflows/coverage.yml
       - test/integration-tests/integration-test-wrapper.py
       - src/boot/efi-gcov.c
-      - tools/run-efi-coverage.sh
 
 permissions:
   contents: read
@@ -59,14 +58,6 @@ jobs:
 
           [Build]
           ToolsTreeDistribution=arch
-          # The pinned tools tree (mkosi.tools.manifest) already ships the
-          # OVMF/QEMU/mtools/dosfstools the EFI coverage runner below needs;
-          # gdisk is the one missing dependency. The runner prefers GPT
-          # partitioning because OVMF only exposes partition objects for GPT
-          # disks, which the stub needs to find the ESP and exercise the
-          # random seed / boot secret / config paths (without sgdisk it
-          # falls back to MBR and still runs, but loses ~480 covered lines).
-          ToolsTreePackages=gdisk
           UseSubvolumes=yes
           WithTests=no
 
@@ -95,12 +86,9 @@ jobs:
 
       - name: Configure meson
         run: |
-          # Instrument the EFI boot binaries so that tools/run-efi-coverage.sh
-          # can capture their gcda counter files (see the step below).
           sudo mkosi box -- \
             meson setup \
             --buildtype=debugoptimized \
-            -Defi-coverage=true \
             build
 
       - name: Build image
@@ -140,24 +128,6 @@ jobs:
             --timeout-multiplier 2 \
             --max-lines 300 \
             --quiet
-
-      - name: Run EFI coverage
-        run: |
-          # The boot manager and the stub are part of the native build above;
-          # build them explicitly so the .efi files match the .gcno notes,
-          # then boot both under OVMF in QEMU (TCG, no KVM in the container)
-          # and capture the gcda counter files they write to the ESP. The
-          # runner produces one TEST-efi-*.coverage-info tracefile per
-          # scenario in build/test/coverage, which the "Combine coverage
-          # reports" step picks up like any other TEST-*.coverage-info file.
-          # --mem keeps the guest small in the 4G box. The runner's gdisk
-          # dependency is added to the tools tree by the "Configure" step
-          # (ToolsTreePackages=); the OVMF/QEMU/mtools/dosfstools it needs
-          # are already in the pinned tools tree (mkosi.tools.manifest).
-          # "systemd-boot" is the alias target covering all boot .efi files
-          # (the elf2efi outputs are custom targets, not meson target names)
-          sudo mkosi box -- meson compile -C build systemd-boot
-          sudo mkosi box -- tools/run-efi-coverage.sh both --mem 1024
 
       - name: Fix journal ownership
         if: failure() && (github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable')

@@ -277,9 +277,6 @@ if get_option('efi-coverage')
         # provide. EFI_COVERAGE is therefore carried in the per-arch c_args below
         # (archspec['arch'] == efi_arch), not in the shared efi config, so the
         # secondary target builds plain with the no-op efi-gcov stubs.
-        # The addon is excluded from the instrumentation: its code never runs (ukify
-        # only takes its PE sections), it does not link libefi, and would therefore
-        # be missing the efi-gcov shims libgcov needs at link time.
         efi_coverage_c_args = ['-DEFI_COVERAGE=1', '-ftest-coverage', '-fprofile-arcs']
         efi_coverage_ld_args = ['-lgcov']
 endif
@@ -345,6 +342,7 @@ libefi_sources = files(
         'edid.c',
         'efi-efivars.c',
         'efi-firmware.c',
+        'efi-gcov.c',
         'efi-log.c',
         'efi-string.c',
         'efivar-erase.c',
@@ -388,10 +386,6 @@ addon_sources = files(
 if get_option('b_sanitize') == 'undefined'
         libefi_sources += files('ubsan.c')
 endif
-
-# Always built: when efi-coverage is disabled this is a no-op stub, when enabled it
-# provides the gcov runtime shims and dumps the counters to the ESP at exit.
-libefi_sources += files('efi-gcov.c')
 
 if host_machine.cpu_family() in ['x86', 'x86_64']
         stub_sources += files('linux_x86.c')
@@ -467,7 +461,6 @@ foreach archspec : efi_archspecs
                 'pie' : true,
         }
 
-        # The boot manager and the stub are instrumented; the addon is not (see above).
         covered_kwargs = kwargs + {
                 'c_args' : kwargs['c_args'] + cov_c_args,
                 'link_args' : kwargs['link_args'] + cov_ld_args,

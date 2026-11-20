@@ -21,7 +21,10 @@
  * The .gcda file names libgcov uses are baked in at compile time as absolute
  * host build paths that do not exist on the volume, so the files are written
  * to the loader directory of the volume the boot loader was loaded from
- * (volume root as fallback) under their basename.
+ * (volume root as fallback). They are stored under the '#' encoded object
+ * path — the same convention GCC's -fprofile-dir uses for its data files —
+ * so the host-side coverage collection (the mkosi coverage setup and the
+ * integration test wrapper) can pair them with the .gcno notes.
  */
 
 #include "efi.h"
@@ -416,14 +419,31 @@ typedef struct {
 } gcov_fd_t;
 static gcov_fd_t gcov_fds[GCOV_FD_MAX];
 
-static const char *basename8(const char *path) {
-        assert(path);
+/* The counter data file libgcov opens is named after the object path baked
+ * in at compile time. When the loader is built with -fprofile-dir, libgcov
+ * prefixes the profile directory and passes the name with every '/' already
+ * replaced by '#' (the GCC profile directory convention); otherwise it
+ * passes the plain path. The volume only has the flat loader directory, so
+ * the file is stored under the '#' encoded object path in either case: use
+ * the leaf as-is if it is already encoded, otherwise encode the full path. */
+static char *gcov_data_name8(const char *name) {
+        assert(name);
 
-        const char *base = path;
-        for (; *path; path++)
-                if (*path == '/')
-                        base = path + 1;
-        return base;
+        const char *base = name;
+        char *out;
+
+        for (; *name; name++)
+                if (*name == '/')
+                        base = name + 1;
+
+        if (strchr8(base, '#'))
+                return xstrdup8(base);
+
+        out = xstrdup8(name);
+        for (char *p = out; *p; p++)
+                if (*p == '/')
+                        *p = '#';
+        return out;
 }
 
 /* The counter files go to the loader directory (where sd-boot keeps its own
@@ -456,6 +476,7 @@ static EFI_FILE *gcov_file_dir(void) {
 }
 
 int open(const char *name, int flags, mode_t mode) {
+        _cleanup_free_ char *data_name = NULL;
         _cleanup_free_ char16_t *path = NULL;
         EFI_FILE *dir;
         int slot;
@@ -465,9 +486,8 @@ int open(const char *name, int flags, mode_t mode) {
         if (!(dir = gcov_file_dir()))
                 return -1;
 
-        /* The baked name is the absolute host build path, only the leaf
-         * (below the loader directory) exists on the volume. */
-        path = xstr8_to_16(basename8(name));
+        data_name = gcov_data_name8(name);
+        path = xstr8_to_16(data_name);
 
         for (slot = 1; slot < GCOV_FD_MAX; slot++)
                 if (!gcov_fds[slot].f)
@@ -541,6 +561,7 @@ static int gcov_open_mode(const char *mode) {
 }
 
 FILE *fopen(const char *name, const char *mode) {
+        _cleanup_free_ char *data_name = NULL;
         _cleanup_free_ char16_t *path = NULL;
         EFI_FILE *dir;
         FILE *f;
@@ -553,7 +574,8 @@ FILE *fopen(const char *name, const char *mode) {
         if (!(dir = gcov_file_dir()))
                 return NULL;
 
-        path = xstr8_to_16(basename8(name));
+        data_name = gcov_data_name8(name);
+        path = xstr8_to_16(data_name);
         if (EFI_STATUS_IS_ERROR(dir->Open(dir, &f->f, path, om, 0)))
                 return NULL;
 
