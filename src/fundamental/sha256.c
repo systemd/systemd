@@ -119,8 +119,11 @@ uint8_t *sha256_finish_ctx(struct sha256_ctx *ctx, uint8_t resbuf[static SHA256_
 }
 
 void sha256_process_bytes(const void *buffer, size_t len, struct sha256_ctx *ctx) {
-        assert(buffer);
+        assert(buffer || len == 0);
         assert(ctx);
+
+        if (len == 0) /* Accept NULL buffers if the size is zero, e.g. for empty iovecs */
+                return;
 
         /* When we already have some bits in our internal buffer concatenate
            both inputs first.  */
