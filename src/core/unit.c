@@ -1648,8 +1648,12 @@ static int unit_add_oomd_dependencies(Unit *u) {
                 return 0;
 
         r = cg_mask_supported(&mask);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to determine supported controllers: %m");
+        if (r < 0) {
+                /* We may not be able to see PID 1, e.g. in a user manager when /proc is mounted with
+                 * hidepid=. Fall back to the controllers available in our own cgroup subtree. */
+                log_unit_debug_errno(u, r, "Failed to determine supported controllers, using our own subtree's: %m");
+                mask = u->manager->cgroup_supported;
+        }
 
         if (!FLAGS_SET(mask, CGROUP_MASK_MEMORY))
                 return 0;
