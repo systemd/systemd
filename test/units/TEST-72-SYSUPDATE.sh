@@ -1856,7 +1856,7 @@ test_zero_fill_partition() {
     local defdir="$WORKDIR/zerofill-defs"
     local backing="$WORKDIR/zerofill-disk.raw"
     local backing_size=4M
-    local -a losetup_args=()
+    local -a losetup_args=() lock=()
     local blockdev source_path
 
     rm -rf "$sigdir" "$defdir" "$backing"
@@ -1870,11 +1870,15 @@ test_zero_fill_partition() {
     if [[ -e /dev/loop-control ]]; then
         blockdev="$(losetup --find --show "${losetup_args[@]}" "$backing")"
         ZEROFILL_LOOP="$blockdev"
+        # Take the udev lock on the block device while repartitioning, so that udev doesn't probe the
+        # partitions of the previous sfdisk invocation while the next one asks the kernel to re-read the
+        # partition table, which would fail with EBUSY then.
+        lock=(udevadm lock --timeout=30 --device="$blockdev")
     else
         blockdev="$backing"
     fi
 
-    sfdisk "$blockdev" <<EOF
+    "${lock[@]}" sfdisk "$blockdev" <<EOF
 label: gpt
 unit: sectors
 
@@ -1883,7 +1887,7 @@ size=64, type=$ptype_uuid, name=_empty
 EOF
 
     if [[ "$in_use" == yes ]]; then
-        sfdisk --append "$blockdev" <<EOF
+        "${lock[@]}" sfdisk --append "$blockdev" <<EOF
 size=16384, type=0fc63daf-8483-4772-8e79-3d69d8477de4, name=mounted
 EOF
         udevadm wait --timeout=30 --settle "${blockdev}p3"

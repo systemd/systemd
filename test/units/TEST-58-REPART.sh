@@ -2990,8 +2990,14 @@ testcase_varlink_subscribe_devices() {
     mark=$(expect_event "\"action\":\"add\".*\"node\":\"$loop\"" "$mark") || return 1
 
     # === Test 3: detaching the loopback produces a "remove" event ===
+    #
+    # Note that we use "udevadm settle" rather than "udevadm wait --removed" after detaching: udev might
+    # still be processing a stale "change" event for the device while it is being removed, and its attempt
+    # to open the device node then resurrects an (empty, unbound) loop device of the same number via the
+    # kernel's legacy block device autoloading, which means the device node never goes away. Such a
+    # resurrected loop device has a size of zero, hence won't be reported by the "ignoreEmpty" subscriber.
     systemd-dissect --detach "$loop"
-    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --removed --settle "$loop"
+    udevadm settle --timeout="$UDEVADM_WAIT_TIMEOUT"
     mark=$(expect_event "\"action\":\"remove\".*\"node\":\"$loop\"" "$mark") || return 1
     loop=""
 
@@ -3002,7 +3008,7 @@ testcase_varlink_subscribe_devices() {
         mark=$(expect_event "\"action\":\"add\".*\"node\":\"$loop\"" "$mark") || return 1
 
         systemd-dissect --detach "$loop"
-        udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --removed --settle "$loop"
+        udevadm settle --timeout="$UDEVADM_WAIT_TIMEOUT"
         mark=$(expect_event "\"action\":\"remove\".*\"node\":\"$loop\"" "$mark") || return 1
         loop=""
     done
@@ -3019,12 +3025,12 @@ testcase_varlink_subscribe_devices() {
     mark=$(expect_event "\"action\":\"add\".*\"node\":\"$loop2\"" "$mark") || return 1
 
     systemd-dissect --detach "$loop2"
-    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --removed --settle "$loop2"
+    udevadm settle --timeout="$UDEVADM_WAIT_TIMEOUT"
     mark=$(expect_event "\"action\":\"remove\".*\"node\":\"$loop2\"" "$mark") || return 1
     loop2=""
 
     systemd-dissect --detach "$loop"
-    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --removed --settle "$loop"
+    udevadm settle --timeout="$UDEVADM_WAIT_TIMEOUT"
     mark=$(expect_event "\"action\":\"remove\".*\"node\":\"$loop\"" "$mark") || return 1
     loop=""
 
