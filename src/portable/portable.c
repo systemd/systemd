@@ -327,7 +327,7 @@ static int extract_now(
                 if (socket_fd >= 0) {
                         struct iovec iov[] = {
                                 IOVEC_MAKE_STRING(os_release_id),
-                                IOVEC_MAKE((char *)"\0", sizeof(char)),
+                                iovec_nul_byte,
                         };
 
                         r = send_one_fd_iov_with_data_fd(socket_fd, iov, ELEMENTSOF(iov), os_release_fd);
@@ -429,7 +429,7 @@ static int extract_now(
                         if (socket_fd >= 0) {
                                 struct iovec iov[] = {
                                         IOVEC_MAKE_STRING(de->d_name),
-                                        IOVEC_MAKE((char *)"\0", sizeof(char)),
+                                        iovec_nul_byte,
                                         IOVEC_MAKE_STRING(strempty(con)),
                                 };
 

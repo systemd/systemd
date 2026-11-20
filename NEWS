@@ -11,6 +11,16 @@ CHANGES WITH 263 in spe:
 
         Feature Removals and Incompatible Changes:
 
+        * /run/ is now correctly read-only under ProtectSystem=strict. Since
+          v248, when MountAPIVFS= was in effect (which is also implied by
+          ProtectControlGroups=, ProtectKernelTunables=, ProtectProc=, and similar
+          settings), /run/ was erroneously left writable, and when the mount
+          namespace shared the host's /run/ this even left the host's /run/
+          writable. Services that relied on this and need a writable /run/ must
+          now request it explicitly via ReadWritePaths= or RuntimeDirectory=.
+          With RootDirectory=/RootImage=, /run/ remains a private writable tmpfs
+          as before.
+
         * The io.systemd.Unit.SetProperties() Varlink method now accepts a
           dedicated UnitProperties input type containing only Markers. Clients
           using generated bindings may need updates. The Markers JSON
@@ -252,6 +262,18 @@ CHANGES WITH 263 in spe:
         * "varlinkctl call" now prints an empty JSON object ({}) instead of
           no output for a reply with no parameters.
 
+        * sd-json now refuses JSON objects that contain the same key more
+          than once. sd_json_variant_new_object() — and thus also
+          sd_json_parse() and related calls, as well as sd_json_build() —
+          now fail with -ENOTUNIQ in this case. Previously such objects were
+          accepted, and lookups by key would return the first matching
+          field, while many other JSON implementations use the last one, which
+          could lead to different consumers of the same JSON data seeing
+          different values. This affects all JSON input processed by systemd
+          components, including Varlink messages, JSON user/group records,
+          and JSON configuration files: these must not contain duplicate keys
+          anymore. This is in line with the I-JSON profile of RFC 7493.
+
         Changes in the system and service manager:
 
         * systemd-inhibit gained a new --signal= option. Used together with
@@ -330,13 +352,14 @@ CHANGES WITH 263 in spe:
 
         New pseudo TTY broker:
 
-        * The new systemd-ptybrokerd service allocates pseudo TTYs and keeps
-          them open independently of the client that requested them. For
-          example, it is now possible to disconnect from a container console
-          and reconnect later without stopping the container. The broker is
-          socket-activated and available both system-wide and per user.
-          The new ptyctl tool lists terminals, attaches to them interactively
-          with "ptyctl monitor NAME", and hangs them up on request.
+        * The new experimental systemd-ptybrokerd service allocates pseudo TTYs
+          and keeps them open independently of the client that requested them.
+          For example, it is now possible to disconnect from a container
+          console and reconnect later without stopping the container. The
+          broker is socket-activated and available both system-wide and per
+          user. The new ptyctl tool lists terminals, attaches to them
+          interactively with "ptyctl monitor NAME", and hangs them up on
+          request.
 
         * StandardInput=, StandardOutput= and StandardError= in unit files
           gained "broker" and "broker-log" modes. systemd-nspawn,
@@ -344,11 +367,11 @@ CHANGES WITH 263 in spe:
           --console=. Both allow a client to attach later. "broker-log" also
           writes the terminal output to the journal.
 
-        * run0 now uses the broker for a plain local interactive shell. Such
-          shells use the systemd-ptybroker-shell PAM stack and the dedicated
-          io.systemd.PTYBroker.acquire-pty-with-shell polkit action. Running
-          an explicit command or requesting custom unit properties still uses
-          the transient service path.
+        * When systemd-ptybrokerd is available, run0 uses it for plain local
+          interactive shells. Such shells use the systemd-ptybroker-shell PAM
+          stack and the dedicated io.systemd.PTYBroker.acquire-pty-with-shell
+          polkit action. Running an explicit command or requesting custom unit
+          properties still uses the transient service path.
 
         Changes in systemd-logind:
 

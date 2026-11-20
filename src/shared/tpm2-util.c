@@ -29,6 +29,7 @@
 #include "hmac.h"
 #include "initrd-util.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "json-util.h"
 #include "limits-util.h"
 #include "log.h"
@@ -6778,13 +6779,9 @@ int tpm2_serialize(
 
         /* Make a copy since we don't want the caller to understand that ESYS allocated the pointer.
          * It would make tracking what deallocator to use for the result in which context a PITA. */
-        struct iovec v;
-        v.iov_base = memdup(serialized, size);
-        if (!v.iov_base)
+        if (!iovec_memdup(&IOVEC_MAKE(serialized, size), ret))
                 return log_oom_debug();
-        v.iov_len = size;
 
-        *ret = v;
         return 0;
 }
 
@@ -8810,14 +8807,9 @@ int tpm2_unseal_data(
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to unseal data: %s", sym_Tss2_RC_Decode(rc));
 
-        _cleanup_(iovec_done) struct iovec d = {
-                .iov_base = memdup(unsealed->buffer, unsealed->size),
-                .iov_len = unsealed->size,
-        };
-        if (!d.iov_base)
+        if (!iovec_memdup(&IOVEC_MAKE(unsealed->buffer, unsealed->size), ret_data))
                 return log_oom_debug();
 
-        *ret_data = TAKE_STRUCT(d);
         return 0;
 }
 #endif /* HAVE_TPM2 */
@@ -12125,7 +12117,7 @@ int tpm2_argon2id_derive_split(
         assert(ret_b64_pin);
 
         r = kdf_argon2id_derive(
-                        &IOVEC_MAKE(pin, strlen(pin)),
+                        &IOVEC_MAKE_STRING(pin),
                         salt,
                         argon2id_params,
                         /* derive_size= */ 64, &derived);
@@ -12136,10 +12128,8 @@ int tpm2_argon2id_derive_split(
 
         const uint8_t *derived_bytes = derived.iov_base;
 
-        ret_key1->iov_base = memdup(derived_bytes, 32);
-        if (!ret_key1->iov_base)
+        if (!iovec_memdup(&IOVEC_MAKE(derived_bytes, 32), ret_key1))
                 return log_oom();
-        ret_key1->iov_len = 32;
 
         ssize_t n = base64mem(derived_bytes + 32, 32, ret_b64_pin);
         if (n < 0)

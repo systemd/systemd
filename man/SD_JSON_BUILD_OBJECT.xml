@@ -1,0 +1,459 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="SD_JSON_BUILD_OBJECT" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>SD_JSON_BUILD_OBJECT</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>SD_JSON_BUILD_OBJECT</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>SD_JSON_BUILD_OBJECT</refname>
+    <refname>SD_JSON_BUILD_EMPTY_OBJECT</refname>
+    <refname>SD_JSON_BUILD_ARRAY</refname>
+    <refname>SD_JSON_BUILD_EMPTY_ARRAY</refname>
+    <refname>SD_JSON_BUILD_PAIR</refname>
+    <refname>SD_JSON_BUILD_PAIR_CONDITION</refname>
+    <refname>SD_JSON_BUILD_STRING</refname>
+    <refname>SD_JSON_BUILD_INTEGER</refname>
+    <refname>SD_JSON_BUILD_UNSIGNED</refname>
+    <refname>SD_JSON_BUILD_REAL</refname>
+    <refname>SD_JSON_BUILD_BOOLEAN</refname>
+    <refname>SD_JSON_BUILD_NULL</refname>
+    <refname>SD_JSON_BUILD_VARIANT</refname>
+    <refname>SD_JSON_BUILD_VARIANT_ARRAY</refname>
+    <refname>SD_JSON_BUILD_LITERAL</refname>
+    <refname>SD_JSON_BUILD_STRV</refname>
+    <refname>SD_JSON_BUILD_BASE64</refname>
+    <refname>SD_JSON_BUILD_BASE32HEX</refname>
+    <refname>SD_JSON_BUILD_HEX</refname>
+    <refname>SD_JSON_BUILD_OCTESCAPE</refname>
+    <refname>SD_JSON_BUILD_BYTE_ARRAY</refname>
+    <refname>SD_JSON_BUILD_ID128</refname>
+    <refname>SD_JSON_BUILD_UUID</refname>
+    <refname>SD_JSON_BUILD_CALLBACK</refname>
+    <refname>SD_JSON_BUILD_PAIR_STRING</refname>
+    <refname>SD_JSON_BUILD_PAIR_INTEGER</refname>
+    <refname>SD_JSON_BUILD_PAIR_UNSIGNED</refname>
+    <refname>SD_JSON_BUILD_PAIR_REAL</refname>
+    <refname>SD_JSON_BUILD_PAIR_BOOLEAN</refname>
+    <refname>SD_JSON_BUILD_PAIR_ARRAY</refname>
+    <refname>SD_JSON_BUILD_PAIR_EMPTY_ARRAY</refname>
+    <refname>SD_JSON_BUILD_PAIR_OBJECT</refname>
+    <refname>SD_JSON_BUILD_PAIR_EMPTY_OBJECT</refname>
+    <refname>SD_JSON_BUILD_PAIR_NULL</refname>
+    <refname>SD_JSON_BUILD_PAIR_VARIANT</refname>
+    <refname>SD_JSON_BUILD_PAIR_VARIANT_ARRAY</refname>
+    <refname>SD_JSON_BUILD_PAIR_LITERAL</refname>
+    <refname>SD_JSON_BUILD_PAIR_STRV</refname>
+    <refname>SD_JSON_BUILD_PAIR_BASE64</refname>
+    <refname>SD_JSON_BUILD_PAIR_BASE32HEX</refname>
+    <refname>SD_JSON_BUILD_PAIR_HEX</refname>
+    <refname>SD_JSON_BUILD_PAIR_OCTESCAPE</refname>
+    <refname>SD_JSON_BUILD_PAIR_BYTE_ARRAY</refname>
+    <refname>SD_JSON_BUILD_PAIR_ID128</refname>
+    <refname>SD_JSON_BUILD_PAIR_UUID</refname>
+    <refname>SD_JSON_BUILD_PAIR_CALLBACK</refname>
+    <refname>sd_json_build_callback_t</refname>
+
+    <refpurpose>Macros describing JSON variants to construct with sd_json_build()</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-json.h&gt;</funcsynopsisinfo>
+
+      <funcsynopsisinfo><token>SD_JSON_BUILD_OBJECT</token>(<replaceable>pair</replaceable>…)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_EMPTY_OBJECT</token></funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_ARRAY</token>(<replaceable>value</replaceable>…)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_EMPTY_ARRAY</token></funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_PAIR</token>(const char *<replaceable>name</replaceable>, <replaceable>value</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_PAIR_CONDITION</token>(int <replaceable>condition</replaceable>, const char *<replaceable>name</replaceable>, <replaceable>value</replaceable>)</funcsynopsisinfo>
+
+      <funcsynopsisinfo><token>SD_JSON_BUILD_STRING</token>(const char *<replaceable>s</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_INTEGER</token>(int64_t <replaceable>i</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_UNSIGNED</token>(uint64_t <replaceable>u</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_REAL</token>(double <replaceable>d</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_BOOLEAN</token>(int <replaceable>b</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_NULL</token></funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_VARIANT</token>(sd_json_variant *<replaceable>v</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_VARIANT_ARRAY</token>(sd_json_variant **<replaceable>v</replaceable>, size_t <replaceable>n</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_LITERAL</token>(const char *<replaceable>l</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_STRV</token>(char **<replaceable>l</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_BASE64</token>(const void *<replaceable>p</replaceable>, size_t <replaceable>n</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_BASE32HEX</token>(const void *<replaceable>p</replaceable>, size_t <replaceable>n</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_HEX</token>(const void *<replaceable>p</replaceable>, size_t <replaceable>n</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_OCTESCAPE</token>(const void *<replaceable>p</replaceable>, size_t <replaceable>n</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_BYTE_ARRAY</token>(const void *<replaceable>p</replaceable>, size_t <replaceable>n</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_ID128</token>(sd_id128_t <replaceable>id</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_UUID</token>(sd_id128_t <replaceable>id</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_CALLBACK</token>(sd_json_build_callback_t <replaceable>c</replaceable>, void *<replaceable>userdata</replaceable>)</funcsynopsisinfo>
+
+      <funcsynopsisinfo><token>SD_JSON_BUILD_PAIR_STRING</token>(const char *<replaceable>name</replaceable>, const char *<replaceable>s</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_PAIR_INTEGER</token>(const char *<replaceable>name</replaceable>, int64_t <replaceable>i</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_PAIR_UNSIGNED</token>(const char *<replaceable>name</replaceable>, uint64_t <replaceable>u</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_PAIR_REAL</token>(const char *<replaceable>name</replaceable>, double <replaceable>d</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_PAIR_BOOLEAN</token>(const char *<replaceable>name</replaceable>, int <replaceable>b</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_PAIR_ARRAY</token>(const char *<replaceable>name</replaceable>, <replaceable>value</replaceable>…)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_PAIR_EMPTY_ARRAY</token>(const char *<replaceable>name</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_PAIR_OBJECT</token>(const char *<replaceable>name</replaceable>, <replaceable>pair</replaceable>…)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_PAIR_EMPTY_OBJECT</token>(const char *<replaceable>name</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_PAIR_NULL</token>(const char *<replaceable>name</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_PAIR_VARIANT</token>(const char *<replaceable>name</replaceable>, sd_json_variant *<replaceable>v</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_PAIR_VARIANT_ARRAY</token>(const char *<replaceable>name</replaceable>, sd_json_variant **<replaceable>v</replaceable>, size_t <replaceable>n</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_PAIR_LITERAL</token>(const char *<replaceable>name</replaceable>, const char *<replaceable>l</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_PAIR_STRV</token>(const char *<replaceable>name</replaceable>, char **<replaceable>l</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_PAIR_BASE64</token>(const char *<replaceable>name</replaceable>, const void *<replaceable>p</replaceable>, size_t <replaceable>n</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_PAIR_BASE32HEX</token>(const char *<replaceable>name</replaceable>, const void *<replaceable>p</replaceable>, size_t <replaceable>n</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_PAIR_HEX</token>(const char *<replaceable>name</replaceable>, const void *<replaceable>p</replaceable>, size_t <replaceable>n</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_PAIR_OCTESCAPE</token>(const char *<replaceable>name</replaceable>, const void *<replaceable>p</replaceable>, size_t <replaceable>n</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_PAIR_BYTE_ARRAY</token>(const char *<replaceable>name</replaceable>, const void *<replaceable>p</replaceable>, size_t <replaceable>n</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_PAIR_ID128</token>(const char *<replaceable>name</replaceable>, sd_id128_t <replaceable>id</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_PAIR_UUID</token>(const char *<replaceable>name</replaceable>, sd_id128_t <replaceable>id</replaceable>)</funcsynopsisinfo>
+      <funcsynopsisinfo><token>SD_JSON_BUILD_PAIR_CALLBACK</token>(const char *<replaceable>name</replaceable>, sd_json_build_callback_t <replaceable>c</replaceable>, void *<replaceable>userdata</replaceable>)</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>typedef int (*<function>sd_json_build_callback_t</function>)</funcdef>
+        <paramdef>sd_json_variant **<parameter>ret</parameter></paramdef>
+        <paramdef>const char *<parameter>name</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>The <constant>SD_JSON_BUILD_…()</constant> macros are used to describe the structure and contents
+    of a JSON variant to construct with
+    <citerefentry><refentrytitle>sd_json_build</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
+    related calls. Each macro expands to a type identifier followed by its arguments, cast to the precise
+    types the builder expects. They may only be used in the variadic argument list of these calls, and
+    there is no type checking beyond what the casts provide.</para>
+
+    <para>A description consists of exactly one value. Values are generated by the macros listed under
+    "Values" below, or by <constant>SD_JSON_BUILD_OBJECT()</constant> or
+    <constant>SD_JSON_BUILD_ARRAY()</constant>, which in turn take a list of fields or values, and may be
+    nested arbitrarily.</para>
+
+    <refsect2>
+      <title>Containers</title>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>SD_JSON_BUILD_OBJECT(<replaceable>pair</replaceable>…)</constant></term>
+
+          <listitem><para>Generates a JSON object. Takes a list of zero or more key/value pairs, i.e.
+          object fields, each described by <constant>SD_JSON_BUILD_PAIR()</constant>,
+          <constant>SD_JSON_BUILD_PAIR_CONDITION()</constant> or one of the
+          <constant>SD_JSON_BUILD_PAIR_…()</constant> shortcut macros. The fields are added to the object in
+          the order specified. Each key may be used only once in the same object, see
+          <citerefentry><refentrytitle>sd_json_variant_new_object</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>SD_JSON_BUILD_EMPTY_OBJECT</constant></term>
+
+          <listitem><para>Generates an empty JSON object, i.e. <literal>{}</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>SD_JSON_BUILD_ARRAY(<replaceable>value</replaceable>…)</constant></term>
+
+          <listitem><para>Generates a JSON array. Takes a list of zero or more values, which are added to
+          the array in the order specified.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>SD_JSON_BUILD_EMPTY_ARRAY</constant></term>
+
+          <listitem><para>Generates an empty JSON array, i.e. <literal>[]</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Object Fields</title>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>SD_JSON_BUILD_PAIR(<replaceable>name</replaceable>, <replaceable>value</replaceable>)</constant></term>
+
+          <listitem><para>Generates an object field. Takes the key name as a string, followed by the
+          description of exactly one value. May only be used directly inside of
+          <constant>SD_JSON_BUILD_OBJECT()</constant> (or <function>sd_json_buildo()</function>).</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>SD_JSON_BUILD_PAIR_CONDITION(<replaceable>condition</replaceable>, <replaceable>name</replaceable>, <replaceable>value</replaceable>)</constant></term>
+
+          <listitem><para>Similar to <constant>SD_JSON_BUILD_PAIR()</constant>, but takes an additional
+          boolean condition as first argument. If false, the field is omitted from the generated object. In
+          this case the value is not generated either, with one exception: a JSON string specified with
+          <constant>SD_JSON_BUILD_LITERAL()</constant> is parsed even if the field is suppressed, and parse
+          errors are reported. Note that a field omitted this way does not count when checking for duplicate
+          keys, which allows multiple fields of the same name with mutually exclusive conditions.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>SD_JSON_BUILD_PAIR_STRING()</constant></term>
+          <term><constant>SD_JSON_BUILD_PAIR_INTEGER()</constant></term>
+          <term><constant>SD_JSON_BUILD_PAIR_UNSIGNED()</constant></term>
+          <term><constant>SD_JSON_BUILD_PAIR_REAL()</constant></term>
+          <term><constant>SD_JSON_BUILD_PAIR_BOOLEAN()</constant></term>
+          <term><constant>SD_JSON_BUILD_PAIR_ARRAY()</constant></term>
+          <term><constant>SD_JSON_BUILD_PAIR_EMPTY_ARRAY()</constant></term>
+          <term><constant>SD_JSON_BUILD_PAIR_OBJECT()</constant></term>
+          <term><constant>SD_JSON_BUILD_PAIR_EMPTY_OBJECT()</constant></term>
+          <term><constant>SD_JSON_BUILD_PAIR_NULL()</constant></term>
+          <term><constant>SD_JSON_BUILD_PAIR_VARIANT()</constant></term>
+          <term><constant>SD_JSON_BUILD_PAIR_VARIANT_ARRAY()</constant></term>
+          <term><constant>SD_JSON_BUILD_PAIR_LITERAL()</constant></term>
+          <term><constant>SD_JSON_BUILD_PAIR_STRV()</constant></term>
+          <term><constant>SD_JSON_BUILD_PAIR_BASE64()</constant></term>
+          <term><constant>SD_JSON_BUILD_PAIR_BASE32HEX()</constant></term>
+          <term><constant>SD_JSON_BUILD_PAIR_HEX()</constant></term>
+          <term><constant>SD_JSON_BUILD_PAIR_OCTESCAPE()</constant></term>
+          <term><constant>SD_JSON_BUILD_PAIR_BYTE_ARRAY()</constant></term>
+          <term><constant>SD_JSON_BUILD_PAIR_ID128()</constant></term>
+          <term><constant>SD_JSON_BUILD_PAIR_UUID()</constant></term>
+          <term><constant>SD_JSON_BUILD_PAIR_CALLBACK()</constant></term>
+
+          <listitem><para>Shortcuts that combine <constant>SD_JSON_BUILD_PAIR()</constant> with the value
+          macro of the same suffix: they take the key name as first argument, followed by the arguments of
+          the respective value macro. For example,
+          <constant>SD_JSON_BUILD_PAIR_STRING("foo", "bar")</constant> is equivalent to
+          <constant>SD_JSON_BUILD_PAIR("foo", SD_JSON_BUILD_STRING("bar"))</constant>, and
+          <constant>SD_JSON_BUILD_PAIR_EMPTY_ARRAY("foo")</constant> is equivalent to
+          <constant>SD_JSON_BUILD_PAIR("foo", SD_JSON_BUILD_EMPTY_ARRAY)</constant>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Values</title>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>SD_JSON_BUILD_STRING(<replaceable>s</replaceable>)</constant></term>
+
+          <listitem><para>Generates a JSON string from a NUL-terminated C string, which must be valid UTF-8.
+          If <replaceable>s</replaceable> is <constant>NULL</constant>, a JSON <constant>null</constant>
+          value is generated instead.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>SD_JSON_BUILD_INTEGER(<replaceable>i</replaceable>)</constant></term>
+
+          <listitem><para>Generates a JSON number from a signed 64-bit integer.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>SD_JSON_BUILD_UNSIGNED(<replaceable>u</replaceable>)</constant></term>
+
+          <listitem><para>Generates a JSON number from an unsigned 64-bit integer.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>SD_JSON_BUILD_REAL(<replaceable>d</replaceable>)</constant></term>
+
+          <listitem><para>Generates a JSON number from a <type>double</type>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>SD_JSON_BUILD_BOOLEAN(<replaceable>b</replaceable>)</constant></term>
+
+          <listitem><para>Generates a JSON boolean. Any non-zero value of <replaceable>b</replaceable>
+          results in <constant>true</constant>, zero in <constant>false</constant>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>SD_JSON_BUILD_NULL</constant></term>
+
+          <listitem><para>Generates a JSON <constant>null</constant> value.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>SD_JSON_BUILD_VARIANT(<replaceable>v</replaceable>)</constant></term>
+
+          <listitem><para>Inserts an existing <type>sd_json_variant</type> object, which may be of any type.
+          A new reference to the object is taken, the caller's reference is not consumed. If
+          <replaceable>v</replaceable> is <constant>NULL</constant>, a JSON <constant>null</constant> value
+          is generated instead.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>SD_JSON_BUILD_VARIANT_ARRAY(<replaceable>v</replaceable>, <replaceable>n</replaceable>)</constant></term>
+
+          <listitem><para>Generates a JSON array from a C array of <replaceable>n</replaceable>
+          <type>sd_json_variant</type> objects, see
+          <function>sd_json_variant_new_array()</function>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>SD_JSON_BUILD_LITERAL(<replaceable>l</replaceable>)</constant></term>
+
+          <listitem><para>Parses the specified string as JSON (with the same rules as
+          <citerefentry><refentrytitle>sd_json_parse</refentrytitle><manvolnum>3</manvolnum></citerefentry>)
+          and inserts the result. If <replaceable>l</replaceable> is <constant>NULL</constant>, a JSON
+          <constant>null</constant> value is generated instead.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>SD_JSON_BUILD_STRV(<replaceable>l</replaceable>)</constant></term>
+
+          <listitem><para>Generates a JSON array of strings from a <constant>NULL</constant>-terminated C
+          string array. If <replaceable>l</replaceable> is <constant>NULL</constant> or empty, an empty
+          array is generated.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>SD_JSON_BUILD_BASE64(<replaceable>p</replaceable>, <replaceable>n</replaceable>)</constant></term>
+          <term><constant>SD_JSON_BUILD_BASE32HEX(<replaceable>p</replaceable>, <replaceable>n</replaceable>)</constant></term>
+          <term><constant>SD_JSON_BUILD_HEX(<replaceable>p</replaceable>, <replaceable>n</replaceable>)</constant></term>
+          <term><constant>SD_JSON_BUILD_OCTESCAPE(<replaceable>p</replaceable>, <replaceable>n</replaceable>)</constant></term>
+
+          <listitem><para>Generate a JSON string from the binary data of <replaceable>n</replaceable> bytes
+          at <replaceable>p</replaceable>, encoded in Base64, in Base32 with the "Extended Hex" alphabet
+          (without padding), in lowercase hexadecimal, or with C-style octal escapes (e.g.
+          <literal>\033</literal>) for all bytes that are not printable ASCII characters as well as for
+          backslashes and double quotes, respectively. <replaceable>p</replaceable> may be
+          <constant>NULL</constant> if <replaceable>n</replaceable> is zero.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>SD_JSON_BUILD_BYTE_ARRAY(<replaceable>p</replaceable>, <replaceable>n</replaceable>)</constant></term>
+
+          <listitem><para>Generates a JSON array of numbers in the range 0…255 from the binary data of
+          <replaceable>n</replaceable> bytes at <replaceable>p</replaceable>, one element per byte.
+          <replaceable>p</replaceable> may be <constant>NULL</constant> if <replaceable>n</replaceable> is
+          zero.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>SD_JSON_BUILD_ID128(<replaceable>id</replaceable>)</constant></term>
+          <term><constant>SD_JSON_BUILD_UUID(<replaceable>id</replaceable>)</constant></term>
+
+          <listitem><para>Generate a JSON string from a 128-bit ID, formatted as 32 lowercase hexadecimal
+          characters, or in the RFC 9562 UUID format (with dashes), respectively. Note that the address of
+          <replaceable>id</replaceable> is taken, hence it must be an lvalue.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>SD_JSON_BUILD_CALLBACK(<replaceable>c</replaceable>, <replaceable>userdata</replaceable>)</constant></term>
+
+          <listitem><para>Invokes the callback <replaceable>c</replaceable> to generate the value. The
+          callback is passed a pointer to the variant to return in its <parameter>ret</parameter> argument,
+          and the <parameter>userdata</parameter> pointer specified in the macro. If the value is generated
+          for an object field, the field's key name is passed in <parameter>name</parameter>. The callback
+          should return a negative errno-style error code on failure, which is propagated to the caller of
+          <function>sd_json_build()</function>, and a non-negative value on success. If the callback leaves
+          <parameter>ret</parameter> unset (i.e. <constant>NULL</constant>), or if <replaceable>c</replaceable>
+          is <constant>NULL</constant>, a JSON <constant>null</constant> value is generated. The callback is
+          not invoked for fields suppressed with
+          <constant>SD_JSON_BUILD_PAIR_CONDITION()</constant>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Nested description</title>
+
+      <programlisting>sd_id128_t id = …;
+char **tags = …;
+const uint8_t data[] = { 1, 2, 3 };
+_cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+int r;
+
+r = sd_json_build(
+                &amp;v,
+                SD_JSON_BUILD_OBJECT(
+                                SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING("foo")),
+                                SD_JSON_BUILD_PAIR_ID128("id", id),
+                                SD_JSON_BUILD_PAIR_STRV("tags", tags),
+                                SD_JSON_BUILD_PAIR_BASE64("data", data, sizeof(data)),
+                                SD_JSON_BUILD_PAIR_CONDITION(tags &amp;&amp; tags[0], "firstTag", SD_JSON_BUILD_STRING(tags[0])),
+                                SD_JSON_BUILD_PAIR_ARRAY("values",
+                                                         SD_JSON_BUILD_UNSIGNED(4711),
+                                                         SD_JSON_BUILD_REAL(0.5),
+                                                         SD_JSON_BUILD_NULL),
+                                SD_JSON_BUILD_PAIR_LITERAL("extra", "{\"a\":[1,2,3]}")));
+if (r &lt; 0)
+        return r;</programlisting>
+    </example>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>History</title>
+    <para>All macros described here and <type>sd_json_build_callback_t</type> were added in version
+    257.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-json</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_json_build</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_json_variant_new_object</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_json_parse</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

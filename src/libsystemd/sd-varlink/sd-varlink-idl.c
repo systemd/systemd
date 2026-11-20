@@ -2138,6 +2138,10 @@ int varlink_idl_validate_method_call(const sd_varlink_symbol *method, sd_json_va
         if (FLAGS_SET(method->symbol_flags, SD_VARLINK_REQUIRES_UPGRADE) && !FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE))
                 return -EBADE;
 
+        if (FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE) &&
+            (method->symbol_flags & (SD_VARLINK_SUPPORTS_UPGRADE|SD_VARLINK_REQUIRES_UPGRADE)) == 0)
+                return -EOPNOTSUPP;
+
         return varlink_idl_validate_symbol(method, v, SD_VARLINK_INPUT, reterr_bad_field);
 }
 

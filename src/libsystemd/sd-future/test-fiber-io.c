@@ -799,10 +799,7 @@ TEST(fiber_io_connect) {
 
 static int socket_sendmsg_fiber(void *userdata) {
         int sockfd = PTR_TO_INT(userdata);
-        struct iovec iov = {
-                .iov_base = (void*) "message",
-                .iov_len = STRLEN("message"),
-        };
+        struct iovec iov = CONST_IOVEC_MAKE_STRING("message");
         struct msghdr msg = {
                 .msg_iov = &iov,
                 .msg_iovlen = 1,
@@ -903,10 +900,7 @@ static int socket_sendmsg_fd_fiber(void *userdata) {
         int *args = userdata;
         int sockfd = args[0];
         int fd_to_send = args[1];
-        struct iovec iov = {
-                .iov_base = (void*) "X",
-                .iov_len = 1,
-        };
+        struct iovec iov = IOVEC_MAKE_BYTE('X');
         union {
                 struct cmsghdr cmsghdr;
                 uint8_t buf[CMSG_SPACE(sizeof(int))];
