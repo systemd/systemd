@@ -12,6 +12,7 @@
 #include "alloc-util.h"
 #include "ansi-color.h"
 #include "ansi-seq.h"
+#include "csi-inband-resize.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "extract-word.h"
@@ -20,7 +21,6 @@
 #include "hostname-setup.h"
 #include "io-util.h"
 #include "log.h"
-#include "osc-winsize.h"
 #include "pretty-print.h"
 #include "ptyfwd.h"
 #include "stat-util.h"
@@ -39,7 +39,10 @@ typedef enum AnsiColorState  {
         _ANSI_COLOR_STATE_INVALID = -EINVAL,
 } AnsiColorState;
 
-#define ANSI_SEQUENCE_LENGTH_MAX 192U
+/* Use the same limit as the AnsiSeqParser, so that a sequence that ptybrokerd considers too long (and hence
+ * passes on unscathed) is considered too long by us as well, and vice versa. Note that for CSI sequences
+ * the limit covers the parameter and intermediate bytes plus the final byte. */
+#define ANSI_SEQUENCE_LENGTH_MAX ANSI_SEQ_STRING_MAX
 #define ANSI_SEQUENCE_WINDOW_TITLE_MAX 128U
 
 assert_cc(ANSI_SEQUENCE_LENGTH_MAX > ANSI_SEQUENCE_WINDOW_TITLE_MAX);
@@ -113,18 +116,40 @@ struct PTYForward {
         char *title;           /* Window title to show by default */
         char *title_prefix;    /* If terminal client overrides window title, prefix this string */
 
-        /* OSC 2811 (UAPI.17 terminal size change notification): we implement the emulator side towards the
-         * pty, i.e. we answer subscribe sequences arriving via the master fd with reply sequences carrying
-         * the current dimensions. */
-        AnsiSeqParser osc2811_input_parser;       /* Tracks ANSI sequence boundaries on the input (stdin → master) stream */
-        char *osc2811_reply;                      /* A generated reply sequence, waiting for insertion into the input stream */
-        bool osc2811_subscribed;                  /* A dimension change subscription is pending */
-        unsigned osc2811_columns, osc2811_lines;  /* The dimensions declared in the pending subscription */
+        /* CSI 2048/48 (in-band window resize notifications): we implement the terminal side towards
+         * the pty, i.e. we handle the requests to enable/disable/query the mode arriving via the master fd,
+         * and generate size reports into the input stream while it is enabled. */
+        AnsiSeqParser inband_resize_input_parser; /* Tracks ANSI sequence boundaries on the input (stdin → master) stream */
+        bool inband_resize_enabled;               /* CSI 2048/48 is currently enabled */
+        char *inband_resize_mode_reply;           /* A generated DECRPM reply, waiting for insertion into the input stream */
+        char *inband_resize_report;               /* A generated size report, waiting for insertion into the input stream */
 };
 
 #define ESCAPE_USEC (1*USEC_PER_SEC)
 
+/* Maximum size of the DECRPM replies we keep queued for insertion into the input stream. Must be well below
+ * LINE_MAX, since the queue is inserted into the input buffer in one go. */
+#define INBAND_RESIZE_MODE_REPLY_MAX 256U
+
 static int pty_forward_add_defer(PTYForward *f);
+
+static void pty_forward_inband_resize_disable(PTYForward *f) {
+        assert(f);
+
+        /* Disables CSI 2048/48, and drops a size report that has been generated already but not been
+         * inserted into the input stream yet. A pending DECRPM reply is left in place however: it answers a
+         * query made before, and the query deserves its answer. */
+        f->inband_resize_enabled = false;
+        f->inband_resize_report = mfree(f->inband_resize_report);
+}
+
+static void pty_forward_inband_resize_reset(PTYForward *f) {
+        assert(f);
+
+        /* Disables CSI 2048/48, and drops any replies not sent yet */
+        pty_forward_inband_resize_disable(f);
+        f->inband_resize_mode_reply = mfree(f->inband_resize_mode_reply);
+}
 
 static void pty_forward_disconnect(PTYForward *f) {
 
@@ -191,9 +216,8 @@ static void pty_forward_disconnect(PTYForward *f) {
         f->osc_sequence = mfree(f->osc_sequence);
         f->ansi_color_state = _ANSI_COLOR_STATE_INVALID;
 
-        f->osc2811_reply = mfree(f->osc2811_reply);
-        f->osc2811_subscribed = false;
-        ansi_seq_parser_done(&f->osc2811_input_parser);
+        pty_forward_inband_resize_reset(f);
+        ansi_seq_parser_done(&f->inband_resize_input_parser);
 }
 
 static int pty_forward_done(PTYForward *f, int rcode) {
@@ -475,40 +499,58 @@ static int insert_window_title_fix(PTYForward *f, size_t offset) {
         return insert_string(f, offset, joined);
 }
 
-static int pty_forward_osc2811_flush(PTYForward *f) {
+static int pty_forward_inband_resize_insert(PTYForward *f, char **reply) {
         assert(f);
+        assert(reply);
 
-        /* Inserts a pending OSC 2811 reply sequence into the input stream, but only at a safe position,
-         * i.e. never in the middle of an ANSI sequence the terminal is currently sending us, and only if
-         * there's room in the input buffer. */
+        /* Inserts a pending reply into the input stream, but only at a safe position, i.e. never in the
+         * middle of an ANSI sequence the terminal is currently sending us, and only if there's room in the
+         * input buffer. */
 
-        if (!f->osc2811_reply)
+        if (!*reply)
                 return 0;
 
-        if (f->osc2811_input_parser.state != ANSI_SEQ_STATE_GROUND)
+        if (f->inband_resize_input_parser.state != ANSI_SEQ_STATE_GROUND)
                 return 0;
 
-        size_t l = strlen(f->osc2811_reply);
+        size_t l = strlen(*reply);
         if (f->in_buffer_full + l > LINE_MAX)
                 return 0;
 
-        memcpy(f->in_buffer + f->in_buffer_full, f->osc2811_reply, l);
+        memcpy(f->in_buffer + f->in_buffer_full, *reply, l);
         f->in_buffer_full += l;
 
-        f->osc2811_reply = mfree(f->osc2811_reply);
-        f->osc2811_subscribed = false; /* The subscription is consumed by the reply, now that it's really on its way */
+        *reply = mfree(*reply);
         return 1;
 }
 
-static int pty_forward_osc2811_maybe_reply(PTYForward *f) {
+static int pty_forward_inband_resize_flush(PTYForward *f) {
+        int r, ret;
+
+        assert(f);
+
+        /* Inserts the pending CSI 2048/48 replies into the input stream, if possible. The DECRPM reply goes
+         * first, so that the size report is never ahead of it. */
+
+        ret = r = pty_forward_inband_resize_insert(f, &f->inband_resize_mode_reply);
+        if (r < 0 || f->inband_resize_mode_reply)
+                return r;
+
+        r = pty_forward_inband_resize_insert(f, &f->inband_resize_report);
+        if (r < 0)
+                return r;
+
+        return ret > 0 || r > 0;
+}
+
+static int pty_forward_inband_resize_maybe_report(PTYForward *f) {
         int r;
 
         assert(f);
 
-        /* Sends an OSC 2811 reply sequence if a subscription is pending and the actual dimensions differ
-         * from the ones declared in the subscription. */
+        /* Generates a size report if CSI 2048/48 is enabled */
 
-        if (!f->osc2811_subscribed)
+        if (!f->inband_resize_enabled)
                 return 0;
 
         /* Take the dimensions from the master if we can (it's authoritative: explicitly set dimensions end
@@ -521,58 +563,59 @@ static int pty_forward_osc2811_maybe_reply(PTYForward *f) {
                 return 0;
         }
 
-        if (f->osc2811_columns == ws.ws_col && f->osc2811_lines == ws.ws_row) {
-                /* The dimensions match what the peer declared, hence there's nothing to report. This also
-                 * covers the case where a reply generated earlier is still waiting for insertion but
-                 * became moot since: drop it. */
-                f->osc2811_reply = mfree(f->osc2811_reply);
-                return 0;
-        }
-
-        /* Note that the subscription is only marked consumed once the reply is actually inserted into the
-         * input stream, see pty_forward_osc2811_flush(). That might not be possible right away, and if the
-         * dimensions change again before it is, the reply is simply regenerated here. */
-        _cleanup_free_ char *reply = NULL;
-        r = osc_winsize_format(OSC_WINSIZE_REPORT, ws.ws_col, ws.ws_row, &reply);
+        /* If an earlier report is still waiting for insertion into the input stream, it is outdated now,
+         * hence replace it. */
+        _cleanup_free_ char *report = NULL;
+        r = inband_resize_format_report(
+                        &(const InbandResizeReport) {
+                                .lines = ws.ws_row,
+                                .columns = ws.ws_col,
+                                .height_pixels = ws.ws_ypixel,
+                                .width_pixels = ws.ws_xpixel,
+                        },
+                        &report);
         if (r < 0)
-                return log_debug_errno(r, "Failed to format OSC 2811 sequence: %m");
+                return log_debug_errno(r, "Failed to format window size report: %m");
 
-        free_and_replace(f->osc2811_reply, reply);
+        free_and_replace(f->inband_resize_report, report);
 
-        return pty_forward_osc2811_flush(f);
+        return pty_forward_inband_resize_flush(f);
 }
 
-static int pty_forward_osc2811_process(PTYForward *f, size_t *i, size_t n_terminator) {
+static int pty_forward_inband_resize_process(PTYForward *f, size_t *i) {
         int r;
 
         assert(f);
         assert(i);
         assert(*i < f->out_buffer_full);
-        assert(IN_SET(n_terminator, 1, 2));
 
-        /* Checks whether the OSC sequence that just completed at offset *i of the output buffer is an OSC
-         * 2811 subscribe (or cancel) sequence. If so, consumes it: we implement the emulator side towards
-         * the pty, hence such requests are addressed to us and must not leak to the outer terminal.
-         * Returns > 0 if the sequence was consumed and excised from the output buffer, 0 otherwise. */
+        /* Checks whether the CSI sequence that just completed at offset *i of the output buffer is a request
+         * regarding CSI 2048/48. If so, consumes it: we implement the terminal side towards the pty, hence
+         * such requests are addressed to us and must not leak to the outer terminal. If the request also
+         * covers other modes, the sequence is rewritten to cover only those. Returns > 0 if the sequence was
+         * consumed (and possibly rewritten), 0 otherwise. */
 
         if (FLAGS_SET(f->flags, PTY_FORWARD_TRANSPARENT))
                 return 0;
 
-        if (!f->osc_sequence)
+        /* All CSI 2048/48 requests are DEC private mode sequences, hence quickly skip everything else */
+        if (!f->csi_sequence || f->csi_sequence[0] != '?')
                 return 0;
 
-        OscWinsize ws;
-        r = osc_winsize_parse(f->osc_sequence, &ws);
+        _cleanup_free_ char *csi = strjoin(f->csi_sequence, CHAR_TO_STR(f->out_buffer[*i]));
+        if (!csi)
+                return -ENOMEM;
+
+        _cleanup_free_ char *remaining = NULL;
+        InbandResizeRequest request;
+        r = inband_resize_parse_request(csi, &request, &remaining);
         if (r <= 0)
                 return r;
-        if (ws.type == OSC_WINSIZE_REPORT) /* Not marked as request? Then this is presumably a reply
-                                            * reflected back at us, which we shall ignore (i.e. pass
-                                            * through), as per spec. */
-                return 0;
 
-        /* Excise the full sequence from the output buffer: OSC (2 bytes) + payload + terminator. None of it
-         * can have been flushed yet, since out_buffer_write_len is only advanced outside of ANSI sequences. */
-        size_t l = 2 + strlen(f->osc_sequence) + n_terminator;
+        /* Excise the full sequence from the output buffer: CSI (2 bytes) + parameters + final byte. None of
+         * it can have been flushed yet, since out_buffer_write_len is only advanced outside of ANSI
+         * sequences. */
+        size_t l = 2 + strlen(csi);
         assert(*i + 1 >= l);
         size_t begin = *i + 1 - l;
         assert(f->out_buffer_write_len <= begin);
@@ -582,20 +625,59 @@ static int pty_forward_osc2811_process(PTYForward *f, size_t *i, size_t n_termin
         *i = begin - 1; /* NB: this may wrap around to SIZE_MAX if the sequence started the buffer, which the
                          * caller's loop increment brings back to 0 */
 
-        if (ws.type == OSC_WINSIZE_CANCEL) {
-                /* A cancel sequence: discard any pending subscription without a reply, including a reply
-                 * that has been generated already but not been inserted into the input stream yet */
-                f->osc2811_subscribed = false;
-                f->osc2811_reply = mfree(f->osc2811_reply);
-        } else {
-                f->osc2811_subscribed = true;
-                f->osc2811_columns = ws.columns;
-                f->osc2811_lines = ws.lines;
+        if (remaining) {
+                /* Put the request for the other modes back in */
+                _cleanup_free_ char *s = strjoin("\x1B[", remaining);
+                if (!s)
+                        return -ENOMEM;
 
-                /* If the declared dimensions are already out-of-date, this answers immediately */
-                r = pty_forward_osc2811_maybe_reply(f);
+                r = insert_string(f, begin, s);
                 if (r < 0)
                         return r;
+
+                *i += r;
+        }
+
+        switch (request) {
+
+        case INBAND_RESIZE_ENABLE:
+                /* As per spec, enabling the mode results in an immediate report, even if it was enabled
+                 * already */
+                f->inband_resize_enabled = true;
+                r = pty_forward_inband_resize_maybe_report(f);
+                if (r < 0)
+                        return r;
+                break;
+
+        case INBAND_RESIZE_DISABLE:
+                pty_forward_inband_resize_disable(f);
+                break;
+
+        case INBAND_RESIZE_QUERY: {
+                _cleanup_free_ char *reply = NULL;
+                r = inband_resize_format_mode_report(
+                                f->inband_resize_enabled ? INBAND_RESIZE_MODE_SET : INBAND_RESIZE_MODE_RESET,
+                                &reply);
+                if (r < 0)
+                        return r;
+
+                /* If an earlier reply is still waiting for insertion into the input stream, queue this one
+                 * after it, so that every query gets its answer. But put a limit on this, so that a payload
+                 * flooding us with queries while the input stream is stalled can't make us grow the queue
+                 * without bounds. */
+                if (strlen_ptr(f->inband_resize_mode_reply) + strlen(reply) > INBAND_RESIZE_MODE_REPLY_MAX)
+                        log_debug("Too many CSI 2048/48 replies pending, dropping reply.");
+                else if (!strextend(&f->inband_resize_mode_reply, reply))
+                        return -ENOMEM;
+
+                r = pty_forward_inband_resize_flush(f);
+                if (r < 0)
+                        return r;
+                break;
+        }
+
+        default:
+                assert_not_reached();
         }
 
         return 1;
@@ -641,9 +723,8 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
 
                                 i += r;
 
-                                /* A reset discards any pending OSC 2811 subscription, as per spec */
-                                f->osc2811_subscribed = false;
-                                f->osc2811_reply = mfree(f->osc2811_reply);
+                                /* A full reset resets all modes, including CSI 2048/48 */
+                                pty_forward_inband_resize_disable(f);
 
                                 f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
                         } else
@@ -656,8 +737,9 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                                 /* If this is a "parameter" or "intermediary" byte (i.e. ranges 0x20…0x2F and
                                  * 0x30…0x3F) then we are still in the CSI sequence */
 
-                                if (strlen_ptr(f->csi_sequence) >= ANSI_SEQUENCE_LENGTH_MAX) {
-                                        /* Safety check: lets not accept unbounded CSI sequences */
+                                if (strlen_ptr(f->csi_sequence) + 1 >= ANSI_SEQUENCE_LENGTH_MAX) {
+                                        /* Safety check: lets not accept unbounded CSI sequences (leave
+                                         * room for the final byte) */
 
                                         f->csi_sequence = mfree(f->csi_sequence);
                                         f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
@@ -674,10 +756,6 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                                                 return r;
 
                                         i += r;
-
-                                        /* A reset discards any pending OSC 2811 subscription, as per spec */
-                                        f->osc2811_subscribed = false;
-                                        f->osc2811_reply = mfree(f->osc2811_reply);
                                 } else if (c == 'm') {
                                         /* This is an "SGR" (Select Graphic Rendition) sequence. Patch in our background color. */
                                         r = insert_background_fix(f, i);
@@ -685,6 +763,11 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                                                 return r;
 
                                         i += r;
+                                } else {
+                                        /* Maybe a CSI 2048/48 request, which we handle ourselves */
+                                        r = pty_forward_inband_resize_process(f, &i);
+                                        if (r < 0)
+                                                return r;
                                 }
 
                                 f->csi_sequence = mfree(f->csi_sequence);
@@ -712,15 +795,10 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                                  * codepoint, and that would create ambiguity. Various terminal emulators
                                  * similar do not support it. */
 
-                                r = pty_forward_osc2811_process(f, &i, /* n_terminator= */ 1);
+                                r = insert_window_title_fix(f, i+1);
                                 if (r < 0)
                                         return r;
-                                if (r == 0) {
-                                        r = insert_window_title_fix(f, i+1);
-                                        if (r < 0)
-                                                return r;
-                                        i += r;
-                                }
+                                i += r;
 
                                 f->osc_sequence = mfree(f->osc_sequence);
                                 f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
@@ -736,15 +814,10 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
 
                 case ANSI_COLOR_STATE_OSC_SEQUENCE_TERMINATING:
                         if (c == '\x5c') {
-                                r = pty_forward_osc2811_process(f, &i, /* n_terminator= */ 2);
+                                r = insert_window_title_fix(f, i+1);
                                 if (r < 0)
                                         return r;
-                                if (r == 0) {
-                                        r = insert_window_title_fix(f, i+1);
-                                        if (r < 0)
-                                                return r;
-                                        i += r;
-                                }
+                                i += r;
                         }
 
                         f->osc_sequence = mfree(f->osc_sequence);
@@ -820,11 +893,11 @@ static int do_shovel(PTYForward *f) {
         for (;;) {
                 bool did_something = false;
 
-                /* If an OSC 2811 reply is still waiting for insertion into the input stream, try again now:
-                 * the input sequence tracker might have progressed or the input buffer might have drained
-                 * since we last tried. Do this independently of stdin readability, so that a reply is
-                 * never stuck just because the user doesn't type. */
-                r = pty_forward_osc2811_flush(f);
+                /* If a CSI 2048/48 reply is still waiting for insertion into the input stream, try again
+                 * now: the input sequence tracker might have progressed or the input buffer might have
+                 * drained since we last tried. Do this independently of stdin readability, so that a reply
+                 * is never stuck just because the user doesn't type. */
+                r = pty_forward_inband_resize_flush(f);
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -853,9 +926,9 @@ static int do_shovel(PTYForward *f) {
                         } else {
                                 if (!FLAGS_SET(f->flags, PTY_FORWARD_TRANSPARENT)) {
                                         /* Keep the input ANSI sequence tracker up-to-date, so that we know
-                                         * where OSC 2811 replies may be inserted safely */
+                                         * where CSI 2048/48 replies may be inserted safely */
                                         for (ssize_t j = 0; j < k; j++)
-                                                (void) ansi_seq_parser_feed_harder(&f->osc2811_input_parser, f->in_buffer[f->in_buffer_full + j]);
+                                                (void) ansi_seq_parser_feed_harder(&f->inband_resize_input_parser, f->in_buffer[f->in_buffer_full + j]);
 
                                         /* Check if ^] has been pressed three times within one second. If we get this we quit
                                          * immediately. */
@@ -1068,8 +1141,8 @@ static int on_sigwinch_event(sd_event_source *e, const struct signalfd_siginfo *
         if (ioctl(f->output_fd, TIOCGWINSZ, &ws) >= 0)
                 (void) ioctl(f->master, TIOCSWINSZ, &ws);
 
-        /* If an OSC 2811 dimension change subscription is pending, answer it now. (ignore failures)*/
-        if (pty_forward_osc2811_maybe_reply(f) > 0)
+        /* If CSI 2048/48 is enabled, report the new size. (ignore failures) */
+        if (pty_forward_inband_resize_maybe_report(f) > 0)
                 (void) pty_forward_add_defer(f);
 
         return 0;
@@ -1418,8 +1491,8 @@ int pty_forward_set_width_height(PTYForward *f, unsigned width, unsigned height)
         /* Make sure we ignore SIGWINCH window size events from now on */
         f->sigwinch_event_source = sd_event_source_unref(f->sigwinch_event_source);
 
-        /* If an OSC 2811 dimension change subscription is pending, answer it now */
-        if (pty_forward_osc2811_maybe_reply(f) > 0)
+        /* If CSI 2048/48 is enabled, report the new size */
+        if (pty_forward_inband_resize_maybe_report(f) > 0)
                 (void) pty_forward_add_defer(f);
 
         return 0;
