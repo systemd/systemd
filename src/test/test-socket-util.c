@@ -8,6 +8,7 @@
 #include <linux/pidfd.h>
 #include <linux/pkt_sched.h>
 #include <netinet/ip.h>
+#include <poll.h>
 #include <pthread.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -18,6 +19,7 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "in-addr-util.h"
+#include "io-util.h"
 #include "iovec-util.h"
 #include "log.h"
 #include "path-util.h"
@@ -28,6 +30,7 @@
 #include "rm-rf.h"
 #include "socket-util.h"
 #include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
 
@@ -319,6 +322,41 @@ TEST(recvmsg_safe_packet) {
         };
 
         ASSERT_ERROR(recvmsg_safe(fd, &msg, MSG_DONTWAIT), EAGAIN);
+}
+
+TEST(recvmsg_safe_short_name) {
+        _cleanup_close_ int fd = ASSERT_OK_ERRNO(socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0));
+        union sockaddr_union sa = {
+                .in.sin_family = AF_INET,
+                .in.sin_addr.s_addr = htobe32(INADDR_LOOPBACK),
+        };
+        socklen_t salen = sizeof(sa.in);
+        ASSERT_OK_ERRNO(bind(fd, &sa.sa, salen));
+        ASSERT_OK_ERRNO(getsockname(fd, &sa.sa, &salen));
+
+        _cleanup_close_ int sender_fd = ASSERT_OK_ERRNO(socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC, 0));
+
+        /* The kernel reports the full address length in msg_namelen even if the buffer is shorter, and
+         * silently truncates the address. Such a truncated address must be refused. */
+        socklen_t size;
+        FOREACH_ARGUMENT(size, sizeof(sa_family_t) - 1, sizeof(struct sockaddr_in) - 1) {
+                union sockaddr_union peer = {};
+                char buf[4];
+                struct msghdr msg = {
+                        .msg_name = &peer,
+                        .msg_namelen = size,
+                        .msg_iov = &IOVEC_MAKE(buf, sizeof(buf)),
+                        .msg_iovlen = 1,
+                };
+
+                ASSERT_OK_EQ_ERRNO(sendto(sender_fd, "foo", 4, /* flags= */ 0, &sa.sa, sizeof(sa.in)), (ssize_t) 4);
+                ASSERT_OK_POSITIVE(fd_wait_for_event(fd, POLLIN, 5 * USEC_PER_SEC));
+                ASSERT_ERROR(recvmsg_safe(fd, &msg, MSG_DONTWAIT), ENOTNAM);
+                ASSERT_EQ(msg.msg_namelen, (socklen_t) sizeof(struct sockaddr_in));
+        }
+
+        /* The datagrams were consumed */
+        ASSERT_OK_ZERO(fd_wait_for_event(fd, POLLIN, 0));
 }
 
 TEST(passfd_contents_read) {
