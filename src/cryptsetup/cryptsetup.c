@@ -147,7 +147,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_friendly_name, freep);
 COMMAND(
         "systemd-cryptsetup\0",
         "Attach or detach an encrypted block device.",
-        .man_pages = "systemd-cryptsetup(8)\0",
+        .man_page = "systemd-cryptsetup(8)",
         .option_namespace = "common",
 );
 

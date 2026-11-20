@@ -11,7 +11,7 @@ COMMAND(
         "systemd-xdg-autostart-condition\0",
         "Check the OnlyShowIn= and NotShowIn= conditions of an XDG autostart entry.",
         .argspec = "ONLY-SHOW-IN NOT-SHOW-IN\0",
-        .man_pages = "systemd-xdg-autostart-generator(8)\0",
+        .man_page = "systemd-xdg-autostart-generator(8)",
         .option_namespace = "common",
 );
 

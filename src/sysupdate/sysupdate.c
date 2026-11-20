@@ -88,7 +88,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_transfer_source, freep);
 COMMAND(
         "systemd-sysupdate\0",
         "Update OS images.",
-        .man_pages = "systemd-sysupdate(8)\0",
+        .man_page = "systemd-sysupdate(8)",
         .pager_flags = &arg_pager_flags,
         .flags = COMMAND_EXPERIMENTAL,
 );

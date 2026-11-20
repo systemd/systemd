@@ -10,7 +10,7 @@ COMMAND(
         "systemd-factory-reset-generator\0",
         "Pull in factory-reset-now.target when a factory reset was requested.",
         .argspec = GENERATOR_ARGSPEC,
-        .man_pages = "systemd-factory-reset-generator(8)\0",
+        .man_page = "systemd-factory-reset-generator(8)",
         .option_namespace = "common",
 );
 

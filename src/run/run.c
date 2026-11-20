@@ -155,7 +155,7 @@ COMMAND(
         "systemd-run\0",
         "Run the specified command in a transient scope or service.",
         .argspec = "COMMAND [ARGUMENTS…]\0",
-        .man_pages = "systemd-run(1)\0",
+        .man_page = "systemd-run(1)",
         .option_namespace = "systemd-run",
         .pager_flags = &arg_pager_flags,
 );
@@ -765,7 +765,7 @@ COMMAND(
         "run0\0",
         "Elevate privileges interactively.",
         .argspec = "COMMAND [ARGUMENTS…]\0",
-        .man_pages = "run0(1)\0",
+        .man_page = "run0(1)",
         .option_namespace = "run0",
         .pager_flags = &arg_pager_flags,
 );

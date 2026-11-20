@@ -14,7 +14,7 @@
 COMMAND(
         "systemd-userdbd\0",
         "Multiplex JSON user and group record queries.",
-        .man_pages = "systemd-userdbd.service(8)\0",
+        .man_page = "systemd-userdbd.service(8)",
         .option_namespace = "common",
 );
 

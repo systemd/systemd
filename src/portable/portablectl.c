@@ -56,7 +56,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_extension_images, strv_freep);
 COMMAND(
         "portablectl\0",
         "Attach or detach portable services in the local system.",
-        .man_pages = "portablectl(1)\0",
+        .man_page = "portablectl(1)",
         .pager_flags = &arg_pager_flags,
 );
 

@@ -45,7 +45,7 @@ static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 COMMAND(
         "hostnamectl\0",
         "Query or change system hostname.",
-        .man_pages = "hostnamectl(1)\0",
+        .man_page = "hostnamectl(1)",
 );
 
 typedef struct StatusInfo {

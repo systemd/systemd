@@ -10,7 +10,7 @@
 COMMAND(
         "systemd-boot-check-no-failures\0",
         "Verify system operational state.",
-        .man_pages = "systemd-boot-check-no-failures.service(8)\0",
+        .man_page = "systemd-boot-check-no-failures.service(8)",
         .option_namespace = "common",
 );
 
