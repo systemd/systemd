@@ -39,6 +39,10 @@ executables += [
                 ],
         },
         test_template + {
+                'sources' : files('test-machine.c'),
+                'import' : ['systemd-machined'],
+        },
+        test_template + {
                 'sources' : files('test-machine-tables.c'),
                 'import' : ['systemd-machined'],
         },
