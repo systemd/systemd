@@ -9,6 +9,7 @@
 #include "build.h"
 #include "bus-polkit.h"
 #include "constants.h"
+#include "format-util.h"
 #include "hashmap.h"
 #include "json-util.h"
 #include "log.h"
@@ -240,12 +241,15 @@ static int vl_method_ask(sd_varlink *link, sd_json_variant *parameters, sd_varli
         if (r != 0)
                 return r;
 
+        /* A per-user instance asks the agents of the user it runs as */
+        bool user = FLAGS_SET(arg_flags, ASK_PASSWORD_USER);
+
         r = varlink_verify_polkit_async_full(
                         link,
                         /* bus= */ NULL,
                         "io.systemd.ask-password.ask",
-                        /* details= */ NULL,
-                        /* good_user= */ FLAGS_SET(arg_flags, ASK_PASSWORD_USER) ? getuid() : UID_INVALID,
+                        user ? (const char**) STRV_MAKE("uid", FORMAT_UID(getuid())) : NULL,
+                        /* good_user= */ user ? getuid() : UID_INVALID,
                         /* flags= */ 0,
                         polkit_registry,
                         /* ret_admin= */ NULL);

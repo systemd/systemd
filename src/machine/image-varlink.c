@@ -71,6 +71,7 @@ int vl_method_update_image(sd_varlink *link, sd_json_variant *parameters, sd_var
                                 manager->system_bus,
                                 "org.freedesktop.machine1.manage-images",
                                 (const char**) STRV_MAKE("image", image->name,
+                                                         "class", image_class_to_string(image->class),
                                                          "verb", "update"),
                                 &manager->polkit_registry);
                 if (r <= 0)
@@ -146,6 +147,7 @@ int vl_method_clone_image(sd_varlink *link, sd_json_variant *parameters, sd_varl
                                 manager->system_bus,
                                 "org.freedesktop.machine1.manage-images",
                                 (const char**) STRV_MAKE("image", image->name,
+                                                         "class", image_class_to_string(image->class),
                                                          "verb", "clone",
                                                          "new_name", p.new_name),
                                 &manager->polkit_registry);
@@ -215,6 +217,7 @@ int vl_method_remove_image(sd_varlink *link, sd_json_variant *parameters, sd_var
                                 manager->system_bus,
                                 "org.freedesktop.machine1.manage-images",
                                 (const char**) STRV_MAKE("image", image->name,
+                                                         "class", image_class_to_string(image->class),
                                                          "verb", "remove"),
                                 &manager->polkit_registry);
                 if (r <= 0)
@@ -270,7 +273,8 @@ int vl_method_set_pool_limit(sd_varlink *link, sd_json_variant *parameters, sd_v
                                 link,
                                 manager->system_bus,
                                 "org.freedesktop.machine1.manage-images",
-                                (const char**) STRV_MAKE("verb", "set_pool_limit"),
+                                (const char**) STRV_MAKE("class", image_class_to_string(IMAGE_MACHINE),
+                                                         "verb", "set_pool_limit"),
                                 &manager->polkit_registry);
                 if (r <= 0)
                         return r;
@@ -406,7 +410,8 @@ int vl_method_clean_pool(sd_varlink *link, sd_json_variant *parameters, sd_varli
                                 link,
                                 manager->system_bus,
                                 "org.freedesktop.machine1.manage-images",
-                                (const char**) STRV_MAKE("mode", image_clean_pool_mode_to_string(mode),
+                                (const char**) STRV_MAKE("class", image_class_to_string(IMAGE_MACHINE),
+                                                         "mode", image_clean_pool_mode_to_string(mode),
                                                          "verb", "clean_pool"),
                                 &manager->polkit_registry);
                 if (r <= 0)

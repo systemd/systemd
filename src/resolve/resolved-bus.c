@@ -2044,10 +2044,17 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         if (r < 0)
                 return r;
 
+        /* The new service will be owned by the client */
+        const char *details[] = {
+                "dnssd_service", service->id,
+                "owner_uid", FORMAT_UID(euid),
+                NULL
+        };
+
         r = bus_verify_polkit_async(
                         message,
                         "org.freedesktop.resolve1.register-service",
-                        /* details= */ NULL,
+                        details,
                         &m->polkit_registry,
                         error);
         if (r < 0)

@@ -12,6 +12,7 @@
 #include "dbus-util.h"
 #include "hashmap.h"
 #include "job.h"
+#include "locale-util.h"
 #include "log.h"
 #include "manager.h"
 #include "selinux-access.h"
@@ -58,7 +59,12 @@ int bus_job_method_cancel(sd_bus_message *message, void *userdata, sd_bus_error 
             !sd_bus_track_contains(j->bus_track, sd_bus_message_get_sender(message))) {
 
                 /* And for everybody else consult polkit */
-                r = bus_verify_manage_units_async(j->manager, message, reterr_error);
+                r = bus_verify_manage_units_async_full(
+                                j->unit,
+                                "cancel",
+                                N_("Authentication is required to cancel job for unit '$(unit)'."),
+                                message,
+                                reterr_error);
                 if (r < 0)
                         return r;
                 if (r == 0)
