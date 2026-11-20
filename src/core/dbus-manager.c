@@ -3003,7 +3003,7 @@ static int method_set_show_status(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
-        r = bus_verify_set_environment_async(m, message, reterr_error);
+        r = bus_verify_set_show_status_async(m, message, reterr_error);
         if (r < 0)
                 return r;
         if (r == 0)

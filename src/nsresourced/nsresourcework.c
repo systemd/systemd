@@ -1990,11 +1990,19 @@ static int vl_method_add_cgroup_to_user_namespace(sd_varlink *link, sd_json_vari
         if (fstat(cgroup_fd, &cgroup_st) < 0)
                 return log_debug_errno(errno, "Failed to fstat() cgroup fd: %m");
 
+        _cleanup_free_ char *cgroup_path = NULL;
+        (void) fd_get_path(cgroup_fd, &cgroup_path);
+
+        const char *polkit_details[] = {
+                "cgroup", strna(cgroup_path),
+                NULL,
+        };
+
         r = varlink_verify_polkit_async_full(
                         link,
                         /* bus= */ NULL,
                         "io.systemd.namespace-resource.delegate-cgroup",
-                        /* details= */ NULL,
+                        polkit_details,
                         /* good_user= */ UID_INVALID,
                         POLKIT_DEFAULT_ALLOW, /* If no polkit is installed, allow delegation of cgroups to registered userns */
                         &c->polkit_registry,
@@ -2385,23 +2393,6 @@ static int vl_method_add_netif_to_user_namespace(sd_varlink *link, sd_json_varia
         } else
                 return sd_varlink_error_invalid_parameter_name(link, "mode");
 
-        const char *polkit_details[] = {
-                "type", p.mode,
-                NULL,
-        };
-
-        r = varlink_verify_polkit_async_full(
-                        link,
-                        /* bus= */ NULL,
-                        "io.systemd.namespace-resource.delegate-network-interface",
-                        polkit_details,
-                        /* good_user= */ UID_INVALID,
-                        POLKIT_DEFAULT_ALLOW, /* If no polkit is installed, allow delegation of network interfaces to registered userns */
-                        &c->polkit_registry,
-                        /* ret_admin= */ NULL);
-        if (r <= 0)
-                return r;
-
         registry_dir_fd = userns_registry_open_fd();
         if (registry_dir_fd < 0)
                 return registry_dir_fd;
@@ -2425,6 +2416,24 @@ static int vl_method_add_netif_to_user_namespace(sd_varlink *link, sd_json_varia
                 return sd_varlink_error(link, "io.systemd.NamespaceResource.UserNamespaceNotRegistered", /* parameters= */ NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to verify user namespace identity: %m");
+
+        const char *polkit_details[] = {
+                "name", userns_info->name,
+                "type", p.mode,
+                NULL,
+        };
+
+        r = varlink_verify_polkit_async_full(
+                        link,
+                        /* bus= */ NULL,
+                        "io.systemd.namespace-resource.delegate-network-interface",
+                        polkit_details,
+                        /* good_user= */ UID_INVALID,
+                        POLKIT_DEFAULT_ALLOW, /* If no polkit is installed, allow delegation of network interfaces to registered userns */
+                        &c->polkit_registry,
+                        /* ret_admin= */ NULL);
+        if (r <= 0)
+                return r;
 
         if (strv_length(userns_info->netifs) > USER_NAMESPACE_NETIFS_DELEGATE_MAX)
                 return sd_varlink_error(link, "io.systemd.NamespaceResource.TooManyNetworkInterfaces", /* parameters= */ NULL);

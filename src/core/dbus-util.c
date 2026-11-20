@@ -245,6 +245,18 @@ int bus_verify_set_environment_async(Manager *m, sd_bus_message *call, sd_bus_er
                         reterr_error);
 }
 
+int bus_verify_set_show_status_async(Manager *m, sd_bus_message *call, sd_bus_error *reterr_error) {
+        assert(m);
+        assert(call);
+
+        return bus_verify_polkit_async(
+                        call,
+                        "org.freedesktop.systemd1.set-show-status",
+                        /* details= */ NULL,
+                        &m->polkit_registry,
+                        reterr_error);
+}
+
 int bus_verify_bypass_dump_ratelimit_async(Manager *m, sd_bus_message *call, sd_bus_error *reterr_error) {
         assert(m);
         assert(call);

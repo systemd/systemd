@@ -89,6 +89,13 @@ CHANGES WITH 263 in spe:
         * systemd-portabled now asks polkit before it inspects extension
           images that are specified by path.
 
+        * systemd-machined's D-Bus methods CleanPool() and SetPoolLimit() now
+          require the org.freedesktop.machine1.manage-images polkit action
+          instead of org.freedesktop.machine1.manage-machines, like their
+          Varlink counterparts io.systemd.MachineImage.CleanPool() and
+          SetPoolLimit() already do. Polkit rules that grant manage-machines
+          in order to permit these calls need to grant manage-images instead.
+
         * systemd-veritysetup no longer fails if root-hash-signature=auto
           finds no signature. It gained a root-hash-signature-required=
           option, which systemd-gpt-auto-generator enables if
@@ -104,6 +111,15 @@ CHANGES WITH 263 in spe:
           validates, because the policy for trusted images refuses such an
           image too.
 
+        * systemd-machined now passes the machine name to polkit in the
+          "machine" detail and the image name in the "image" detail for all
+          operations, over both D-Bus and Varlink. Previously, the Varlink
+          methods and the D-Bus methods creating or registering a machine
+          passed the machine name as "name", io.systemd.MachineImage.List
+          passed the image name as "name", and the D-Bus method SetLimit() of
+          images passed the image name as "machine". Polkit rules that match
+          on the old detail names need to be updated.
+
         * By default, the image policies that portablectl attach and reattach
           generate only pin the file system type of each partition, the
           partition flags and which data partitions exist. The new
@@ -116,6 +132,11 @@ CHANGES WITH 263 in spe:
         * portablectl attach and reattach now fail if the requested profile
           does not exist. Previously the image was attached without the
           profile's settings.
+
+        * systemd-importd's Varlink method io.systemd.Import.Pull() now passes
+          the name of the destination image to polkit in the "image" detail
+          instead of "local", like the other import methods do. Polkit rules
+          that match on the "local" detail need to be updated.
 
         * systemd-networkd and networkctl have been merged into a single
           multi-call binary, with the former becoming a symlink to the latter.
