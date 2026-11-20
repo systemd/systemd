@@ -315,6 +315,50 @@ TEST(experimental) {
         ASSERT_OK(varlink_idl_consistent(&vl_interface_xyz_experimental, LOG_ERR));
 }
 
+TEST(method_flags_roundtrip) {
+        static SD_VARLINK_DEFINE_METHOD_FULL(SupportsMore, SD_VARLINK_SUPPORTS_MORE|SD_VARLINK_EXPERIMENTAL);
+        static SD_VARLINK_DEFINE_METHOD_FULL(RequiresMore, SD_VARLINK_REQUIRES_MORE);
+        static SD_VARLINK_DEFINE_METHOD_FULL(SupportsUpgrade, SD_VARLINK_SUPPORTS_UPGRADE);
+        static SD_VARLINK_DEFINE_METHOD_FULL(RequiresUpgrade, SD_VARLINK_REQUIRES_UPGRADE);
+        static SD_VARLINK_DEFINE_METHOD(Plain);
+        static SD_VARLINK_DEFINE_INTERFACE(
+                        xyz_flags, "xyz.flags",
+                        &vl_method_SupportsMore,
+                        &vl_method_RequiresMore,
+                        &vl_method_SupportsUpgrade,
+                        &vl_method_RequiresUpgrade,
+                        &vl_method_Plain);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        ASSERT_OK(sd_json_build(&parameters, SD_JSON_BUILD_EMPTY_OBJECT));
+
+        FOREACH_ELEMENT(cols, ((const size_t[]) { SIZE_MAX, 23 })) {
+                _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *parsed = NULL;
+                _cleanup_free_ char *text = NULL, *formatted = NULL;
+                const sd_varlink_symbol *method;
+
+                ASSERT_OK(sd_varlink_idl_format_full(&vl_interface_xyz_flags, /* flags= */ 0, *cols, &text));
+                ASSERT_OK(sd_varlink_idl_parse(text, /* reterr_line= */ NULL, /* reterr_column= */ NULL, &parsed));
+                ASSERT_OK(sd_varlink_idl_format_full(parsed, /* flags= */ 0, *cols, &formatted));
+                ASSERT_STREQ(text, formatted);
+
+                for (const sd_varlink_symbol *const *s = vl_interface_xyz_flags.symbols; *s; s++) {
+                        method = ASSERT_PTR(varlink_idl_find_symbol(parsed, SD_VARLINK_METHOD, (*s)->name));
+                        ASSERT_EQ((uint64_t) method->symbol_flags, (uint64_t) (*s)->symbol_flags);
+                }
+
+                method = ASSERT_PTR(varlink_idl_find_symbol(parsed, SD_VARLINK_METHOD, "SupportsUpgrade"));
+                ASSERT_OK(varlink_idl_validate_method_call(method, parameters, SD_VARLINK_METHOD_UPGRADE, /* reterr_bad_field= */ NULL));
+
+                method = ASSERT_PTR(varlink_idl_find_symbol(parsed, SD_VARLINK_METHOD, "RequiresUpgrade"));
+                ASSERT_OK(varlink_idl_validate_method_call(method, parameters, SD_VARLINK_METHOD_UPGRADE, /* reterr_bad_field= */ NULL));
+                ASSERT_ERROR(varlink_idl_validate_method_call(method, parameters, /* flags= */ 0, /* reterr_bad_field= */ NULL), EBADE);
+
+                method = ASSERT_PTR(varlink_idl_find_symbol(parsed, SD_VARLINK_METHOD, "Plain"));
+                ASSERT_ERROR(varlink_idl_validate_method_call(method, parameters, SD_VARLINK_METHOD_UPGRADE, /* reterr_bad_field= */ NULL), EOPNOTSUPP);
+        }
+}
+
 static bool symbol_is_experimental(const sd_varlink_interface *iface, const char *name) {
         return FLAGS_SET(ASSERT_PTR(varlink_idl_find_symbol(iface, _SD_VARLINK_SYMBOL_TYPE_INVALID, name))->symbol_flags,
                          SD_VARLINK_EXPERIMENTAL);
