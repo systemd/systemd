@@ -34,9 +34,12 @@ SUBSYSTEM=="pci|usb|platform", IMPORT{builtin}="path_id"
 SUBSYSTEM=="net", IMPORT{builtin}="net_driver"
 
 SUBSYSTEM=="ptp", GROUP="clock", MODE="0664"
-SUBSYSTEM=="ptp", ATTR{clock_name}=="KVM virtual PTP", SYMLINK+="ptp_kvm"
-SUBSYSTEM=="ptp", ATTR{clock_name}=="hyperv", SYMLINK+="ptp_hyperv"
-SUBSYSTEM=="ptp", ATTR{clock_name}=="ptp_vmw", SYMLINK+="ptp_vmware"
+# PTP hardware clocks provided by hypervisors and cloud providers, which track UTC, are tagged "timesync" so
+# that systemd-timesyncd synchronizes the system clock to them.
+SUBSYSTEM=="ptp", ATTR{clock_name}=="KVM virtual PTP", SYMLINK+="ptp_kvm", TAG+="timesync"
+SUBSYSTEM=="ptp", ATTR{clock_name}=="hyperv", SYMLINK+="ptp_hyperv", TAG+="timesync"
+SUBSYSTEM=="ptp", ATTR{clock_name}=="ptp_vmw", SYMLINK+="ptp_vmware", TAG+="timesync"
+SUBSYSTEM=="ptp", ATTR{clock_name}=="ena-ptp-*", SYMLINK+="ptp_ena", TAG+="timesync"
 SUBSYSTEM=="ptp", ATTR{clock_name}=="s390 Physical Clock", SYMLINK+="ptp_s390_physical"
 SUBSYSTEM=="ptp", ATTR{clock_name}=="s390 STCKE Clock", SYMLINK+="ptp_s390_stcke"
 
