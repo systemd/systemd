@@ -22,6 +22,7 @@ at_exit() {
     rm -rf /home/testuser/.local/state/machines/inodetest ||:
     rm -rf /home/testuser/.local/state/machines/inodetest2 ||:
     rm -rf /home/testuser/.local/state/machines/mangletest ||:
+    rm -rf /home/testuser/.local/state/machines/devnodetest ||:
     rm -rf /home/testuser/.local/state/machines/fdstore ||:
     machinectl terminate zurps ||:
     machinectl terminate exfiltrate ||:
@@ -36,6 +37,8 @@ at_exit() {
     rm -f /usr/share/polkit-1/rules.d/registermachinetest.rules
     rm -rf /var/tmp/mangletest
     rm -f /var/tmp/mangletest.tar.gz
+    rm -rf /var/tmp/devnodetest
+    rm -f /var/tmp/devnodetest.tar
     rm -f /shouldnotwork
     loginctl disable-linger testuser
 }
@@ -317,6 +320,28 @@ echo "ID=brumm" >/var/tmp/mangletest/mangletest-0.1/usr/lib/os-release
 tar -C /var/tmp/mangletest/ -cvzf /var/tmp/mangletest.tar.gz mangletest-0.1
 run0 --pipe -u testuser importctl -m --user import-tar /var/tmp/mangletest.tar.gz
 cmp /var/tmp/mangletest/mangletest-0.1/usr/lib/os-release /home/testuser/.local/state/machines/mangletest/usr/lib/os-release
+
+# Device nodes can't be created in a user namespace, so they are skipped, along with the hardlinks to them.
+# FIFOs and overlayfs whiteouts (0:0 character devices) need no privileges and are still unpacked.
+mkdir -p /var/tmp/devnodetest/usr/lib /var/tmp/devnodetest/dev
+echo "ID=devnode" >/var/tmp/devnodetest/usr/lib/os-release
+mknod /var/tmp/devnodetest/dev/console c 5 1
+ln /var/tmp/devnodetest/dev/console /var/tmp/devnodetest/dev/console.hard
+mknod /var/tmp/devnodetest/dev/loop0 b 7 0
+mknod /var/tmp/devnodetest/dev/whiteout c 0 0
+mkfifo /var/tmp/devnodetest/dev/initctl
+# GNU tar doesn't record hardlinks between device nodes, hence generate the archive ourselves and check that
+# it really contains one.
+systemd-dissect --make-archive /var/tmp/devnodetest /var/tmp/devnodetest.tar
+tar -tvf /var/tmp/devnodetest.tar | grep -E 'dev/console(\.hard)? link to (\./)?dev/console' >/dev/null
+run0 --pipe -u testuser importctl -m --user import-tar /var/tmp/devnodetest.tar devnodetest
+cmp /var/tmp/devnodetest/usr/lib/os-release /home/testuser/.local/state/machines/devnodetest/usr/lib/os-release
+test ! -e /home/testuser/.local/state/machines/devnodetest/dev/console
+test ! -e /home/testuser/.local/state/machines/devnodetest/dev/console.hard
+test ! -e /home/testuser/.local/state/machines/devnodetest/dev/loop0
+test "$(stat -c '%F %Hr:%Lr' /home/testuser/.local/state/machines/devnodetest/dev/whiteout)" = "character special file 0:0"
+test -p /home/testuser/.local/state/machines/devnodetest/dev/initctl
+run0 -u testuser machinectl --user remove devnodetest
 
 # Verify the fd-store preservation chain works end-to-end across:
 #   payload (inside container) -> systemd-nspawn (user manager) -> user manager
