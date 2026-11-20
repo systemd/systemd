@@ -105,6 +105,10 @@ executables += [
                 'sources' : files('test-homed-regression-31896.c'),
                 'type' : 'manual',
         },
+        test_template + {
+                'sources' : files('test-homed-regression-44837.c'),
+                'type' : 'manual',
+        },
 ]
 
 modules += [
