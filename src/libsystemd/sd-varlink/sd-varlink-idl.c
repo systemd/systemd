@@ -424,7 +424,8 @@ static int varlink_idl_format_symbol(
                  * comment.
                  *
                  * Until this is resolved upstream, consider this comment part of the API (i.e. don't change
-                 * only extend). It is used by tools like varlink-http-bridge. */
+                 * only extend). It is used by tools like varlink-http-bridge. Keep each annotation on one
+                 * line so the parser can recognize it. */
                 if ((symbol->symbol_flags & (SD_VARLINK_REQUIRES_MORE|SD_VARLINK_SUPPORTS_MORE)) != 0) {
                         const char *msg = FLAGS_SET(symbol->symbol_flags, SD_VARLINK_REQUIRES_MORE) ? "[Requires 'more' flag]" : "[Supports 'more' flag]";
 
@@ -433,7 +434,7 @@ static int varlink_idl_format_symbol(
                                         msg,
                                         /* indent= */ NULL,
                                         colors,
-                                        cols);
+                                        /* cols= */ SIZE_MAX);
                         if (r < 0)
                                 return r;
                 }
@@ -446,13 +447,11 @@ static int varlink_idl_format_symbol(
                                         msg,
                                         /* indent= */ NULL,
                                         colors,
-                                        cols);
+                                        /* cols= */ SIZE_MAX);
                         if (r < 0)
                                 return r;
                 }
 
-                /* Output this last, i.e. after the 'more' and 'upgrade' comments, since the parser turns
-                 * those into regular comments, and we want to keep the output stable across a roundtrip. */
                 varlink_idl_format_experimental(f, symbol->symbol_flags, /* indent= */ NULL, colors);
 
                 fputs(colors[COLOR_SYMBOL_TYPE], f);
@@ -1267,6 +1266,7 @@ _public_ int sd_varlink_idl_parse(
         size_t n_symbols = 0, n_fields = 1;
         unsigned _line = 0, _column = 1;
         const char **p = &text;
+        sd_varlink_symbol_flags_t method_flags = 0;
         bool experimental = false; /* Did we see the experimental marker for the next item? */
         int r;
 
@@ -1345,8 +1345,7 @@ _public_ int sd_varlink_idl_parse(
 
                 case STATE_PRE_SYMBOL:
                         if (!token) {
-                                /* A pending experimental marker not followed by a symbol is dropped, like in
-                                 * varlink_idl_subparse_struct_or_enum(). */
+                                /* Pending markers not followed by a symbol are dropped. */
                                 state = STATE_DONE;
                                 break;
                         }
@@ -1360,6 +1359,23 @@ _public_ int sd_varlink_idl_parse(
 
                                 if (streq(comment, VARLINK_IDL_EXPERIMENTAL_MARKER)) {
                                         experimental = true;
+                                        break;
+                                }
+
+                                if (streq(comment, "[Supports 'more' flag]")) {
+                                        method_flags |= SD_VARLINK_SUPPORTS_MORE;
+                                        break;
+                                }
+                                if (streq(comment, "[Requires 'more' flag]")) {
+                                        method_flags |= SD_VARLINK_REQUIRES_MORE;
+                                        break;
+                                }
+                                if (streq(comment, "[Supports 'upgrade' flag]")) {
+                                        method_flags |= SD_VARLINK_SUPPORTS_UPGRADE;
+                                        break;
+                                }
+                                if (streq(comment, "[Requires 'upgrade' flag]")) {
+                                        method_flags |= SD_VARLINK_REQUIRES_UPGRADE;
                                         break;
                                 }
 
@@ -1403,7 +1419,8 @@ _public_ int sd_varlink_idl_parse(
 
                         symbol->symbol_type = SD_VARLINK_METHOD;
                         symbol->name = TAKE_PTR(token);
-                        symbol->symbol_flags = experimental ? SD_VARLINK_EXPERIMENTAL : 0;
+                        symbol->symbol_flags = method_flags | (experimental ? SD_VARLINK_EXPERIMENTAL : 0);
+                        method_flags = 0;
                         experimental = false;
 
                         r = varlink_idl_subparse_struct_or_enum(&text, reterr_line, reterr_column, &symbol, &n_fields, SD_VARLINK_INPUT, /* depth= */ 0);
@@ -1451,6 +1468,7 @@ _public_ int sd_varlink_idl_parse(
                         symbol->symbol_type = _SD_VARLINK_SYMBOL_TYPE_INVALID; /* don't know yet if enum or struct, will be field in by varlink_idl_subparse_struct_or_enum() */
                         symbol->name = TAKE_PTR(token);
                         symbol->symbol_flags = experimental ? SD_VARLINK_EXPERIMENTAL : 0;
+                        method_flags = 0;
                         experimental = false;
 
                         r = varlink_idl_subparse_struct_or_enum(&text, reterr_line, reterr_column, &symbol, &n_fields, SD_VARLINK_REGULAR, /* depth= */ 0);
@@ -1481,6 +1499,7 @@ _public_ int sd_varlink_idl_parse(
                         symbol->symbol_type = SD_VARLINK_ERROR;
                         symbol->name = TAKE_PTR(token);
                         symbol->symbol_flags = experimental ? SD_VARLINK_EXPERIMENTAL : 0;
+                        method_flags = 0;
                         experimental = false;
 
                         r = varlink_idl_subparse_struct_or_enum(&text, reterr_line, reterr_column, &symbol, &n_fields, SD_VARLINK_REGULAR, /* depth= */ 0);
