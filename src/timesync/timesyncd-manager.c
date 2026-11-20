@@ -10,6 +10,7 @@
 
 #include "sd-bus.h"
 #include "sd-daemon.h"
+#include "sd-device.h"
 #include "sd-json.h"
 #include "sd-messages.h"
 #include "sd-network.h"
@@ -40,6 +41,7 @@
 #include "strv.h"
 #include "time-util.h"
 #include "timesyncd-manager.h"
+#include "timesyncd-phc.h"
 #include "timesyncd-server.h"
 
 #ifndef ADJ_SETOFFSET
@@ -313,7 +315,7 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
         return 0;
 }
 
-static bool manager_sample_spike_detection(Manager *m, double offset, double delay) {
+bool manager_sample_spike_detection(Manager *m, double offset, double delay) {
         unsigned i, idx_cur, idx_new, idx_min;
         double jitter;
         double j;
@@ -364,6 +366,63 @@ static bool manager_sample_spike_detection(Manager *m, double offset, double del
 
         /* compare the difference between the current offset to the previous offset and jitter */
         return ABS(offset - m->samples[idx_cur].offset) > 3 * jitter;
+}
+
+void manager_reset_samples(Manager *m) {
+        assert(m);
+
+        /* Forget all previously collected samples, e.g. when switching between NTP and PHC operation,
+         * since the samples of one source say nothing about the quality of the other. */
+
+        m->packet_count = 0;
+        m->samples_idx = 0;
+        m->samples_jitter = 0;
+        m->spike = false;
+        zero(m->samples);
+}
+
+int manager_sync_clock(Manager *m, double offset, int leap_sec, bool persist) {
+        triple_timestamp dts;
+        int r;
+
+        assert(m);
+
+        /* Applies a (non-spike) offset sample to the system clock. If 'persist' is false we only update the
+         * timestamp file and the "synchronized" flag file if this is the first synchronization or if we had
+         * to jump the clock. This is useful for time sources that are polled at a high frequency. */
+
+        /* Get current monotonic/realtime clocks immediately before adjusting the latter */
+        triple_timestamp_now(&dts);
+
+        /* Fix up our idea of the time. */
+        dts.realtime = (usec_t) (dts.realtime + offset * USEC_PER_SEC);
+
+        r = manager_adjust_clock(m, offset, leap_sec);
+        if (r < 0)
+                log_error_errno(r, "Failed to call clock_adjtime(): %m");
+
+        if (persist || !m->synchronized || ABS(offset) >= NTP_MAX_ADJUST) {
+                (void) manager_save_time_and_rearm(m, dts.realtime);
+
+                /* If touch fails, there isn't much we can do. Maybe it'll work next time. */
+                r = touch("/run/systemd/timesync/synchronized");
+                if (r < 0)
+                        log_debug_errno(r, "Failed to touch /run/systemd/timesync/synchronized, ignoring: %m");
+        }
+
+        if (!m->synchronized) {
+                m->synchronized = true;
+
+                log_struct(LOG_INFO,
+                           LOG_MESSAGE("Initial clock synchronization to %s.",
+                                       FORMAT_TIMESTAMP_STYLE(dts.realtime, TIMESTAMP_US)),
+                           LOG_MESSAGE_ID(SD_MESSAGE_TIME_SYNC_STR),
+                           LOG_ITEM("MONOTONIC_USEC=" USEC_FMT, dts.monotonic),
+                           LOG_ITEM("REALTIME_USEC=" USEC_FMT, dts.realtime),
+                           LOG_ITEM("BOOTTIME_USEC=" USEC_FMT, dts.boottime));
+        }
+
+        return 0;
 }
 
 static void manager_adjust_poll(Manager *m, double offset, bool spike) {
@@ -417,7 +476,6 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 .msg_namelen = sizeof(server_addr),
         };
         struct timespec *recv_time;
-        triple_timestamp dts;
         ssize_t len;
         double origin, receive, trans, dest, delay, offset, root_distance;
         bool spike;
@@ -572,24 +630,19 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                   m->samples_jitter, spike ? " spike" : "",
                   m->poll_interval_usec / USEC_PER_SEC);
 
-        /* Get current monotonic/realtime clocks immediately before adjusting the latter */
-        triple_timestamp_now(&dts);
+        if (!m->talking) {
+                _cleanup_free_ char *pretty = NULL;
 
-        if (!spike) {
-                /* Fix up our idea of the time. */
-                dts.realtime = (usec_t) (dts.realtime + offset * USEC_PER_SEC);
+                m->talking = true;
 
-                r = manager_adjust_clock(m, offset, leap_sec);
-                if (r < 0)
-                        log_error_errno(r, "Failed to call clock_adjtime(): %m");
+                (void) server_address_pretty(m->current_server_address, &pretty);
 
-                (void) manager_save_time_and_rearm(m, dts.realtime);
-
-                /* If touch fails, there isn't much we can do. Maybe it'll work next time. */
-                r = touch("/run/systemd/timesync/synchronized");
-                if (r < 0)
-                        log_debug_errno(r, "Failed to touch /run/systemd/timesync/synchronized, ignoring: %m");
+                log_info("Contacted time server %s (%s).", strna(pretty), m->current_server_name->string);
+                (void) sd_notifyf(/* unset_environment= */ false, "STATUS=Contacted time server %s (%s).", strna(pretty), m->current_server_name->string);
         }
+
+        if (!spike)
+                (void) manager_sync_clock(m, offset, leap_sec, /* persist= */ true);
 
         /* Save NTP response */
         m->ntpmsg = ntpmsg;
@@ -608,29 +661,6 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                                 "org.freedesktop.timesync1.Manager",
                                 "NTPMessage",
                                 NULL);
-
-        if (!m->talking) {
-                _cleanup_free_ char *pretty = NULL;
-
-                m->talking = true;
-
-                (void) server_address_pretty(m->current_server_address, &pretty);
-
-                log_info("Contacted time server %s (%s).", strna(pretty), m->current_server_name->string);
-                (void) sd_notifyf(/* unset_environment= */ false, "STATUS=Contacted time server %s (%s).", strna(pretty), m->current_server_name->string);
-        }
-
-        if (!spike && !m->synchronized) {
-                m->synchronized = true;
-
-                log_struct(LOG_INFO,
-                           LOG_MESSAGE("Initial clock synchronization to %s.",
-                                       FORMAT_TIMESTAMP_STYLE(dts.realtime, TIMESTAMP_US)),
-                           LOG_MESSAGE_ID(SD_MESSAGE_TIME_SYNC_STR),
-                           LOG_ITEM("MONOTONIC_USEC=" USEC_FMT, dts.monotonic),
-                           LOG_ITEM("REALTIME_USEC=" USEC_FMT, dts.realtime),
-                           LOG_ITEM("BOOTTIME_USEC=" USEC_FMT, dts.boottime));
-        }
 
         r = manager_arm_timer(m, m->poll_interval_usec);
         if (r < 0)
@@ -909,6 +939,11 @@ int manager_connect(Manager *m) {
 
         assert(m);
 
+        if (manager_phc_active(m)) {
+                log_debug("Synchronizing to PTP hardware clock, not contacting NTP servers.");
+                return 0;
+        }
+
         manager_disconnect(m);
 
         m->event_retry = sd_event_source_unref(m->event_retry);
@@ -1070,6 +1105,7 @@ Manager* manager_free(Manager *m) {
                 return NULL;
 
         manager_disconnect(m);
+        manager_phc_stop(m);
         manager_flush_server_names(m, SERVER_SYSTEM);
         manager_flush_server_names(m, SERVER_LINK);
         manager_flush_server_names(m, SERVER_RUNTIME);
@@ -1083,6 +1119,9 @@ Manager* manager_free(Manager *m) {
         sd_event_source_unref(m->event_save_time);
 
         sd_event_source_unref(m->deferred_ntp_server_event_source);
+
+        sd_device_monitor_unref(m->phc_monitor);
+        free(m->phc_device_match);
 
         sd_resolve_unref(m->resolve);
         sd_event_unref(m->event);
@@ -1173,6 +1212,10 @@ static int manager_network_event_handler(sd_event_source *s, int fd, uint32_t re
 
         changed = manager_network_read_link_servers(m);
 
+        /* NTP servers are not used while we are synchronizing to a PTP hardware clock */
+        if (manager_phc_active(m))
+                return 0;
+
         /* check if the machine is online */
         online = network_is_online();
 
@@ -1247,6 +1290,8 @@ int manager_new(Manager **ret) {
                 .connection_retry_usec = DEFAULT_CONNECTION_RETRY_USEC,
 
                 .server_socket = -EBADF,
+                .phc_fd = -EBADF,
+                .phc_enabled = true,
 
                 .ratelimit = (const RateLimit) {
                         RATELIMIT_INTERVAL_USEC,
