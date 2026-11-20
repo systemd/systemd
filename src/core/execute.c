@@ -204,7 +204,7 @@ bool exec_needs_network_namespace(const ExecContext *context) {
 }
 
 static bool exec_needs_ephemeral(const ExecContext *context) {
-        return (context->root_image || context->root_directory) && context->root_ephemeral;
+        return (context->root_image || context->root_directory || context->root_directory_as_fd) && context->root_ephemeral;
 }
 
 bool exec_needs_ipc_namespace(const ExecContext *context) {
@@ -670,6 +670,7 @@ void exec_context_init(ExecContext *c) {
                 .mount_apivfs = -1,
                 .bind_log_sockets = -1,
                 .memory_ksm = -1,
+                .private_tmp = _PRIVATE_TMP_INVALID,
                 .private_var_tmp = _PRIVATE_TMP_INVALID,
                 .set_login_environment = -1,
         };
@@ -1239,7 +1240,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, empty_to_root(c->root_directory),
                 prefix, yes_no(c->root_ephemeral),
                 prefix, yes_no(c->non_blocking),
-                prefix, private_tmp_to_string(c->private_tmp),
+                prefix, c->private_tmp >= 0 ? private_tmp_to_string(c->private_tmp) : "no",
                 prefix, yes_no(c->private_devices),
                 prefix, yes_no(c->protect_kernel_tunables),
                 prefix, yes_no(c->protect_kernel_modules),
@@ -2204,20 +2205,32 @@ bool exec_context_io_uring_filter_set(const ExecContext *c) {
                 !set_isempty(c->io_uring_filter);
 }
 
+bool exec_context_with_separate_rootfs(const ExecContext *c) {
+        assert(c);
+
+        /* Checks if a root file system other than our own root directory is used: RootDirectory= pointing
+         * somewhere else than /, RootImage=, RootMStack= or RootDirectoryFileDescriptor=.
+         * The settings are checked in the same order as pin_rootfs() resolves them: when several roots are
+         * configured, the first one that is set is used and the others are ignored, e.g. with both
+         * RootDirectory= and RootImage= configured, whether RootDirectory= resolves to our own root is
+         * irrelevant. Hence, do not reorder the checks. */
+
+        if (c->root_directory_as_fd || c->root_image)
+                return true;
+
+        if (c->root_directory)
+                return !empty_or_root(c->root_directory);
+
+        return c->root_mstack;
+}
+
 bool exec_context_with_rootfs(const ExecContext *c) {
         assert(c);
 
-        /* Checks if RootDirectory=, RootImage=, RootMStack= or RootDirectoryFileDescriptor= are used */
-
-        return !empty_or_root(c->root_directory) || c->root_image || c->root_directory_as_fd || c->root_mstack;
-}
-
-bool exec_context_with_rootfs_strict(const ExecContext *c) {
-        assert(c);
-
-        /* just like exec_context_with_rootfs(), but doesn't suppress a root directory of "/", i.e. returns
-         * true in more cases: when a root directory is explicitly configured, even if it's our usual
-         * root. */
+        /* Checks if RootDirectory=, RootImage=, RootMStack=, or RootDirectoryFileDescriptor= are used.
+         * Note that RootDirectory=/ counts, too: it is treated like any other root directory, even
+         * though it refers to our usual root. For checks that care about the root being a separate
+         * tree, use exec_context_with_separate_rootfs() above. */
 
         return c->root_directory || c->root_image || c->root_directory_as_fd || c->root_mstack;
 }
