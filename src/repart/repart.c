@@ -10735,7 +10735,7 @@ static int context_fstab(Context *context) {
                                         p->type.designator,
                                         p->format,
                                         /* rw= */ true,
-                                        /* discard= */ !IN_SET(p->type.designator, PARTITION_ESP, PARTITION_XBOOTLDR),
+                                        /* discard= */ false,
                                         &options,
                                         /* ret_ms_flags= */ NULL);
                         if (r < 0)
