@@ -10,6 +10,14 @@ typedef enum DHCPClientIdentifier {
         _DHCP_CLIENT_ID_INVALID = -EINVAL,
 } DHCPClientIdentifier;
 
+typedef enum DHCPClientPersistLeases {
+        DHCP_CLIENT_PERSIST_LEASES_NO,
+        DHCP_CLIENT_PERSIST_LEASES_YES,
+        DHCP_CLIENT_PERSIST_LEASES_YES_WITH_EXPIRED,
+        _DHCP_CLIENT_PERSIST_LEASES_MAX,
+        _DHCP_CLIENT_PERSIST_LEASES_INVALID = -EINVAL,
+} DHCPClientPersistLeases;
+
 void network_adjust_dhcp4(Network *network);
 int dhcp4_update_mac(Link *link);
 int dhcp4_update_hostname(Link *link);
@@ -24,6 +32,9 @@ int dhcp4_check_ready(Link *link);
 
 int link_request_dhcp4_client(Link *link);
 int link_drop_dhcp4_config(Link *link, Network *network);
+int link_get_dhcp_client_lease_path(Link *link, int *ret_dir_fd, char **ret_path);
+int is_dhcp_client_persist_leases(Link *link);
+void manager_enable_dhcp4_client_persistent_storage(Manager *manager, bool start);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_client_identifier);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_max_attempts);
@@ -32,3 +43,5 @@ CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_socket_priority);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_mud_url);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_fallback_lease_lifetime);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_label);
+
+DECLARE_STRING_TABLE_LOOKUP(dhcp_client_persist_leases, DHCPClientPersistLeases);
