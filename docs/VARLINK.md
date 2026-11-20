@@ -8,7 +8,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 # General guideline
 
 - New Varlink APIs and extensions to existing APIs must follow the
-  [UAPI Varlink specification](https://uapi-group.org/specifications/specs/varlink/),
+  [UAPI.20 Varlink IPC](https://uapi-group.org/specifications/specs/varlink/),
   respecting its requirements, recommendations and permitted exceptions. The
   guidelines below supplement it with systemd-specific conventions.
 
@@ -21,12 +21,61 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - Every field and method should include meaningful documentation. It's
   acceptable to reference existing documentation where appropriate.
   Documentation may be omitted only when the meaning is self-evident, even to
-  someone not already familiar with varlink interface/method.
+  someone not already familiar with Varlink interface/method.
 
 - Varlink fields should optimize toward clarity:
   * avoid abbreviations: `cacheDir` -> `cacheDirectory`
   * prefer string values over numeric codes when possible,
     to make interfaces more self-descriptive and easier to understand.
+
+# Documentation
+
+Each interface needs a manual page. The page holds the description, the security
+notes, the examples, the IDL, the cross-references, and the history.
+
+Add a page for a new interface:
+
+1. Add the interface to `man/rules/meson.build`. Use the build condition that
+   provides the interface.
+2. Create the page:
+
+   ```
+   tools/update-varlink-docs.py --build-dir build --scaffold man/io.systemd.Foo.xml
+   ```
+
+3. Write the description, the security section, and the examples.
+4. Document each method, type, and error on the page. If you cannot write the
+   text yet, add the symbol to `tools/varlink_ignorelist`.
+5. Regenerate the IDL and the cross-references:
+
+   ```
+   ninja -C build update-varlink-docs
+   ```
+
+6. Write the history section:
+
+   ```
+   tools/update-varlink-docs.py --build-dir build --backfill-history man/io.systemd.Foo.xml
+   ```
+
+7. Check the result:
+
+   ```
+   meson test -C build varlink-docs-fresh
+   ```
+
+The test fails in these cases:
+
+- A page does not match the compiled IDL.
+- An interface has no page.
+- A page is not in `man/rules/meson.build`.
+- A symbol is undocumented and not in the ignore list.
+- A symbol has no history entry.
+
+Use `varlinkctl introspect --format=json` to read a definition as JSON. A service
+also returns JSON when the caller sets the `format=json` input of
+`org.varlink.service.GetInterfaceDescription()`. Process that data directly. Do
+not parse the IDL text.
 
 # Interface structure
 
@@ -82,7 +131,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   representable as enum members.
 
   For example, in `io.systemd.Unit`, configuration settings that users select
-  in unit files (e.g. `ProtectSystem`, `ExecInputType`) should be proper varlink
+  in unit files (e.g. `ProtectSystem`, `ExecInputType`) should be proper Varlink
   enum types. Runtime state fields that only the engine determines (e.g.
   `ActiveState`, `SubState`) may remain plain strings.
 
@@ -92,7 +141,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   adding alias support to IDL validation or an explicit exception permitting
   string-typed inputs.
 
-- A varlink string field that has a finite set of possible values may later be
+- A Varlink string field that has a finite set of possible values may later be
   converted into an enum without introducing a breaking change. This allows the
   interface to evolve from loosely defined string values to a more explicit and
   type-safe enumeration once the valid options are well established.

@@ -1,0 +1,140 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="io.systemd.FirstBoot"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>io.systemd.FirstBoot</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>io.systemd.FirstBoot</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>io.systemd.FirstBoot</refname>
+    <refpurpose>API for provisioning systems with basic settings</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><interfacename>io.systemd.FirstBoot</interfacename> is a Varlink interface implemented by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-related
+    components. It can be introspected and called with
+    <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+    <para><function>Configure()</function> applies <varname>Settings</varname> to the host, or to the root
+    directory or disk image passed as file descriptor (<varname>rootFileDescriptor</varname>,
+    <varname>imageFileDescriptor</varname> with <varname>imagePolicy</varname>), the same way
+    <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    does: locale, keymap, timezone, hostname, machine ID, root password and similar settings. The
+    names of the settings actually written are returned in <varname>applied</varname>; settings that
+    were already configured are left alone unless <varname>force</varname> is set. This is what lets
+    provisioning tools configure a first-boot system without running the interactive tool. The
+    interface is experimental.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Security</title>
+
+    <para>The interface is served by
+    <citerefentry><refentrytitle>systemd-firstboot.service</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    on the <filename>/run/systemd/io.systemd.FirstBoot</filename> socket, which is
+    <constant>SocketMode=0600</constant> and therefore only connectable by the superuser; that is
+    required, since the method rewrites system configuration and accepts a file descriptor to a root
+    directory or disk image. No polkit interaction takes place. The socket accepts connections
+    (<constant>Accept=yes</constant>, up to <constant>MaxConnectionsPerSource=16</constant>) and
+    starts one <filename>systemd-firstboot@.service</filename> instance per connection, i.e. each
+    connection performs a single configuration pass; the same service is what runs the configuration
+    on a first boot.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Interface Definition</title>
+
+    <para>The following interface definition is exposed:</para>
+
+    <programlisting varlink-interface="io.systemd.FirstBoot">
+<emphasis role="varlink-comment"># API for provisioning systems with basic settings, see systemd-firstboot(1).</emphasis>
+<emphasis role="varlink-comment"># [Experimental]</emphasis>
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.FirstBoot
+
+<emphasis role="varlink-comment"># Basic system settings, as systemd-firstboot configures them.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> Settings(
+	<emphasis role="varlink-comment"># The system locale, i.e. LANG=, e.g. 'de_DE.UTF-8'.</emphasis>
+	locale: ?string,
+	<emphasis role="varlink-comment"># The locale for messages, i.e. LC_MESSAGES=.</emphasis>
+	localeMessages: ?string,
+	<emphasis role="varlink-comment"># The console keymap, e.g. 'de'.</emphasis>
+	keymap: ?string,
+	<emphasis role="varlink-comment"># The timezone, e.g. 'Europe/Berlin'.</emphasis>
+	timezone: ?string,
+	<emphasis role="varlink-comment"># The static hostname.</emphasis>
+	hostname: ?string,
+	<emphasis role="varlink-comment"># The machine ID, formatted as 32 hexadecimal characters. Only accepted when a root directory or image is specified, or force is true.</emphasis>
+	machineId: ?string,
+	<emphasis role="varlink-comment"># Tags to label the machine with, see machine-info(5).</emphasis>
+	machineTags: ?[]string,
+	<emphasis role="varlink-comment"># The root password in plain text, it is hashed before it is stored anywhere. Mutually exclusive with rootPasswordHashed.</emphasis>
+	rootPassword: ?string,
+	<emphasis role="varlink-comment"># The root password, already hashed in a format crypt(3) understands. Mutually exclusive with rootPassword.</emphasis>
+	rootPasswordHashed: ?string,
+	<emphasis role="varlink-comment"># The shell of the root user, as absolute path.</emphasis>
+	rootShell: ?string,
+	<emphasis role="varlink-comment"># Additional kernel command line options.</emphasis>
+	kernelCommandLine: ?string
+)
+
+<emphasis role="varlink-comment"># Applies settings to the host, or to the root directory or disk image passed as file descriptor, the same way the systemd-firstboot command line tool does. Settings that are already configured are not changed, unless force is set. Requires root privileges.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> Configure(
+	<emphasis role="varlink-comment"># Index of a file descriptor passed along with the call, referring to the root directory to operate on. If unset, the host is configured. Mutually exclusive with imageFileDescriptor.</emphasis>
+	rootFileDescriptor: ?int,
+	<emphasis role="varlink-comment"># Index of a file descriptor passed along with the call, referring to a disk image or block device to operate on, instead of the host. It is dissected and mounted for this. Mutually exclusive with rootFileDescriptor.</emphasis>
+	imageFileDescriptor: ?int,
+	<emphasis role="varlink-comment"># Image policy to dissect the image with, see systemd.image-policy(7).</emphasis>
+	imagePolicy: ?string,
+	<emphasis role="varlink-comment"># The settings to apply, at least one must be set.</emphasis>
+	settings: Settings,
+	<emphasis role="varlink-comment"># If true, overwrite existing configuration files, like the --force switch. Defaults to false, i.e. settings that are already configured are left as they are.</emphasis>
+	force: ?bool
+) -&gt; (
+	<emphasis role="varlink-comment"># The names of the fields of the settings parameter that were written to the system. Specified settings that were skipped, because they were configured already, are not listed.</emphasis>
+	applied: []string
+)
+</programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="varlink-interface" generated="True" extra-ref="io.systemd.FirstBoot"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="Settings"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Configure()"/>
+
+    <!--End of Autogenerated section-->
+
+    </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.FirstBoot</screen> shows the
+    interface definition as served by <replaceable>SERVICE</replaceable>, and
+    <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.FirstBoot.Configure '{}'</screen>
+    invokes its <function>Configure()</function> method.</para>
+  </refsect1>
+
+  <refsect1><title>History</title><para>The io.systemd.FirstBoot interface was added in version 263.</para><para><function>Configure()</function>, and <varname>Settings</varname> were added in version 263.</para></refsect1><refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.varlink</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>
