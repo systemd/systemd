@@ -720,6 +720,10 @@ static int dispatch_pkcs11_key_data(const char *name, sd_json_variant *variant, 
         r = sd_json_variant_unbase64(variant, &b, &l);
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to decode encrypted PKCS#11 key: %m");
+        if (l == 0) {
+                free(b);
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Encrypted PKCS#11 key is empty.");
+        }
 
         erase_and_free(k->data);
         k->data = b;
@@ -785,6 +789,14 @@ static int dispatch_pkcs11_key(const char *name, sd_json_variant *variant, sd_js
                         return r;
                 }
 
+                /* In permissive mode missing mandatory fields are not refused by sd_json_dispatch(), but
+                 * everything else relies on them being set, hence skip such entries. */
+                if (!k->uri || !k->data || !k->hashed_password) {
+                        json_log(e, flags, 0, "PKCS#11 encrypted key lacks mandatory fields, ignoring.");
+                        pkcs11_encrypted_key_done(k);
+                        continue;
+                }
+
                 h->n_pkcs11_encrypted_key++;
         }
 
@@ -806,6 +818,10 @@ static int dispatch_fido2_hmac_credential(const char *name, sd_json_variant *var
         r = sd_json_variant_unbase64(variant, &b, &l);
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to decode FIDO2 credential ID: %m");
+        if (l == 0) {
+                free(b);
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "FIDO2 credential ID is empty.");
+        }
 
         k->size = l;
         return free_and_replace(k->id, b);
@@ -854,6 +870,10 @@ static int dispatch_fido2_hmac_salt_value(const char *name, sd_json_variant *var
         r = sd_json_variant_unbase64(variant, &b, &l);
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to decode FIDO2 salt: %m");
+        if (l == 0) {
+                free(b);
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "FIDO2 salt is empty.");
+        }
 
         erase_and_free(k->salt);
         k->salt = b;
@@ -900,6 +920,13 @@ static int dispatch_fido2_hmac_salt(const char *name, sd_json_variant *variant, 
                         return r;
                 }
 
+                /* See above */
+                if (!k->credential.id || !k->salt || !k->hashed_password) {
+                        json_log(e, flags, 0, "FIDO2 HMAC salt lacks mandatory fields, ignoring.");
+                        fido2_hmac_salt_done(k);
+                        continue;
+                }
+
                 h->n_fido2_hmac_salt++;
         }
 
@@ -934,6 +961,13 @@ static int dispatch_recovery_key(const char *name, sd_json_variant *variant, sd_
                 if (r < 0) {
                         recovery_key_done(k);
                         return r;
+                }
+
+                /* See above */
+                if (!k->type || !k->hashed_password) {
+                        json_log(e, flags, 0, "Recovery key lacks mandatory fields, ignoring.");
+                        recovery_key_done(k);
+                        continue;
                 }
 
                 h->n_recovery_key++;
