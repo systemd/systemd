@@ -29,7 +29,7 @@ COMMAND(
         "systemd-cryptsetup-generator\0",
         "Generate units from /etc/crypttab.",
         .argspec = GENERATOR_ARGSPEC,
-        .man_pages = "systemd-cryptsetup-generator(8)\0",
+        .man_page = "systemd-cryptsetup-generator(8)",
         .option_namespace = "common",
 );
 

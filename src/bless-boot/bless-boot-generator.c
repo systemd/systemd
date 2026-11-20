@@ -14,7 +14,7 @@ COMMAND(
         "systemd-bless-boot-generator\0",
         "Pull in systemd-bless-boot.service when boot counting is in effect.",
         .argspec = GENERATOR_ARGSPEC,
-        .man_pages = "systemd-bless-boot-generator(8)\0",
+        .man_page = "systemd-bless-boot-generator(8)",
         .option_namespace = "common",
 );
 

@@ -16,7 +16,7 @@ COMMAND(
         "systemd-quotacheck\0",
         "Check file system quotas.",
         .argspec = "[PATH]\0",
-        .man_pages = "systemd-quotacheck@.service(8)\0",
+        .man_page = "systemd-quotacheck@.service(8)",
         .option_namespace = "common",
 );
 

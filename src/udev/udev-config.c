@@ -156,7 +156,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 COMMAND(
         "systemd-udevd\0",
         "Rule-based manager for device events and files.",
-        .man_pages = "systemd-udevd.service(8)\0",
+        .man_page = "systemd-udevd.service(8)",
         .option_namespace = "udevd",
 );
 

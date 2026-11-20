@@ -25,7 +25,7 @@ COMMAND(
         "test-cli\0",
         "Exercise the command line framework, to compare a C program with its Rust twin.",
         .footer = "Both twins print this footer.",
-        .man_pages = "systemd(1)\0",
+        .man_page = "systemd(1)",
         .pager_flags = &arg_pager_flags,
 );
 

@@ -306,7 +306,7 @@ static int parse_options(const char *options) {
 COMMAND(
         "systemd-veritysetup\0",
         "Attach or detach a verity-protected block device.",
-        .man_pages = "systemd-veritysetup@.service(8)\0",
+        .man_page = "systemd-veritysetup@.service(8)",
         .option_namespace = "common",
 );
 

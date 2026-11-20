@@ -56,7 +56,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
 COMMAND(
         "systemd-journal-gatewayd\0",
         "Serve journal events over HTTP.",
-        .man_pages = "systemd-journal-gatewayd.service(8)\0",
+        .man_page = "systemd-journal-gatewayd.service(8)",
 );
 
 typedef struct RequestMeta {

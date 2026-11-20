@@ -22,7 +22,7 @@
 COMMAND(
         "systemd-report-files\0",
         "Report the contents of files as system report metrics.",
-        .man_pages = "systemd-report-files@.service(8)\0",
+        .man_page = "systemd-report-files@.service(8)",
         .option_namespace = "common",
 );
 

@@ -54,7 +54,7 @@ COMMAND(
         .argspec =
                 "COMMAND…\0"
                 "--list\0",
-        .man_pages = "systemd-inhibit(1)\0",
+        .man_page = "systemd-inhibit(1)",
         .pager_flags = &arg_pager_flags,
 );
 

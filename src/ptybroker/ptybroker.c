@@ -46,7 +46,7 @@
 COMMAND(
         "systemd-ptybrokerd\0",
         "Broker access to pseudo terminals",
-        .man_pages = "systemd-ptybrokerd.service(8)\0",
+        .man_page = "systemd-ptybrokerd.service(8)",
         .option_namespace = "service",
         .option_groups =
                 "Options\0"
