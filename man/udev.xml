@@ -274,8 +274,7 @@
           <term><literal>!=</literal></term>
           <listitem>
             <para>Compare for inequality: the specified key does not have the specified value or the
-            specified key is not present at all. The value may be a pattern.
-            </para>
+            specified key is not present at all. The value may be a pattern.</para>
           </listitem>
         </varlistentry>
 
@@ -317,19 +316,19 @@
     <refsect2>
       <title>Values</title>
 
-      <para>Values are written as double quoted strings, such as ('"string"'). To include a quotation mark (")
-      in the value, precede it by a backslash ('\"'). Any other occurrences of a backslash followed by a
+      <para>Values are written as double quoted strings, such as '"string"'. To include a quotation mark (")
+      in the value, precede it by a backslash, i.e. '\"'. Any other occurrences of a backslash followed by a
       character are not unescaped. That is, <literal>\t\n</literal> is treated as four characters: backslash,
       lowercase <literal>t</literal>, backslash, lowercase <literal>n</literal>.</para>
 
-      <para>The string can be prefixed with a lowercase <literal>e</literal> ('e"string\n"') to mark the string
-      as C-style escaped, see
+      <para>The string can be prefixed with a lowercase <literal>e</literal> to mark the string as C-style
+      escaped, see
       <ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">Escape sequences in C</ulink>.
       For example, 'e"string\n"' is parsed as 7 characters: 6 lowercase letters and a newline. This can be
       useful for writing special characters when a kernel driver requires them.</para>
 
-      <para>The string can be prefixed with a lowercase <literal>i</literal> ('i"string"') to mark that the
-      string or pattern will match case-insensitively. For example, 'i"foo"' will match <literal>foo</literal>,
+      <para>The string can be prefixed with a lowercase <literal>i</literal> to mark that the string or
+      pattern will match case-insensitively. For example, 'i"foo"' will match <literal>foo</literal>,
       <literal>FOO</literal>, <literal>FoO</literal>, and so on. The prefix can be used only for match
       (<literal>==</literal>) or unmatch (<literal>!=</literal>) rules, e.g.
       <varname>ATTR{foo}==i"abcd"</varname>. The <literal>e</literal> and <literal>i</literal> prefixes may
@@ -388,7 +387,7 @@
         </varlistentry>
       </variablelist>
 
-      <para>An empty alternative — produced by a leading, trailing or doubled <literal>|</literal>, e.g.
+      <para>An empty alternative — produced by a leading, trailing, or doubled <literal>|</literal>, e.g.
       <literal>|foo</literal> — matches an unset or empty value. For example,
       <varname>ENV{FOO}=="bar|"</varname> matches when the property is set to <literal>bar</literal> or is
       unset or empty. To test that a value is set and non-empty, the patterns '=="?*"' and
@@ -1054,8 +1053,7 @@
           highest link priority becomes the owner of the link. If several devices have the same priority,
           which one of them owns the link is undefined.</para>
           <para>Symlink names must never conflict with the kernel's default device node names, as that would
-          result in unpredictable behavior.
-          </para>
+          result in unpredictable behavior.</para>
         </listitem>
       </varlistentry>
 
@@ -1426,8 +1424,7 @@
         <listitem>
           <para>The kernel name of the device matched while searching the devpath upwards for
           <option>SUBSYSTEMS</option>, <option>KERNELS</option>, <option>DRIVERS</option>, and
-          <option>ATTRS</option>.
-          </para>
+          <option>ATTRS</option>.</para>
         </listitem>
       </varlistentry>
 
@@ -1436,8 +1433,7 @@
         <listitem>
           <para>The driver name of the device matched while searching the devpath upwards for
           <option>SUBSYSTEMS</option>, <option>KERNELS</option>, <option>DRIVERS</option>, and
-          <option>ATTRS</option>.
-          </para>
+          <option>ATTRS</option>.</para>
         </listitem>
       </varlistentry>
 
@@ -1448,15 +1444,12 @@
           <para>The value of a sysfs attribute found at the device where all keys of the rule have matched.
           If the matching device does not have such an attribute, and a previous <option>KERNELS</option>,
           <option>SUBSYSTEMS</option>, <option>DRIVERS</option>, or <option>ATTRS</option> test selected a
-          parent device, then the attribute from that parent device is used.
-          </para>
+          parent device, then the attribute from that parent device is used.</para>
           <para>The attribute may also address another device with the
           <literal>[SUBSYSTEM/KERNEL]attribute</literal> format; see <literal>Referring to Other
-          Devices</literal> above.
-          </para>
+          Devices</literal> above.</para>
           <para>If the attribute is a symlink, the last element of the symlink target is returned as the
-          value.
-          </para>
+          value.</para>
         </listitem>
       </varlistentry>
 
