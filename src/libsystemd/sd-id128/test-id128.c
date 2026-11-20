@@ -10,9 +10,11 @@
 #include "alloc-util.h"
 #include "capability-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "id128-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "strv.h"
 #include "tests.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
@@ -378,6 +380,27 @@ TEST(ID128_REFUSE_NULL) {
         ASSERT_EQ_ID128(id, SD_ID128_NULL);
 
         ASSERT_ERROR(id128_read_at(tfd, "zero-id", ID128_FORMAT_PLAIN | ID128_REFUSE_NULL, &id), ENOMEDIUM);
+}
+
+TEST(id128_get_fs_uuid) {
+        sd_id128_t a, b;
+        int r;
+
+        FOREACH_STRING(p, "/", "/var/", "/tmp/") {
+                r = id128_get_fs_uuid(p, &a);
+                if (IN_SET(r, -EOPNOTSUPP, -EADDRNOTAVAIL, -ENOENT)) {
+                        log_info_errno(r, "File system UUID of '%s' not available: %m", p);
+                        continue;
+                }
+                ASSERT_OK(r);
+                ASSERT_FALSE(sd_id128_is_null(a));
+
+                _cleanup_close_ int fd = ASSERT_OK(xopenat(AT_FDCWD, p, O_RDONLY|O_DIRECTORY));
+                ASSERT_OK(id128_get_fs_uuid_fd(fd, &b));
+                ASSERT_EQ_ID128(a, b);
+
+                log_info("File system UUID of '%s': " SD_ID128_UUID_FORMAT_STR, p, SD_ID128_FORMAT_VAL(a));
+        }
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

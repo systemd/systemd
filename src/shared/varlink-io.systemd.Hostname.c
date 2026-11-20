@@ -72,6 +72,8 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_OUTPUT(MachineID, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("The 128-bit boot ID of the current boot, formatted as a hexadecimal string."),
                 SD_VARLINK_DEFINE_OUTPUT(BootID, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The 128-bit UUID of the file system backing /var/, formatted as a hexadecimal string. Null if not known."),
+                SD_VARLINK_DEFINE_OUTPUT(FileSystemID, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The DMI product UUID of this system. Reading it requires privileges. Null if not known."),
                 SD_VARLINK_DEFINE_OUTPUT(ProductUUID, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The AF_VSOCK context ID (CID) of this system. Null if not known."),

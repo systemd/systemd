@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <linux/fs.h>
 #include <stdlib.h>
+#include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -11,6 +13,7 @@
 #include "hash-funcs.h"
 #include "id128-util.h"
 #include "io-util.h"
+#include "log.h"
 #include "namespace-util.h"
 #include "pidref.h"
 #include "process-util.h"
@@ -257,6 +260,55 @@ int id128_get_product(sd_id128_t *ret) {
 
         *ret = uuid;
         return 0;
+}
+
+int id128_get_fs_uuid_fd(int fd, sd_id128_t *ret) {
+        struct fsuuid2 u = {};
+
+        assert(fd >= 0);
+        assert(ret);
+
+        /* Reads the UUID of the file system backing the specified fd, via FS_IOC_GETFSUUID. Returns
+         * -EOPNOTSUPP if the file system (or kernel) does not support the ioctl or reports an identifier
+         * that is not a 128-bit UUID, and -EADDRNOTAVAIL if the reported UUID is all zeroes or all ones. */
+
+        if (ioctl(fd, FS_IOC_GETFSUUID, &u) < 0) {
+                if (ERRNO_IS_IOCTL_NOT_SUPPORTED(errno))
+                        return -EOPNOTSUPP;
+
+                return -errno;
+        }
+
+        sd_id128_t uuid;
+        if (u.len != sizeof(uuid.bytes))
+                /* The kernel permits file systems to report identifiers shorter than 16 bytes, which are not
+                 * UUIDs, hence refuse them. */
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "File system reports a %u byte identifier, which is not a UUID, refusing.",
+                                       (unsigned) u.len);
+
+        memcpy(uuid.bytes, u.uuid, sizeof(uuid.bytes));
+
+        if (sd_id128_is_null(uuid) || sd_id128_is_allf(uuid))
+                return -EADDRNOTAVAIL; /* Recognizable error, like in id128_get_product() */
+
+        *ret = uuid;
+        return 0;
+}
+
+int id128_get_fs_uuid(const char *path, sd_id128_t *ret) {
+        _cleanup_close_ int fd = -EBADF;
+
+        assert(path);
+        assert(ret);
+
+        /* Like id128_get_fs_uuid_fd(), but takes a path to a directory, e.g. "/var/". */
+
+        fd = xopenat(AT_FDCWD, path, O_RDONLY|O_DIRECTORY);
+        if (fd < 0)
+                return fd;
+
+        return id128_get_fs_uuid_fd(fd, ret);
 }
 
 sd_id128_t id128_digest(const void *data, size_t size) {

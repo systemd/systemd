@@ -424,6 +424,14 @@ testcase_basic() {
     os_id="$(. /etc/os-release; echo "$ID")"
     assert_metric_value_eq "$basic_metrics" io.systemd.Basic.OSRelease.ID "$os_id"
 
+    # FileSystemID must match what hostnamed reports, and be absent if /var/ has no file system UUID
+    fsid="$(hostnamectl --json=short | jq -r .FileSystemID)"
+    if [[ "$fsid" == null ]]; then
+        assert_metric_absent "$basic_metrics" io.systemd.Basic.FileSystemID
+    else
+        assert_metric_value_eq "$basic_metrics" io.systemd.Basic.FileSystemID "$fsid"
+    fi
+
     # test io.systemd.Basic load average and swap metrics
     basic_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Metrics.List {})"
 

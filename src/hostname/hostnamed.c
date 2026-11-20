@@ -1332,6 +1332,21 @@ static int property_get_machine_id(
         return bus_property_get_id128(bus, path, interface, property, reply, &id, error);
 }
 
+static int get_file_system_id(sd_id128_t *ret) {
+        int r;
+
+        assert(ret);
+
+        /* Returns the UUID of the file system backing /var/, i.e. the file system that carries the
+         * persistent, writable state of this installation. */
+
+        r = id128_get_fs_uuid("/var/", ret);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read UUID of file system backing /var/, ignoring: %m");
+
+        return 0;
+}
+
 static int property_get_boot_id(
                 sd_bus *bus,
                 const char *path,
@@ -1347,6 +1362,22 @@ static int property_get_boot_id(
         r = sd_id128_get_boot(&id);
         if (r < 0)
                 return r;
+
+        return bus_property_get_id128(bus, path, interface, property, reply, &id, error);
+}
+
+static int property_get_file_system_id(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        sd_id128_t id = SD_ID128_NULL;
+
+        (void) get_file_system_id(&id);
 
         return bus_property_get_id128(bus, path, interface, property, reply, &id, error);
 }
@@ -1930,7 +1961,7 @@ static int build_describe_response(Context *c, bool privileged, sd_json_variant 
         _cleanup_strv_free_ char **os_release_pairs = NULL, **machine_info_pairs = NULL;
         usec_t firmware_date = USEC_INFINITY, eol = USEC_INFINITY;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        sd_id128_t machine_id, boot_id, product_uuid = SD_ID128_NULL;
+        sd_id128_t machine_id, boot_id, product_uuid = SD_ID128_NULL, file_system_id = SD_ID128_NULL;
         unsigned local_cid = VMADDR_CID_ANY;
         struct utsname u;
         int r;
@@ -1988,6 +2019,8 @@ static int build_describe_response(Context *c, bool privileged, sd_json_variant 
         if (r < 0)
                 return log_error_errno(r, "Failed to get boot ID: %m");
 
+        (void) get_file_system_id(&file_system_id);
+
         (void) vsock_get_local_cid(&local_cid);
 
         (void) load_os_release_pairs(/* root= */ NULL, &os_release_pairs);
@@ -2034,6 +2067,8 @@ static int build_describe_response(Context *c, bool privileged, sd_json_variant 
                         JSON_BUILD_PAIR_FINITE_USEC("FirmwareDate", firmware_date),
                         SD_JSON_BUILD_PAIR_ID128("MachineID", machine_id),
                         SD_JSON_BUILD_PAIR_ID128("BootID", boot_id),
+                        SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(file_system_id), "FileSystemID", SD_JSON_BUILD_ID128(file_system_id)),
+                        SD_JSON_BUILD_PAIR_CONDITION(sd_id128_is_null(file_system_id), "FileSystemID", SD_JSON_BUILD_NULL),
                         SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(product_uuid), "ProductUUID", SD_JSON_BUILD_ID128(product_uuid)),
                         SD_JSON_BUILD_PAIR_CONDITION(sd_id128_is_null(product_uuid), "ProductUUID", SD_JSON_BUILD_NULL),
                         SD_JSON_BUILD_PAIR_CONDITION(local_cid != VMADDR_CID_ANY, "VSockCID", SD_JSON_BUILD_UNSIGNED(local_cid)),
@@ -2109,6 +2144,7 @@ static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_PROPERTY("FirmwareDate", "t", property_get_firmware_date, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MachineID", "ay", property_get_machine_id, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("BootID", "ay", property_get_boot_id, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("FileSystemID", "ay", property_get_file_system_id, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("VSockCID", "u", property_get_vsock_cid, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ChassisAssetTag", "s", property_get_chassis_asset_tag, 0, SD_BUS_VTABLE_PROPERTY_CONST),
 
