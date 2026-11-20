@@ -248,6 +248,32 @@ class BadSectionError(ValueError):
     "One of the sections is in a bad state"
 
 
+def is_x86_64_reserved_got(file: elffile.ELFFile, section: elf.sections.Section) -> bool:
+    if file['e_machine'] != 'EM_X86_64' or section['sh_size'] != 24:
+        return False
+
+    dynamic = file.get_section_by_name('.dynamic')
+    if dynamic is None:
+        return False
+    if any(tag['d_tag'] in ('DT_NEEDED', 'DT_JMPREL') for tag in dynamic.iter_tags()):
+        return False
+    if not any(
+        tag['d_val'] & elf.enums.ENUM_DT_FLAGS['DF_BIND_NOW'] for tag in dynamic.iter_tags('DT_FLAGS')
+    ):
+        return False
+
+    # With immediate binding GNU ld folds the three reserved .got.plt words into .got.
+    if section.data() != dynamic['sh_addr'].to_bytes(8, byteorder='little') + bytes(16):
+        return False
+
+    start = section['sh_addr']
+    return not any(
+        start <= reloc['r_offset'] < start + section['sh_size']
+        for table in dynamic.get_relocation_tables().values()
+        for reloc in table.iter_relocations()
+    )
+
+
 def iter_copy_sections(file: elffile.ELFFile) -> typing.Iterator[PeSection]:
     pe_s = None
 
@@ -274,8 +300,7 @@ def iter_copy_sections(file: elffile.ELFFile) -> typing.Iterator[PeSection]:
             continue
         if elf_s['sh_type'] not in ['SHT_PROGBITS', 'SHT_NOBITS']:
             raise BadSectionError(f'Unknown section {elf_s.name} with type {elf_s["sh_type"]}')
-        if elf_s.name == '.got':
-            # FIXME: figure out why those sections are inserted
+        if elf_s.name == '.got' and not is_x86_64_reserved_got(file, elf_s):
             print('WARNING: Non-empty .got section', file=sys.stderr)
 
         if elf_s['sh_flags'] & elf.constants.SH_FLAGS.SHF_EXECINSTR:
