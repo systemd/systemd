@@ -48,6 +48,13 @@
     <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
     further details.</para>
 
+    <para>In virtual machines the hypervisor frequently provides its notion of the current time via a PTP
+    hardware clock device (e.g. <filename>/dev/ptp_kvm</filename>). If such a device is available, the system
+    clock is synchronized to it instead, and NTP servers are not contacted. Suitable devices are marked
+    with the udev tag <literal>timesync</literal>. See <varname>PHC=</varname> in
+    <citerefentry><refentrytitle>timesyncd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details.</para>
+
     <para><citerefentry><refentrytitle>timedatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
     <command>set-ntp</command> command may be used to enable and start, or disable and stop this
     service.</para>
