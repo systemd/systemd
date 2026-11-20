@@ -24,7 +24,7 @@
 COMMAND(
         "systemd-remount-fs\0",
         "Remount the root and kernel file systems according to /etc/fstab.",
-        .man_pages = "systemd-remount-fs.service(8)\0",
+        .man_page = "systemd-remount-fs.service(8)",
         .option_namespace = "common",
 );
 

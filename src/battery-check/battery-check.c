@@ -27,7 +27,7 @@ static bool arg_doit = true;
 COMMAND(
         "systemd-battery-check\0",
         "Check battery level to see whether there's enough charge.",
-        .man_pages = "systemd-battery-check(8)\0",
+        .man_page = "systemd-battery-check(8)",
         .option_namespace = "common",
 );
 

@@ -100,7 +100,7 @@ TEST(verbs_no_default_many) {
 static const CommandDescription introspect_command = {
         .names = "test-verbs\0",
         .abstract = "Test the verb machinery.",
-        .man_pages = "systemd(1)\0",
+        .man_page = "systemd(1)",
 };
 
 static const Verb introspect_verbs[] = {
@@ -144,7 +144,7 @@ TEST(command_print_verb_help) {
 static const CommandDescription common_command = {
         .names = "test-verbs\0",
         .abstract = "Test the parser for the common options.",
-        .man_pages = "systemd(1)\0",
+        .man_page = "systemd(1)",
         .option_namespace = "common",
 };
 
@@ -246,14 +246,14 @@ TEST(common_parse_argv) {
 static const CommandDescription multicall_command = {
         .names = "other-program\0",
         .abstract = "The other program of a multicall binary.",
-        .man_pages = "systemd(1)\0",
+        .man_page = "systemd(1)",
         .option_namespace = "common",
 };
 
 static const CommandDescription foreign_command = {
         .names = "foreign-program\0",
         .abstract = "The program of a multicall binary which parses its own options.",
-        .man_pages = "systemd(1)\0",
+        .man_page = "systemd(1)",
         /* .option_namespace unset, like a program with an OptionParser of its own. */
 };
 

@@ -34,7 +34,7 @@ COMMAND(
         "systemd-network-generator\0",
         "Generate network configuration from the kernel command line.",
         .argspec = "[-- KERNEL_CMDLINE]\0",
-        .man_pages = "systemd-network-generator.service(8)\0",
+        .man_page = "systemd-network-generator.service(8)",
 );
 
 static int network_save(Network *network, const char *dest_dir) {

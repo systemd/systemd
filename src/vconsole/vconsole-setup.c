@@ -39,7 +39,7 @@ COMMAND(
         "systemd-vconsole-setup\0",
         "Configure the virtual consoles.",
         .argspec = "[TTY]\0",
-        .man_pages = "systemd-vconsole-setup.service(8)\0",
+        .man_page = "systemd-vconsole-setup.service(8)",
         .option_namespace = "common",
 );
 

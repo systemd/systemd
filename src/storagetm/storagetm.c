@@ -55,7 +55,7 @@ COMMAND(
                 "DEVICE…\0"
                 "--all\0"
                 "--list-devices\0",
-        .man_pages = "systemd-storagetm(8)\0",
+        .man_page = "systemd-storagetm(8)",
 );
 
 static int parse_argv(int argc, char *argv[]) {

@@ -504,19 +504,18 @@ static int print_verb_option_help(
         return 0;
 }
 
-static int print_man_links(const char *pages) {
+static int print_man_link(const char *page) {
+        _cleanup_free_ char *link = NULL;
         int r;
 
-        NULSTR_FOREACH(page, pages) {
-                _cleanup_free_ char *link = NULL;
+        if (!page)
+                return 0;
 
-                r = terminal_urlify_man(page, /* section= */ NULL, &link);
-                if (r < 0)
-                        return r;
+        r = terminal_urlify_man(page, /* section= */ NULL, &link);
+        if (r < 0)
+                return r;
 
-                printf("\nSee the %s for details.\n", link);
-        }
-
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
@@ -654,9 +653,9 @@ int _command_print_help_full(
         if (r < 0)
                 return r;
 
-        r = print_man_links(cmd->man_pages);
+        r = print_man_link(cmd->man_page);
         if (r < 0)
-                return log_error_errno(r, "Failed to print man page links: %m");
+                return log_error_errno(r, "Failed to print man page link: %m");
 
         return 0;
 }
@@ -739,9 +738,9 @@ int _command_print_verb_help(
         if (r < 0)
                 return r;
 
-        r = print_man_links(cmd->man_pages);
+        r = print_man_link(cmd->man_page);
         if (r < 0)
-                return log_error_errno(r, "Failed to print man page links: %m");
+                return log_error_errno(r, "Failed to print man page link: %m");
 
         return 0;
 }
@@ -868,8 +867,8 @@ static int command_build_json(
         }
         assert(names);  /* At least the primary name must be defined */
 
-        NULSTR_FOREACH(page, cmd->man_pages) {
-                const char *uri = strjoina("man:", page);
+        if (cmd->man_page) {
+                const char *uri = strjoina("man:", cmd->man_page);
 
                 r = sd_json_variant_append_arrayb(&docs, SD_JSON_BUILD_STRING(uri));
                 if (r < 0)

@@ -18,7 +18,7 @@
 COMMAND(
         "systemd-update-utmp\0",
         "Write audit and utmp records at bootup and shutdown.",
-        .man_pages = "systemd-update-utmp.service(8)\0",
+        .man_page = "systemd-update-utmp.service(8)",
         .option_namespace = "common",
 );
 

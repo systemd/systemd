@@ -31,7 +31,7 @@ COMMAND(
         "systemd-growfs\0",
         "Grow filesystem or encrypted payload to device size.",
         .argspec = "MOUNTPOINT\0",
-        .man_pages = "systemd-growfs@.service(8)\0",
+        .man_page = "systemd-growfs@.service(8)",
 );
 
 #if HAVE_LIBCRYPTSETUP
