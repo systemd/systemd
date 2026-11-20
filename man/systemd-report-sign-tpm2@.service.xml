@@ -30,6 +30,8 @@
     <para><filename>/usr/lib/systemd/systemd-report-sign-tpm2</filename></para>
   </refsynopsisdiv>
 
+  <xi:include href="experimental.xml" xpointer="component" />
+
   <refsect1>
     <title>Description</title>
 
