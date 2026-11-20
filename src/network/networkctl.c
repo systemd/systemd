@@ -43,7 +43,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_drop_in, freep);
 COMMAND(
         "networkctl\0",
         "Query and control the networking subsystem.",
-        .man_pages = "networkctl(1)\0",
+        .man_page = "networkctl(1)",
         .option_namespace = "networkctl",
         .pager_flags = &arg_pager_flags,
 );

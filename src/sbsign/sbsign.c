@@ -46,7 +46,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_signed_data_signature, freep);
 COMMAND(
         "systemd-sbsign\0",
         "Sign PE binaries for EFI Secure Boot.",
-        .man_pages = "systemd-sbsign(1)\0",
+        .man_page = "systemd-sbsign(1)",
 );
 
 VERB_COMMON_HELP_AUTO_HIDDEN();

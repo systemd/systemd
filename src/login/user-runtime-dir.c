@@ -36,7 +36,7 @@
 COMMAND(
         "systemd-user-runtime-dir\0",
         "Set up and tear down the runtime directory of a user.",
-        .man_pages = "user@.service(5)\0",
+        .man_page = "user@.service(5)",
         .option_namespace = "common",
 );
 

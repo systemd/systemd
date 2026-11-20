@@ -20,7 +20,7 @@ COMMAND(
         "udevadm\0",
         "Send control commands or test the device manager.",
         .argspec = "COMMAND [COMMAND OPTION…]\0",
-        .man_pages = "udevadm(8)\0",
+        .man_page = "udevadm(8)",
         .option_namespace = "udevadm",
         .pager_flags = &arg_pager_flags,
 );

@@ -194,7 +194,7 @@ static void context_done(Context *c) {
 COMMAND(
         "systemd-firstboot\0",
         "Configure basic settings of the system.",
-        .man_pages = "systemd-firstboot(1)\0",
+        .man_page = "systemd-firstboot(1)",
 );
 
 static bool welcome_done = false;

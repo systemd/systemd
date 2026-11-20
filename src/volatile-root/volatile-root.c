@@ -25,7 +25,7 @@ COMMAND(
         "systemd-volatile-root\0",
         "Make the root file system volatile.",
         .argspec = "[MODE [DIRECTORY]]\0",
-        .man_pages = "systemd-volatile-root.service(8)\0",
+        .man_page = "systemd-volatile-root.service(8)",
         .option_namespace = "common",
 );
 

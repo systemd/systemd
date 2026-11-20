@@ -37,7 +37,7 @@ COMMAND(
         "systemd-modules-load\0",
         "Load statically configured kernel modules.",
         .argspec = "[CONFIGURATION FILE…]\0",
-        .man_pages = "systemd-modules-load.service(8)\0",
+        .man_page = "systemd-modules-load.service(8)",
         .option_namespace = "common",
 );
 
