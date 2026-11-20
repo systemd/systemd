@@ -29,7 +29,6 @@
 #include "process-util.h"
 #include "sha256.h"
 #include "sort-util.h"
-#include "stat-util.h"
 #include "string-table.h"
 #include "strv.h"
 #include "sysupdate-cache.h"
@@ -1215,6 +1214,8 @@ int resource_resolve_path(
                                 r = extension_overlay_block("/usr/", IMAGE_SYSEXT, &d);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to determine block device of file system: %m");
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "/usr/ is not backed by a block device.");
                 } else if (!S_ISBLK(orig_root_stats.st_mode)) /* symlink was present but not block device */
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "/run/systemd/volatile-root is not linked to a block device.");
                 else /* symlink was present and a block device */
