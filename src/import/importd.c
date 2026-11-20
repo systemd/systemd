@@ -42,6 +42,7 @@
 #include "set.h"
 #include "signal-util.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "strv.h"
 #include "syslog-util.h"
@@ -762,6 +763,32 @@ static Transfer *manager_find(Manager *m, TransferType type, const char *remote)
         return NULL;
 }
 
+static int verify_polkit_for_image(
+                Manager *m,
+                sd_bus_message *msg,
+                const char *action,
+                ImageClass class,
+                const char *local,
+                sd_bus_error *error) {
+
+        assert(m);
+        assert(msg);
+        assert(action);
+        assert(local);
+
+        if (m->runtime_scope == RUNTIME_SCOPE_USER)
+                return 1;
+
+        /* Image names are only unique within their class */
+        const char *details[] = {
+                "image", local,
+                "class", image_class_to_string(class),
+                NULL
+        };
+
+        return bus_verify_polkit_async(msg, action, details, &m->polkit_registry, error);
+}
+
 static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         _cleanup_(transfer_unrefp) Transfer *t = NULL;
         ImageClass class = _IMAGE_CLASS_INVALID;
@@ -773,19 +800,6 @@ static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         int fd, r;
 
         assert(msg);
-
-        if (m->runtime_scope != RUNTIME_SCOPE_USER) {
-                r = bus_verify_polkit_async(
-                                msg,
-                                "org.freedesktop.import1.import",
-                                /* details= */ NULL,
-                                &m->polkit_registry,
-                                error);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return 1; /* Will call us back */
-        }
 
         if (endswith(sd_bus_message_get_member(msg), "Ex")) {
                 const char *sclass;
@@ -829,6 +843,12 @@ static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         if (!image_name_is_valid(local))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "Local image name %s is invalid", local);
+
+        r = verify_polkit_for_image(m, msg, "org.freedesktop.import1.import", class, local, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
 
         if (class == IMAGE_MACHINE) {
                 r = image_setup_pool(m->runtime_scope, class, m->use_btrfs_subvol, m->use_btrfs_quota);
@@ -877,19 +897,6 @@ static int method_import_fs(sd_bus_message *msg, void *userdata, sd_bus_error *e
 
         assert(msg);
 
-        if (m->runtime_scope != RUNTIME_SCOPE_USER) {
-                r = bus_verify_polkit_async(
-                                msg,
-                                "org.freedesktop.import1.import",
-                                /* details= */ NULL,
-                                &m->polkit_registry,
-                                error);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return 1; /* Will call us back */
-        }
-
         if (endswith(sd_bus_message_get_member(msg), "Ex")) {
                 const char *sclass;
 
@@ -930,6 +937,12 @@ static int method_import_fs(sd_bus_message *msg, void *userdata, sd_bus_error *e
         if (!image_name_is_valid(local))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "Local image name %s is invalid", local);
+
+        r = verify_polkit_for_image(m, msg, "org.freedesktop.import1.import", class, local, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
 
         if (class == IMAGE_MACHINE) {
                 r = image_setup_pool(m->runtime_scope, class, m->use_btrfs_subvol, m->use_btrfs_quota);
@@ -977,19 +990,6 @@ static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
 
         assert(msg);
 
-        if (m->runtime_scope != RUNTIME_SCOPE_USER) {
-                r = bus_verify_polkit_async(
-                                msg,
-                                "org.freedesktop.import1.export",
-                                /* details= */ NULL,
-                                &m->polkit_registry,
-                                error);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return 1; /* Will call us back */
-        }
-
         if (endswith(sd_bus_message_get_member(msg), "Ex")) {
                 const char *sclass;
 
@@ -1028,6 +1028,12 @@ static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         if (!S_ISREG(st.st_mode) && !S_ISFIFO(st.st_mode))
                 return -EINVAL;
 
+        r = verify_polkit_for_image(m, msg, "org.freedesktop.import1.export", class, local, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
         type = startswith(sd_bus_message_get_member(msg), "ExportTar") ?
                 TRANSFER_EXPORT_TAR : TRANSFER_EXPORT_RAW;
 
@@ -1065,6 +1071,47 @@ static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         return 1;
 }
 
+#define PULL_POLKIT_DETAILS_MAX 13
+
+/* Fills in the polkit details for pulling 'remote' into image 'local' of 'class' (or, if 'local' is NULL, into
+ * an image named after the remote), below 'image_root' instead of the pool if not NULL. */
+static void pull_polkit_details(
+                const char *details[PULL_POLKIT_DETAILS_MAX],
+                const char *remote,
+                const char *local,
+                ImageClass class,
+                ImportType type,
+                ImportVerify verify,
+                const char *image_root) {
+
+        size_t n = 0;
+
+        assert(details);
+        assert(remote);
+
+        details[n++] = "remote";
+        details[n++] = remote;
+        if (local) {
+                details[n++] = "image";
+                details[n++] = local;
+        }
+        details[n++] = "class";
+        details[n++] = image_class_to_string(class);
+        details[n++] = "type";
+        details[n++] = import_type_to_string(type);
+        if (verify >= 0) {
+                details[n++] = "verify";
+                details[n++] = import_verify_to_string(verify);
+        }
+        if (image_root) {
+                details[n++] = "image_root";
+                details[n++] = image_root;
+        }
+
+        assert(n < PULL_POLKIT_DETAILS_MAX);
+        details[n] = NULL;
+}
+
 static int method_pull_tar_or_raw_or_oci(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         _cleanup_(transfer_unrefp) Transfer *t = NULL;
         ImageClass class = _IMAGE_CLASS_INVALID;
@@ -1076,19 +1123,6 @@ static int method_pull_tar_or_raw_or_oci(sd_bus_message *msg, void *userdata, sd
         int r;
 
         assert(msg);
-
-        if (m->runtime_scope != RUNTIME_SCOPE_USER) {
-                r = bus_verify_polkit_async(
-                                msg,
-                                "org.freedesktop.import1.pull",
-                                /* details= */ NULL,
-                                &m->polkit_registry,
-                                error);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return 1; /* Will call us back */
-        }
 
         if (streq(sd_bus_message_get_member(msg), "PullOci")) {
                 const char *sclass;
@@ -1166,6 +1200,31 @@ static int method_pull_tar_or_raw_or_oci(sd_bus_message *msg, void *userdata, sd
                 if (v < 0)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                                  "Unknown verification mode %s", verify);
+        }
+
+        if (m->runtime_scope != RUNTIME_SCOPE_USER) {
+                const char *details[PULL_POLKIT_DETAILS_MAX];
+
+                pull_polkit_details(
+                                details,
+                                remote,
+                                local,
+                                class,
+                                type == TRANSFER_PULL_TAR ? IMPORT_TAR :
+                                type == TRANSFER_PULL_RAW ? IMPORT_RAW : IMPORT_OCI,
+                                v,
+                                /* image_root= */ NULL);
+
+                r = bus_verify_polkit_async(
+                                msg,
+                                "org.freedesktop.import1.pull",
+                                details,
+                                &m->polkit_registry,
+                                error);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 1; /* Will call us back */
         }
 
         if (class == IMAGE_MACHINE) {
@@ -1287,18 +1346,34 @@ static int method_list_transfers(sd_bus_message *msg, void *userdata, sd_bus_err
         return sd_bus_message_send(reply);
 }
 
+static int transfer_verify_cancel_async(Transfer *t, sd_bus_message *msg, sd_bus_error *error) {
+        char id[DECIMAL_STR_MAX(uint32_t)];
+
+        assert(t);
+        assert(msg);
+
+        xsprintf(id, "%" PRIu32, t->id);
+
+        const char *details[] = {
+                "transfer", id,
+                NULL
+        };
+
+        return bus_verify_polkit_async(
+                        msg,
+                        "org.freedesktop.import1.cancel",
+                        details,
+                        &t->manager->polkit_registry,
+                        error);
+}
+
 static int method_cancel(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         Transfer *t = ASSERT_PTR(userdata);
         int r;
 
         assert(msg);
 
-        r = bus_verify_polkit_async(
-                        msg,
-                        "org.freedesktop.import1.cancel",
-                        /* details= */ NULL,
-                        &t->manager->polkit_registry,
-                        error);
+        r = transfer_verify_cancel_async(t, msg, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -1319,17 +1394,6 @@ static int method_cancel_transfer(sd_bus_message *msg, void *userdata, sd_bus_er
 
         assert(msg);
 
-        r = bus_verify_polkit_async(
-                        msg,
-                        "org.freedesktop.import1.cancel",
-                        /* details= */ NULL,
-                        &m->polkit_registry,
-                        error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* Will call us back */
-
         r = sd_bus_message_read(msg, "u", &id);
         if (r < 0)
                 return r;
@@ -1339,6 +1403,12 @@ static int method_cancel_transfer(sd_bus_message *msg, void *userdata, sd_bus_er
         t = hashmap_get(m->transfers, UINT32_TO_PTR(id));
         if (!t)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_TRANSFER, "No transfer by id %" PRIu32, id);
+
+        r = transfer_verify_cancel_async(t, msg, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
 
         r = transfer_cancel(t);
         if (r < 0)
@@ -1932,16 +2002,15 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
                 return sd_varlink_errorbo(link, "io.systemd.Import.AlreadyInProgress", SD_JSON_BUILD_PAIR_STRING("remote", p.remote));
 
         if (m->runtime_scope != RUNTIME_SCOPE_USER) {
+                const char *details[PULL_POLKIT_DETAILS_MAX];
+
+                pull_polkit_details(details, p.remote, p.local, p.class, p.type, p.verify, p.image_root);
+
                 r = varlink_verify_polkit_async(
                                 link,
                                 m->system_bus,
                                 "org.freedesktop.import1.pull",
-                                (const char**) STRV_MAKE(
-                                                "remote", p.remote,
-                                                "local",  p.local,
-                                                "class",  image_class_to_string(p.class),
-                                                "type",   import_type_to_string(p.type),
-                                                "verify", import_verify_to_string(p.verify)),
+                                details,
                                 &m->polkit_registry);
                 if (r <= 0)
                         return r;

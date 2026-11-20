@@ -30,6 +30,7 @@
 #include "dlopen-note.h"
 #include "edit-util.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "format-ifname.h"
 #include "format-table.h"
@@ -1643,6 +1644,8 @@ typedef struct ImageStatusInfo {
 } ImageStatusInfo;
 
 static void print_image_status_info(sd_bus *bus, ImageStatusInfo *i) {
+        int r;
+
         assert(bus);
         assert(i);
 
@@ -1657,11 +1660,17 @@ static void print_image_status_info(sd_bus *bus, ImageStatusInfo *i) {
         if (i->path)
                 printf("\t    Path: %s\n", i->path);
 
-        (void) print_image_hostname(bus, i->name);
-        (void) print_image_machine_id(bus, i->name);
-        (void) print_image_machine_info(bus, i->name);
+        /* The metadata calls all require the same polkit action. If the first one is refused, say so, and
+         * don't try (and possibly ask for authentication for) the others. */
+        r = print_image_hostname(bus, i->name);
+        if (ERRNO_IS_NEG_PRIVILEGE(r))
+                log_notice("Not authorized to inspect image '%s', not showing its metadata.", strna(i->name));
+        else {
+                (void) print_image_machine_id(bus, i->name);
+                (void) print_image_machine_info(bus, i->name);
 
-        print_os_release(bus, "GetImageOSRelease", i->name, "\t      OS: ");
+                (void) print_os_release(bus, "GetImageOSRelease", i->name, "\t      OS: ");
+        }
 
         printf("\t      RO: %s%s%s\n",
                i->read_only ? ansi_highlight_red() : "",
@@ -1819,6 +1828,10 @@ static int verb_show_image(int argc, char *argv[], uintptr_t _data, void *userda
         int r = 0;
 
         properties = !strstr(argv[0], "status");
+
+        /* Showing the image metadata requires authorization */
+        if (!properties && argc > 1)
+                (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         pager_open(arg_pager_flags);
 

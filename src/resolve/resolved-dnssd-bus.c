@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "bus-object.h"
 #include "bus-polkit.h"
+#include "format-util.h"
 #include "hashmap.h"
 #include "resolved-dnssd.h"
 #include "resolved-dnssd-bus.h"
@@ -20,10 +21,16 @@ int bus_dnssd_method_unregister(sd_bus_message *message, void *userdata, sd_bus_
 
         m = s->manager;
 
+        const char *details[] = {
+                "dnssd_service", s->id,
+                "owner_uid", FORMAT_UID(s->originator),
+                NULL
+        };
+
         r = bus_verify_polkit_async_full(
                         message,
                         "org.freedesktop.resolve1.unregister-service",
-                        /* details= */ NULL,
+                        details,
                         /* good_user= */ s->originator,
                         /* flags= */ 0,
                         &m->polkit_registry,
