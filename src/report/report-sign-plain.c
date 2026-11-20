@@ -28,6 +28,7 @@ COMMAND(
         "systemd-report-sign-plain\0",
         "Sign system reports with a local software key.",
         .man_page = "systemd-report-sign-plain@.service(8)",
+        .flags = COMMAND_EXPERIMENTAL,
         .option_namespace = "common",
 );
 

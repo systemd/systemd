@@ -30,6 +30,8 @@
 COMMAND(
         "systemd-report-diskspace\0",
         "Report disk space metrics.",
+        .man_page = "systemd-report-diskspace@.service(8)",
+        .flags = COMMAND_EXPERIMENTAL,
         .option_namespace = "common",
 );
 
