@@ -126,6 +126,19 @@ TEST(sockaddr_equal) {
         ASSERT_FALSE(sockaddr_equal(&a, &c));
         ASSERT_FALSE(sockaddr_equal(&b, &c));
         ASSERT_FALSE(sockaddr_equal(&a, &e));
+
+        /* Ports must match too */
+        union sockaddr_union f = a, g = d, h = e;
+        f.in.sin_port = htobe16(53);
+        g.in6.sin6_port = htobe16(53);
+        h.vm.svm_port = 53;
+
+        ASSERT_TRUE(sockaddr_equal(&f, &f));
+        ASSERT_TRUE(sockaddr_equal(&g, &g));
+        ASSERT_TRUE(sockaddr_equal(&h, &h));
+        ASSERT_FALSE(sockaddr_equal(&a, &f));
+        ASSERT_FALSE(sockaddr_equal(&d, &g));
+        ASSERT_FALSE(sockaddr_equal(&e, &h));
 }
 
 TEST(sockaddr_un_len) {
