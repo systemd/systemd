@@ -8,6 +8,7 @@
 #  - successive replaces (file_generation rotation, no node-name collisions)
 #  - StorageImmutable rejection for boot-time attached volumes
 #  - NoSuchStorage rejection for unknown names
+#  - CD-ROMs attached (at boot and at runtime) and replaced from writable fds
 #  - clean RemoveStorage after a replace (proves both old and new file nodes
 #    are monitor-owned and properly cleaned up)
 set -eux
@@ -87,10 +88,13 @@ mke2fs -t ext4 -q -d "$WORKDIR/rootfs" "$WORKDIR/root.raw"
 
 BOOT_VOL="test-replace-storage-boot-$$"
 RUNTIME_VOL="test-replace-storage-runtime-$$"
+CDROM_VOL="test-replace-storage-cdrom-$$"
+BOOT_CDROM_VOL="test-replace-storage-boot-cdrom-$$"
 
 # Backing files for ReplaceStorage. Regular files; --push-fd opens read-only.
 truncate -s 32M "$WORKDIR/new-backing-1.raw"
 truncate -s 32M "$WORKDIR/new-backing-2.raw"
+truncate -s 32M "$WORKDIR/new-backing-cdrom.raw"
 
 MACHINE="test-replace-storage-$$"
 systemd-vmspawn \
@@ -98,6 +102,7 @@ systemd-vmspawn \
     --ram=256M \
     --image="$WORKDIR/root.raw" \
     --bind-volume="fs:${BOOT_VOL}::create=new,size=64M,template=sparse-file" \
+    --bind-volume="fs:${BOOT_CDROM_VOL}:scsi-cd:create=new,size=32M,template=sparse-file" \
     --linux="$KERNEL" \
     --tpm=no \
     --console=headless \
@@ -173,7 +178,22 @@ fi
 grep EROFS "$WORKDIR/replace-rofs.err" >/dev/null
 echo "RO fd to RW drive correctly rejected with EROFS"
 
-# --- Test 6: unbind after replace (proves new file node is monitor-owned and
+# --- Test 6: CD-ROMs attached and replaced from writable fds ---
+# CD-ROMs are always read-only, but machinectl and --bind-volume= acquire the
+# volume writable unless ro=yes is given, so vmspawn has to reopen the fd
+# read-only for QEMU. The boot-time CD-ROM above got that far if the machine
+# started at all.
+machinectl bind-volume "$MACHINE" \
+    "fs:${CDROM_VOL}:scsi-cd:create=new,size=32M,template=sparse-file"
+exec {NEW_FD}<>"$WORKDIR/new-backing-cdrom.raw"
+varlinkctl --push-fd="$NEW_FD" call "$VARLINK_ADDR" \
+    io.systemd.MachineInstance.ReplaceStorage \
+    "{\"fileDescriptorIndex\":0,\"name\":\"fs:${CDROM_VOL}\"}"
+exec {NEW_FD}<&-
+machinectl unbind-volume "$MACHINE" "fs:${CDROM_VOL}"
+echo "CD-ROM attached and replaced from writable fds"
+
+# --- Test 7: unbind after replace (proves new file node is monitor-owned and
 # the format-then-file teardown order correctly cleans up both nodes) ---
 machinectl unbind-volume "$MACHINE" "fs:${RUNTIME_VOL}"
 echo "Unbind after replace succeeded (cleanup of both nodes works)"
