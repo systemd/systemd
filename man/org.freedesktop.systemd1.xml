@@ -6114,8 +6114,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property FileDescriptorName is not documented!-->
 
-    <!--property SocketProtocol is not documented!-->
-
     <!--property TriggerLimitIntervalUSec is not documented!-->
 
     <!--property TriggerLimitBurst is not documented!-->
@@ -7442,6 +7440,15 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       <varname>XAttrAccept=</varname> settings in
       <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
       details.</para>
+
+      <para><varname>SocketProtocol</varname> contains the IP protocol number configured with
+      <varname>SocketProtocol=</varname> (see
+      <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>),
+      i.e. <constant>IPPROTO_UDPLITE</constant>, <constant>IPPROTO_SCTP</constant> or
+      <constant>IPPROTO_MPTCP</constant>, or 0 if none is configured. For
+      <literal>mptcp-auto</literal> bit 30 (i.e. <constant>0x40000000</constant>) is set in addition to
+      <constant>IPPROTO_MPTCP</constant>, indicating that the socket falls back to TCP if MPTCP is not
+      available.</para>
     </refsect2>
   </refsect1>
 

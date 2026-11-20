@@ -78,3 +78,23 @@ int ip_protocol_from_tcp_udp(const char *ip_protocol) {
         int id = ip_protocol_from_name(ip_protocol);
         return IN_SET(id, IPPROTO_TCP, IPPROTO_UDP) ? id : -EINVAL;
 }
+
+int socket_protocol_from_string(const char *s) {
+        assert(s);
+
+        /* Like parse_ip_protocol(), but also accepts "mptcp-auto", which is returned as IPPROTO_MPTCP with
+         * the SOCKET_PROTOCOL_AUTO flag set. MPTCP is the only protocol we support the flag for. */
+
+        if (strcaseeq(s, "mptcp-auto"))
+                return IPPROTO_MPTCP | SOCKET_PROTOCOL_AUTO;
+
+        return parse_ip_protocol(s);
+}
+
+const char* socket_protocol_to_string(int id) {
+        if (id == (IPPROTO_MPTCP | SOCKET_PROTOCOL_AUTO))
+                return "mptcp-auto";
+
+        /* Any other value with SOCKET_PROTOCOL_AUTO set is out of range of the table, and yields NULL */
+        return ip_protocol_to_name(id);
+}
