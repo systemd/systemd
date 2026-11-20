@@ -434,16 +434,22 @@ bool fstype_is_ro(const char *fstype) {
                           "squashfs");
 }
 
-bool fstype_can_discard(const char *fstype) {
+const char* fstype_discard_option(const char *fstype) {
         assert(fstype);
+
+        /* On btrfs, "discard" enables synchronous discard. The btrfs documentation recommends asynchronous
+         * discard. Kernels before 6.2 don't enable asynchronous discard by default, so we request it
+         * explicitly. */
+        if (streq(fstype, "btrfs"))
+                return "discard=async";
 
         /* Use a curated list as first check, to avoid calling fsopen() which might load kmods, which might
          * not be allowed in our MAC context. */
-        if (STR_IN_SET(fstype, "btrfs", "f2fs", "ext4", "vfat", "xfs"))
-                return true;
+        if (STR_IN_SET(fstype, "f2fs", "ext4", "vfat", "xfs"))
+                return "discard";
 
         /* On new kernels we can just ask the kernel */
-        return mount_option_supported(fstype, "discard", /* value= */ NULL) > 0;
+        return mount_option_supported(fstype, "discard", /* value= */ NULL) > 0 ? "discard" : NULL;
 }
 
 const char* fstype_norecovery_option(const char *fstype) {

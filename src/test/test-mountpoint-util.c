@@ -365,10 +365,13 @@ TEST(mount_option_supported) {
         ASSERT_TRUE(r >= 0 || r == -EAGAIN || ERRNO_IS_NEG_PRIVILEGE(r));
 }
 
-TEST(fstype_can_discard) {
-        ASSERT_TRUE(fstype_can_discard("ext4"));
-        ASSERT_FALSE(fstype_can_discard("squashfs"));
-        ASSERT_FALSE(fstype_can_discard("iso9660"));
+TEST(fstype_discard_option) {
+        /* fstype_discard_option() must return "discard=async" for btrfs and "discard" for ext4. It must
+         * return NULL for read-only file systems such as squashfs and iso9660. */
+        ASSERT_STREQ(fstype_discard_option("btrfs"), "discard=async");
+        ASSERT_STREQ(fstype_discard_option("ext4"), "discard");
+        ASSERT_NULL(fstype_discard_option("squashfs"));
+        ASSERT_NULL(fstype_discard_option("iso9660"));
 }
 
 TEST(fstype_can_norecovery) {
