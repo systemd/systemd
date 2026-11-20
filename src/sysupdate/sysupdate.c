@@ -2118,6 +2118,11 @@ static int context_process_partial_and_pending(Context *c, UpdateSet *us) {
 
         log_info("Selected update '%s' for install.", us->version);
 
+        (void) sd_notifyf(/* unset_environment=*/ false,
+                          "READY=1\n"
+                          "X_SYSUPDATE_VERSION=%s",
+                          us->version);
+
         /* There should now be one instance picked for each transfer, and the order is the same */
         assert(us->n_instances == c->n_transfers);
 
@@ -2218,9 +2223,7 @@ static int context_install(Context *c, UpdateSet *us) {
         assert(us);
 
         (void) sd_notifyf(/* unset_environment=*/ false,
-                          "READY=1\n"
-                          "X_SYSUPDATE_VERSION=%s\n"
-                          "STATUS=Installing '%s'.", us->version, us->version);
+                          "STATUS=Installing '%s'.", us->version);
 
         for (size_t i = 0; i < c->n_transfers; i++) {
                 Instance *inst = us->instances[i];
@@ -3007,6 +3010,7 @@ static int context_update(
         int r, ret = 0;
 
         assert(c);
+        assert(action_flags > 0);
         assert(installed);
         assert(reboot_needed);
 
