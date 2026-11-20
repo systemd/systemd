@@ -575,7 +575,7 @@ static int manifest_mtree_item(
                 fprintf(f, " %smode=%s%04o",
                         c->color ? ansi_grey() : "",
                         c->color ? ansi_normal() : "",
-                        (unsigned) (sx->stx_mode & 0777));
+                        (unsigned) (sx->stx_mode & 07777));
 
         if (FLAGS_SET(c->fields, MANIFEST_FIELD_UID) && FLAGS_SET(sx->stx_mask, STATX_UID))
                 fprintf(f, " %suid=%s" UID_FMT "%s",
