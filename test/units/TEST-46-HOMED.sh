@@ -89,6 +89,24 @@ testcase_basic() {
         --skel="$TMP_SKEL"
     inspect test-user
 
+    # Authenticating without any password (as pam_systemd_home does first, to find out whether a security
+    # token suffices) must not count as bad authentication, while a wrong password must
+    (! busctl call org.freedesktop.home1 /org/freedesktop/home1 org.freedesktop.home1.Manager \
+          AuthenticateHome ss test-user '{}')
+    [[ "$(homectl inspect -j test-user | jq ".status.\"$(cat /etc/machine-id)\".badAuthenticationCounter // 0")" -eq 0 ]]
+    (! busctl call org.freedesktop.home1 /org/freedesktop/home1 org.freedesktop.home1.Manager \
+          AuthenticateHome ss test-user '{"password":["wrongpass"]}')
+    [[ "$(homectl inspect -j test-user | jq ".status.\"$(cat /etc/machine-id)\".badAuthenticationCounter // 0")" -eq 1 ]]
+    # Same for changing the password without the old one (as homectl passwd does first). Check the error
+    # message, to be sure it's the worker that refused it, not the password quality check before.
+    [[ "$(busctl call org.freedesktop.home1 /org/freedesktop/home1 org.freedesktop.home1.Manager \
+          ChangePasswordHome sss test-user '{"password":["Ty7wQ9pLm3Zx"]}' '{}' 2>&1 || :)" == *"incorrect or not sufficient"* ]]
+    [[ "$(homectl inspect -j test-user | jq ".status.\"$(cat /etc/machine-id)\".badAuthenticationCounter // 0")" -eq 1 ]]
+    # While a wrong old password does count
+    [[ "$(busctl call org.freedesktop.home1 /org/freedesktop/home1 org.freedesktop.home1.Manager \
+          ChangePasswordHome sss test-user '{"password":["Ty7wQ9pLm3Zx"]}' '{"password":["wrongpass"]}' 2>&1 || :)" == *"incorrect or not sufficient"* ]]
+    [[ "$(homectl inspect -j test-user | jq ".status.\"$(cat /etc/machine-id)\".badAuthenticationCounter // 0")" -eq 2 ]]
+
     PASSWORD=xEhErW0ndafV4s homectl authenticate test-user
 
     PASSWORD=xEhErW0ndafV4s homectl activate test-user
