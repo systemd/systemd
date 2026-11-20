@@ -910,6 +910,14 @@ units = [
           'conditions' : ['ENABLE_REPORT'],
         },
         {
+          'file' : 'systemd-report-power-source.socket',
+          'conditions' : ['ENABLE_REPORT'],
+        },
+        {
+          'file' : 'systemd-report-power-source@.service.in',
+          'conditions' : ['ENABLE_REPORT'],
+        },
+        {
           'file' : 'systemd-report-sign-plain.socket',
           'conditions' : ['ENABLE_REPORT', 'HAVE_OPENSSL'],
         },

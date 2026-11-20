@@ -167,6 +167,51 @@ testcase_hwmon() {
     "$REPORT" metrics io.systemd.HWMon
 }
 
+# test io.systemd.PowerSource Metrics
+testcase_power_source() {
+    # The power source socket is conditioned out in containers, since power supplies belong to the host
+    if systemd-detect-virt --quiet --container; then
+        echo "Skipping io.systemd.PowerSource tests in container."
+        return 0
+    fi
+
+    systemctl start systemd-report-power-source.socket
+    varlinkctl info /run/systemd/report/io.systemd.PowerSource
+    varlinkctl list-methods /run/systemd/report/io.systemd.PowerSource
+    battery_describe="$(varlinkctl call --more /run/systemd/report/io.systemd.PowerSource io.systemd.Metrics.Describe {})"
+    assert_metric_type_eq "$battery_describe" io.systemd.PowerSource.ACPower gauge
+    assert_metric_type_eq "$battery_describe" io.systemd.PowerSource.BatteryCapacityPercent gauge
+    assert_metric_type_eq "$battery_describe" io.systemd.PowerSource.BatteryCycleCount counter
+    assert_metric_type_eq "$battery_describe" io.systemd.PowerSource.BatteryHealthPercent gauge
+    assert_metric_type_eq "$battery_describe" io.systemd.PowerSource.BatteryPowerWatts gauge
+    assert_metric_type_eq "$battery_describe" io.systemd.PowerSource.BatteryStatus string
+
+    battery_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.PowerSource io.systemd.Metrics.List {})"
+
+    # The AC power state is always reported, as a single system-wide 0 or 1
+    assert_metric_count_eq "$battery_metrics" 1 --name io.systemd.PowerSource.ACPower
+    assert_metric_values_in_range "$battery_metrics" io.systemd.PowerSource.ACPower 0 1
+
+    # Every system battery that is present (VMs typically have none) is reported at most once per metric
+    battery_expected=0
+    for d in /sys/class/power_supply/*; do
+        [[ "$(cat "$d/type" 2>/dev/null)" == Battery ]] || continue
+        [[ "$(cat "$d/present" 2>/dev/null)" == 1 ]] || continue
+        [[ "$(cat "$d/scope" 2>/dev/null)" != Device ]] || continue
+        battery_expected=$((battery_expected + 1))
+    done
+    battery_reported="$(metric_count "$battery_metrics" --name io.systemd.PowerSource.BatteryStatus)"
+    assert_le "$battery_reported" "$battery_expected"
+    battery_reported="$(metric_count "$battery_metrics" --name io.systemd.PowerSource.BatteryCapacityPercent)"
+    assert_le "$battery_reported" "$battery_expected"
+    if [[ "$battery_reported" -gt 0 ]]; then
+        assert_metric_values_in_range "$battery_metrics" io.systemd.PowerSource.BatteryCapacityPercent 0 100
+    fi
+
+    "$REPORT" describe io.systemd.PowerSource
+    "$REPORT" metrics io.systemd.PowerSource
+}
+
 testcase_network_statistics() {
     # test io.systemd.NetworkStatistics Metrics
     systemctl start systemd-report-netstat.socket
