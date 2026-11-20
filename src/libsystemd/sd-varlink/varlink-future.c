@@ -211,3 +211,18 @@ int varlink_observe_channel_new_conflated(
         *ret = TAKE_PTR(c);
         return 0;
 }
+
+int varlink_observe_channel_pop(sd_channel *channel, VarlinkReply **ret) {
+        void *item;
+        int r;
+
+        assert(channel);
+        assert(ret);
+
+        r = sd_channel_pop(channel, &item);
+        if (r < 0)
+                return r;
+
+        *ret = item;
+        return 0;
+}
