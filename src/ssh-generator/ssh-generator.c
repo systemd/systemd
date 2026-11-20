@@ -395,12 +395,14 @@ static int add_extra_sockets(
                 if (r < 0)
                         return r;
 
+                /* For IP sockets use MPTCP if the kernel supports it, and fall back to TCP otherwise. PID 1
+                 * ignores SocketProtocol= for non-IP sockets, hence we can set it unconditionally. */
                 r = write_socket_unit(
                                 dest,
                                 socket ?: "sshd-extra.socket",
                                 *i,
                                 *i,
-                                /* extra= */ NULL,
+                                "SocketProtocol=mptcp-auto\n",
                                 /* with_ssh_access_target_dependency= */ true);
                 if (r < 0)
                         return r;

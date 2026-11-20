@@ -901,6 +901,10 @@ CHANGES WITH 263 in spe:
 
         Other changes:
 
+        * systemd-ssh-generator now sets SocketProtocol=mptcp-auto on the
+          AF_INET/AF_INET6 sockets it generates for systemd.ssh_listen= and
+          the ssh.listen credential, so that MPTCP is used where available.
+
         * systemd-timedated gained an io.systemd.Timedate Varlink interface
           to query or set the clock, time zone, RTC mode and network time
           synchronization, and to list time zones.
