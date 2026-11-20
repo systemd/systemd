@@ -1689,24 +1689,21 @@ static int socket_open_fds(Socket *orig_s) {
                                 know_label = true;
                         }
 
-                        /* Apply the socket protocol */
-                        switch (p->address.type) {
+                        /* Apply the socket protocol. All protocols we support are IP protocols, hence
+                         * don't apply them to AF_UNIX, AF_VSOCK, … sockets. */
+                        if (IN_SET(socket_address_family(&p->address), AF_INET, AF_INET6))
+                                switch (p->address.type) {
 
-                        case SOCK_STREAM:
-                                if (IN_SET(s->socket_protocol, IPPROTO_SCTP, IPPROTO_MPTCP))
-                                        p->address.protocol = s->socket_protocol;
-                                break;
+                                case SOCK_STREAM:
+                                        if (IN_SET(s->socket_protocol, IPPROTO_SCTP, IPPROTO_MPTCP))
+                                                p->address.protocol = s->socket_protocol;
+                                        break;
 
-                        case SOCK_SEQPACKET:
-                                if (s->socket_protocol == IPPROTO_SCTP)
-                                        p->address.protocol = s->socket_protocol;
-                                break;
-
-                        case SOCK_DGRAM:
-                                if (s->socket_protocol == IPPROTO_UDPLITE)
-                                        p->address.protocol = s->socket_protocol;
-                                break;
-                        }
+                                case SOCK_DGRAM:
+                                        if (s->socket_protocol == IPPROTO_UDPLITE)
+                                                p->address.protocol = s->socket_protocol;
+                                        break;
+                                }
 
                         p->fd = socket_address_listen_in_cgroup(s, &p->address, label);
                         if (p->fd < 0)
