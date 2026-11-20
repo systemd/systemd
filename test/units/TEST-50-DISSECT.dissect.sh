@@ -1577,6 +1577,24 @@ systemd-run --wait --pipe -p RootDirectory=/tmp/img -p PrivateTmp=no \
     bash -xec '[[ -e /tmp/keepme ]]'
 rm -rf /tmp/img/tmp
 
+# Errors are ignored when the root tree lacks the /tmp/ and /var/tmp/ mount points.
+if command -v mksquashfs >/dev/null; then
+    mksquashfs /tmp/img /tmp/test-50-ro-root.sqfs -no-recovery -no-progress -e tmp var/tmp >/dev/null
+    systemd-run --wait --pipe -p RootImage=/tmp/test-50-ro-root.sqfs \
+        bash -xec '! test -e /tmp && ! test -e /var/tmp'
+    systemd-run --wait --pipe -p RootImage=/tmp/test-50-ro-root.sqfs -p PrivateTmp=disconnected \
+        bash -xec '! test -e /tmp && ! test -e /var/tmp'
+    rm -f /tmp/test-50-ro-root.sqfs
+
+    mkdir /tmp/img/tmp
+    touch /tmp/img/tmp/marker
+    mksquashfs /tmp/img /tmp/test-50-no-vartmp.sqfs -no-recovery -no-progress -e var/tmp >/dev/null
+    rm -rf /tmp/img/tmp
+    systemd-run --wait --pipe -p RootImage=/tmp/test-50-no-vartmp.sqfs -p PrivateTmp=yes \
+        bash -xec '! test -e /tmp/marker && test -w /tmp && ! test -e /var/tmp'
+    rm -f /tmp/test-50-no-vartmp.sqfs
+fi
+
 systemd-dissect --mtree /tmp/img >/dev/null
 systemd-dissect --list /tmp/img >/dev/null
 
