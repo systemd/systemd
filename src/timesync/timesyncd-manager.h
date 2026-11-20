@@ -106,6 +106,20 @@ typedef struct Manager {
         /* Used to coalesce bus PropertiesChanged events */
         sd_event_source *deferred_ntp_server_event_source;
         unsigned ntp_server_change_mask;
+
+        /* PTP hardware clock (PHC) */
+        bool phc_enabled;
+        char *phc_device_match;         /* If set, use the PHC with this device node path, regardless of tag */
+        sd_device_monitor *phc_monitor;
+        sd_event_source *phc_timer;
+        int phc_fd;
+        dev_t phc_devnum;
+        char *phc_path;
+        char *phc_clock_name;
+        bool phc_precise;               /* Whether PTP_SYS_OFFSET_PRECISE works for this device */
+        unsigned phc_failures;
+        int64_t phc_offset_nsec;
+        int64_t phc_delay_nsec;
 } Manager;
 
 int manager_new(Manager **ret);
@@ -123,6 +137,8 @@ void manager_disconnect(Manager *m);
 
 int manager_setup_save_time_event(Manager *m);
 
+bool manager_sample_spike_detection(Manager *m, double offset, double delay);
+void manager_reset_samples(Manager *m);
 int manager_sync_clock(Manager *m, double offset, int leap_sec, bool persist);
 
 int bus_manager_emit_ntp_server_changed(Manager *m);

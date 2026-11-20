@@ -14,6 +14,7 @@
 #include "time-util.h"
 #include "timesyncd-bus.h"
 #include "timesyncd-manager.h"
+#include "timesyncd-phc.h"
 #include "timesyncd-server.h"
 
 static int property_get_servers(
@@ -179,6 +180,26 @@ static int property_get_ntp_message(
         if (r < 0)
                 return r;
 
+        /* While synchronizing to a PTP hardware clock there is no NTP message. Report an empty one, with a
+         * packet count of zero, which clients understand as "no message". */
+        if (manager_phc_active(m)) {
+                static const uint8_t zero_refid[4] = {};
+
+                r = sd_bus_message_append(reply, "uuuuitt", 0U, 0U, 0U, 0U, 0, (uint64_t) 0, (uint64_t) 0);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_append_array(reply, 'y', zero_refid, sizeof(zero_refid));
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_append(reply, "ttttbtt", (uint64_t) 0, (uint64_t) 0, (uint64_t) 0, (uint64_t) 0, false, (uint64_t) 0, (uint64_t) 0);
+                if (r < 0)
+                        return r;
+
+                return sd_bus_message_close_container(reply);
+        }
+
         r = sd_bus_message_append(reply, "uuuuitt",
                                   NTP_FIELD_LEAP(m->ntpmsg.field),
                                   NTP_FIELD_VERSION(m->ntpmsg.field),
@@ -208,6 +229,38 @@ static int property_get_ntp_message(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_phc_sample_count(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = ASSERT_PTR(userdata);
+
+        assert(reply);
+
+        return sd_bus_message_append(reply, "t", manager_phc_active(m) ? m->packet_count : (uint64_t) 0);
+}
+
+static int property_get_phc_jitter(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = ASSERT_PTR(userdata);
+
+        assert(reply);
+
+        return sd_bus_message_append(reply, "t", manager_phc_active(m) ? (uint64_t) (m->samples_jitter * NSEC_PER_SEC) : (uint64_t) 0);
+}
+
 static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -223,6 +276,14 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_PROPERTY("PollIntervalUSec", "t", bus_property_get_usec, offsetof(Manager, poll_interval_usec), 0),
         SD_BUS_PROPERTY("NTPMessage", "(uuuuittayttttbtt)", property_get_ntp_message, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Frequency", "x", NULL, offsetof(Manager, drift_freq), 0),
+        SD_BUS_PROPERTY("PHC", "b", bus_property_get_bool, offsetof(Manager, phc_enabled), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("PHCDeviceMatch", "s", NULL, offsetof(Manager, phc_device_match), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("PHCDevice", "s", NULL, offsetof(Manager, phc_path), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("PHCClockName", "s", NULL, offsetof(Manager, phc_clock_name), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("PHCOffsetNSec", "x", NULL, offsetof(Manager, phc_offset_nsec), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("PHCDelayNSec", "x", NULL, offsetof(Manager, phc_delay_nsec), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("PHCSampleCount", "t", property_get_phc_sample_count, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("PHCJitterNSec", "t", property_get_phc_jitter, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
 
         SD_BUS_METHOD_WITH_ARGS("SetRuntimeNTPServers",
                                 SD_BUS_ARGS("as", runtime_servers),
