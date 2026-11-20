@@ -684,13 +684,16 @@ bool sockaddr_equal(const union sockaddr_union *a, const union sockaddr_union *b
                 return false;
 
         if (a->sa.sa_family == AF_INET)
-                return a->in.sin_addr.s_addr == b->in.sin_addr.s_addr;
+                return a->in.sin_addr.s_addr == b->in.sin_addr.s_addr &&
+                        a->in.sin_port == b->in.sin_port;
 
         if (a->sa.sa_family == AF_INET6)
-                return memcmp(&a->in6.sin6_addr, &b->in6.sin6_addr, sizeof(a->in6.sin6_addr)) == 0;
+                return in6_addr_equal(&a->in6.sin6_addr, &b->in6.sin6_addr) &&
+                        a->in6.sin6_port == b->in6.sin6_port;
 
         if (a->sa.sa_family == AF_VSOCK)
-                return a->vm.svm_cid == b->vm.svm_cid;
+                return a->vm.svm_cid == b->vm.svm_cid &&
+                        a->vm.svm_port == b->vm.svm_port;
 
         return false;
 }
