@@ -199,6 +199,7 @@ TEST(protect_kernel_logs) {
         static const NamespaceParameters p = {
                 .runtime_scope = RUNTIME_SCOPE_SYSTEM,
                 .protect_kernel_logs = true,
+                .host_os_release_fd = -EBADF,
         };
         int r;
 
