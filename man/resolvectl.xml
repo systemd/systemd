@@ -74,7 +74,7 @@
 
         <para>If <command>systemd-resolved</command> returns a resolution error while
         <option>--json=</option> is enabled, the error is output as a JSON object. It contains the queried
-        <varname>name</varname>, the resolved varlink <varname>error</varname>, and any error fields
+        <varname>name</varname>, the resolved Varlink <varname>error</varname>, and any error fields
         supplied by <command>systemd-resolved</command>, such as <varname>rcode</varname>,
         <varname>queryString</varname>, <varname>extendedDNSErrorCode</varname>,
         <varname>extendedDNSErrorMessage</varname>, and <varname>result</varname>. Local invocation or

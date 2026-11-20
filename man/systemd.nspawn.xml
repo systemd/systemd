@@ -308,7 +308,7 @@
         into the container's user namespace for use by nested containers. When set to a value greater than
         zero, the
         <citerefentry><refentrytitle>systemd-nsresourced.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        varlink socket will be bind-mounted into the container so that processes inside the container can
+        Varlink socket will be bind-mounted into the container so that processes inside the container can
         allocate further user namespaces from the delegated ranges. This is equivalent to the
         <option>--private-users-delegate=</option> command line switch. Requires
         <varname>PrivateUsers=managed</varname>. Defaults to 0. See
