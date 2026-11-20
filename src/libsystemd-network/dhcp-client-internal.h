@@ -67,6 +67,12 @@ struct sd_dhcp_client {
         bool ipv6_acquired;
         bool bootp;
         bool send_release;
+
+        /* persistent lease */
+        int lease_dir_fd;
+        char *lease_file;
+        bool keep_expired_lease;
+        bool lease_timed_out;
 };
 
 int dhcp_client_set_state_callback(
