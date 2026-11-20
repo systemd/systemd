@@ -132,7 +132,8 @@ int icmp6_receive(
         };
         ssize_t len;
 
-        len = recvmsg_safe(fd, &msg, MSG_DONTWAIT);
+        /* Raw ICMPv6 sockets have no ports, the kernel always reports the source port as 0 */
+        len = recvmsg_safe_full(fd, &msg, MSG_DONTWAIT, RECVMSG_SAFE_ALLOW_PORT_ZERO);
         if (len < 0)
                 return (int) len;
 
