@@ -36,6 +36,7 @@ import fcntl
 import json
 import os
 import pty
+import re
 import select
 import signal
 import struct
@@ -233,7 +234,9 @@ wait_for(32, 95)
 # terminal, but the other mode covered by the disable request must. Make sure we actually
 # saw output before concluding that.
 assert b'pty96-winsize-marker-1' in drained and b'pty96-winsize-marker-2' in drained
-assert b'2048' not in drained, f'CSI 2048/48 request leaked into monitor output: {drained!r}'
+# Match actual CSI requests: a new monitor can replay "[?2048l" from the aborted DCS as plain text.
+for modes in re.findall(rb'\x1b\[\?([0-9;]+)(?:[hl]|\$p)', drained):
+    assert b'2048' not in modes.split(b';'), f'CSI 2048/48 request leaked into monitor output: {drained!r}'
 assert b'\x1b[?1049l' in drained, f'Rewritten mode request missing from monitor output: {drained!r}'
 
 kill_monitor(pid1)
