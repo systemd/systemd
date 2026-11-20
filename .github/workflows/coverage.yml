@@ -13,6 +13,12 @@ on:
     paths:
       - .github/workflows/coverage.yml
       - test/integration-tests/integration-test-wrapper.py
+  pull_request_target:
+    types: [closed]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number || github.run_id }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -20,7 +26,9 @@ permissions:
 jobs:
   coverage:
     runs-on: ubuntu-24.04
-    if: github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable'
+    if: >
+      github.event_name != 'pull_request_target' &&
+      (github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable')
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
