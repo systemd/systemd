@@ -1466,8 +1466,9 @@ int socket_autobind(int fd, char **ret_name) {
 ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags) {
         ssize_t n;
 
-        /* A wrapper around recvmsg() that checks for MSG_CTRUNC and MSG_TRUNC, and turns them into an error,
-         * in a reasonably safe way, closing any received fds in the error path.
+        /* A wrapper around recvmsg() that checks for MSG_CTRUNC and MSG_TRUNC, as well as for a truncated
+         * source address, and turns them into an error, in a reasonably safe way, closing any received fds
+         * in the error path.
          *
          * Note that unlike our usual coding style this might modify *msg on failure.
          *
@@ -1475,6 +1476,14 @@ ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags) {
 
         assert(sockfd >= 0);
         assert(msg);
+
+        /* Passing a non-zero size along with a NULL pointer would be very weird (the kernel will e.g. ignore
+         * .msg_namelen if .msg_name is NULL), and probably a programming error, hence let's assert on it. */
+        assert(msg->msg_namelen == 0 || msg->msg_name);
+        assert(msg->msg_iovlen == 0 || msg->msg_iov);
+        assert(msg->msg_controllen == 0 || msg->msg_control);
+
+        socklen_t name_size = msg->msg_namelen;
 
         /* Fds can only be received into a control buffer. Protocols that can't pass fds might refuse
          * MSG_CMSG_CLOEXEC, AF_PACKET does with EINVAL, MCTP with EOPNOTSUPP. Retry without it then. */
@@ -1488,6 +1497,15 @@ ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags) {
             (!FLAGS_SET(flags, MSG_PEEK) && FLAGS_SET(msg->msg_flags, MSG_TRUNC))) {
                 cmsg_close_all(msg);
                 return FLAGS_SET(msg->msg_flags, MSG_CTRUNC) ? -ECHRNG : -EXFULL;
+        }
+
+        /* If the source address doesn't fit into the buffer the kernel silently truncates it, but reports
+         * its full size in msg_namelen, without setting any flag. Refuse that too. Also refuse source
+         * addresses that are too short to even carry the address family, that's just broken. */
+        if (msg->msg_namelen > name_size ||
+            (msg->msg_namelen > 0 && msg->msg_namelen < endoffsetof_field(struct sockaddr, sa_family))) {
+                cmsg_close_all(msg);
+                return -ENOTNAM;
         }
 
         return n;
