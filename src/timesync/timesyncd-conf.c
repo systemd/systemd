@@ -5,6 +5,8 @@
 #include "dns-domain.h"
 #include "extract-word.h"
 #include "log.h"
+#include "parse-util.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "timesyncd-conf.h"
 #include "timesyncd-manager.h"
@@ -98,6 +100,56 @@ int config_parse_servers(
         if (r < 0)
                 return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
+        return 0;
+}
+
+int config_parse_phc(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        /* Takes a boolean, or the device node path of a PTP hardware clock to use regardless of its udev
+         * tags. The empty string resets to the default, i.e. use any device tagged "timesync". */
+
+        if (isempty(rvalue)) {
+                m->phc_enabled = true;
+                m->phc_device_match = mfree(m->phc_device_match);
+                return 0;
+        }
+
+        r = parse_boolean(rvalue);
+        if (r >= 0) {
+                m->phc_enabled = r;
+                m->phc_device_match = mfree(m->phc_device_match);
+                return 0;
+        }
+
+        if (!path_is_absolute(rvalue) || !path_is_normalized(rvalue) || !path_startswith(rvalue, "/dev/")) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "%s= expects a boolean or a normalized device node path below /dev/, ignoring: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
+
+        r = free_and_strdup_warn(&m->phc_device_match, rvalue);
+        if (r < 0)
+                return r;
+
+        m->phc_enabled = true;
         return 0;
 }
 
