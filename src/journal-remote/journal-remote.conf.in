@@ -28,3 +28,5 @@
 # MaxFileSize=
 # MaxFiles=
 # Compression=zstd lz4 xz
+# MaxRetentionSec=0
+# MaxFileSec=0
