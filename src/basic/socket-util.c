@@ -1463,8 +1463,53 @@ int socket_autobind(int fd, char **ret_name) {
         return 0;
 }
 
+static int validate_source_port(const struct msghdr *msg) {
+        assert(msg);
+
+        /* UDP (and similar) datagrams originating from port 0 are never legitimate: nobody can reply to
+         * them (the kernel refuses sending to port 0), and code processing them tends to get confused by
+         * the zero port. Returns 0 if the source address of the message is an AF_INET/AF_INET6 one with
+         * port 0, > 0 otherwise (including if the caller didn't ask for the source address), and -ENOTNAM
+         * if the source address is too short for its address family. */
+
+        /* Caller didn't ask for the source address, or none is known (e.g. unbound AF_UNIX peer) */
+        if (msg->msg_namelen == 0)
+                return 1;
+
+        assert(msg->msg_name);
+        assert(msg->msg_namelen >= endoffsetof_field(struct sockaddr, sa_family)); /* Already checked by caller */
+
+        switch (((const struct sockaddr*) msg->msg_name)->sa_family) {
+
+        case AF_INET: {
+                if (msg->msg_namelen < sizeof(struct sockaddr_in))
+                        return -ENOTNAM;
+
+                const struct sockaddr_in *sin = msg->msg_name;
+                return sin->sin_port != 0;
+        }
+
+        case AF_INET6: {
+                if (msg->msg_namelen < sizeof(struct sockaddr_in6))
+                        return -ENOTNAM;
+
+                const struct sockaddr_in6 *sin6 = msg->msg_name;
+                return sin6->sin6_port != 0;
+        }
+
+        case AF_VSOCK:
+                /* No port check on AF_VSOCK: port 0 is apparently a valid port number there (unlike
+                 * VMADDR_PORT_ANY, which is -1U). */
+                return 1;
+
+        default:
+                return 1;
+        }
+}
+
 ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags) {
         ssize_t n;
+        int r;
 
         /* A wrapper around recvmsg() that checks for MSG_CTRUNC and MSG_TRUNC, as well as for a truncated
          * source address, and turns them into an error, in a reasonably safe way, closing any received fds
@@ -1500,6 +1545,19 @@ ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags) {
             (msg->msg_namelen > 0 && msg->msg_namelen < endoffsetof_field(struct sockaddr, sa_family))) {
                 cmsg_close_all(msg);
                 return -ENOTNAM;
+        }
+
+        /* Suppress datagrams from port 0 early on, and make them look like a spurious wakeup */
+        r = validate_source_port(msg);
+        if (r <= 0) {
+                cmsg_close_all(msg);
+
+                /* If we only peeked, the datagram is still queued, and we'd see it again and again.
+                 * Hence, drop it from the queue. */
+                if (FLAGS_SET(flags, MSG_PEEK))
+                        (void) recv(sockfd, /* buf= */ NULL, /* size= */ 0, MSG_DONTWAIT);
+
+                return r < 0 ? r : -EAGAIN;
         }
 
         return n;
