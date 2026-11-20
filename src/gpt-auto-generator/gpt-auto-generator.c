@@ -503,7 +503,7 @@ static int add_partition_mount(
                         d,
                         dissected_partition_fstype(p),
                         p->rw,
-                        /* discard= */ true,
+                        /* discard= */ false,
                         &options,
                         /* ret_ms_flags= */ NULL);
         if (r < 0)
@@ -927,7 +927,7 @@ static int add_root_mount(void) {
                         PARTITION_ROOT,
                         arg_root_fstype,
                         arg_root_rw > 0,
-                        /* discard= */ true,
+                        /* discard= */ false,
                         &options,
                         /* ret_ms_flags= */ NULL);
         if (r < 0)
@@ -1008,7 +1008,7 @@ static int add_usr_mount(void) {
                         PARTITION_USR,
                         arg_usr_fstype,
                         /* rw= */ false,
-                        /* discard= */ true,
+                        /* discard= */ false,
                         &options,
                         /* ret_ms_flags= */ NULL);
         if (r < 0)
