@@ -123,4 +123,6 @@ void manager_disconnect(Manager *m);
 
 int manager_setup_save_time_event(Manager *m);
 
+int manager_sync_clock(Manager *m, double offset, int leap_sec, bool persist);
+
 int bus_manager_emit_ntp_server_changed(Manager *m);

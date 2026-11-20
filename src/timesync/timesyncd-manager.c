@@ -366,6 +366,50 @@ static bool manager_sample_spike_detection(Manager *m, double offset, double del
         return ABS(offset - m->samples[idx_cur].offset) > 3 * jitter;
 }
 
+int manager_sync_clock(Manager *m, double offset, int leap_sec, bool persist) {
+        triple_timestamp dts;
+        int r;
+
+        assert(m);
+
+        /* Applies a (non-spike) offset sample to the system clock. If 'persist' is false we only update the
+         * timestamp file and the "synchronized" flag file if this is the first synchronization or if we had
+         * to jump the clock. This is useful for time sources that are polled at a high frequency. */
+
+        /* Get current monotonic/realtime clocks immediately before adjusting the latter */
+        triple_timestamp_now(&dts);
+
+        /* Fix up our idea of the time. */
+        dts.realtime = (usec_t) (dts.realtime + offset * USEC_PER_SEC);
+
+        r = manager_adjust_clock(m, offset, leap_sec);
+        if (r < 0)
+                log_error_errno(r, "Failed to call clock_adjtime(): %m");
+
+        if (persist || !m->synchronized || ABS(offset) >= NTP_MAX_ADJUST) {
+                (void) manager_save_time_and_rearm(m, dts.realtime);
+
+                /* If touch fails, there isn't much we can do. Maybe it'll work next time. */
+                r = touch("/run/systemd/timesync/synchronized");
+                if (r < 0)
+                        log_debug_errno(r, "Failed to touch /run/systemd/timesync/synchronized, ignoring: %m");
+        }
+
+        if (!m->synchronized) {
+                m->synchronized = true;
+
+                log_struct(LOG_INFO,
+                           LOG_MESSAGE("Initial clock synchronization to %s.",
+                                       FORMAT_TIMESTAMP_STYLE(dts.realtime, TIMESTAMP_US)),
+                           LOG_MESSAGE_ID(SD_MESSAGE_TIME_SYNC_STR),
+                           LOG_ITEM("MONOTONIC_USEC=" USEC_FMT, dts.monotonic),
+                           LOG_ITEM("REALTIME_USEC=" USEC_FMT, dts.realtime),
+                           LOG_ITEM("BOOTTIME_USEC=" USEC_FMT, dts.boottime));
+        }
+
+        return 0;
+}
+
 static void manager_adjust_poll(Manager *m, double offset, bool spike) {
         assert(m);
 
@@ -417,7 +461,6 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 .msg_namelen = sizeof(server_addr),
         };
         struct timespec *recv_time;
-        triple_timestamp dts;
         ssize_t len;
         double origin, receive, trans, dest, delay, offset, root_distance;
         bool spike;
@@ -572,24 +615,19 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                   m->samples_jitter, spike ? " spike" : "",
                   m->poll_interval_usec / USEC_PER_SEC);
 
-        /* Get current monotonic/realtime clocks immediately before adjusting the latter */
-        triple_timestamp_now(&dts);
+        if (!m->talking) {
+                _cleanup_free_ char *pretty = NULL;
 
-        if (!spike) {
-                /* Fix up our idea of the time. */
-                dts.realtime = (usec_t) (dts.realtime + offset * USEC_PER_SEC);
+                m->talking = true;
 
-                r = manager_adjust_clock(m, offset, leap_sec);
-                if (r < 0)
-                        log_error_errno(r, "Failed to call clock_adjtime(): %m");
+                (void) server_address_pretty(m->current_server_address, &pretty);
 
-                (void) manager_save_time_and_rearm(m, dts.realtime);
-
-                /* If touch fails, there isn't much we can do. Maybe it'll work next time. */
-                r = touch("/run/systemd/timesync/synchronized");
-                if (r < 0)
-                        log_debug_errno(r, "Failed to touch /run/systemd/timesync/synchronized, ignoring: %m");
+                log_info("Contacted time server %s (%s).", strna(pretty), m->current_server_name->string);
+                (void) sd_notifyf(/* unset_environment= */ false, "STATUS=Contacted time server %s (%s).", strna(pretty), m->current_server_name->string);
         }
+
+        if (!spike)
+                (void) manager_sync_clock(m, offset, leap_sec, /* persist= */ true);
 
         /* Save NTP response */
         m->ntpmsg = ntpmsg;
@@ -608,29 +646,6 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                                 "org.freedesktop.timesync1.Manager",
                                 "NTPMessage",
                                 NULL);
-
-        if (!m->talking) {
-                _cleanup_free_ char *pretty = NULL;
-
-                m->talking = true;
-
-                (void) server_address_pretty(m->current_server_address, &pretty);
-
-                log_info("Contacted time server %s (%s).", strna(pretty), m->current_server_name->string);
-                (void) sd_notifyf(/* unset_environment= */ false, "STATUS=Contacted time server %s (%s).", strna(pretty), m->current_server_name->string);
-        }
-
-        if (!spike && !m->synchronized) {
-                m->synchronized = true;
-
-                log_struct(LOG_INFO,
-                           LOG_MESSAGE("Initial clock synchronization to %s.",
-                                       FORMAT_TIMESTAMP_STYLE(dts.realtime, TIMESTAMP_US)),
-                           LOG_MESSAGE_ID(SD_MESSAGE_TIME_SYNC_STR),
-                           LOG_ITEM("MONOTONIC_USEC=" USEC_FMT, dts.monotonic),
-                           LOG_ITEM("REALTIME_USEC=" USEC_FMT, dts.realtime),
-                           LOG_ITEM("BOOTTIME_USEC=" USEC_FMT, dts.boottime));
-        }
 
         r = manager_arm_timer(m, m->poll_interval_usec);
         if (r < 0)
