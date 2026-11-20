@@ -2,6 +2,7 @@
 
 #include <sys/quota.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "blockdev-util.h"
@@ -28,6 +29,15 @@ int quotactl_fd_with_fallback(int fd, int cmd, int id, void *addr) {
 
         _cleanup_free_ char *devnode = NULL;
         r = devname_from_devnum(S_IFBLK, devno, &devnode);
+        if (r < 0)
+                return r;
+
+        /* quotactl() fails with ENOENT if the device node doesn't exist (e.g. in a container), which can't
+         * be told apart from file systems returning ENOENT (e.g. XFS if the ID has no quota record), hence
+         * return ENODEV in that case, as above. */
+        r = RET_NERRNO(access(devnode, F_OK));
+        if (r == -ENOENT)
+                return -ENODEV;
         if (r < 0)
                 return r;
 
