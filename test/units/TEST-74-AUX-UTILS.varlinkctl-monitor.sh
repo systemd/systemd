@@ -317,18 +317,17 @@ sed -n 's/^\x1e//p' "$MONITOR_OUT" | \
 # monitor must reassemble them into a single message.
 # -----------------------------------------------------------------------
 echo "=== Test 9: writev (multi-segment writes) ==="
-start_monitor
+WRITEV_SOCK="@test-monitor-writev"
+start_unix_server "$WRITEV_SOCK"
+start_monitor --path="$WRITEV_SOCK"
 
+# The server consumes the request without replying, so only a reassembled writev can satisfy the check.
 printf '{"method":"io.systemd.\nWritevTest.Call",\n"parameters":{}}\0' | \
-    varlink_raw_send /run/systemd/io.systemd.Hostname || true
-
-# Send a normal call so we have something to wait for
-varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}'
-wait_for_output "io.systemd.Hostname.Describe"
+    varlink_raw_send "$WRITEV_SOCK"
+wait "$UNIX_SERVER_PID"
+wait_for_output "io.systemd.WritevTest.Call"
 
 stop_monitor
-# The writev message should have been reassembled from multiple segments
-grep "WritevTest.Call" "$MONITOR_OUT" >/dev/null
 
 # -----------------------------------------------------------------------
 # Test 10: abstract sockets
