@@ -126,6 +126,7 @@ typedef struct Home {
         int worker_stdout_fd;
         sd_event_source *worker_event_source;
         int worker_error_code;
+        bool worker_got_password; /* whether the secret passed to the worker contains passwords or recovery keys */
 
         /* The message we are currently processing, and thus need to reply to on completion */
         Operation *current_operation;
