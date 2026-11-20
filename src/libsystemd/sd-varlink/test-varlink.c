@@ -3337,4 +3337,180 @@ TEST(connection_id) {
         ASSERT_STREQ(id, saved_id);
 }
 
+/* The generic org.varlink.service.GetInterfaceDescription() implementation, including the
+ * format extension. */
+
+static SD_VARLINK_DEFINE_ENUM_TYPE_FULL(
+                TestEnum,
+                SD_VARLINK_EXPERIMENTAL,
+                SD_VARLINK_DEFINE_ENUM_VALUE(regular),
+                SD_VARLINK_DEFINE_ENUM_VALUE_FULL(marked, SD_VARLINK_EXPERIMENTAL));
+
+static SD_VARLINK_DEFINE_METHOD(
+                TestMethod,
+                SD_VARLINK_FIELD_COMMENT("An example input"),
+                SD_VARLINK_DEFINE_INPUT(input, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("An example output"),
+                SD_VARLINK_DEFINE_OUTPUT(output, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_INTERFACE(
+                varlink_test_format,
+                "io.test.Format",
+                SD_VARLINK_INTERFACE_COMMENT("Interface used to test the interface description renderings"),
+                SD_VARLINK_SYMBOL_COMMENT("An example type"),
+                &vl_type_TestEnum,
+                SD_VARLINK_SYMBOL_COMMENT("An example method"),
+                &vl_method_TestMethod);
+
+static int format_method_done(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        sd_event_exit(sd_varlink_get_event(link), EXIT_SUCCESS);
+        return 0;
+}
+
+static const char *description_of(sd_json_variant *reply) {
+        return sd_json_variant_string(ASSERT_PTR(sd_json_variant_by_key(reply, "description")));
+}
+
+/* The expected rendering of io.test.Format, compacted: the key set, the key order and the markers
+ * are the contract, hence they are pinned rather than spot-checked. */
+#define GOLDEN                                                                  \
+        "{\"name\":\"io.test.Format\","                                          \
+        "\"comment\":\"Interface used to test the interface description renderings\","  \
+        "\"symbols\":[{"                                                       \
+        "\"kind\":\"type\","                                                  \
+        "\"name\":\"TestEnum\","                                              \
+        "\"experimental\":true,"                                               \
+        "\"comment\":\"An example type\","                                    \
+        "\"typeKind\":\"enum\","                                              \
+        "\"values\":[{"                                                        \
+        "\"name\":\"regular\"},{"                                             \
+        "\"name\":\"marked\","                                                \
+        "\"experimental\":true}]},{"                                           \
+        "\"kind\":\"method\","                                                \
+        "\"name\":\"TestMethod\","                                            \
+        "\"comment\":\"An example method\","                                  \
+        "\"input\":[{"                                                         \
+        "\"name\":\"input\","                                                 \
+        "\"type\":\"string\","                                                \
+        "\"comment\":\"An example input\"}],"                                  \
+        "\"output\":[{"                                                        \
+        "\"name\":\"output\","                                                \
+        "\"type\":\"int\","                                                   \
+        "\"nullable\":true,"                                                   \
+        "\"comment\":\"An example output\"}]}]}"
+
+static int format_client_fiber(void *userdata) {
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *c = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+        const char *error_id = NULL, *description;
+
+        /* Replies are pinned by the connection and released when the next call is issued, hence they
+         * are borrowed here. */
+        sd_json_variant *reply = NULL;
+        int r;
+
+        ASSERT_OK(sd_varlink_connect_address(&c, userdata));
+
+        /* The default rendering is IDL. */
+        ASSERT_OK(sd_varlink_callbo(c, "org.varlink.service.GetInterfaceDescription", &reply, &error_id,
+                                    SD_JSON_BUILD_PAIR_STRING("interface", "io.test.Format")));
+        ASSERT_NULL(error_id);
+        description = description_of(reply);
+        ASSERT_NOT_NULL(strstr(description, "interface io.test.Format"));
+
+        /* An explicitly requested IDL rendering is the same thing. */
+        error_id = NULL;
+        ASSERT_OK(sd_varlink_callbo(c, "org.varlink.service.GetInterfaceDescription", &reply, &error_id,
+                                    SD_JSON_BUILD_PAIR_STRING("interface", "io.test.Format"),
+                                    SD_JSON_BUILD_PAIR_STRING("format", "idl")));
+        ASSERT_NULL(error_id);
+        ASSERT_NOT_NULL(strstr(description_of(reply), "interface io.test.Format"));
+
+        /* The JSON rendering carries the same information, structurally. */
+        error_id = NULL;
+        ASSERT_OK(sd_varlink_callbo(c, "org.varlink.service.GetInterfaceDescription", &reply, &error_id,
+                                    SD_JSON_BUILD_PAIR_STRING("interface", "io.test.Format"),
+                                    SD_JSON_BUILD_PAIR_STRING("format", "json")));
+        ASSERT_NULL(error_id);
+
+        r = sd_json_parse(description_of(reply), /* flags= */ 0, &json, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
+        ASSERT_OK(r);
+        ASSERT_STREQ(sd_json_variant_string(ASSERT_PTR(sd_json_variant_by_key(json, "name"))), "io.test.Format");
+
+        /* Pin the exact rendering, so that a changed key set, key order or marker fails here
+         * rather than in the documentation pipeline. */
+        _cleanup_free_ char *compact = NULL;
+        ASSERT_OK(sd_json_variant_format(json, /* flags= */ 0, &compact));
+        ASSERT_STREQ(compact, GOLDEN);
+
+        sd_json_variant *symbols = ASSERT_PTR(sd_json_variant_by_key(json, "symbols"));
+        ASSERT_EQ(sd_json_variant_elements(symbols), (size_t) 2);
+
+        /* Enum values carry the marker as well. */
+        sd_json_variant *type = ASSERT_PTR(sd_json_variant_by_index(symbols, 0));
+        ASSERT_STREQ(sd_json_variant_string(ASSERT_PTR(sd_json_variant_by_key(type, "kind"))), "type");
+        ASSERT_TRUE(sd_json_variant_boolean(ASSERT_PTR(sd_json_variant_by_key(type, "experimental"))));
+
+        sd_json_variant *values = ASSERT_PTR(sd_json_variant_by_key(type, "values"));
+        ASSERT_EQ(sd_json_variant_elements(values), (size_t) 2);
+        ASSERT_NULL(sd_json_variant_by_key(ASSERT_PTR(sd_json_variant_by_index(values, 0)), "experimental"));
+        ASSERT_TRUE(sd_json_variant_boolean(ASSERT_PTR(sd_json_variant_by_key(
+                        ASSERT_PTR(sd_json_variant_by_index(values, 1)), "experimental"))));
+
+        sd_json_variant *method = ASSERT_PTR(sd_json_variant_by_index(symbols, 1));
+        ASSERT_STREQ(sd_json_variant_string(ASSERT_PTR(sd_json_variant_by_key(method, "kind"))), "method");
+        ASSERT_STREQ(sd_json_variant_string(ASSERT_PTR(sd_json_variant_by_key(method, "name"))), "TestMethod");
+
+        /* An empty 'format' field means the default rendering, so that clients don't have to guess it. */
+        error_id = NULL;
+        ASSERT_OK(sd_varlink_callbo(c, "org.varlink.service.GetInterfaceDescription", &reply, &error_id,
+                                    SD_JSON_BUILD_PAIR_STRING("interface", "io.test.Format"),
+                                    SD_JSON_BUILD_PAIR_STRING("format", "")));
+        ASSERT_NULL(error_id);
+        ASSERT_NOT_NULL(strstr(description_of(reply), "interface io.test.Format"));
+
+        /* An unsupported rendering is refused, naming the parameter. */
+        error_id = NULL;
+        ASSERT_OK(sd_varlink_callbo(c, "org.varlink.service.GetInterfaceDescription", &reply, &error_id,
+                                    SD_JSON_BUILD_PAIR_STRING("interface", "io.test.Format"),
+                                    SD_JSON_BUILD_PAIR_STRING("format", "yaml")));
+        ASSERT_TRUE(sd_varlink_error_is_invalid_parameter(error_id, reply, "format"));
+
+        /* Unknown interfaces are reported as such, regardless of the requested rendering. */
+        error_id = NULL;
+        ASSERT_OK(sd_varlink_callbo(c, "org.varlink.service.GetInterfaceDescription", &reply, &error_id,
+                                    SD_JSON_BUILD_PAIR_STRING("interface", "io.test.Nonexistent"),
+                                    SD_JSON_BUILD_PAIR_STRING("format", "json")));
+        ASSERT_STREQ(error_id, SD_VARLINK_ERROR_INTERFACE_NOT_FOUND);
+
+        ASSERT_OK(sd_varlink_send(c, "io.test.Done", /* parameters= */ NULL));
+
+        return 0;
+}
+
+TEST(get_interface_description_formats) {
+        _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *c = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        const char *sp;
+
+        ASSERT_OK(mkdtemp_malloc("/tmp/varlink-test-XXXXXX", &tmpdir));
+        sp = strjoina(tmpdir, "/socket");
+
+        ASSERT_OK(sd_event_default(&e));
+
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        ASSERT_OK(varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID, /* userdata= */ NULL));
+        ASSERT_OK(sd_varlink_server_add_interface(s, &vl_interface_varlink_test_format));
+        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.Done", format_method_done));
+        ASSERT_OK(sd_varlink_server_listen_address(s, sp, 0600));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, /* priority= */ 0));
+
+        ASSERT_OK(sd_fiber_new(e, "format-client", format_client_fiber, (void*) sp, &f));
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_OK(sd_future_result(f));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
