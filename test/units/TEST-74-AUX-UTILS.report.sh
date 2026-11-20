@@ -469,6 +469,22 @@ testcase_basic() {
     os_id="$(. /etc/os-release; echo "$ID")"
     assert_metric_value_eq "$basic_metrics" io.systemd.Basic.OSRelease.ID "$os_id"
 
+    # FileSystemID must match what hostnamed reports, and be absent if /var/ has no file system UUID, or
+    # if we run in a container (hostnamed is optional, hence skip the comparison if it is not available)
+    if systemd-detect-virt --container --quiet; then
+        assert_metric_absent "$basic_metrics" io.systemd.Basic.FileSystemID
+    fi
+    if command -v hostnamectl >/dev/null; then
+        fsid="$(hostnamectl --json=short | jq -r .FileSystemID)"
+        if [[ "$fsid" == null ]]; then
+            assert_metric_absent "$basic_metrics" io.systemd.Basic.FileSystemID
+        else
+            assert_metric_value_eq "$basic_metrics" io.systemd.Basic.FileSystemID "$fsid"
+        fi
+    else
+        echo "hostnamectl not found, skipping io.systemd.Basic.FileSystemID check."
+    fi
+
     # test io.systemd.Basic load average and swap metrics
     basic_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Metrics.List {})"
 
@@ -597,7 +613,7 @@ testcase_basic() {
 
     # Every new metric family must be described, even those whose values depend on the environment.
     basic_describe="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Metrics.Describe {})"
-    for name in ClockBoottimeNSec ClockMonotonicNSec ClockRealtimeNSec CPUUsage CPUWait DeploymentTimestampNSec DiskReadBytes DiskWriteBytes MemoryUsedBytes PressureAvg10 PressureStallSeconds SwapUsedBytes; do
+    for name in ClockBoottimeNSec ClockMonotonicNSec ClockRealtimeNSec CPUUsage CPUWait DeploymentTimestampNSec DiskReadBytes DiskWriteBytes FileSystemID MemoryUsedBytes PressureAvg10 PressureStallSeconds SwapUsedBytes; do
         echo "$basic_describe" | grep -F "io.systemd.Basic.$name" >/dev/null
     done
 }
