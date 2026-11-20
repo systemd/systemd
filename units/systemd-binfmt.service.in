@@ -24,6 +24,10 @@ ConditionDirectoryNotEmpty=|/usr/lib/binfmt.d
 ConditionDirectoryNotEmpty=|/usr/local/lib/binfmt.d
 ConditionDirectoryNotEmpty=|/etc/binfmt.d
 ConditionDirectoryNotEmpty=|/run/binfmt.d
+ConditionDirectoryNotEmpty=|/etc/systemd/binfmt
+ConditionDirectoryNotEmpty=|/run/systemd/binfmt
+ConditionDirectoryNotEmpty=|/usr/local/lib/systemd/binfmt
+ConditionDirectoryNotEmpty=|/usr/lib/systemd/binfmt
 
 [Service]
 Type=oneshot
