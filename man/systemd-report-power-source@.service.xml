@@ -1,0 +1,119 @@
+<?xml version="1.0"?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-report-power-source_.service" xmlns:xi="http://www.w3.org/2001/XInclude"
+          conditional='ENABLE_REPORT'>
+
+  <refentryinfo>
+    <title>systemd-report-power-source@.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-report-power-source@.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-report-power-source@.service</refname>
+    <refname>systemd-report-power-source.socket</refname>
+    <refname>systemd-report-power-source</refname>
+    <refpurpose>Report AC power status and battery state as system report metrics</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-report-power-source@.service</filename></para>
+    <para><filename>systemd-report-power-source.socket</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-report-power-source</filename></para>
+  </refsynopsisdiv>
+
+  <xi:include href="experimental.xml" xpointer="component" />
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-report-power-source@.service</command> is a metrics source for
+    <citerefentry><refentrytitle>systemd-report</refentrytitle><manvolnum>1</manvolnum></citerefentry>. It
+    reports whether the system is running on external power, as well as the key parameters of the
+    system's batteries, as exposed by the kernel's power supply class (<literal>power_supply</literal>), by
+    implementing the <constant>io.systemd.Metrics</constant> Varlink interface on a socket linked into the
+    <filename>/run/systemd/report/</filename> directory.</para>
+
+    <para>The following system-wide metric is reported, without metric object:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>io.systemd.PowerSource.ACPower</varname></term>
+        <listitem><para>1 if the system is running on external (AC) power, 0 if it is running on battery.
+        Systems without any power supply information (for example most desktop machines and virtual
+        machines) are considered to be running on AC power.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>The following metrics are reported for every battery that is present and powers the system,
+    i.e. batteries of peripheral devices such as mice or keyboards are not included. The metric object is
+    the kernel's name of the battery, for example <literal>BAT0</literal>. Metrics the battery's driver
+    does not provide are omitted.</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>io.systemd.PowerSource.BatteryCapacityPercent</varname></term>
+        <listitem><para>The current charge level of the battery, in percent.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>io.systemd.PowerSource.BatteryCycleCount</varname></term>
+        <listitem><para>The number of charge cycles the battery has undergone over its
+        lifetime.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>io.systemd.PowerSource.BatteryHealthPercent</varname></term>
+        <listitem><para>The capacity of the fully charged battery relative to its design capacity, in
+        percent. Typically decreases as the battery ages, and may exceed 100 for new
+        batteries.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>io.systemd.PowerSource.BatteryPowerWatts</varname></term>
+        <listitem><para>The rate at which the battery is currently being charged or discharged, in Watts.
+        This is always a non-negative value, use <varname>io.systemd.PowerSource.BatteryStatus</varname> to determine
+        the direction.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>io.systemd.PowerSource.BatteryStatus</varname></term>
+        <listitem><para>The charging status of the battery, as reported by the kernel, i.e. one of
+        <literal>Charging</literal>, <literal>Discharging</literal>, <literal>Not charging</literal>,
+        <literal>Full</literal> or <literal>Unknown</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <!-- Note: we do not document the command line switches here. The systemd-report-power-source binary itself
+       should not be invoked by users, but only as a service. Use systemd-report(1) to acquire metrics. -->
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-report</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><ulink url="https://docs.kernel.org/power/power_supply_class.html">Linux power supply class</ulink></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
