@@ -1242,6 +1242,12 @@ testcase_fscrypt() {
     inspect fscrypttest | grep "Real Name: Fscrypt Test" >/dev/null
 
     PASSWORD=fsfsfs1234 NEWPASSWORD=newfsfs5678 homectl passwd fscrypttest
+
+    # The new password got a new slot above the old one, and the old slot is gone
+    (! getfattr --absolute-names --only-values -n trusted.fscrypt_slot0 "$MNT/fscrypttest")
+    SLOT="$(getfattr --absolute-names --only-values -n trusted.fscrypt_slot1 "$MNT/fscrypttest")"
+    [[ "${SLOT:0:4}" == "\$v2:" ]]
+
     PASSWORD=newfsfs5678 homectl authenticate fscrypttest
     (! PASSWORD=fsfsfs1234 timeout 10s homectl authenticate fscrypttest </dev/null)
 
@@ -1251,6 +1257,28 @@ testcase_fscrypt() {
     systemctl stop user@"$(id -u fscrypttest)".service 2>/dev/null || true
     homectl deactivate fscrypttest 2>/dev/null || true
     wait_for_state fscrypttest inactive
+
+    # Changing it again puts the new slot above the existing one, not at the number of passwords
+    PASSWORD=newfsfs5678 NEWPASSWORD=fsfsfs1234 homectl passwd fscrypttest
+    (! getfattr --absolute-names --only-values -n trusted.fscrypt_slot1 "$MNT/fscrypttest")
+    SLOT="$(getfattr --absolute-names --only-values -n trusted.fscrypt_slot2 "$MNT/fscrypttest")"
+    [[ "${SLOT:0:4}" == "\$v2:" ]]
+    PASSWORD=fsfsfs1234 homectl authenticate fscrypttest
+
+    # If the new slot can't be written, the old one stays and still works. Fill the xattr space of the
+    # directory for that.
+    local i j
+    i=0
+    while ((i < 1000)) && setfattr -n "trusted.filler$i" -v 0x00000000000000000000000000000000 "$MNT/fscrypttest" 2>/dev/null; do
+        i=$((i + 1))
+    done
+    (! PASSWORD=fsfsfs1234 NEWPASSWORD=newfsfs5678 timeout 60s homectl passwd fscrypttest </dev/null)
+    getfattr --absolute-names -n trusted.fscrypt_slot2 "$MNT/fscrypttest" >/dev/null
+    (! getfattr --absolute-names -n trusted.fscrypt_slot3 "$MNT/fscrypttest")
+    for ((j = 0; j < i; j++)); do
+        setfattr -x "trusted.filler$j" "$MNT/fscrypttest"
+    done
+    PASSWORD=fsfsfs1234 homectl authenticate fscrypttest
 
     homectl remove fscrypttest
 }
