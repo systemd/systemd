@@ -25,7 +25,7 @@ COMMAND(
         "systemd-journald\0",
         "Collect and store log messages.",
         .argspec = "[NAMESPACE]\0",
-        .man_pages = "systemd-journald.service(8)\0",
+        .man_page = "systemd-journald.service(8)",
         .option_namespace = "common",
 );
 

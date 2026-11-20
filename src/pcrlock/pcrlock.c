@@ -108,7 +108,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_entry_token, freep);
 COMMAND(
         "systemd-pcrlock\0",
         "Manage a TPM2 PCR lock.",
-        .man_pages = "systemd-pcrlock(8)\0",
+        .man_page = "systemd-pcrlock(8)",
         .pager_flags = &arg_pager_flags,
         .flags = COMMAND_EXPERIMENTAL,
 );

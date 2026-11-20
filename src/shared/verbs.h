@@ -21,8 +21,8 @@ typedef struct CommandDescription {
         const char *names;             /* nulstr with the main command name and potentially aliases */
         const char *abstract;          /* concrete abstract */
         const char *argspec;           /* optional nulstr with specifications of positional args */
-        const char *footer;            /* optional footer to print right above man page links */
-        const char *man_pages;         /* nulstr with man page names */
+        const char *footer;            /* optional footer to print right above the man page link */
+        const char *man_page;          /* optional man page name */
         const char *option_namespace;  /* optional option namespace for this command */
         const char *option_groups;     /* optional nulstr with option groups for this command */
         const PagerFlags *pager_flags; /* optional pointer to the runtime pager flags variable */

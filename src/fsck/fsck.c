@@ -39,7 +39,7 @@ COMMAND(
         "systemd-fsck\0",
         "Check a file system before it is mounted.",
         .argspec = "[DEVICE]\0",
-        .man_pages = "systemd-fsck@.service(8)\0",
+        .man_page = "systemd-fsck@.service(8)",
         .option_namespace = "common",
 );
 

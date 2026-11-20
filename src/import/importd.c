@@ -2084,7 +2084,7 @@ static void manager_parse_env(Manager *m) {
 COMMAND(
         "systemd-importd\0",
         "Import and export VM and container images.",
-        .man_pages = "systemd-importd.service(8)\0",
+        .man_page = "systemd-importd.service(8)",
         .option_namespace = "service",
         .option_groups =
                 "Options\0"

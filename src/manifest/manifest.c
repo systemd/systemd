@@ -51,7 +51,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_voa_context, freep);
 COMMAND(
         "systemd-manifest\0",
         "Generate and verify file manifests of directory trees.",
-        .man_pages = "systemd-manifest(1)\0",
+        .man_page = "systemd-manifest(1)",
         .pager_flags = &arg_pager_flags,
 );
 

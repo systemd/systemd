@@ -27,7 +27,7 @@ COMMAND(
         "systemd-veritysetup-generator\0",
         "Generate units for verity protected block devices.",
         .argspec = GENERATOR_ARGSPEC,
-        .man_pages = "systemd-veritysetup-generator(8)\0",
+        .man_page = "systemd-veritysetup-generator(8)",
         .option_namespace = "common",
 );
 

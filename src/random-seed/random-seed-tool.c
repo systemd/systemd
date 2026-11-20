@@ -44,7 +44,7 @@ static SeedAction arg_action = _ACTION_INVALID;
 COMMAND(
         "systemd-random-seed\0",
         "Load and save the system random seed at boot and shutdown.",
-        .man_pages = "systemd-random-seed(8)\0",
+        .man_page = "systemd-random-seed(8)",
         .option_namespace = "common",
 );
 

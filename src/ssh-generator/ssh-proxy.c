@@ -23,7 +23,7 @@ COMMAND(
         "systemd-ssh-proxy\0",
         "Connect an SSH client to AF_VSOCK and AF_UNIX sockets.",
         .argspec = "HOST PORT\0",
-        .man_pages = "systemd-ssh-proxy(1)\0",
+        .man_page = "systemd-ssh-proxy(1)",
         .option_namespace = "common",
 );
 
