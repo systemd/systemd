@@ -5,6 +5,7 @@ typedef enum TarFlags {
         TAR_SELINUX               = 1 << 0, /* Include SELinux xattr in tarball, or unpack it */
         TAR_SQUASH_UIDS_ABOVE_64K = 1 << 1, /* Squash UIDs/GIDs above 64K when packing/unpacking to the nobody user */
         TAR_OCI_WHITEOUTS         = 1 << 2, /* Turn OCI/aufs whiteout inodes into overlayfs whiteouts */
+        TAR_SKIP_DEVICE_NODES     = 1 << 3, /* Skip device nodes we may not create (e.g. in a user namespace) when unpacking */
 } TarFlags;
 
 /* Allocates a tmpfs superblock for tar_c() to keep its hardlink database in. Requires CAP_SYS_ADMIN in the
