@@ -4,6 +4,7 @@
 #include <sys/socket.h>
 
 #include "sd-event.h"
+#include "sd-json.h"
 #include "sd-varlink.h"
 #include "sd-varlink-idl.h"
 
@@ -301,6 +302,32 @@ TEST(parse_format) {
                 test_parse_format_one(*i);
                 sep = true;
         }
+}
+
+TEST(format_json) {
+        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *iface = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_free_ char *text = NULL;
+
+        ASSERT_OK(sd_varlink_idl_parse(
+                                "# A comment on the interface\n"
+                                "interface org.example.Format\n"
+                                "method Ping(in: ?string, out: ?Reply) -> ()\n"
+                                "type Reply (count: int, names: []string, flag: ?bool)\n"
+                                "type Color (red, green)\n",
+                                /* reterr_line= */ NULL, /* reterr_column= */ NULL, &iface));
+
+        ASSERT_OK(sd_varlink_idl_format_json(iface, &v));
+        ASSERT_OK(sd_json_variant_format(v, /* flags= */ 0, &text));
+        ASSERT_STREQ(text,
+             "{\"name\":\"org.example.Format\",\"comment\":\"A comment on the interface\","
+             "\"symbols\":[{\"kind\":\"method\",\"name\":\"Ping\",\"input\":[{\"name\":\"in\","
+             "\"type\":\"string\",\"nullable\":true},{\"name\":\"out\",\"namedType\":\"Reply\","
+             "\"nullable\":true}]},{\"kind\":\"type\",\"name\":\"Reply\",\"typeKind\":\"struct\","
+             "\"fields\":[{\"name\":\"count\",\"type\":\"int\"},{\"name\":\"names\",\"type\":\"string\","
+             "\"array\":true},{\"name\":\"flag\",\"type\":\"bool\",\"nullable\":true}]},"
+             "{\"kind\":\"type\",\"name\":\"Color\",\"typeKind\":\"enum\",\"values\":[{\"name\":\"red\"},"
+             "{\"name\":\"green\"}]}]}");
 }
 
 TEST(experimental) {
