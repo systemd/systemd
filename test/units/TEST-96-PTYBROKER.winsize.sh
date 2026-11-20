@@ -3,7 +3,8 @@
 set -eux
 set -o pipefail
 
-# Tests for OSC 2811 based window size propagation: dimension changes on the
+# Tests for window size propagation via in-band window resize notifications
+# (CSI 2048/48): dimension changes on the
 # terminal a "ptyctl monitor" runs on must reach the frontend (master) of the
 # monitored PTY in systemd-ptybrokerd. Runs "ptyctl monitor" on a synthetic
 # pty, resizes it, and verifies the broker's pty follows, including the
@@ -35,12 +36,14 @@ import fcntl
 import json
 import os
 import pty
+import select
 import signal
 import struct
 import subprocess
 import sys
 import termios
 import time
+import tty
 
 BACKEND = os.environ['BACKEND_PTS']
 NAME = 'pty96-winsize'
@@ -91,8 +94,8 @@ def wait_for(rows, cols, timeout=30):
         if get_size(bfd) == (rows, cols):
             print(f'OK: broker pty is now {rows}x{cols}', file=sys.stderr)
             return
-        # Recover from any lost SIGWINCH: a pending OSC 2811 subscription is
-        # (re-)answered from the forwarder's signal handler
+        # Recover from any lost SIGWINCH: while CSI 2048/48 is enabled, the
+        # forwarder's signal handler reports the current size
         for pid in monitors:
             os.kill(pid, signal.SIGWINCH)
         time.sleep(0.2)
@@ -108,18 +111,6 @@ def wait_for_output(marker, timeout=30):
             return
         time.sleep(0.2)
     sys.exit(f'Timed out waiting for {marker!r} in monitor output: {drained!r}')
-
-
-def expect_unchanged(rows, cols, duration=3):
-    # The negative counterpart of wait_for(): the broker pty must keep its dimensions for a while,
-    # even though we keep poking the monitors with SIGWINCH
-    deadline = time.monotonic() + duration
-    while time.monotonic() < deadline:
-        drain()
-        assert get_size(bfd) == (rows, cols), f'broker pty unexpectedly changed to {get_size(bfd)}'
-        for pid in monitors:
-            os.kill(pid, signal.SIGWINCH)
-        time.sleep(0.2)
 
 
 def kill_monitor(pid):
@@ -179,24 +170,71 @@ wait_for(22, 77)
 set_size(m1, 50, 200)
 wait_for(50, 200)
 
-# An OSC 2811 cancel sequence reaching the monitor's forwarder must drop its pending
-# subscription: further resizes of that monitor's terminal must go unreported. (The
-# marker written after it tells us when the forwarder has processed the cancel.)
-os.write(bwfd, b'\x1b]2811;?\x1b\\' + b'pty96-winsize-marker-2\n')
+# The payload disabling CSI 2048/48 must not break size tracking: the broker owns the mode on
+# the monitor's terminal and filters out the payload's requests regarding it, hence further
+# resizes of that monitor's terminal must still propagate. (The marker written after it
+# tells us when the request has been processed.) The request also covers another mode,
+# which has to be passed on to the terminal.
+os.write(bwfd, b'\x1b[?2048;1049l' + b'pty96-winsize-marker-2\n')
 wait_for_output(b'pty96-winsize-marker-2')
 set_size(m1, 30, 90)
-expect_unchanged(50, 200)
-
-# A fresh monitor subscribes anew, and is not affected by the cancel
-pid3, m3 = spawn_monitor()
-set_size(m3, 30, 90)
 wait_for(30, 90)
-kill_monitor(pid3)
 
-# Neither the OSC 2811 subscribe sequences nor the cancel sequence may leak to the
-# monitor's terminal. Make sure we actually saw output before concluding that.
+# The same applies to a full reset (RIS), after which the broker turns the mode back on
+os.write(bwfd, b'\x1bc' + b'pty96-winsize-marker-3\n')
+wait_for_output(b'pty96-winsize-marker-3')
+set_size(m1, 32, 95)
+wait_for(32, 95)
+
+# An ESC within a string sequence (here: DCS) that doesn't start ST begins a new sequence, hence
+# requests hidden this way must be filtered out as well
+os.write(bwfd, b'\x1bP\x1b[?2048l' + b'pty96-winsize-marker-4\n')
+wait_for_output(b'pty96-winsize-marker-4')
+set_size(m1, 31, 94)
+wait_for(31, 94)
+os.write(bwfd, b'\x1bP\x1bc' + b'pty96-winsize-marker-5\n')
+wait_for_output(b'pty96-winsize-marker-5')
+set_size(m1, 32, 95)
+wait_for(32, 95)
+
+# Since the payload cannot make use of CSI 2048/48 through the broker, a query for it must be
+# answered with "permanently reset", by the broker itself, exactly once (even though there are two
+# monitors: ours, and the forwarder that registered the pty). Switch the payload side to raw
+# mode, so that we can read the reply right-away, and it's not echoed back.
+tty.setraw(bfd)
+os.write(bwfd, b'\x1b[?2048$p')
+reply = b''
+deadline = time.monotonic() + 30
+while not reply.endswith(b'$y'):
+    assert time.monotonic() < deadline, f'Timed out waiting for CSI 2048/48 reply: {reply!r}'
+    drain()
+    if select.select([bfd], [], [], 0.2)[0]:
+        reply += os.read(bfd, 64)
+time.sleep(1)
+drain()
+if select.select([bfd], [], [], 0)[0]:
+    reply += os.read(bfd, 64)
+assert reply == b'\x1b[?2048;4$y', reply
+
+# A fresh monitor enables reports too. The query above is still part of the pending partial
+# line (it has no newline), which is replayed to the new monitor: it must not be answered again.
+pid3, m3 = spawn_monitor()
+set_size(m3, 28, 85)
+wait_for(28, 85)
+time.sleep(1)
+drain()
+if select.select([bfd], [], [], 0)[0]:
+    stray = os.read(bfd, 64)
+    assert False, f'CSI 2048/48 query answered again on monitor attach: {stray!r}'
+kill_monitor(pid3)
+wait_for(32, 95)
+
+# Neither the enable nor the disable requests for CSI 2048/48 may leak to the monitor's
+# terminal, but the other mode covered by the disable request must. Make sure we actually
+# saw output before concluding that.
 assert b'pty96-winsize-marker-1' in drained and b'pty96-winsize-marker-2' in drained
-assert b'2811' not in drained, f'OSC 2811 sequence leaked into monitor output: {drained!r}'
+assert b'2048' not in drained, f'CSI 2048/48 request leaked into monitor output: {drained!r}'
+assert b'\x1b[?1049l' in drained, f'Rewritten mode request missing from monitor output: {drained!r}'
 
 kill_monitor(pid1)
 EOF
