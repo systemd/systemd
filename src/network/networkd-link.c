@@ -399,7 +399,17 @@ int link_stop_engines(Link *link, bool may_keep_dynamic) {
                 (link->manager->state == MANAGER_RESTARTING ||
                  FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC_ON_STOP));
 
+        /* Keep binding on server so saved lease is still valid on next cycle, if not released. */
+        bool keep_lease =
+                link->dhcp_client &&
+                link->network &&
+                (link->manager->state == MANAGER_TERMINATING &&
+                 is_dhcp_client_persist_leases(link));
+
         if (!keep_dynamic) {
+                if (keep_lease)
+                        (void) sd_dhcp_client_set_send_release(link->dhcp_client, /* enable= */ false);
+
                 r = sd_dhcp_client_stop(link->dhcp_client);
                 if (r < 0)
                         RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop DHCPv4 client: %m"));

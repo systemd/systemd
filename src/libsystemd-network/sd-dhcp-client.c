@@ -6,6 +6,7 @@
 #include <linux/if_infiniband.h>
 #include <net/if_arp.h>
 #include <stdio.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "device-util.h"
@@ -50,6 +51,7 @@ static const uint8_t default_req_opts[] = {
 
 static void client_stop(sd_dhcp_client *client, int error);
 static int client_restart(sd_dhcp_client *client);
+static void client_remove_lease_file(sd_dhcp_client *client);
 
 int dhcp_client_set_state_callback(
                 sd_dhcp_client *client,
@@ -1148,6 +1150,9 @@ static int client_handle_message(sd_dhcp_client *client, const struct iovec *iov
                 return client_enter_bound(client, lease);
 
         case DHCP_NAK:
+                /* Address refused by server, drop the saved lease if used */
+                if (client->lease_file)
+                        client_remove_lease_file(client);
                 return client_restart(client);
 
         default:
@@ -1277,6 +1282,11 @@ int sd_dhcp_client_send_decline(sd_dhcp_client *client) {
         if (!sd_dhcp_client_is_running(client) || !client->lease || client->bootp)
                 return 0; /* there is nothing to decline */
 
+        /* Usually this is caused on ACD, we should remove the lease file before sending the decline.
+         * This way, if it fails to send, the conflicting address isn't reapplied. */
+        if (client->lease_file)
+                client_remove_lease_file(client);
+
         r = dhcp_client_send_message(client, DHCP_DECLINE);
         if (r < 0)
                 return r;
@@ -1287,6 +1297,8 @@ int sd_dhcp_client_send_decline(sd_dhcp_client *client) {
 }
 
 static int client_send_release(sd_dhcp_client *client) {
+        int r;
+
         assert(client);
 
         if (!client->send_release)
@@ -1295,7 +1307,16 @@ static int client_send_release(sd_dhcp_client *client) {
         if (!sd_dhcp_client_is_running(client) || !client->lease || client->bootp)
                 return 0; /* there is nothing to release */
 
-        return dhcp_client_send_message(client, DHCP_RELEASE);
+        r = dhcp_client_send_message(client, DHCP_RELEASE);
+        if (r < 0)
+                return r;
+
+        /* The server might hand out an address again, therefore remove a potentially stale
+         * saved lease. This is fine to do after sending release. */
+        if (client->lease_file)
+                client_remove_lease_file(client);
+
+        return 0;
 }
 
 int sd_dhcp_client_stop(sd_dhcp_client *client) {
@@ -1527,6 +1548,17 @@ int sd_dhcp_client_save_lease(sd_dhcp_client *client) {
                 return 0;
 
         return dhcp_lease_save_at(client->lease, client->lease_dir_fd, client->lease_file);
+}
+
+static void client_remove_lease_file(sd_dhcp_client *client) {
+        int r;
+
+        assert(client);
+        assert(client->lease_file);
+
+        r = RET_NERRNO(unlinkat(client->lease_dir_fd, client->lease_file, 0));
+        if (r < 0 && r != -ENOENT)
+                log_dhcp_client_errno(client, r, "Failed to remove lease file, ignoring: %m");
 }
 
 int sd_dhcp_client_update_lease_lifetime(sd_dhcp_client *client, sd_dhcp_lease *lease, uint64_t lifetime) {
