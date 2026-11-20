@@ -4,6 +4,7 @@
 #include <sys/socket.h>
 
 #include "sd-event.h"
+#include "sd-json.h"
 #include "sd-varlink.h"
 #include "sd-varlink-idl.h"
 
@@ -206,7 +207,8 @@ static SD_VARLINK_DEFINE_INTERFACE_FULL(
 
 static void test_parse_format_one(const sd_varlink_interface *iface) {
         _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *parsed = NULL;
-        _cleanup_free_ char *text = NULL, *text2 = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL, *json2 = NULL;
+        _cleanup_free_ char *text = NULL, *text2 = NULL, *json_text = NULL, *json_text2 = NULL;
 
         ASSERT_NOT_NULL(iface);
 
@@ -219,8 +221,19 @@ static void test_parse_format_one(const sd_varlink_interface *iface) {
 
         ASSERT_STREQ(text, text2);
 
+        /* Every interface goes through the JSON renderer too, and the output is deterministic. */
+        ASSERT_OK(sd_varlink_idl_format_json(iface, &json));
+        ASSERT_OK(sd_varlink_idl_format_json(iface, &json2));
+        ASSERT_OK(sd_json_variant_format(json, /* flags= */ 0, &json_text));
+        ASSERT_OK(sd_json_variant_format(json2, /* flags= */ 0, &json_text2));
+        ASSERT_STREQ(json_text, json_text2);
+
         text = mfree(text);
         text2 = mfree(text2);
+        json_text = mfree(json_text);
+        json_text2 = mfree(json_text2);
+        json = sd_json_variant_unref(json);
+        json2 = sd_json_variant_unref(json2);
         parsed = sd_varlink_interface_free(parsed);
 
         /* Do the same thing, but aggressively line break, and make sure this is roundtrippable as well */
@@ -301,6 +314,54 @@ TEST(parse_format) {
                 test_parse_format_one(*i);
                 sep = true;
         }
+}
+
+TEST(format_json) {
+        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *iface = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_free_ char *text = NULL;
+
+        ASSERT_OK(sd_varlink_idl_parse(
+                                "# A comment on the interface\n"
+                                "# [Experimental]\n"
+                                "interface org.example.Format\n"
+                                "# A comment on the method\n"
+                                "# [Supports 'more' flag]\n"
+                                "method Ping(in: ?string) -> (out: ?Reply)\n"
+                                "method Reset() -> ()\n"
+                                "# A comment on the error\n"
+                                "error Failed(reason: string)\n"
+                                "type Reply(\n"
+                                "        count: int,\n"
+                                "        names: []string,\n"
+                                "        flag: ?bool,\n"
+                                "        inner: (x: int, y: ?(a, b)),\n"
+                                "        # [Experimental]\n"
+                                "        # A comment on the field\n"
+                                "        extra: ?string\n"
+                                ")\n"
+                                "type Color (red, green)\n",
+                                /* reterr_line= */ NULL, /* reterr_column= */ NULL, &iface));
+
+        ASSERT_OK(sd_varlink_idl_format_json(iface, &v));
+        ASSERT_OK(sd_json_variant_format(v, /* flags= */ 0, &text));
+        static const char expected[] =
+                "{\"name\":\"org.example.Format\",\"experimental\":true,"
+                "\"comment\":\"A comment on the interface\",\"symbols\":[{\"kind\":\"method\",\"name\":\"Ping\","
+                "\"comment\":\"A comment on the method\",\"flags\":[\"supports-more\"],"
+                "\"input\":[{\"name\":\"in\",\"type\":\"string\",\"nullable\":true}],"
+                "\"output\":[{\"name\":\"out\",\"namedType\":\"Reply\",\"nullable\":true}]},{\"kind\":\"method\","
+                "\"name\":\"Reset\",\"input\":[],\"output\":[]},{\"kind\":\"error\",\"name\":\"Failed\","
+                "\"comment\":\"A comment on the error\",\"fields\":[{\"name\":\"reason\",\"type\":\"string\"}]},"
+                "{\"kind\":\"type\",\"name\":\"Reply\",\"typeKind\":\"struct\",\"fields\":[{\"name\":\"count\","
+                "\"type\":\"int\"},{\"name\":\"names\",\"type\":\"string\",\"array\":true},{\"name\":\"flag\","
+                "\"type\":\"bool\",\"nullable\":true},{\"name\":\"inner\",\"struct\":[{\"name\":\"x\","
+                "\"type\":\"int\"},{\"name\":\"y\",\"enum\":[{\"name\":\"a\"},{\"name\":\"b\"}],"
+                "\"nullable\":true}]},{\"name\":\"extra\",\"experimental\":true,\"type\":\"string\","
+                "\"nullable\":true,\"comment\":\"A comment on the field\"}]},{\"kind\":\"type\","
+                "\"name\":\"Color\",\"typeKind\":\"enum\",\"values\":[{\"name\":\"red\"},{\"name\":\"green\"}]}]}";
+
+        ASSERT_STREQ(text, expected);
 }
 
 TEST(experimental) {

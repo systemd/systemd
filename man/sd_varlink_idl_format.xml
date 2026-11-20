@@ -1,0 +1,207 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_varlink_idl_format" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_varlink_idl_format</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_varlink_idl_format</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_varlink_idl_format</refname>
+    <refname>sd_varlink_idl_format_json</refname>
+
+    <refpurpose>Render a Varlink interface definition as text or JSON</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-varlink-idl.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_idl_format</function></funcdef>
+        <paramdef>const sd_varlink_interface *<parameter>interface</parameter></paramdef>
+        <paramdef>char **<parameter>ret</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_idl_format_json</function></funcdef>
+        <paramdef>const sd_varlink_interface *<parameter>interface</parameter></paramdef>
+        <paramdef>sd_json_variant **<parameter>ret</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_varlink_idl_format()</function> renders the specified interface definition, as
+    built with the <constant>SD_VARLINK_DEFINE_INTERFACE()</constant> family of macros or parsed with
+    <function>sd_varlink_idl_parse()</function>, as text in the Varlink interface definition language
+    (IDL). Documentation comments are rendered along with the definition, and the output is not
+    colorized and not wrapped, so that it is byte-for-byte reproducible.</para>
+
+    <para><function>sd_varlink_idl_format_json()</function> renders the same definition as a JSON
+    object. Symbols and fields are emitted in declaration order, call flags in the canonical order,
+    and the key set is fixed, so that the output is deterministic as well. The representation carries
+    the same information as the textual form, including documentation comments and the marking of
+    experimental interfaces, symbols and fields. It is not yet part of
+    <ulink url="https://uapi-group.org/specifications/specs/varlink/">UAPI.20 Varlink IPC</ulink>:
+    the key set below is the interface this function guarantees.</para>
+
+    <para>The caller owns the returned text and the returned JSON variant, respectively, and is
+    responsible for freeing them.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>JSON representation</title>
+
+    <para>The top-level object describes the interface itself:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><literal>name</literal></term>
+        <listitem><para>The interface name. Always present.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>experimental</literal></term>
+        <listitem><para><constant>true</constant> when the interface is marked experimental. Only
+        present when the interface is experimental.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>comment</literal></term>
+        <listitem><para>The documentation comment of the interface. Only present when the definition
+        carries one.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>symbols</literal></term>
+        <listitem><para>An array of symbol objects, in declaration order. Always present, and empty
+        for an interface without symbols.</para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>Each symbol object describes one method, error or type:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><literal>kind</literal></term>
+        <listitem><para>One of <literal>method</literal>, <literal>error</literal> or
+        <literal>type</literal>. Always present.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>name</literal></term>
+        <listitem><para>The symbol name. Always present.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>experimental</literal>, <literal>comment</literal></term>
+        <listitem><para>As for the interface, for this symbol.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>flags</literal></term>
+        <listitem><para>For methods and errors, the call flags that apply, in the canonical order:
+        <literal>supports-more</literal>, <literal>requires-more</literal>,
+        <literal>supports-upgrade</literal> and <literal>requires-upgrade</literal>. Only present
+        when at least one flag applies.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>input</literal>, <literal>output</literal></term>
+        <listitem><para>For methods, the input and output parameters as arrays of field objects.
+        Always present, and empty for a method without parameters.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>fields</literal></term>
+        <listitem><para>For errors and struct types, the fields as an array of field objects. Always
+        present.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>values</literal></term>
+        <listitem><para>For enum types, the values as an array of objects with the keys
+        <literal>name</literal>, <literal>experimental</literal> and <literal>comment</literal>,
+        with the same rules as for a symbol. Always present.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>typeKind</literal></term>
+        <listitem><para>For types, either <literal>struct</literal> or <literal>enum</literal>. Always
+        present on a type.</para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>Each field object carries the field name in <literal>name</literal>, and the keys
+    <literal>experimental</literal> and <literal>comment</literal> with the same rules as above. Its
+    type is described by exactly one of the following keys:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><literal>type</literal></term>
+        <listitem><para>A primitive type: <literal>bool</literal>, <literal>int</literal>,
+        <literal>float</literal>, <literal>string</literal>, <literal>object</literal> or
+        <literal>any</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>namedType</literal></term>
+        <listitem><para>The name of a type declared in the same interface.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>struct</literal>, <literal>enum</literal></term>
+        <listitem><para>An inline struct, as an array of field objects, or an inline enum, as an array
+        of objects with <literal>name</literal>, <literal>experimental</literal> and
+        <literal>comment</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>nullable</literal>, <literal>array</literal>, <literal>map</literal></term>
+        <listitem><para><constant>true</constant> when the field carries the corresponding modifier.
+        Each key is only present when the modifier applies.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, these functions return a non-negative integer. On failure, they return a negative
+    errno-style error code. In particular, <constant>-ENOMEM</constant> is returned when memory
+    allocation fails.</para>
+
+  </refsect1>
+
+  <refsect1>
+    <title>History</title>
+
+    <para><function>sd_varlink_idl_format()</function> was added in version 257.
+    <function>sd_varlink_idl_format_json()</function> was added in version 263.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>sd-varlink</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>org.varlink.service</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
