@@ -2408,7 +2408,7 @@ static void disconnect_callback(sd_varlink_server *server, sd_varlink *link, voi
         (*counter)++;
 }
 
-static void test_method_flags_one(const char *flags, bool valid) {
+static void test_method_flags_one(const char *flags, int expected_error) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         _cleanup_(sd_varlink_close_unrefp) sd_varlink *v = NULL;
         _cleanup_close_pair_ int fds[2] = EBADF_PAIR;
@@ -2426,10 +2426,15 @@ static void test_method_flags_one(const char *flags, bool valid) {
 
         while ((r = sd_varlink_process(v)) > 0)
                 ;
-        ASSERT_EQ(r, valid ? 0 : -EINVAL);
-        ASSERT_EQ(sd_varlink_is_connected(v), valid);
+        ASSERT_EQ(r, -expected_error);
 
-        if (valid) {
+        /* JSON parse errors schedule disconnection instead of closing the connection immediately. */
+        if (expected_error != 0)
+                while (sd_varlink_is_connected(v))
+                        ASSERT_OK_POSITIVE(sd_varlink_process(v));
+        ASSERT_EQ(sd_varlink_is_connected(v), expected_error == 0);
+
+        if (expected_error == 0) {
                 char buffer[4096];
                 ssize_t n = ASSERT_OK_ERRNO(recv(fds[1], buffer, sizeof(buffer), MSG_DONTWAIT));
                 ASSERT_GT(n, 0);
@@ -2447,13 +2452,18 @@ TEST(method_flags) {
                        "\"oneway\":false,\"more\":true,\"upgrade\":false",
                        "\"upgrade\":false,\"oneway\":false,\"more\":true",
                        "\"more\":false,\"oneway\":false,\"upgrade\":false")
-                test_method_flags_one(flags, /* valid= */ true);
+                test_method_flags_one(flags, /* expected_error= */ 0);
 
         FOREACH_STRING(flags,
                        "\"more\":true,\"oneway\":true",
                        "\"oneway\":true,\"more\":true",
                        "\"more\":true,\"upgrade\":true",
                        "\"upgrade\":true,\"oneway\":true",
+                       "\"more\":null",
+                       "\"more\":1")
+                test_method_flags_one(flags, EINVAL);
+
+        FOREACH_STRING(flags,
                        "\"oneway\":false,\"oneway\":false",
                        "\"oneway\":false,\"oneway\":true",
                        "\"oneway\":true,\"oneway\":false",
@@ -2465,10 +2475,8 @@ TEST(method_flags) {
                        "\"upgrade\":false,\"upgrade\":false",
                        "\"upgrade\":false,\"upgrade\":true",
                        "\"upgrade\":true,\"upgrade\":false",
-                       "\"upgrade\":true,\"upgrade\":true",
-                       "\"more\":null",
-                       "\"more\":1")
-                test_method_flags_one(flags, /* valid= */ false);
+                       "\"upgrade\":true,\"upgrade\":true")
+                test_method_flags_one(flags, ENOTUNIQ);
 }
 
 static void test_method_reply(sd_varlink_server *s, const char *request, const char *error) {
