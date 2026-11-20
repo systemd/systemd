@@ -19,6 +19,14 @@ on:
       - 'test/fuzz/**'
       - 'tools/oss-fuzz.sh'
   push:
+    paths:
+      - '**/meson.build'
+      - '.github/workflows/cifuzz.yml'
+      - '.github/workflows/requirements.txt'
+      - 'meson_options.txt'
+      - 'src/**'
+      - 'test/fuzz/**'
+      - 'tools/oss-fuzz.sh'
     branches:
       - main
 jobs:
