@@ -2234,14 +2234,18 @@ static int varlink_call_internal(sd_varlink *v, sd_json_variant *request) {
 
         while (v->state == VARLINK_CALLING) {
                 r = sd_varlink_process(v);
-                if (r < 0)
+                if (r < 0) {
+                        v->n_pending--;
                         return r;
+                }
                 if (r > 0)
                         continue;
 
                 r = sd_varlink_wait(v, USEC_INFINITY);
-                if (r < 0)
+                if (r < 0) {
+                        v->n_pending--;
                         return r;
+                }
         }
 
         switch (v->state) {
@@ -2252,9 +2256,11 @@ static int varlink_call_internal(sd_varlink *v, sd_json_variant *request) {
 
         case VARLINK_PENDING_DISCONNECT:
         case VARLINK_DISCONNECTED:
+                v->n_pending--;
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ECONNRESET), "Connection was closed.");
 
         case VARLINK_PENDING_TIMEOUT:
+                v->n_pending--;
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ETIME), "Connection timed out.");
 
         default:
