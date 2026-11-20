@@ -117,7 +117,28 @@ fi
 "$SD_PCRLOCK" list-components
 "$SD_PCRLOCK" list-components --location=250-
 "$SD_PCRLOCK" list-components --location=250-:350-
-"$SD_PCRLOCK" lock-firmware-config
+firmware_config_locked=yes
+output=$("$SD_PCRLOCK" lock-firmware-config 2>&1) || firmware_config_locked=no
+echo "$output" >&2
+if [[ "$firmware_config_locked" == no ]]; then
+    grep -Fx 'Event log for PCR 5 does not match PCR state, refusing.' <<<"$output" >/dev/null
+
+    # OVMF can extend PCR 5 with Exit Boot Services Invocation without recording the event. Only accept
+    # the refusal if that one missing firmware measurement exactly accounts for the observed PCR.
+    "$SD_PCRLOCK" log --json=short --pcr=5 | python3 -I -c '
+import hashlib, json, pathlib, sys
+event = b"Exit Boot Services Invocation"
+assert event not in pathlib.Path("/sys/kernel/security/tpm0/binary_bios_measurements").read_bytes()
+report = json.load(sys.stdin)
+assert sum(record["event"] == "os-separator" for record in report["log"]) == 1
+pcr = bytes(32)
+for record in report["log"]:
+    if record["event"] == "os-separator":
+        pcr = hashlib.sha256(pcr + hashlib.sha256(event).digest()).digest()
+    pcr = hashlib.sha256(pcr + bytes.fromhex(record["sha256"])).digest()
+assert pcr.hex() == report["pcrs"][0]["observedSHA256"]
+'
+fi
 "$SD_PCRLOCK" lock-gpt
 "$SD_PCRLOCK" lock-machine-id
 "$SD_PCRLOCK" lock-file-system
@@ -374,7 +395,12 @@ if [[ -e /sys/kernel/security/tpm0/binary_bios_measurements ]]; then
         jq -e ".[0].record | $SPEC_ID_EVENT_CHECK" >/dev/null
 fi
 varlinkctl call --collect --json=pretty /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.ListComponents '{}'
-varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.Lock '{"category":"firmwareConfig"}'
+if [[ "$firmware_config_locked" == yes ]]; then
+    varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.Lock '{"category":"firmwareConfig"}'
+else
+    varlinkctl call --graceful=io.systemd.System /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.Lock '{"category":"firmwareConfig"}' |
+        jq -e '.errnoName == "EBADMSG"' >/dev/null
+fi
 varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.Lock '{"category":"firmwareConfig","lock":false}'
 varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.Lock '{"category":"firmwareCode","lock":false}'
 varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.Lock '{"category":"secureBootPolicy","lock":false}'
