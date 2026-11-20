@@ -395,12 +395,18 @@ static int add_extra_sockets(
                 if (r < 0)
                         return r;
 
+                /* For IP sockets use MPTCP if the kernel supports it, and fall back to TCP otherwise */
+                SocketAddress sa;
+                r = socket_address_parse(&sa, *i);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse socket address '%s': %m", *i);
+
                 r = write_socket_unit(
                                 dest,
                                 socket ?: "sshd-extra.socket",
                                 *i,
                                 *i,
-                                /* extra= */ NULL,
+                                IN_SET(socket_address_family(&sa), AF_INET, AF_INET6) ? "SocketProtocol=mptcp-auto\n" : NULL,
                                 /* with_ssh_access_target_dependency= */ true);
                 if (r < 0)
                         return r;
