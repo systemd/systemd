@@ -1112,6 +1112,8 @@ TEST(socket_properties) {
                         "SocketProtocol=udp",
                         "SocketProtocol=tcp",
                         "SocketProtocol=sctp",
+                        "SocketProtocol=mptcp",
+                        "SocketProtocol=mptcp-auto",
 
                         /* Listen* properties */
                         "ListenStream=8080",

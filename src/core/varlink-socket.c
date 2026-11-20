@@ -41,7 +41,7 @@ int socket_context_build_json(sd_json_variant **ret, const char *name, void *use
         return sd_json_buildo(
                         ASSERT_PTR(ret),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("Listen", socket_listen_build_json, s),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("SocketProtocol", ip_protocol_to_name(s->socket_protocol)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("SocketProtocol", socket_protocol_to_string(s->socket_protocol)),
                         JSON_BUILD_PAIR_ENUM("BindIPv6Only", socket_address_bind_ipv6_only_to_string(s->bind_ipv6_only)),
                         SD_JSON_BUILD_PAIR_UNSIGNED("Backlog", s->backlog),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("BindToDevice", s->bind_to_device),

@@ -377,6 +377,12 @@ CHANGES WITH 263 in spe:
           unit if the corresponding mount fails, just as OnFailure= does in
           a mount unit.
 
+        * SocketProtocol= in socket units now accepts "mptcp-auto", which
+          uses MPTCP if the kernel supports it and it is enabled, and falls
+          back to TCP otherwise. SocketProtocol= is now only applied to
+          AF_INET/AF_INET6 sockets, and ignored for AF_UNIX, AF_VSOCK, …
+          sockets of the same unit.
+
         New pseudo TTY broker:
 
         * The new experimental systemd-ptybrokerd service allocates pseudo TTYs
