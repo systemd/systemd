@@ -215,6 +215,25 @@ endif
 
 ############################################################
 
+test_veritysetup_generator_sh = files('test-veritysetup-generator.sh')
+if want_tests != 'false' and 'systemd-veritysetup-generator' in executables_by_name
+        exe = executables_by_name.get('systemd-veritysetup-generator')
+        test('test-veritysetup-generator',
+             test_veritysetup_generator_sh,
+             # https://github.com/mesonbuild/meson/issues/2681
+             args : exe.full_path(),
+             env : test_env,
+             depends : exe,
+             suite : 'veritysetup')
+endif
+if install_tests and 'systemd-veritysetup-generator' in executables_by_name
+        install_data(test_veritysetup_generator_sh,
+                     install_mode : 'rwxr-xr-x',
+                     install_dir : unittestsdir)
+endif
+
+############################################################
+
 test_network_generator_conversion_sh = files('test-network-generator-conversion.sh')
 if want_tests != 'false'
         exe = executables_by_name.get('systemd-network-generator')

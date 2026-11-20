@@ -1046,7 +1046,14 @@ int generator_write_veritysetup_service_section(
         }
 
         if (options) {
-                options_escaped = specifier_escape(options);
+                /* ExecStart= processes C escapes in its arguments. systemd-veritysetup expects a backslash
+                 * before a comma in an option value. We escape the options, so that systemd-veritysetup gets
+                 * the backslashes unchanged. */
+                _cleanup_free_ char *c = cescape(options);
+                if (!c)
+                        return log_oom();
+
+                options_escaped = specifier_escape(c);
                 if (!options_escaped)
                         return log_oom();
         }
