@@ -19,7 +19,7 @@
 COMMAND(
         "30-systemd-environment-d-generator\0",
         "Load variables specified by environment.d.",
-        .man_pages = "systemd-environment-d-generator(8)\0",
+        .man_page = "systemd-environment-d-generator(8)",
         .option_namespace = "common",
 );
 

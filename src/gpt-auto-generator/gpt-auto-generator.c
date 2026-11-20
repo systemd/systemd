@@ -41,7 +41,7 @@ COMMAND(
         "systemd-gpt-auto-generator\0",
         "Discover and mount partitions based on GPT partition type UUIDs.",
         .argspec = GENERATOR_ARGSPEC,
-        .man_pages = "systemd-gpt-auto-generator(8)\0",
+        .man_page = "systemd-gpt-auto-generator(8)",
         .option_namespace = "common",
 );
 

@@ -182,7 +182,7 @@ static int print_status_info(const StatusInfo *i) {
 COMMAND(
         "timedatectl\0",
         "Query or change system time and date settings.",
-        .man_pages = "timedatectl(1)\0",
+        .man_page = "timedatectl(1)",
         .pager_flags = &arg_pager_flags,
 );
 

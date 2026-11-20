@@ -32,7 +32,7 @@ COMMAND(
         "systemd-pstore\0",
         "Archive the contents of the persistent storage (pstore).",
         .argspec = "[SOURCE-DIR ARCHIVE-DIR]\0",
-        .man_pages = "systemd-pstore.service(8)\0",
+        .man_page = "systemd-pstore.service(8)",
         .option_namespace = "common",
 );
 
