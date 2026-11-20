@@ -116,6 +116,8 @@ node /org/freedesktop/hostname1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly ay BootID = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly ay FileSystemID = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u VSockCID = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ChassisAssetTag = '...';
@@ -215,6 +217,8 @@ node /org/freedesktop/hostname1 {
     <variablelist class="dbus-property" generated="True" extra-ref="MachineID"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="BootID"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="FileSystemID"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="VSockCID"/>
 
@@ -328,6 +332,14 @@ node /org/freedesktop/hostname1 {
 
     <para><varname>BootID</varname> expose the 128bit boot ID, as per
     <filename>/proc/sys/kernel/random/boot_id</filename>.</para>
+
+    <para><varname>FileSystemID</varname> exposes the 128bit UUID of the file system backing
+    <filename>/var/</filename>, as reported by the kernel's <constant>FS_IOC_GETFSUUID</constant>
+    <citerefentry project="man-pages"><refentrytitle>ioctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>.
+    Since <filename>/var/</filename> carries the persistent, writable state of the system, this may be used
+    to identify a specific installation. An empty array if the file system does not report a UUID, or if
+    running in a container (as the file system is then typically owned by the host, and might be shared
+    with other containers).</para>
 
     <para><varname>VSockCID</varname> exposes the system's local <constant>AF_VSOCK</constant> CID (Context
     Identifier, i.e. address) for the system, if one is available in the virtual machine environment. Set to
@@ -543,6 +555,7 @@ node /org/freedesktop/hostname1 {
     <para><function>GetMachineInfo()</function>, <varname>Tags</varname> and
     <function>SetTags()</function> were added in version 261.</para>
     <para><function>AddAndRemoveTags()</function> was added in version 262.</para>
+    <para><varname>FileSystemID</varname> was added in version 263.</para>
   </refsect1>
 
   <refsect1>
