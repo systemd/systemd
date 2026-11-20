@@ -1275,7 +1275,7 @@ static int varlink_dispatch_fiber(sd_varlink *v, const char *method, sd_varlink_
 
 static int varlink_dispatch_method(sd_varlink *v) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
-        sd_varlink_method_flags_t flags = 0;
+        sd_varlink_method_flags_t flags = 0, seen_flags = 0;
         const char *method = NULL;
         sd_json_variant *e;
         sd_varlink_method_t callback;
@@ -1312,8 +1312,9 @@ static int varlink_dispatch_method(sd_varlink *v) {
 
                 } else if (streq(k, "oneway")) {
 
-                        if ((flags & (SD_VARLINK_METHOD_ONEWAY|SD_VARLINK_METHOD_MORE|SD_VARLINK_METHOD_UPGRADE)) != 0)
+                        if (FLAGS_SET(seen_flags, SD_VARLINK_METHOD_ONEWAY))
                                 goto invalid;
+                        seen_flags |= SD_VARLINK_METHOD_ONEWAY;
 
                         if (!sd_json_variant_is_boolean(e))
                                 goto invalid;
@@ -1323,8 +1324,9 @@ static int varlink_dispatch_method(sd_varlink *v) {
 
                 } else if (streq(k, "more")) {
 
-                        if ((flags & (SD_VARLINK_METHOD_ONEWAY|SD_VARLINK_METHOD_MORE|SD_VARLINK_METHOD_UPGRADE)) != 0)
+                        if (FLAGS_SET(seen_flags, SD_VARLINK_METHOD_MORE))
                                 goto invalid;
+                        seen_flags |= SD_VARLINK_METHOD_MORE;
 
                         if (!sd_json_variant_is_boolean(e))
                                 goto invalid;
@@ -1334,8 +1336,9 @@ static int varlink_dispatch_method(sd_varlink *v) {
 
                 } else if (streq(k, "upgrade")) {
 
-                        if ((flags & (SD_VARLINK_METHOD_ONEWAY|SD_VARLINK_METHOD_MORE|SD_VARLINK_METHOD_UPGRADE)) != 0)
+                        if (FLAGS_SET(seen_flags, SD_VARLINK_METHOD_UPGRADE))
                                 goto invalid;
+                        seen_flags |= SD_VARLINK_METHOD_UPGRADE;
 
                         if (!sd_json_variant_is_boolean(e))
                                 goto invalid;
@@ -1346,6 +1349,11 @@ static int varlink_dispatch_method(sd_varlink *v) {
                 } else
                         goto invalid;
         }
+
+        if (FLAGS_SET(flags, SD_VARLINK_METHOD_ONEWAY) +
+            FLAGS_SET(flags, SD_VARLINK_METHOD_MORE) +
+            FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE) > 1)
+                goto invalid;
 
         if (!method)
                 goto invalid;
@@ -1401,7 +1409,7 @@ static int varlink_dispatch_method(sd_varlink *v) {
                                 varlink_log_errno(v, r, "Method %s() called without '%s' flag, but flag needs to be set.",
                                                   method, missing_upgrade ? "upgrade" : "more");
 
-                                if (v->state == VARLINK_PROCESSING_METHOD) {
+                                if (VARLINK_STATE_WANTS_REPLY(v->state)) {
                                         r = sd_varlink_error(v, missing_upgrade ? SD_VARLINK_ERROR_EXPECTED_UPGRADE
                                                                                 : SD_VARLINK_ERROR_EXPECTED_MORE, /* parameters= */ NULL);
                                         /* If we didn't manage to enqueue an error response, then fail the
@@ -1411,6 +1419,12 @@ static int varlink_dispatch_method(sd_varlink *v) {
                                         if (r < 0 && VARLINK_STATE_WANTS_REPLY(v->state))
                                                 goto fail;
                                 }
+                        } else if (r == -EOPNOTSUPP) {
+                                varlink_log_errno(v, r, "Method %s() called with 'upgrade' flag, but does not support it.", method);
+
+                                r = sd_varlink_error(v, SD_VARLINK_ERROR_OPERATION_NOT_SUPPORTED, /* parameters= */ NULL);
+                                if (r < 0 && VARLINK_STATE_WANTS_REPLY(v->state))
+                                        goto fail;
                         } else if (r < 0) {
                                 /* Please adjust test/units/end.sh when updating the log message. */
                                 varlink_log_errno(v, r, "Parameters for method %s() didn't pass validation on field '%s': %m",
@@ -2627,6 +2641,13 @@ static int varlink_reply_internal(sd_varlink *v, sd_json_variant *parameters, bo
 
         if (!sd_varlink_wants_reply(v))
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
+
+        /* A successful upgrade reply hands the connection over to another protocol. Ordinary replies
+         * must refuse the upgrade, including for handlers without an interface description. */
+        if (IN_SET(v->state, VARLINK_PROCESSING_METHOD_UPGRADE, VARLINK_PENDING_METHOD_UPGRADE)) {
+                varlink_log_errno(v, SYNTHETIC_ERRNO(EOPNOTSUPP), "Cannot send an ordinary reply to a protocol upgrade request, refusing.");
+                return sd_varlink_error(v, SD_VARLINK_ERROR_OPERATION_NOT_SUPPORTED, /* parameters= */ NULL);
+        }
 
         bool more = IN_SET(v->state, VARLINK_PROCESSING_METHOD_MORE, VARLINK_PENDING_METHOD_MORE);
 
