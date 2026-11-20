@@ -3110,6 +3110,11 @@ static int udev_rule_apply_token_to_event(
         case TK_A_DEVLINK: {
                 char buf[UDEV_PATH_SIZE];
 
+                if (device_for_action(dev, SD_DEVICE_REMOVE)) {
+                        log_event_debug(event, token, "Ignoring SYMLINK assignment on remove event.");
+                        return true;
+                }
+
                 if (event->devlink_final)
                         return log_event_final_set(event, token);
 
