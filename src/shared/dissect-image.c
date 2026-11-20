@@ -2526,8 +2526,11 @@ int partition_pick_mount_options(
                         return -ENOMEM;
         }
 
+        /* On btrfs, "discard" enables synchronous discard. The btrfs documentation recommends asynchronous
+         * discard. Kernels before 6.2 don't enable asynchronous discard by default, so we request it
+         * explicitly. */
         if (discard && fstype && fstype_can_discard(fstype))
-                if (!strextend_with_separator(&options, ",", "discard"))
+                if (!strextend_with_separator(&options, ",", streq(fstype, "btrfs") ? "discard=async" : "discard"))
                         return -ENOMEM;
 
         if (!ret_ms_flags) /* Fold flags into option string if ret_flags specified as NULL */
