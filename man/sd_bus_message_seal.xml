@@ -70,7 +70,7 @@
           <listitem><para>The <parameter>m</parameter> parameter is <constant>NULL</constant>.
           </para>
 
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v236"/></listitem>
         </varlistentry>
 
          <varlistentry>
@@ -79,7 +79,7 @@
           <listitem><para>The D-Bus message <parameter>m</parameter> has open containers.
           </para>
 
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v236"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -89,7 +89,7 @@
           signature does not match the return type signature of its corresponding member in the
           object vtable.</para>
 
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v236"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -99,7 +99,7 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_bus_message_seal()</function> was added in version 246.</para>
+    <para><function>sd_bus_message_seal()</function> was added in version 236.</para>
   </refsect1>
 
   <refsect1>

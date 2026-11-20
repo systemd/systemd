@@ -217,7 +217,7 @@
           <listitem><para>The bus object passed to <function>sd_bus_get_scope()</function> was not a
           system or user session bus.</para>
 
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v221"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -229,7 +229,7 @@
           <para>The bus object passed to <function>sd_bus_get_description()</function> did
           not have a <parameter>description</parameter>.</para>
 
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v221"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -243,13 +243,13 @@
     <function>sd_bus_get_description()</function>,
     <function>sd_bus_set_anonymous()</function>,
     <function>sd_bus_set_trusted()</function>,
-    <function>sd_bus_set_allow_interactive_authorization()</function>, and
-    <function>sd_bus_get_allow_interactive_authorization()</function> were added in version 240.</para>
-    <para><function>sd_bus_is_anonymous()</function>,
+    <function>sd_bus_set_allow_interactive_authorization()</function>,
+    <function>sd_bus_get_allow_interactive_authorization()</function>,
+    <function>sd_bus_is_anonymous()</function>,
     <function>sd_bus_is_trusted()</function>,
     <function>sd_bus_get_scope()</function>,
     <function>sd_bus_get_tid()</function>, and
-    <function>sd_bus_get_unique_name()</function> were added in version 246.</para>
+    <function>sd_bus_get_unique_name()</function> were added in version 221.</para>
   </refsect1>
 
   <refsect1>
