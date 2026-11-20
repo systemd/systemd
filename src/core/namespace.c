@@ -856,7 +856,8 @@ static int append_private_tmp_one(
                 Set **s,
                 PrivateTmp mode,
                 const char *path,
-                const char *connected_source) {
+                const char *connected_source,
+                bool ignore) {
 
         assert(s);
         assert(mode >= 0 && mode < _PRIVATE_TMP_MAX);
@@ -874,14 +875,15 @@ static int append_private_tmp_one(
                 return mount_append_entry(s, &(MountEntry) {
                                 .path = (char*) path,
                                 .kind = MOUNT_PRIVATE_TMP,
-                                .flags = streq(connected_source, RUN_SYSTEMD_EMPTY) ? MOUNT_RDONLY : 0,
+                                .flags = (ignore ? MOUNT_IGNORE : 0) |
+                                         (streq(connected_source, RUN_SYSTEMD_EMPTY) ? MOUNT_RDONLY : 0),
                                 .source = (char*) connected_source,
                         });
 
         return mount_append_entry(s, &(MountEntry) {
                         .path = (char*) path,
                         .kind = MOUNT_TMPFS,
-                        .flags = MOUNT_IMPLICIT,
+                        .flags = MOUNT_IMPLICIT|(ignore ? MOUNT_IGNORE : 0),
                         .options = (char*) "mode=1777" NESTED_TMPFS_LIMITS,
                         .mount_flags = MS_NODEV|MS_STRICTATIME,
                 });
@@ -895,11 +897,16 @@ static int append_private_tmp(Set **s, const NamespaceParameters *p) {
         assert(p->private_tmp >= 0 && p->private_tmp < _PRIVATE_TMP_MAX);
         assert(p->private_var_tmp >= 0 && p->private_var_tmp < _PRIVATE_TMP_MAX);
 
-        r = append_private_tmp_one(s, p->private_tmp, "/tmp/", p->tmp_dir);
+        /* When a root file system is pinned, gracefully ignore the error if the /tmp/ and
+         * /var/tmp/ mount points do not exist or cannot be created, e.g. on a read-only root
+         * tree. */
+        bool ignore = pinned_resource_is_set(p->rootfs);
+
+        r = append_private_tmp_one(s, p->private_tmp, "/tmp/", p->tmp_dir, ignore);
         if (r < 0)
                 return r;
 
-        return append_private_tmp_one(s, p->private_var_tmp, "/var/tmp/", p->var_tmp_dir);
+        return append_private_tmp_one(s, p->private_var_tmp, "/var/tmp/", p->var_tmp_dir, ignore);
 }
 
 static int append_static_mounts(Set **s, const MountEntry *mounts, size_t n, bool ignore_protect) {
@@ -1594,6 +1601,8 @@ static int mount_tmpfs(const MountEntry *m) {
         (void) umount_recursive(entry_path, /* flags= */ 0);
 
         r = mount_nofollow_verbose(LOG_DEBUG, "tmpfs", entry_path, "tmpfs", m->mount_flags, m->options);
+        if (r == -ENOENT && FLAGS_SET(m->flags, MOUNT_IGNORE))
+                return 0;
         if (r < 0)
                 return r;
 
@@ -1848,15 +1857,27 @@ static int mount_bind(
 
         /* Either the source or the destination is missing. Create the destination and try again. */
         r = mkdir_parents(m->path, 0755);
-        if (r < 0 && r != -EEXIST)
+        if (r < 0 && r != -EEXIST) {
+                if (FLAGS_SET(m->flags, MOUNT_IGNORE) && ERRNO_IS_NEG_FS_WRITE_REFUSED(r)) {
+                        log_debug_errno(r, "Mount point '%s' cannot be created, ignoring: %m", m->path);
+                        return 0;
+                }
+
                 return log_debug_errno(r,
                                        "Failed to create parent directories of destination mount point node '%s': %m",
                                        m->path);
+        }
 
         r = make_mount_point_inode_from_path(what, m->path, 0755);
-        if (r < 0 && r != -EEXIST)
+        if (r < 0 && r != -EEXIST) {
+                if (FLAGS_SET(m->flags, MOUNT_IGNORE) && ERRNO_IS_NEG_FS_WRITE_REFUSED(r)) {
+                        log_debug_errno(r, "Mount point '%s' cannot be created, ignoring: %m", m->path);
+                        return 0;
+                }
+
                 return log_debug_errno(r, "Failed to create destination mount point node '%s': %m",
                                        m->path);
+        }
 
         r = mount_nofollow_verbose(
                         LOG_DEBUG,
