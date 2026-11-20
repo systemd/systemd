@@ -164,74 +164,74 @@
           <para>The plain match keys: <varname>ACTION</varname>, <varname>DEVPATH</varname>,
           <varname>KERNEL</varname>, <varname>SYMLINK</varname>, <varname>NAME</varname>,
           <varname>ENV</varname>, <varname>CONST</varname>, <varname>TAG</varname>,
-          <varname>SUBSYSTEM</varname>, <varname>DRIVER</varname>, <varname>ATTR</varname> and
-          <varname>SYSCTL</varname>.</para>
+          <varname>SUBSYSTEM</varname>, <varname>DRIVER</varname>, <varname>ATTR</varname>, and
+          <varname>SYSCTL</varname></para>
         </listitem>
         <listitem>
           <para>The parent device match keys: <varname>KERNELS</varname>, <varname>SUBSYSTEMS</varname>,
-          <varname>DRIVERS</varname>, <varname>ATTRS</varname> and <varname>TAGS</varname>, evaluated
-          together while walking up the device chain; see <literal>Matching Parent Devices</literal>
-          below.</para>
+          <varname>DRIVERS</varname>, <varname>ATTRS</varname>, and <varname>TAGS</varname>, evaluated
+          together while walking up the device chain (see <literal>Matching Parent Devices</literal>
+          below)</para>
         </listitem>
         <listitem>
-          <para><varname>TEST</varname>.</para>
+          <para><varname>TEST</varname></para>
         </listitem>
         <listitem>
-          <para><varname>PROGRAM</varname>.</para>
+          <para><varname>PROGRAM</varname></para>
         </listitem>
         <listitem>
-          <para><varname>IMPORT{file}</varname>.</para>
+          <para><varname>IMPORT{file}</varname></para>
         </listitem>
         <listitem>
-          <para><varname>IMPORT{program}</varname>.</para>
+          <para><varname>IMPORT{program}</varname></para>
         </listitem>
         <listitem>
-          <para><varname>IMPORT{builtin}</varname>.</para>
+          <para><varname>IMPORT{builtin}</varname></para>
         </listitem>
         <listitem>
-          <para><varname>IMPORT{db}</varname>.</para>
+          <para><varname>IMPORT{db}</varname></para>
         </listitem>
         <listitem>
-          <para><varname>IMPORT{cmdline}</varname>.</para>
+          <para><varname>IMPORT{cmdline}</varname></para>
         </listitem>
         <listitem>
-          <para><varname>IMPORT{parent}</varname>.</para>
+          <para><varname>IMPORT{parent}</varname></para>
         </listitem>
         <listitem>
-          <para><varname>RESULT</varname>.</para>
+          <para><varname>RESULT</varname></para>
         </listitem>
         <listitem>
-          <para><varname>OPTIONS</varname>.</para>
+          <para><varname>OPTIONS</varname></para>
         </listitem>
         <listitem>
-          <para><varname>OWNER</varname>, <varname>GROUP</varname>, and <varname>MODE</varname>.</para>
+          <para><varname>OWNER</varname>, <varname>GROUP</varname>, and <varname>MODE</varname></para>
         </listitem>
         <listitem>
-          <para><varname>TAG</varname>.</para>
+          <para><varname>TAG</varname></para>
         </listitem>
         <listitem>
-          <para><varname>SECLABEL</varname>.</para>
+          <para><varname>SECLABEL</varname></para>
         </listitem>
         <listitem>
-          <para><varname>ENV</varname>.</para>
+          <para><varname>ENV</varname></para>
         </listitem>
         <listitem>
-          <para><varname>NAME</varname>.</para>
+          <para><varname>NAME</varname></para>
         </listitem>
         <listitem>
-          <para><varname>SYMLINK</varname>.</para>
+          <para><varname>SYMLINK</varname></para>
         </listitem>
         <listitem>
-          <para><varname>ATTR</varname>.</para>
+          <para><varname>ATTR</varname></para>
         </listitem>
         <listitem>
-          <para><varname>SYSCTL</varname>.</para>
+          <para><varname>SYSCTL</varname></para>
         </listitem>
         <listitem>
-          <para><varname>RUN{builtin}</varname>.</para>
+          <para><varname>RUN{builtin}</varname></para>
         </listitem>
         <listitem>
-          <para><varname>RUN{program}</varname>.</para>
+          <para><varname>RUN{program}</varname></para>
         </listitem>
       </orderedlist>
 
@@ -248,12 +248,12 @@
         <listitem>
           <para>Properties imported by <varname>IMPORT{}</varname> are visible to all assignments of the
           rule, while properties assigned by <varname>ENV</varname> are visible only to the assignments that
-          follow it in the order above — <varname>NAME</varname>, <varname>SYMLINK</varname>,
-          <varname>ATTR</varname>, <varname>SYSCTL</varname> and <varname>RUN</varname>.</para>
+          follow it in the order above: <varname>NAME</varname>, <varname>SYMLINK</varname>,
+          <varname>ATTR</varname>, <varname>SYSCTL</varname>, and <varname>RUN</varname>.</para>
         </listitem>
         <listitem>
           <para>The <varname>OPTIONS</varname> string-escape settings affect the <varname>NAME</varname>,
-          <varname>SYMLINK</varname> and <varname>ENV</varname> assignments of the same rule.</para>
+          <varname>SYMLINK</varname>, and <varname>ENV</varname> assignments of the same rule.</para>
         </listitem>
       </itemizedlist>
     </refsect2>
@@ -265,7 +265,7 @@
         <varlistentry>
           <term><literal>==</literal></term>
           <listitem>
-            <para>Compare for equality. (The specified key has the specified value.) The value may be a
+            <para>Compare for equality: the specified key has the specified value. The value may be a
             pattern; see <literal>Pattern Matching</literal> below.</para>
           </listitem>
         </varlistentry>
@@ -273,8 +273,8 @@
         <varlistentry>
           <term><literal>!=</literal></term>
           <listitem>
-            <para>Compare for inequality. (The specified key does not have the specified value, or the
-            specified key is not present at all.) The value may be a pattern.
+            <para>Compare for inequality: the specified key does not have the specified value or the
+            specified key is not present at all. The value may be a pattern.
             </para>
           </listitem>
         </varlistentry>
@@ -317,23 +317,23 @@
     <refsect2>
       <title>Values</title>
 
-      <para>Values are written as double quoted strings, such as ("string"). To include a quotation mark (")
-      in the value, precede it by a backslash (\"). Any other occurrences of a backslash followed by a
-      character are not unescaped. That is, "\t\n" is treated as four characters: backslash, lowercase t,
-      backslash, lowercase n.</para>
+      <para>Values are written as double quoted strings, such as ('"string"'). To include a quotation mark (")
+      in the value, precede it by a backslash ('\"'). Any other occurrences of a backslash followed by a
+      character are not unescaped. That is, <literal>\t\n</literal> is treated as four characters: backslash,
+      lowercase <literal>t</literal>, backslash, lowercase <literal>n</literal>.</para>
 
-      <para>The string can be prefixed with a lowercase e (e"string\n") to mark the string as C-style
-      escaped, see
+      <para>The string can be prefixed with a lowercase <literal>e</literal> ('e"string\n"') to mark the string
+      as C-style escaped, see
       <ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">Escape sequences in C</ulink>.
-      For example, e"string\n" is parsed as 7 characters: 6 lowercase letters and a newline. This can be
+      For example, 'e"string\n"' is parsed as 7 characters: 6 lowercase letters and a newline. This can be
       useful for writing special characters when a kernel driver requires them.</para>
 
-      <para>The string can be prefixed with a lowercase i (i"string") to mark that the string or pattern will
-      match case-insensitively. For example, i"foo" will match <literal>foo</literal>,
-      <literal>FOO</literal>, <literal>FoO</literal> and so on. The prefix can be used only for match
+      <para>The string can be prefixed with a lowercase <literal>i</literal> ('i"string"') to mark that the
+      string or pattern will match case-insensitively. For example, 'i"foo"' will match <literal>foo</literal>,
+      <literal>FOO</literal>, <literal>FoO</literal>, and so on. The prefix can be used only for match
       (<literal>==</literal>) or unmatch (<literal>!=</literal>) rules, e.g.
       <varname>ATTR{foo}==i"abcd"</varname>. The <literal>e</literal> and <literal>i</literal> prefixes may
-      be combined, in either order, e.g. <literal>ei"foo"</literal>.</para>
+      be combined, in either order, e.g. 'ei"foo"'.</para>
 
       <para>Please note that <constant>NUL</constant> is not allowed in either string variant.</para>
     </refsect2>
@@ -348,7 +348,7 @@
       <varname>CONST</varname>, <varname>TAG</varname>, <varname>ATTR</varname>, <varname>SYSCTL</varname>,
       <varname>KERNELS</varname>, <varname>SUBSYSTEMS</varname>, <varname>DRIVERS</varname>,
       <varname>ATTRS</varname>, <varname>TAGS</varname>, and <varname>RESULT</varname> match keys. The values
-      of <varname>TEST</varname>, <varname>PROGRAM</varname> and <varname>IMPORT</varname> are not patterns:
+      of <varname>TEST</varname>, <varname>PROGRAM</varname>, and <varname>IMPORT</varname> are not patterns:
       they are file paths and command lines (the value of <varname>IMPORT{parent}</varname> is a single glob
       pattern matched against property names, and does not support alternate patterns). The following special
       characters are supported in patterns:</para>
@@ -391,8 +391,8 @@
       <para>An empty alternative — produced by a leading, trailing or doubled <literal>|</literal>, e.g.
       <literal>|foo</literal> — matches an unset or empty value. For example,
       <varname>ENV{FOO}=="bar|"</varname> matches when the property is set to <literal>bar</literal> or is
-      unset or empty. To test that a value is set and non-empty, the patterns <literal>=="?*"</literal> and
-      <literal>!=""</literal> are commonly used, e.g. <varname>ENV{FOO}=="?*"</varname>. The
+      unset or empty. To test that a value is set and non-empty, the patterns '=="?*"' and
+      '!=""' are commonly used, e.g. <varname>ENV{FOO}=="?*"</varname>. The
       <varname>ATTR</varname> and <varname>ATTRS</varname> keys are an exception: if the attribute cannot be
       read, the token is false regardless of the pattern, even with the <literal>!=</literal>
       operator.</para>
