@@ -244,6 +244,23 @@ static int on_qmp_complete(
         return 0;
 }
 
+/* QEMU only picks an fd whose access mode matches, so re-open writable fds as read-only,
+ * e.g. for a CD-ROM attached from a writable file descriptor. */
+static int drive_fd_make_read_only(int *fd) {
+        int r, new_fd;
+
+        assert(fd);
+        assert(*fd >= 0);
+
+        r = fd_reopen_condition(*fd, O_RDONLY|O_NOCTTY, O_ACCMODE_STRICT, &new_fd);
+        if (r < 0)
+                return r;
+        if (new_fd >= 0)
+                close_and_replace(*fd, new_fd);
+
+        return 0;
+}
+
 /* Send add-fd via SCM_RIGHTS; return /dev/fdset/N and the numeric fdset id. */
 static int qmp_fdset_add(
                 QmpClient *qmp,
@@ -986,6 +1003,14 @@ int vmspawn_qmp_add_block_device(VmspawnQmpBridge *bridge, DriveInfo *drive) {
                         return log_oom();
         }
 
+        if (FLAGS_SET(drive->flags, QMP_DRIVE_READ_ONLY)) {
+                r = drive_fd_make_read_only(&drive->fd);
+                if (r < 0)
+                        /* Runtime AddStorage reports the error to the caller, only log loudly at boot. */
+                        return log_full_errno(drive->link ? LOG_DEBUG : LOG_ERR, r,
+                                              "Failed to reopen '%s' read-only: %m", drive->path);
+        }
+
         /* Reserve the registry slot up-front so the device_add callback's commit can't fail. */
         r = bridge_register_drive(bridge, drive);
         if (r < 0)
@@ -1239,20 +1264,16 @@ static int replace_fail(ReplaceCtx *ctx, int error, const char *error_desc) {
         assert(drive);
 
         /* If the new file node was added, del it; that also drops the fdset's
-         * dup so the new fdset auto-frees. If add-fd succeeded but blockdev-add
-         * never did, an explicit remove-fd is needed instead. */
+         * dup so the new fdset auto-frees. If blockdev-add failed, the remove-fd
+         * pipelined behind it frees the new fdset: we only get here from a QMP
+         * callback, i.e. after vmspawn_qmp_replace_block_device() queued the
+         * whole pipeline, as its synchronous failures don't call us. */
         if (FLAGS_SET(ctx->state, REPLACE_CTX_NEW_BLOCKDEV_ADDED)) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *args = NULL;
                 if (sd_json_buildo(&args, SD_JSON_BUILD_PAIR_STRING("node-name", ctx->new_file_node_name)) >= 0)
                         (void) qmp_client_invoke(drive->bridge->qmp, /* ret_slot= */ NULL, "blockdev-del",
                                                  QMP_CLIENT_ARGS(args),
                                                  on_qmp_complete, (void*) "replace rollback blockdev-del");
-        } else if (ctx->new_fdset_path) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *args = NULL;
-                if (sd_json_buildo(&args, SD_JSON_BUILD_PAIR_UNSIGNED("fdset-id", ctx->new_fdset_id)) >= 0)
-                        (void) qmp_client_invoke(drive->bridge->qmp, /* ret_slot= */ NULL, "remove-fd",
-                                                 QMP_CLIENT_ARGS(args),
-                                                 on_qmp_complete, (void*) "replace rollback remove-fd");
         }
 
         drive->state &= ~BLOCK_DEVICE_STATE_REPLACE_PENDING;
@@ -1443,6 +1464,12 @@ int vmspawn_qmp_replace_block_device(
                 new_flags |= QMP_DRIVE_READ_ONLY;
         if (FLAGS_SET(bridge->features, VMSPAWN_QMP_FEATURE_IO_URING))
                 new_flags |= QMP_DRIVE_IO_URING;
+
+        if (FLAGS_SET(new_flags, QMP_DRIVE_READ_ONLY)) {
+                r = drive_fd_make_read_only(&owned_fd);
+                if (r < 0)
+                        return sd_varlink_error_errno(link, r);
+        }
 
         ctx = new0(ReplaceCtx, 1);
         if (!ctx)
