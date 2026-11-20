@@ -1,0 +1,98 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_varlink_idl_format" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_varlink_idl_format</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_varlink_idl_format</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_varlink_idl_format</refname>
+    <refname>sd_varlink_idl_format_json</refname>
+
+    <refpurpose>Render a Varlink interface definition as text or JSON</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-varlink-idl.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_idl_format</function></funcdef>
+        <paramdef>const sd_varlink_interface *<parameter>interface</parameter></paramdef>
+        <paramdef>char **<parameter>ret</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_idl_format_json</function></funcdef>
+        <paramdef>const sd_varlink_interface *<parameter>interface</parameter></paramdef>
+        <paramdef>sd_json_variant **<parameter>ret</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_varlink_idl_format()</function> renders the specified interface definition, as built
+    with the <constant>SD_VARLINK_DEFINE_INTERFACE()</constant> family of macros or parsed with
+    <function>sd_varlink_idl_parse()</function>, as text in the Varlink interface definition language
+    (IDL). Documentation comments are
+    rendered along with the definition, and the output is not colorized and not wrapped, so that it
+    is byte-for-byte reproducible.</para>
+
+    <para><function>sd_varlink_idl_format_json()</function> renders the same definition as the JSON
+    representation defined by <ulink url="https://uapi-group.org/specifications/specs/varlink/">UAPI.20 Varlink IPC</ulink>.
+    Symbols and fields are emitted in declaration order, call flags in the canonical order, and the
+    key set is fixed, so that the output is deterministic as well. The representation carries the
+    same information as the textual form, including documentation comments and the marking of
+    experimental interfaces, symbols and fields.</para>
+
+    <para>The caller owns the returned text and the returned JSON variant, respectively, and is responsible
+    for freeing them.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, these functions return a non-negative integer. On failure, they return a negative
+    errno-style error code. In particular, <constant>-ENOMEM</constant> is returned when memory
+    allocation fails.</para>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Notes</title>
+
+    <xi:include href="libsystemd-pkgconfig.xml" />
+
+    <para>These functions are available as a shared library.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>History</title>
+
+    <para><function>sd_varlink_idl_format()</function> was added in version 257.
+    <function>sd_varlink_idl_format_json()</function> was added in version 263.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>sd-varlink</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>org.varlink.service</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
