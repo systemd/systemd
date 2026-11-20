@@ -4,6 +4,7 @@
 #include "fd-util.h"
 #include "io-util.h"
 #include "log.h"
+#include "nulstr-util.h"
 #include "plymouth-util.h"
 #include "socket-util.h"
 
@@ -34,6 +35,26 @@ int plymouth_build_password_packet(const char *message, char **ret_packet, size_
         *ret_packet = packet;
         *ret_size = sz;
         return 0;
+}
+
+char** plymouth_parse_password_reply(uint8_t type, const char *payload, size_t size) {
+        assert(payload);
+        assert(IN_SET(type, 2, 9));
+
+        /* Type 9 carries a list of NUL-terminated passwords. */
+        if (type == 9)
+                return strv_parse_nulstr(payload, size);
+
+        /* Type 2 carries one password without a terminator, including an empty one. */
+        _cleanup_free_ char **reply = new0(char*, 2);
+        if (!reply)
+                return NULL;
+
+        reply[0] = strndup(payload, size);
+        if (!reply[0])
+                return NULL;
+
+        return TAKE_PTR(reply);
 }
 
 int plymouth_connect(int flags) {

@@ -42,6 +42,7 @@
 #include "time-util.h"
 #include "tmpfile-util.h"
 #include "umask-util.h"
+#include "unaligned.h"
 #include "utf8.h"
 
 #define KEYRING_TIMEOUT_USEC ((5 * USEC_PER_MINUTE) / 2)
@@ -594,15 +595,14 @@ int ask_password_plymouth(
                         if (p < 5)
                                 continue;
 
-                        memcpy(&size, buffer+1, sizeof(size));
-                        size = le32toh(size);
-                        if (size + 5 > sizeof(buffer))
+                        size = unaligned_read_le32(buffer + 1);
+                        if (size > sizeof(buffer) - 5)
                                 return -EIO;
 
                         if (p-5 < size)
                                 continue;
 
-                        l = strv_parse_nulstr(buffer + 5, size);
+                        l = plymouth_parse_password_reply(buffer[0], buffer + 5, size);
                         if (!l)
                                 return -ENOMEM;
 
