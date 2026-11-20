@@ -139,10 +139,10 @@ typedef enum {
         TK_A_OPTIONS_DEVLINK_PRIORITY,      /* int */
         TK_A_OPTIONS_LOG_LEVEL,             /* string of log level or "reset" */
         TK_A_OWNER,                         /* user name */
-        TK_A_GROUP,                         /* group name */
-        TK_A_MODE,                          /* mode string */
         TK_A_OWNER_ID,                      /* uid_t */
+        TK_A_GROUP,                         /* group name */
         TK_A_GROUP_ID,                      /* gid_t */
+        TK_A_MODE,                          /* mode string */
         TK_A_MODE_ID,                       /* mode_t */
         TK_A_TAG,                           /* string */
         TK_A_OPTIONS_STATIC_NODE,           /* device path, /dev/... */
@@ -2888,6 +2888,17 @@ static int udev_rule_apply_token_to_event(
                 }
                 return true;
         }
+        case TK_A_OWNER_ID:
+                if (event->owner_final)
+                        return log_event_final_set(event, token);
+
+                if (token->op == OP_ASSIGN_FINAL)
+                        event->owner_final = true;
+
+                event->uid = PTR_TO_UID(ASSERT_PTR(token->data));
+                log_event_debug(event, token, "Set owner ID: %u", event->uid);
+                return true;
+
         case TK_A_GROUP: {
                 char group[UDEV_NAME_SIZE];
 
@@ -2921,6 +2932,17 @@ static int udev_rule_apply_token_to_event(
                 }
                 return true;
         }
+        case TK_A_GROUP_ID:
+                if (event->group_final)
+                        return log_event_final_set(event, token);
+
+                if (token->op == OP_ASSIGN_FINAL)
+                        event->group_final = true;
+
+                event->gid = PTR_TO_GID(ASSERT_PTR(token->data));
+                log_event_debug(event, token, "Set group ID: %u", event->gid);
+                return true;
+
         case TK_A_MODE: {
                 char mode_str[UDEV_NAME_SIZE];
 
@@ -2940,27 +2962,6 @@ static int udev_rule_apply_token_to_event(
                         log_event_debug(event, token, "Set mode: %#o", event->mode);
                 return true;
         }
-        case TK_A_OWNER_ID:
-                if (event->owner_final)
-                        return log_event_final_set(event, token);
-
-                if (token->op == OP_ASSIGN_FINAL)
-                        event->owner_final = true;
-
-                event->uid = PTR_TO_UID(ASSERT_PTR(token->data));
-                log_event_debug(event, token, "Set owner ID: %u", event->uid);
-                return true;
-
-        case TK_A_GROUP_ID:
-                if (event->group_final)
-                        return log_event_final_set(event, token);
-
-                if (token->op == OP_ASSIGN_FINAL)
-                        event->group_final = true;
-
-                event->gid = PTR_TO_GID(ASSERT_PTR(token->data));
-                log_event_debug(event, token, "Set group ID: %u", event->gid);
-                return true;
 
         case TK_A_MODE_ID:
                 if (event->mode_final)
@@ -3108,6 +3109,11 @@ static int udev_rule_apply_token_to_event(
         }
         case TK_A_DEVLINK: {
                 char buf[UDEV_PATH_SIZE];
+
+                if (device_for_action(dev, SD_DEVICE_REMOVE)) {
+                        log_event_debug(event, token, "Ignoring SYMLINK assignment on remove event.");
+                        return true;
+                }
 
                 if (event->devlink_final)
                         return log_event_final_set(event, token);
