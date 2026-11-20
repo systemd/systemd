@@ -32,7 +32,7 @@ verbs! {
         names: "test-cli\0",
         abstract_: "Exercise the command line framework, to compare a C program with its Rust twin.",
         footer: "Both twins print this footer.",
-        man_pages: "systemd(1)\0",
+        man_page: "systemd(1)",
         pager_flags: ARG_PAGER_FLAGS,
     },
     VERB_DEFAULT_NOARG(verb_status, "status", "Print the parsed options"),

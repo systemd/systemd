@@ -28,7 +28,7 @@ COMMAND(
         "systemd-debug-generator\0",
         "Enable a runtime debug shell and mask specific units at boot.",
         .argspec = GENERATOR_ARGSPEC,
-        .man_pages = "systemd-debug-generator(8)\0",
+        .man_page = "systemd-debug-generator(8)",
         .option_namespace = "common",
 );
 

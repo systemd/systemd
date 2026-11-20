@@ -145,7 +145,7 @@ COMMAND(
         "systemd-imdsd\0",
         "Low-level IMDS data acquisition.",
         .argspec = "KEY\0",
-        .man_pages = "systemd-imdsd@.service(8)\0",
+        .man_page = "systemd-imdsd@.service(8)",
 );
 
 typedef struct Context Context;

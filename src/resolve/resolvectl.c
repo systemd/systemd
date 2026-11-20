@@ -95,7 +95,7 @@ COMMAND(
         "resolvectl\0",
         "Send control commands to the network name resolution manager, or "
         "resolve domain names, IPv4 and IPv6 addresses, DNS records, and services.",
-        .man_pages = "resolvectl(1)\0",
+        .man_page = "resolvectl(1)",
         .option_namespace = "resolvectl",
         .pager_flags = &arg_pager_flags,
 );
@@ -3249,7 +3249,7 @@ VERB_COMMON_HELP_AUTO_PROGRAM_HIDDEN("resolvectl");
 COMMAND(
         "systemd-resolve\0",
         "This command is deprecated. Use resolvectl.1 instead.",
-        .man_pages = "resolvectl(1)\0",
+        .man_page = "resolvectl(1)",
         .option_namespace = "systemd-resolve",
         .pager_flags = &arg_pager_flags,
 );

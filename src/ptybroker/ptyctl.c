@@ -39,7 +39,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_title, freep);
 COMMAND(
         "ptyctl\0",
         "Interact with the pseudo TTY broker.",
-        .man_pages = "ptyctl(1)\0",
+        .man_page = "ptyctl(1)",
         .flags = COMMAND_EXPERIMENTAL,
 );
 
