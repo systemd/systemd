@@ -13,16 +13,20 @@ on:
       - 'meson_options.txt'
       - 'src/**'
       - 'test/fuzz/**'
+  pull_request_target:
+    types: [closed]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
   build:
+    if: github.event_name == 'pull_request'
     runs-on: ${{ matrix.runner }}
-    concurrency:
-      group: ${{ github.workflow }}-${{ toJSON(matrix.env) }}-${{ github.ref }}-${{ matrix.runner }}-${{ matrix.python-version }}
-      cancel-in-progress: true
     strategy:
       fail-fast: false
       matrix:

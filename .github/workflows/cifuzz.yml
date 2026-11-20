@@ -18,6 +18,8 @@ on:
       - 'src/**'
       - 'test/fuzz/**'
       - 'tools/oss-fuzz.sh'
+  pull_request_target:
+    types: [closed]
   push:
     paths:
       - '**/meson.build'
@@ -29,13 +31,15 @@ on:
       - 'tools/oss-fuzz.sh'
     branches:
       - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   Fuzzing:
     runs-on: ubuntu-24.04
-    if: github.repository == 'systemd/systemd'
-    concurrency:
-      group: ${{ github.workflow }}-${{ matrix.sanitizer }}-${{ matrix.architecture }}-${{ github.ref }}
-      cancel-in-progress: true
+    if: github.event_name != 'pull_request_target' && github.repository == 'systemd/systemd'
     strategy:
       fail-fast: false
       matrix:
