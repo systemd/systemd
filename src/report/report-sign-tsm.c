@@ -17,6 +17,7 @@ COMMAND(
         "Get an attestation report via configfs Trusted Security Module (TSM) "
         "that includes the hash of the system report.",
         .man_pages = "systemd-report-sign-tsm@.service(8)\0",
+        .flags = COMMAND_EXPERIMENTAL,
         .option_namespace = "common",
 );
 

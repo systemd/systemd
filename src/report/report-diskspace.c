@@ -30,6 +30,7 @@
 COMMAND(
         "systemd-report-diskspace\0",
         "Report disk space metrics.",
+        .flags = COMMAND_EXPERIMENTAL,
         .option_namespace = "common",
 );
 

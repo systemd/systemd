@@ -56,6 +56,7 @@ COMMAND(
         "systemd-report-geoip\0",
         "Report the approximate geographic location of the system as a metric.",
         .man_pages = "systemd-report-geoip@.service(8)\0",
+        .flags = COMMAND_EXPERIMENTAL,
         .option_namespace = "common",
 );
 

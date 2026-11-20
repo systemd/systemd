@@ -21,6 +21,7 @@ COMMAND(
         "systemd-report-hwmon\0",
         "Report hardware monitoring sensor metrics.",
         .man_pages = "systemd-report-hwmon@.service(8)\0",
+        .flags = COMMAND_EXPERIMENTAL,
         .option_namespace = "common",
 );
 
