@@ -3,4 +3,4 @@
 
 #include "homework-forward.h"
 
-int fido2_use_token(UserRecord *h, UserRecord *secret, const Fido2HmacSalt *salt, char **ret);
+int fido2_use_token(UserRecord *secret, const Fido2HmacSalt *salt, char **ret);
