@@ -123,13 +123,14 @@ static int journal_file_empty(int dir_fd, const char *name) {
         return le64toh(n_entries) <= 0;
 }
 
-int journal_directory_vacuum(
+int journal_directory_vacuum_full(
                 const char *directory,
                 uint64_t max_use,
                 uint64_t n_max_files,
                 usec_t max_retention_usec,
                 usec_t *oldest_usec,
-                bool verbose) {
+                bool verbose,
+                bool use_mtime) {
 
         uint64_t sum = 0, freed = 0, n_active_files = 0;
         size_t n_list = 0, i;
@@ -273,7 +274,11 @@ int journal_directory_vacuum(
                         continue;
                 }
 
-                patch_realtime(dirfd(d), p, &st, &realtime);
+                if (use_mtime) {
+                        realtime = timespec_load(&st.st_mtim);
+                        have_seqnum = false;
+                } else
+                        patch_realtime(dirfd(d), p, &st, &realtime);
 
                 if (!GREEDY_REALLOC(list, n_list + 1))
                         return -ENOMEM;
