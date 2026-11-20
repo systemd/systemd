@@ -582,6 +582,134 @@ testcase_varlink_set_time() {
     (! varlinkctl call "$TIMEDATE_VARLINK_SOCKET" io.systemd.Timedate.SetTime '{"timeUSec":0}')
 }
 
+teardown_phc() {
+    set +e
+
+    rm -rf /run/systemd/timesyncd.conf.d/
+    rm -f /run/udev/rules.d/99-test-phc.rules
+    udevadm control --reload
+    udevadm trigger --settle --action=change /dev/ptp_kvm
+    systemctl stop systemd-timesyncd
+    systemctl reset-failed systemd-timesyncd || :
+
+    # Unload the module again, so that the other test cases (which expect timesyncd to use NTP) are not
+    # affected by the PHC
+    modprobe -r ptp_kvm
+    udevadm settle --timeout=30
+}
+
+restart_timesyncd_phc() {
+    # We restart timesyncd a lot in quick succession, avoid hitting the start rate limit
+    systemctl reset-failed systemd-timesyncd || :
+    systemctl restart systemd-timesyncd
+}
+
+# $ptp is exported and expanded by the "bash -c" child shells
+# shellcheck disable=SC2016
+testcase_phc() {
+    local ptp
+
+    if systemd-detect-virt -cq; then
+        echo "This test case requires a VM, skipping..."
+        return 0
+    fi
+
+    if [[ "$(systemd-detect-virt)" != "kvm" ]]; then
+        echo "This test case requires KVM, skipping..."
+        return 0
+    fi
+
+    # ptp_kvm is not auto-loaded, and fails to load if the host does not provide the clock pairing hypercall
+    if ! modprobe ptp_kvm; then
+        echo "Failed to load ptp_kvm, skipping..."
+        return 0
+    fi
+
+    trap teardown_phc RETURN
+
+    udevadm settle --timeout=30
+    if [[ ! -c /dev/ptp_kvm ]]; then
+        echo "/dev/ptp_kvm did not show up, skipping..."
+        return 0
+    fi
+
+    # The default rules tag the KVM PHC for use by timesyncd
+    udevadm info -q property --property=CURRENT_TAGS --value /dev/ptp_kvm | grep ":timesync:" >/dev/null
+
+    # timesyncd reports the kernel device node, not the symlink
+    ptp="$(readlink -f /dev/ptp_kvm)"
+    export ptp
+
+    systemctl unmask systemd-timesyncd
+    restart_timesyncd_phc
+
+    timeout 30 bash -c 'until [[ "$(timedatectl show-timesync -P PHCDevice)" == "$ptp" ]]; do sleep .5; done'
+    assert_eq "$(timedatectl show-timesync -P PHC)" "yes"
+    assert_eq "$(timedatectl show-timesync -P PHCDeviceMatch)" ""
+    assert_eq "$(timedatectl show-timesync -P PHCClockName)" "KVM virtual PTP"
+    assert_eq "$(timedatectl show-timesync -P ServerName)" ""
+
+    # Wait until we synchronized, and the kernel's NTP state reflects that
+    timeout 30 bash -c 'until [[ -e /run/systemd/timesync/synchronized ]]; do sleep .5; done'
+    timeout 30 bash -c 'until [[ "$(timedatectl show -P NTPSynchronized)" == yes ]]; do sleep .5; done'
+    # Wait for a couple of samples
+    timeout 30 bash -c 'until [[ "$(timedatectl show-timesync -P PHCSampleCount)" -ge 3 ]]; do sleep .5; done'
+    # There is no NTP message while a PHC is in use
+    assert_eq "$(timedatectl show-timesync -P NTPMessage)" ""
+    timedatectl timesync-status
+    timedatectl timesync-status | grep "PHC device: $ptp (KVM virtual PTP)" >/dev/null
+    timedatectl show-timesync
+
+    journalctl --sync
+    journalctl -q -b -u systemd-timesyncd.service --grep "Synchronizing to PTP hardware clock $ptp" >/dev/null
+
+    # Removing the tag at runtime makes timesyncd let go of the device
+    mkdir -p /run/udev/rules.d/
+    echo 'SUBSYSTEM=="ptp", TAG-="timesync"' >/run/udev/rules.d/99-test-phc.rules
+    udevadm control --reload
+    udevadm trigger --settle --action=change /dev/ptp_kvm
+    timeout 30 bash -c 'until [[ -z "$(timedatectl show-timesync -P PHCDevice)" ]]; do sleep .5; done'
+
+    # … and untagged devices are not picked up on startup either
+    restart_timesyncd_phc
+    assert_eq "$(timedatectl show-timesync -P PHCDevice)" ""
+
+    # An explicitly configured device node path is used regardless of the tag, by symlink…
+    mkdir -p /run/systemd/timesyncd.conf.d/
+    printf '[Time]\nPHC=/dev/ptp_kvm\n' >/run/systemd/timesyncd.conf.d/50-phc.conf
+    restart_timesyncd_phc
+    assert_eq "$(timedatectl show-timesync -P PHCDeviceMatch)" "/dev/ptp_kvm"
+    timeout 30 bash -c 'until [[ "$(timedatectl show-timesync -P PHCDevice)" == "$ptp" ]]; do sleep .5; done'
+
+    # … and by device node
+    printf '[Time]\nPHC=%s\n' "$ptp" >/run/systemd/timesyncd.conf.d/50-phc.conf
+    restart_timesyncd_phc
+    assert_eq "$(timedatectl show-timesync -P PHCDeviceMatch)" "$ptp"
+    timeout 30 bash -c 'until [[ "$(timedatectl show-timesync -P PHCDevice)" == "$ptp" ]]; do sleep .5; done'
+    rm /run/systemd/timesyncd.conf.d/50-phc.conf
+    restart_timesyncd_phc
+    assert_eq "$(timedatectl show-timesync -P PHCDevice)" ""
+
+    # Re-adding the tag at runtime makes timesyncd pick it up again
+    rm /run/udev/rules.d/99-test-phc.rules
+    udevadm control --reload
+    udevadm trigger --settle --action=change /dev/ptp_kvm
+    timeout 30 bash -c 'until [[ "$(timedatectl show-timesync -P PHCDevice)" == "$ptp" ]]; do sleep .5; done'
+
+    # If a device node path is configured, tagged devices with other paths are not used
+    mkdir -p /run/systemd/timesyncd.conf.d/
+    printf '[Time]\nPHC=/dev/ptp_nonexistent\n' >/run/systemd/timesyncd.conf.d/50-phc.conf
+    restart_timesyncd_phc
+    assert_eq "$(timedatectl show-timesync -P PHCDeviceMatch)" "/dev/ptp_nonexistent"
+    assert_eq "$(timedatectl show-timesync -P PHCDevice)" ""
+
+    # PHC=no disables use of PHCs
+    printf '[Time]\nPHC=no\n' >/run/systemd/timesyncd.conf.d/50-phc.conf
+    restart_timesyncd_phc
+    assert_eq "$(timedatectl show-timesync -P PHC)" "no"
+    assert_eq "$(timedatectl show-timesync -P PHCDevice)" ""
+}
+
 testcase_varlink_set_ntp() {
     local orig_ntp
 
