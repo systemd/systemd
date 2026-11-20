@@ -43,9 +43,13 @@ units = [
           'conditions' : ['ENABLE_PORTABLED'],
           'symlinks' : ['dbus-org.freedesktop.portable1.service'],
         },
-        { 'file' : 'systemd-ptybrokerd.service.in' },
+        {
+          'file' : 'systemd-ptybrokerd.service.in',
+          'conditions' : ['ENABLE_PTYBROKER'],
+        },
         {
           'file' : 'systemd-ptybrokerd.socket',
+          'conditions' : ['ENABLE_PTYBROKER'],
           'symlinks' : ['sockets.target.wants/'],
         },
         { 'file' : 'paths.target' },
