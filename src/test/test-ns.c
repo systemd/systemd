@@ -88,6 +88,7 @@ int main(int argc, char *argv[]) {
 
         NamespaceParameters p = {
                 .runtime_scope = RUNTIME_SCOPE_SYSTEM,
+                .private_namespace_dir = "/run/systemd",
 
                 .rootfs = &pr,
 

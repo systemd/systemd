@@ -1586,13 +1586,12 @@ static int os_release_status(void) {
         return 0;
 }
 
-static int setup_os_release(RuntimeScope scope) {
-        char os_release_dst[STRLEN("/run/user//systemd/propagate/.os-release-stage/os-release") + DECIMAL_STR_MAX(uid_t)] =
-                "/run/systemd/propagate/.os-release-stage/os-release";
+static int setup_os_release(const char *runtime_systemd_dir) {
+        _cleanup_free_ char *os_release_dst = NULL;
         const char *os_release_src = "/etc/os-release";
         int r;
 
-        assert(IN_SET(scope, RUNTIME_SCOPE_SYSTEM, RUNTIME_SCOPE_USER));
+        assert(runtime_systemd_dir);
 
         if (access("/etc/os-release", F_OK) < 0) {
                 if (errno != ENOENT)
@@ -1601,8 +1600,10 @@ static int setup_os_release(RuntimeScope scope) {
                 os_release_src = "/usr/lib/os-release";
         }
 
-        if (scope == RUNTIME_SCOPE_USER)
-                xsprintf(os_release_dst, "/run/user/" UID_FMT "/systemd/propagate/.os-release-stage/os-release", geteuid());
+        /* Keep this in sync with the path the executor binds into the namespace, see apply_mount_namespace() */
+        os_release_dst = path_join(runtime_systemd_dir, "propagate/.os-release-stage/os-release");
+        if (!os_release_dst)
+                return log_oom_debug();
 
         r = mkdir_parents_label(os_release_dst, 0755);
         if (r < 0)
@@ -2743,7 +2744,7 @@ static int initialize_runtime(
 
                         /* Copy os-release to the propagate directory, so that we update it for services running
                          * under RootDirectory=/RootImage= when we do a soft reboot. */
-                        r = setup_os_release(RUNTIME_SCOPE_SYSTEM);
+                        r = setup_os_release("/run/systemd");
                         if (r < 0)
                                 log_warning_errno(r, "Failed to copy os-release for propagation, ignoring: %m");
                 }
@@ -2800,7 +2801,7 @@ static int initialize_runtime(
                         (void) mkdir_p_label(p, 0755);
                         (void) make_inaccessible_nodes(p, UID_INVALID, GID_INVALID);
 
-                        r = setup_os_release(RUNTIME_SCOPE_USER);
+                        r = setup_os_release(p);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to copy os-release for propagation, ignoring: %m");
                 }
