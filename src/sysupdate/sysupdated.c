@@ -2161,7 +2161,7 @@ static int manager_run(Manager *m) {
 COMMAND(
         "systemd-sysupdated\0",
         "Manage system updates.",
-        .man_pages = "systemd-sysupdated.service(8)\0",
+        .man_page = "systemd-sysupdated.service(8)",
         .option_namespace = "service",
         .option_groups =
                 "Options\0"

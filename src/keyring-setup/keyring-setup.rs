@@ -34,7 +34,7 @@ verbs! {
         names: "systemd-keyring-setup\0",
         abstract_: "Enroll certificates from the VOA hierarchy into the kernel's trust keyrings.",
         argspec: "[KEYRING…]\0",
-        man_pages: "systemd-keyring-setup.service(8)\0",
+        man_page: "systemd-keyring-setup.service(8)",
         pager_flags: ARG_PAGER_FLAGS,
         flags: COMMAND_EXPERIMENTAL,
     },

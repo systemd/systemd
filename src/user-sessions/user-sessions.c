@@ -13,7 +13,7 @@
 COMMAND(
         "systemd-user-sessions\0",
         "Permit user logins after boot, prohibit them at shutdown.",
-        .man_pages = "systemd-user-sessions.service(8)\0",
+        .man_page = "systemd-user-sessions.service(8)",
         .option_namespace = "common",
 );
 

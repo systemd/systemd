@@ -18,7 +18,7 @@ COMMAND(
         "systemd-run-generator\0",
         "Run commands specified on the kernel command line as a system service.",
         .argspec = GENERATOR_ARGSPEC,
-        .man_pages = "systemd-run-generator(8)\0",
+        .man_page = "systemd-run-generator(8)",
         .option_namespace = "common",
 );
 

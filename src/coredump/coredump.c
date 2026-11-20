@@ -19,7 +19,7 @@ COMMAND(
         "systemd-coredump\0",
         "Acquire, save, and process core dumps.",
         .argspec = "[METADATA…]\0",
-        .man_pages = "systemd-coredump(8)\0",
+        .man_page = "systemd-coredump(8)",
 );
 
 typedef enum CoredumpMode {

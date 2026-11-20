@@ -31,7 +31,7 @@
 COMMAND(
         "systemd-tpm2-swtpm\0",
         "Provide a fallback software TPM.",
-        .man_pages = "systemd-tpm2-swtpm.service(8)\0",
+        .man_page = "systemd-tpm2-swtpm.service(8)",
         .option_namespace = "common",
 );
 

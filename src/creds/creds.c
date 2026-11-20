@@ -88,7 +88,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_tpm2_signature, freep);
 COMMAND(
         "systemd-creds\0",
         "Display and process credentials.",
-        .man_pages = "systemd-creds(1)\0",
+        .man_page = "systemd-creds(1)",
         .pager_flags = &arg_pager_flags,
 );
 
