@@ -684,13 +684,16 @@ bool sockaddr_equal(const union sockaddr_union *a, const union sockaddr_union *b
                 return false;
 
         if (a->sa.sa_family == AF_INET)
-                return a->in.sin_addr.s_addr == b->in.sin_addr.s_addr;
+                return a->in.sin_addr.s_addr == b->in.sin_addr.s_addr &&
+                        a->in.sin_port == b->in.sin_port;
 
         if (a->sa.sa_family == AF_INET6)
-                return memcmp(&a->in6.sin6_addr, &b->in6.sin6_addr, sizeof(a->in6.sin6_addr)) == 0;
+                return in6_addr_equal(&a->in6.sin6_addr, &b->in6.sin6_addr) &&
+                        a->in6.sin6_port == b->in6.sin6_port;
 
         if (a->sa.sa_family == AF_VSOCK)
-                return a->vm.svm_cid == b->vm.svm_cid;
+                return a->vm.svm_cid == b->vm.svm_cid &&
+                        a->vm.svm_port == b->vm.svm_port;
 
         return false;
 }
@@ -1460,11 +1463,57 @@ int socket_autobind(int fd, char **ret_name) {
         return 0;
 }
 
+static int validate_source_port(const struct msghdr *msg) {
+        assert(msg);
+
+        /* UDP (and similar) datagrams originating from port 0 are never legitimate: nobody can reply to
+         * them (the kernel refuses sending to port 0), and code processing them tends to get confused by
+         * the zero port. Returns 0 if the source address of the message is an AF_INET/AF_INET6 one with
+         * port 0, > 0 otherwise (including if the caller didn't ask for the source address), and -ENOTNAM
+         * if the source address is too short for its address family. */
+
+        /* Caller didn't ask for the source address, or none is known (e.g. unbound AF_UNIX peer) */
+        if (msg->msg_namelen == 0)
+                return 1;
+
+        assert(msg->msg_name);
+        assert(msg->msg_namelen >= endoffsetof_field(struct sockaddr, sa_family)); /* Already checked by caller */
+
+        switch (((const struct sockaddr*) msg->msg_name)->sa_family) {
+
+        case AF_INET: {
+                if (msg->msg_namelen < sizeof(struct sockaddr_in))
+                        return -ENOTNAM;
+
+                const struct sockaddr_in *sin = msg->msg_name;
+                return sin->sin_port != 0;
+        }
+
+        case AF_INET6: {
+                if (msg->msg_namelen < sizeof(struct sockaddr_in6))
+                        return -ENOTNAM;
+
+                const struct sockaddr_in6 *sin6 = msg->msg_name;
+                return sin6->sin6_port != 0;
+        }
+
+        case AF_VSOCK:
+                /* No port check on AF_VSOCK: port 0 is apparently a valid port number there (unlike
+                 * VMADDR_PORT_ANY, which is -1U). */
+                return 1;
+
+        default:
+                return 1;
+        }
+}
+
 ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags) {
         ssize_t n;
+        int r;
 
-        /* A wrapper around recvmsg() that checks for MSG_CTRUNC and MSG_TRUNC, and turns them into an error,
-         * in a reasonably safe way, closing any received fds in the error path.
+        /* A wrapper around recvmsg() that checks for MSG_CTRUNC and MSG_TRUNC, as well as for a truncated
+         * source address, and turns them into an error, in a reasonably safe way, closing any received fds
+         * in the error path.
          *
          * Note that unlike our usual coding style this might modify *msg on failure.
          *
@@ -1472,6 +1521,8 @@ ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags) {
 
         assert(sockfd >= 0);
         assert(msg);
+
+        socklen_t name_size = msg->msg_namelen;
 
         /* Fds can only be received into a control buffer. Protocols that can't pass fds might refuse
          * MSG_CMSG_CLOEXEC, AF_PACKET does with EINVAL, MCTP with EOPNOTSUPP. Retry without it then. */
@@ -1485,6 +1536,28 @@ ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags) {
             (!FLAGS_SET(flags, MSG_PEEK) && FLAGS_SET(msg->msg_flags, MSG_TRUNC))) {
                 cmsg_close_all(msg);
                 return FLAGS_SET(msg->msg_flags, MSG_CTRUNC) ? -ECHRNG : -EXFULL;
+        }
+
+        /* If the source address doesn't fit into the buffer the kernel silently truncates it, but reports
+         * its full size in msg_namelen, without setting any flag. Refuse that too. Also refuse source
+         * addresses that are too short to even carry the address family, that's just broken. */
+        if (msg->msg_namelen > name_size ||
+            (msg->msg_namelen > 0 && msg->msg_namelen < endoffsetof_field(struct sockaddr, sa_family))) {
+                cmsg_close_all(msg);
+                return -ENOTNAM;
+        }
+
+        /* Suppress datagrams from port 0 early on, and make them look like a spurious wakeup */
+        r = validate_source_port(msg);
+        if (r <= 0) {
+                cmsg_close_all(msg);
+
+                /* If we only peeked, the datagram is still queued, and we'd see it again and again.
+                 * Hence, drop it from the queue. */
+                if (FLAGS_SET(flags, MSG_PEEK))
+                        (void) recv(sockfd, /* buf= */ NULL, /* size= */ 0, MSG_DONTWAIT);
+
+                return r < 0 ? r : -EAGAIN;
         }
 
         return n;
