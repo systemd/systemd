@@ -20,6 +20,7 @@
 #include "resolved-manager.h"
 #include "resolved-mdns.h"
 #include "sort-util.h"
+#include "string-util.h"
 #include "time-util.h"
 
 #define CLEAR_CACHE_FLUSH(x) (~MDNS_RR_CACHE_FLUSH_OR_QU & (x))
@@ -261,6 +262,68 @@ static bool sender_on_local_subnet(DnsScope *s, DnsPacket *p) {
         return false;
 }
 
+static bool mdns_known_answers_contain(DnsAnswer *known_answers, const DnsResourceRecord *rr) {
+        DnsResourceRecord *i;
+        DnsAnswerFlags flags;
+
+        assert(rr);
+
+        /* RFC 6762, Section 7.1: "A Multicast DNS responder MUST NOT answer a Multicast DNS query if the
+         * answer it would give is already included in the Answer Section with an RR TTL at least half the
+         * correct value." */
+
+        DNS_ANSWER_FOREACH_FLAGS(i, flags, known_answers) {
+                /* known_answers contains resource records from the Answer, Authority, and Additional
+                 * sections. Records in the Authority Section of a probe query are the prober's proposed
+                 * records (Section 8.2), not known answers. */
+                if (!FLAGS_SET(flags, DNS_ANSWER_SECTION_ANSWER))
+                        continue;
+
+                if ((uint64_t) i->ttl * 2 < rr->ttl)
+                        continue;
+
+                if (dns_resource_record_equal(i, rr) > 0)
+                        return true;
+        }
+
+        return false;
+}
+
+bool mdns_known_answers_suppress(
+                DnsAnswer *known_answers,
+                DnsAnswer *answer,
+                const DnsAnswerItem *item) {
+
+        DnsAnswerItem *i;
+
+        assert(item);
+
+        /* Returns true if the item, which is part of answer, must not be sent, because the querier already
+         * knows it. */
+
+        if (!mdns_known_answers_contain(known_answers, item->rr))
+                return false;
+
+        if (!FLAGS_SET(item->flags, DNS_ANSWER_CACHE_FLUSH))
+                return true;
+
+        /* A record with the cache-flush bit set makes the querier flush the other records of the RRset it
+         * has cached (RFC 6762, Section 10.2), including known answers that we suppressed. Hence, only
+         * suppress it if all members of the RRset are known answers. */
+        DNS_ANSWER_FOREACH_ITEM(i, answer) {
+                if (!FLAGS_SET(i->flags, DNS_ANSWER_CACHE_FLUSH))
+                        continue;
+
+                if (dns_resource_key_equal(i->rr->key, item->rr->key) <= 0)
+                        continue;
+
+                if (!mdns_known_answers_contain(known_answers, i->rr))
+                        return false;
+        }
+
+        return true;
+}
+
 static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *full_answer = NULL;
         _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
@@ -340,6 +403,13 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
 
                 DNS_ANSWER_FOREACH_ITEM(item, answer) {
                         DnsAnswerFlags flags = item->flags | DNS_ANSWER_REFUSE_TTL_NO_MATCH;
+
+                        if (!legacy_query && mdns_known_answers_suppress(p->answer, answer, item)) {
+                                log_debug("%s is a known answer of the query, not sending it.",
+                                          strna(dns_resource_record_to_string(item->rr)));
+                                continue;
+                        }
+
                         /* The cache-flush bit must not be set in legacy unicast responses.
                          * See section 6.7 of RFC 6762. */
                         if (legacy_query)
