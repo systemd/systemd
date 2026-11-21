@@ -12,6 +12,7 @@
 
 #include "af-list.h"
 #include "alloc-util.h"
+#include "crypto-util.h"
 #include "daemon-util.h"
 #include "dirent-util.h"
 #include "dns-answer.h"
@@ -634,6 +635,7 @@ static void manager_set_defaults(Manager *m) {
         m->llmnr_support = DEFAULT_LLMNR_MODE;
         m->mdns_support = DEFAULT_MDNS_MODE;
         m->dnssec_mode = DEFAULT_DNSSEC_MODE;
+        m->dnssec_crypto = 0; /* Check again, libcrypto might have been installed in the meantime */
         m->dns_over_tls_mode = DEFAULT_DNS_OVER_TLS_MODE;
         m->enable_cache = DNS_CACHE_MODE_YES;
         m->dns_stub_listener_mode = DNS_STUB_LISTENER_YES;
@@ -1741,11 +1743,42 @@ int manager_compile_search_domains(Manager *m, OrderedSet **domains, int filter_
         return 0;
 }
 
+bool manager_dnssec_crypto_available(Manager *m) {
+        int r;
+
+        assert(m);
+
+        /* DNSSEC validation needs libcrypto, which is only loaded on demand, and might not be installed. Only
+         * try once (until the next reload), so that we don't warn for every lookup. */
+
+        if (m->dnssec_crypto == 0) {
+                r = dlopen_libcrypto(LOG_DEBUG);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to load libcrypto, treating DNSSEC=allow-downgrade as DNSSEC=no, "
+                                          "and failing lookups that DNSSEC=yes requires to be validated: %m");
+
+                m->dnssec_crypto = r < 0 ? r : 1;
+        }
+
+        return m->dnssec_crypto > 0;
+}
+
+DnssecMode manager_dnssec_mode_effective(Manager *m, DnssecMode mode) {
+        assert(m);
+
+        /* Without libcrypto we can't validate anything, so allow-downgrade would always downgrade. DNSSEC=yes
+         * stays, so that lookups fail instead, see dns_transaction_validate_dnssec(). */
+        if (mode == DNSSEC_ALLOW_DOWNGRADE && !manager_dnssec_crypto_available(m))
+                return DNSSEC_NO;
+
+        return mode;
+}
+
 DnssecMode manager_get_dnssec_mode(Manager *m) {
         assert(m);
 
         if (m->dnssec_mode != _DNSSEC_MODE_INVALID)
-                return m->dnssec_mode;
+                return manager_dnssec_mode_effective(m, m->dnssec_mode);
 
         return DNSSEC_NO;
 }
