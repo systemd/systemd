@@ -418,12 +418,17 @@ TEST(manifest_mtree) {
 
         ASSERT_OK(tfd = make_tree(&t));
 
+        /* Set special bits for testing */
+        ASSERT_OK_ERRNO(fchmodat(tfd, "regular.txt", 04644, 0));
+        ASSERT_OK_ERRNO(fchmodat(tfd, "subdir", 01777, 0));
+
         _cleanup_(manifest_context_done) ManifestContext c;
         context_init(&c, MANIFEST_FORMAT_MTREE);
         ASSERT_OK(generate(&c, tfd, &buf, &size));
 
         ASSERT_TRUE(startswith(buf, "./ type=dir mode="));
-        ASSERT_NOT_NULL(strstr(buf, "./regular.txt type=file mode=0644 uid="));
+        ASSERT_NOT_NULL(strstr(buf, "./regular.txt type=file mode=4644 uid="));
+        ASSERT_NOT_NULL(strstr(buf, "./subdir/ type=dir mode=1777 uid="));
         ASSERT_NOT_NULL(strstr(buf, " size=11 sha256sum=b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9\n"));
         ASSERT_NOT_NULL(strstr(buf, "./symlink type=link uid="));
         ASSERT_NOT_NULL(strstr(buf, " link=regular.txt\n"));
