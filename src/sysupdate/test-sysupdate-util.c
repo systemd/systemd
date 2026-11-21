@@ -28,6 +28,23 @@ TEST(component_name_valid) {
         ASSERT_FALSE(component_name_valid("\xff"));           /* not valid UTF-8 */
 }
 
+TEST(sysupdate_version_is_pending) {
+        ASSERT_TRUE(sysupdate_version_is_pending("v9", "v8"));
+        ASSERT_TRUE(sysupdate_version_is_pending("v10", "v9"));
+        ASSERT_FALSE(sysupdate_version_is_pending("v8", "v8"));
+        ASSERT_FALSE(sysupdate_version_is_pending("v9", "v10"));
+        ASSERT_FALSE(sysupdate_version_is_pending("v7", "v8"));
+        ASSERT_FALSE(sysupdate_version_is_pending("v9", /* booted_version= */ NULL));
+        ASSERT_FALSE(sysupdate_version_is_pending(/* installed_version= */ NULL, "v8"));
+}
+
+TEST(sysupdate_update_set_has_partial_or_pending) {
+        ASSERT_FALSE(sysupdate_update_set_has_partial_or_pending(UPDATE_INSTALLED|UPDATE_NEWEST));
+        ASSERT_TRUE(sysupdate_update_set_has_partial_or_pending(UPDATE_PARTIAL));
+        ASSERT_TRUE(sysupdate_update_set_has_partial_or_pending(UPDATE_PENDING));
+        ASSERT_TRUE(sysupdate_update_set_has_partial_or_pending(UPDATE_PARTIAL|UPDATE_PENDING));
+}
+
 TEST(component_json) {
         _cleanup_(component_done) Component c = COMPONENT_NULL;
 
