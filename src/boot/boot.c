@@ -146,6 +146,7 @@ typedef struct BootEntry {
         char16_t *next_name;
         char16_t *confirm;    /* If set, a message to show, and ask the user to confirm before invoking the entry */
         unsigned profile;
+        bool default_profile; /* If true, this is the first profile of a UKI that is not hidden (and doesn't require confirmation), which may be auto-selected */
 } BootEntry;
 
 typedef struct {
@@ -181,6 +182,7 @@ typedef struct {
         bool use_saved_entry_preferred_efivar;
         bool beep;
         bool sysfail_occurred;
+        bool netboot;         /* Whether we have been booted from the network */
         int64_t console_mode;
         int64_t console_mode_efivar;
 } Config;
@@ -344,6 +346,7 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
                         secure_boot_mode_to_string(secure));
         printf("                  shim: %ls\n", yes_no(shim_loaded()));
         printf("                   TPM: %ls\n", yes_no(tpm_present()));
+        printf("              net boot: %ls\n", yes_no(config->netboot));
         printf("          console mode: %i/%" PRIi64 " (%zux%zu",
                ST->ConOut->Mode->Mode, ST->ConOut->Mode->MaxMode - INT64_C(1),
                x_max, y_max);
@@ -1886,9 +1889,20 @@ static size_t config_find_entry(Config *config, const char16_t *pattern, const b
         if (!pattern)
                 return IDX_INVALID;
 
-        for (size_t i = 0; i < config->n_entries; i++)
-                if (efi_fnmatch(pattern, config->entries[i]->id) && (!check_assessment || config->entries[i]->tries_left != 0))
+        for (size_t i = 0; i < config->n_entries; i++) {
+                BootEntry *e = config->entries[i];
+
+                if (check_assessment && e->tries_left == 0)
+                        continue;
+
+                if (efi_fnmatch(pattern, e->id))
                         return i;
+
+                /* If the first profile of a UKI is hidden, the next visible one takes its place as default
+                 * profile. Make sure it is also found under the UKI's ID without profile suffix. */
+                if (e->default_profile && e->id_without_profile && efi_fnmatch(pattern, e->id_without_profile))
+                        return i;
+        }
 
         return IDX_INVALID;
 }
@@ -1977,7 +1991,7 @@ static void config_select_default_entry(Config *config) {
 
         /* select the first suitable entry */
         for (i = 0; i < config->n_entries; i++) {
-                if (config->entries[i]->profile > 0)
+                if (config->entries[i]->profile > 0 && !config->entries[i]->default_profile)
                         continue; /* For now, never select any non-default profile */
 
                 if (LOADER_TYPE_MAY_AUTO_SELECT(config->entries[i]->type)) {
@@ -1991,7 +2005,7 @@ static void config_select_default_entry(Config *config) {
          * timeout. */
         config->idx_default = 0;
         for (i = 0; i < config->n_entries; i++) {
-                if (config->entries[i]->profile > 0)
+                if (config->entries[i]->profile > 0 && !config->entries[i]->default_profile)
                         continue;
 
                 if (LOADER_TYPE_IS_OS(config->entries[i]->type)) {
@@ -2343,6 +2357,24 @@ static void config_add_entry_windows(Config *config, EFI_HANDLE *device, EFI_FIL
 #endif
 }
 
+static bool profile_condition_test(const char *field, const char *value, bool state) {
+        bool b;
+
+        assert(field);
+        assert(value);
+
+        /* Checks a boolean CONDITION_xyz= field of a .profile section against the actual state. If the
+         * field is true the condition only holds if the state is true too, if the field is false only if the
+         * state is false too. */
+
+        if (!parse_boolean(value, &b)) {
+                log_warning("Error parsing %s= field of .profile section, ignoring: %s", field, value);
+                return true;
+        }
+
+        return b == state;
+}
+
 static void boot_entry_add_type2(
                 Config *config,
                 EFI_HANDLE *device,
@@ -2394,7 +2426,10 @@ static void boot_entry_add_type2(
                         size_in_memory,
                         base_sections);
 
-        /* and now iterate through possible profiles, and create a menu item for each profile we find */
+        /* and now iterate through possible profiles, and create a menu item for each profile we find. The
+         * first profile we show (i.e. that isn't hidden by its conditions, and doesn't require
+         * confirmation) is considered the default. */
+        bool have_default_profile = false;
         for (unsigned profile = 0; profile < UNIFIED_PROFILES_MAX; profile ++) {
                 PeSectionVector sections[_SECTION_MAX] = {};
 
@@ -2482,6 +2517,7 @@ static void boot_entry_add_type2(
                         continue;
 
                 _cleanup_free_ char16_t *profile_id = NULL, *profile_title = NULL, *profile_confirm = NULL;
+                bool profile_hide = false;
 
                 if (PE_SECTION_VECTOR_IS_SET(sections + SECTION_PROFILE)) {
                         content = mfree(content);
@@ -2509,7 +2545,21 @@ static void boot_entry_add_type2(
                                 } else if (streq8(key, "CONFIRM")) {
                                         free(profile_confirm);
                                         profile_confirm = xstr8_to_16(value);
+                                } else if (streq8(key, "CONDITION_TPM")) {
+                                        if (!profile_condition_test(key, value, tpm_present()))
+                                                profile_hide = true;
+                                } else if (streq8(key, "CONDITION_SECUREBOOT")) {
+                                        if (!profile_condition_test(key, value, secure_boot_enabled()))
+                                                profile_hide = true;
+                                } else if (streq8(key, "CONDITION_NETBOOT")) {
+                                        if (!profile_condition_test(key, value, config->netboot))
+                                                profile_hide = true;
                                 }
+
+                        if (profile_hide) {
+                                log_debug("Conditions of profile %u of %ls not met, hiding.", profile, filename);
+                                continue;
+                        }
                 }
 
                 _cleanup_free_ char16_t *title = NULL;
@@ -2538,6 +2588,11 @@ static void boot_entry_add_type2(
                         .confirm = TAKE_PTR(profile_confirm),
                         .call = call_image_start,
                 };
+
+                /* Never pick a profile that requires confirmation as default profile, except if it is the
+                 * first one, so that unattended boots do not stop at the confirmation prompt. */
+                if (!have_default_profile && (profile == 0 || isempty(entry->confirm)))
+                        entry->default_profile = have_default_profile = true;
 
                 boot_entry_parse_tries(entry, path, filename, u".efi");
 
@@ -3476,6 +3531,11 @@ static void config_load_all_entries(
         assert(root_dir);
 
         config_load_defaults(config, root_dir);
+
+        /* If the device we have been loaded from is backed by a URL (i.e. we have been booted via HTTP
+         * boot), we are network booting. */
+        _cleanup_free_ char16_t *url = disk_get_url(loaded_image->DeviceHandle);
+        config->netboot = !!url;
 
         /* Scan /EFI/Linux/ directory */
         config_load_type2_entries(config, loaded_image->DeviceHandle, root_dir);
