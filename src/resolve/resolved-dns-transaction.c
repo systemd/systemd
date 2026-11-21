@@ -1922,10 +1922,21 @@ static int dns_packet_append_zone(DnsPacket *p, DnsTransaction *t, DnsResourceKe
         return dns_packet_append_answer(p, answer, nscount);
 }
 
+static bool mdns_transaction_skips_known_answers(DnsTransaction *t) {
+        assert(t);
+
+        /* Known-Answers make responders leave out records we have cached (RFC 6762, Section 7.1). A one-shot
+         * query that bypasses the cache would then never see them. Continuous queries (service browsing)
+         * bypass the cache too, but they pick up the cached records from there. */
+        return FLAGS_SET(t->query_flags, SD_RESOLVED_NO_CACHE) &&
+                !FLAGS_SET(t->query_flags, SD_RESOLVED_QUERY_CONTINUOUS);
+}
+
 static int mdns_make_dummy_packet(DnsTransaction *t, DnsPacket **ret_packet, Set **ret_keys) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         _cleanup_set_free_ Set *keys = NULL;
         bool add_known_answers = false;
+        bool skip_known_answers = false;
         unsigned qdcount;
         usec_t ts;
         int r;
@@ -1946,8 +1957,12 @@ static int mdns_make_dummy_packet(DnsTransaction *t, DnsPacket **ret_packet, Set
 
         qdcount = 1;
 
-        if (dns_key_is_shared(dns_transaction_key(t)))
-                add_known_answers = true;
+        if (dns_key_is_shared(dns_transaction_key(t))) {
+                if (mdns_transaction_skips_known_answers(t))
+                        skip_known_answers = true;
+                else
+                        add_known_answers = true;
+        }
 
         r = dns_packet_append_zone(p, t, dns_transaction_key(t), /* nscount= */ NULL);
         if (r < 0)
@@ -2009,8 +2024,12 @@ static int mdns_make_dummy_packet(DnsTransaction *t, DnsPacket **ret_packet, Set
                 if (r < 0)
                         return r;
 
-                if (dns_key_is_shared(dns_transaction_key(other)))
-                        add_known_answers = true;
+                if (dns_key_is_shared(dns_transaction_key(other))) {
+                        if (mdns_transaction_skips_known_answers(other))
+                                skip_known_answers = true;
+                        else
+                                add_known_answers = true;
+                }
 
                 qdcount++;
                 if (qdcount >= UINT16_MAX)
@@ -2019,7 +2038,9 @@ static int mdns_make_dummy_packet(DnsTransaction *t, DnsPacket **ret_packet, Set
 
         DNS_PACKET_HEADER(p)->qdcount = htobe16(qdcount);
 
-        /* Append known answers section if we're asking for any shared record */
+        /* Append known answers section if we're asking for any shared record, unless one of the questions
+         * must not be answered from the cache */
+        add_known_answers = add_known_answers && !skip_known_answers;
         if (add_known_answers) {
                 r = dns_cache_export_shared_to_packet(&t->scope->cache, p, ts, /* max_rr= */ 0);
                 if (r < 0)
