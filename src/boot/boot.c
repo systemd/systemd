@@ -179,6 +179,7 @@ typedef struct {
         bool use_saved_entry_preferred_efivar;
         bool beep;
         bool sysfail_occurred;
+        bool netboot;         /* Whether we have been booted from the network */
         int64_t console_mode;
         int64_t console_mode_efivar;
 } Config;
@@ -342,6 +343,7 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
                         secure_boot_mode_to_string(secure));
         printf("                  shim: %ls\n", yes_no(shim_loaded()));
         printf("                   TPM: %ls\n", yes_no(tpm_present()));
+        printf("              net boot: %ls\n", yes_no(config->netboot));
         printf("          console mode: %i/%" PRIi64 " (%zux%zu",
                ST->ConOut->Mode->Mode, ST->ConOut->Mode->MaxMode - INT64_C(1),
                x_max, y_max);
@@ -2329,6 +2331,24 @@ static void config_add_entry_windows(Config *config, EFI_HANDLE *device, EFI_FIL
 #endif
 }
 
+static bool profile_condition_test(const char *field, const char *value, bool state) {
+        bool b;
+
+        assert(field);
+        assert(value);
+
+        /* Checks a boolean CONDITION_xyz= field of a .profile section against the actual state. If the
+         * field is true the condition only holds if the state is true too, if the field is false only if the
+         * state is false too. */
+
+        if (!parse_boolean(value, &b)) {
+                log_warning("Error parsing %s= field of .profile section, ignoring: %s", field, value);
+                return true;
+        }
+
+        return b == state;
+}
+
 static void boot_entry_add_type2(
                 Config *config,
                 EFI_HANDLE *device,
@@ -2468,6 +2488,7 @@ static void boot_entry_add_type2(
                         continue;
 
                 _cleanup_free_ char16_t *profile_id = NULL, *profile_title = NULL, *profile_confirm = NULL;
+                bool profile_hide = false;
 
                 if (PE_SECTION_VECTOR_IS_SET(sections + SECTION_PROFILE)) {
                         content = mfree(content);
@@ -2495,7 +2516,21 @@ static void boot_entry_add_type2(
                                 } else if (streq8(key, "CONFIRM")) {
                                         free(profile_confirm);
                                         profile_confirm = xstr8_to_16(value);
+                                } else if (streq8(key, "CONDITION_TPM")) {
+                                        if (!profile_condition_test(key, value, tpm_present()))
+                                                profile_hide = true;
+                                } else if (streq8(key, "CONDITION_SECUREBOOT")) {
+                                        if (!profile_condition_test(key, value, secure_boot_enabled()))
+                                                profile_hide = true;
+                                } else if (streq8(key, "CONDITION_NETBOOT")) {
+                                        if (!profile_condition_test(key, value, config->netboot))
+                                                profile_hide = true;
                                 }
+
+                        if (profile_hide) {
+                                log_debug("Conditions of profile %u of %ls not met, hiding.", profile, filename);
+                                continue;
+                        }
                 }
 
                 _cleanup_free_ char16_t *title = NULL;
@@ -3462,6 +3497,11 @@ static void config_load_all_entries(
         assert(root_dir);
 
         config_load_defaults(config, root_dir);
+
+        /* If the device we have been loaded from is backed by a URL (i.e. we have been booted via HTTP
+         * boot), we are network booting. */
+        _cleanup_free_ char16_t *url = disk_get_url(loaded_image->DeviceHandle);
+        config->netboot = !!url;
 
         /* Scan /EFI/Linux/ directory */
         config_load_type2_entries(config, loaded_image->DeviceHandle, root_dir);
