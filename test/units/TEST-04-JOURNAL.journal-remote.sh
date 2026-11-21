@@ -273,6 +273,8 @@ EOF
     rm /run/systemd/journal-remote.conf.d/99-test.conf
 done
 
+python3 "$(dirname "$0")/journal-remote-http.py" -v
+
 # Let's test sending data with custom headers
 echo "$TEST_MESSAGE" | systemd-cat -t "$TEST_TAG"
 journalctl --sync

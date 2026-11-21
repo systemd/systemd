@@ -8,6 +8,7 @@ simple_fuzzers += files(
         'fuzz-env-file.c',
         'fuzz-hostname-setup.c',
         'fuzz-json.c',
+        'fuzz-lz4-blob-scan.c',
         'fuzz-time-util.c',
         'fuzz-udev-database.c',
         'fuzz-user-record.c',
