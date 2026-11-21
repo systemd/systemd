@@ -76,21 +76,26 @@ void expose_port_free_all(ExposePort *p) {
         LIST_CLEAR(ports, p, free);
 }
 
-int expose_port_flush(sd_netlink *nfnl, ExposePort* l, int af, union in_addr_union *exposed) {
+int expose_port_flush(sd_netlink *nfnl, ExposePort *l, int af) {
+        bool logged = false;
         int r;
 
         assert(IN_SET(af, AF_INET, AF_INET6));
-        assert(exposed);
 
         if (!nfnl || !l)
                 return 0;
 
-        if (!in_addr_is_set(af, exposed))
-                return 0;
-
-        log_debug("Lost IP address.");
-
         LIST_FOREACH(ports, p, l) {
+                union in_addr_union *exposed = af == AF_INET ? &p->address4 : &p->address6;
+
+                if (!in_addr_is_set(af, exposed))
+                        continue;
+
+                if (!logged) {
+                        log_debug("Lost IP address.");
+                        logged = true;
+                }
+
                 r = fw_nftables_add_local_dnat(
                                 nfnl,
                                 /* add= */ false,
@@ -100,24 +105,24 @@ int expose_port_flush(sd_netlink *nfnl, ExposePort* l, int af, union in_addr_uni
                                 exposed,
                                 p->container_port,
                                 /* previous_remote= */ NULL);
-                if (r < 0)
+                if (r < 0 && r != -ENOENT)
                         log_warning_errno(r, "Failed to modify %s firewall: %m", af_to_name(af));
+                else
+                        *exposed = IN_ADDR_NULL;
         }
 
-        *exposed = IN_ADDR_NULL;
         return 0;
 }
 
-int expose_port_execute(sd_netlink *rtnl, sd_netlink *nfnl, ExposePort *l, int af, union in_addr_union *exposed) {
+int expose_port_execute(sd_netlink *rtnl, sd_netlink *nfnl, ExposePort *l, int af) {
         _cleanup_free_ struct local_address *addresses = NULL;
         union in_addr_union new_exposed;
-        bool add;
+        bool add, logged = false;
         int r;
 
         assert(rtnl);
         assert(nfnl);
         assert(IN_SET(af, AF_INET, AF_INET6));
-        assert(exposed);
 
         /* Invoked each time an address is added or removed inside the
          * container */
@@ -134,15 +139,21 @@ int expose_port_execute(sd_netlink *rtnl, sd_netlink *nfnl, ExposePort *l, int a
                 addresses[0].scope < RT_SCOPE_LINK;
 
         if (!add)
-                return expose_port_flush(nfnl, l, af, exposed);
+                return expose_port_flush(nfnl, l, af);
 
         new_exposed = addresses[0].address;
-        if (in_addr_equal(af, exposed, &new_exposed))
-                return 0;
-
-        log_debug("New container IP is %s.", IN_ADDR_TO_STRING(af, &new_exposed));
 
         LIST_FOREACH(ports, p, l) {
+                union in_addr_union *exposed = af == AF_INET ? &p->address4 : &p->address6;
+
+                if (in_addr_equal(af, exposed, &new_exposed))
+                        continue;
+
+                if (!logged) {
+                        log_debug("New container IP is %s.", IN_ADDR_TO_STRING(af, &new_exposed));
+                        logged = true;
+                }
+
                 r = fw_nftables_add_local_dnat(
                                 nfnl,
                                 /* add= */ true,
@@ -154,9 +165,10 @@ int expose_port_execute(sd_netlink *rtnl, sd_netlink *nfnl, ExposePort *l, int a
                                 in_addr_is_set(af, exposed) ? exposed : NULL);
                 if (r < 0)
                         log_warning_errno(r, "Failed to modify %s firewall: %m", af_to_name(af));
+                else
+                        *exposed = new_exposed;
         }
 
-        *exposed = new_exposed;
         return 0;
 }
 
