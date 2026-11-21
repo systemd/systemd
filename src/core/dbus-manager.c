@@ -1705,11 +1705,14 @@ static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *
 
         /* The reply to the previous Reload() is normally sent before the next request is dispatched.
          * If it is still pending, refuse rather than drop it. Do this before the rate limit check, so
-         * that a refused request doesn't use up a token. */
-        if (m->pending_reload_message_dbus || m->pending_reload_message_vl) {
-                log_warning("Reloading request rejected, reply to previous reload still pending.");
-                return sd_bus_error_set_errnof(reterr_error, EBUSY,
-                                               "Reload() request rejected, previous reload still in progress.");
+         * that a refused request doesn't use up a token. Refuse also when a reexecution request is
+         * still pending or the manager already has an objective, as the reload would otherwise
+         * silently cancel it. */
+        if (!manager_can_reload(m)) {
+                log_warning("Reloading request rejected, another conflicting operation is still pending.");
+                return sd_bus_error_set_errnof(
+                                reterr_error, EBUSY,
+                                "Reload() request rejected, another conflicting operation is still pending.");
         }
 
         /* Check the rate limit after the authorization succeeds, to avoid denial-of-service issues. */
@@ -1753,6 +1756,14 @@ static int method_reexecute(sd_bus_message *message, void *userdata, sd_bus_erro
         /* Write a log message noting the unit or process who requested the Reexecute() */
         log_caller(message, m, "Reexecution");
 
+        /* See method_reload(). Also, a pending reexecution request must not be replied to twice. */
+        if (!manager_can_reload(m)) {
+                log_warning("Reexecution request rejected, another conflicting operation is still pending.");
+                return sd_bus_error_set_errnof(
+                                reterr_error, EBUSY,
+                                "Reexecute() request rejected, another conflicting operation is still pending.");
+        }
+
         /* Check the rate limit after the authorization succeeds, to avoid denial-of-service issues. */
         if (!ratelimit_below(&m->reload_reexec_ratelimit)) {
                 log_warning("Reexecution request rejected due to rate limit.");
@@ -1763,9 +1774,6 @@ static int method_reexecute(sd_bus_message *message, void *userdata, sd_bus_erro
 
         /* We don't send a reply back here, the client should
          * just wait for us disconnecting. */
-
-        assert(!m->pending_reexecute_message_dbus);
-        assert(!m->pending_reexecute_message_vl);
 
         m->pending_reexecute_message_dbus = sd_bus_message_ref(message);
         m->objective = MANAGER_REEXECUTE;
