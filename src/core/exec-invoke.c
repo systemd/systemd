@@ -2425,12 +2425,8 @@ static int build_environment(
                 if (r < 0)
                         return r;
 
-                uint64_t pidfdid;
-                if (pidfd_get_inode_id_self_cached(&pidfdid) >= 0) {
-                        r = strv_extendf_with_size(&e, &n, "LISTEN_PIDFDID=%"PRIu64, pidfdid);
-                        if (r < 0)
-                                return r;
-                }
+                /* $LISTEN_PIDFDID is set later in exec_invoke(), since with PrivatePIDs= the payload is a
+                 * child we fork off after this point, which has a different pidfd ID. */
 
                 r = strv_extendf_with_size(&e, &n, "LISTEN_FDS=%zu", p->n_socket_fds + p->n_stashed_fds);
                 if (r < 0)
@@ -6927,6 +6923,22 @@ int exec_invoke(
         mountfsd_link = sd_varlink_unref(mountfsd_link);
         /* With PrivatePIDs=, this releases the parent process that set up the connections */
         keep_parent_fd = safe_close(keep_parent_fd);
+
+        /* This process will exec the payload, with or without PrivatePIDs= (in which case we forked into
+         * the new PID namespace above), so set $LISTEN_PIDFDID here for all units, unless the unit set it
+         * explicitly. */
+        if (params->n_socket_fds + params->n_stashed_fds > 0 &&
+            !strv_env_get(accum_env, "LISTEN_PIDFDID")) {
+                uint64_t pidfdid;
+
+                if (pidfd_get_inode_id_self_cached(&pidfdid) >= 0) {
+                        r = strv_env_assignf(&accum_env, "LISTEN_PIDFDID", "%" PRIu64, pidfdid);
+                        if (r < 0) {
+                                *exit_status = EXIT_MEMORY;
+                                return log_oom();
+                        }
+                }
+        }
 
         /* We don't need the pinned rootfs anymore at this point. Close the fds now, so that they are
          * definitely gone before we do our fd rearrangements below. */
