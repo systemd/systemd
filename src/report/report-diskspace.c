@@ -158,7 +158,7 @@ static int mount_collect(Hashmap **file_systems, struct libmnt_fs *fs) {
         }
 
         struct statfs sfs;
-        r = xstatfsat(fd, /* path= */ NULL, &sfs);
+        r = xstatfsat(fd, /* path= */ NULL, /* flags= */ 0, &sfs);
         if (r < 0) {
                 log_debug_errno(r, "Failed to statfs() '%s', ignoring: %m", target);
                 return 0;
