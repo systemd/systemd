@@ -979,6 +979,52 @@ CHANGES WITH 263 in spe:
           ConditionCPUFeature= on x86 and arm64 and shows which features the
           local CPU supports.
 
+        Contributions from: Achill Gilgenast, Adrian Reber, Adrian Vovk,
+        Alberto Planas, Alexandru N. Onea, Alonso Matos,
+        Alvaro Leiva Geisse, Amogh Gurudatta, Andrew Halaney,
+        Ankit Paudel, Anton Skorup, Ard Biesheuvel, Armaan Sandhu,
+        AryanTikam, Avi Weiss, Axel Rasmussen, Ayoub Zaki,
+        Bertrand Jacquin, Birk Skyum, Chris Coulson, Chris Down,
+        Christian Brauner, Christian Glombek, Christian Hesse,
+        Claude Opus 5, Daan De Meyer, Daniel Monteiro, Daniel Nylander,
+        Daniel Rodríguez Fernández, Daniel Rusek, Daniel Sedlak,
+        Daniel Tang, David Strauss, David Woodhouse, DavidVB10,
+        Davis Rollman, Dimitri Daskalakis, Duncan Overbruck,
+        Dustin Kirkland, Ege Ecevit, Egor Ignatov, Eisuke Imaizumi,
+        Eisuke Kawashima, Eric Boucher, Everton de Matos, Fiona Klute,
+        Florian Franzen, Franck Bui, Frantisek Sumsal, Frederik Deweerdt,
+        Fredrik Hugosson, Georg Müller, GreyXor, Hans de Goede,
+        Haokai Ding, Heran Yang, Ian Pilcher, Ibrahim Issa, Ilya Naidanov,
+        Ivan Kruglov, Jack Boykin, Jack Rosenberg, Jake Freeland,
+        Jakub Znamenáček, Jan Leon, Jared Wuerzburger, Jean Capiez,
+        Jelle van der Waa, Jeremy Linton, Jiajun Leng, Jian Wen,
+        Johannes Süllner, Jonas Burgdorf, Jonathan Davies, Jonghyun An,
+        Josh Hoffer, Julian Sparber, Jörg Behrmann, Kai Lüke,
+        Kamil Monicz, Kanishk, Kurt McKee, Lars Sjöstrom,
+        Lennart Poettering, LevitatingBusinessMan (Rein Fernhout),
+        Lil Clanky, Luca Boccassi, Luca Weiss, Maciej Lech,
+        Maciej Szeptuch, Mahdi Shariat, Manuel, Marija Grineviciute,
+        Markus Göllnitz, Martin Pitt, Matthias Klumpp, Max Chernoff,
+        Michael Vogt, Mohamed Fall, Muhammed Sariyildiz,
+        Nandakumar Raghavan, Nayyar, Nick, Nick Rosbrook, Nico Brailovsky,
+        Noa, Pat Riehecky, Paul Meyer, Philip Withnall, Prachi Jha,
+        Priit Jõerüüt, Pétur Ingi Egilsson, Raito Bezarius,
+        Reilly Brogan, Ricardo Branco, Ricardo Ribalda, Ricardo Salveti,
+        Rihards Prieditis, Rime, Robert Beckett, Rodrigo Campos,
+        Roman Perehonchuk, Roy-Magne Mo, Sebastian Wick, SecretLUL, Semyon,
+        Sergey Tiraspolsky, Simon Pilkington, Simon de Vlieger, SimonBits,
+        Siteshwar Vashisht, Skye Soss, Taha Yerdelen, Tarek Abu-Hariri,
+        Thorsten Kukuk, Timo Rothenpieler, Tobias Hunger, Tobias Klauser,
+        Tom Langwaldt, Totoro, Valentin Lefebvre, WavJaby, Wei-Lun Li,
+        WilliButz, Xinyu Yu, Yu Watanabe, Zbigniew Jędrzejewski-Szmek,
+        abdurrafay3, alegru, bilkoua, cksrb63, dongshengyuan, flixman,
+        flo-at-work, iacopo, khromenokroman, lucia-huang7, mscherer, nikhilnrr,
+        nikstur, r-vdp, rashidmya, ravindu644, rudy-07, smalltownswot,
+        theogeff, ujo4eva, umutcagand, venkatchalla06, vidir-semaphor,
+        whoiskamchatka, xinlongchen, zouge666
+
+        — Edinburgh, 2026/11/19
+
 CHANGES WITH 262:
 
         Announcements of Future Feature Removals and Incompatible Changes:
@@ -1853,7 +1899,7 @@ CHANGES WITH 262:
         zhaoshuang, zouge666, Марко Костић (Marko Kostić),
         김인수
 
-        — Lavanttal Tal, 2026/09/22
+        — Lavanttal, 2026/09/22
 
 CHANGES WITH 261:
 
