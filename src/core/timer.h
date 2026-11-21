@@ -40,6 +40,7 @@ typedef struct Timer {
         usec_t accuracy_usec;
         usec_t random_delay_usec;
         usec_t random_offset_usec;
+        usec_t min_interval_usec;
 
         LIST_HEAD(TimerValue, values);
         usec_t next_elapse_realtime;
