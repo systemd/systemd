@@ -190,6 +190,27 @@ UTF-16.
 → **Measured hash** covers the literal kernel command line in UTF-16 (without any
 trailing NUL bytes).
 
+### PCR 12, `EV_EVENT_TAG`, Type #1 DeviceTree
+
+When Secure Boot is disabled and a Boot Loader Specification Type #1 entry
+specifies a DeviceTree with the `devicetree` field, the DeviceTree is measured as
+a tagged event after it is read and before it is installed. If the measurement
+fails, the DeviceTree is not installed and the entry is not booted.
+
+This is about DeviceTrees referenced directly by the boot entry, not about
+DeviceTree addons (see below). Unlike addons, these DeviceTrees are not
+authenticated, hence they are measured with an event tag of their own, so that
+the two can be told apart in the event log.
+
+→ **Event Tag** `0x37c1e1f3`
+
+→ **Description** is the DeviceTree path from the Type #1 entry, in UTF-16,
+normalized to an EFI-style path with backslash separators and duplicate
+separators collapsed.
+
+→ **Measured hash** covers the content of the DeviceTree exactly as read from
+disk, before any firmware fixups are applied.
+
 ## PCR Measurements Made by `systemd-stub` (UEFI)
 
 ### PCR 1, `EV_EVENT_TAG`, SMBIOS information

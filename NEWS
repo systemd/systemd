@@ -680,6 +680,15 @@ CHANGES WITH 263 in spe:
           preparing PCR policies for offline signing. "ukify completion"
           generates completion scripts for bash and zsh.
 
+        * DeviceTrees referenced directly by the "devicetree" field of Boot
+          Loader Specification Type #1 entries (i.e. not DeviceTree addons)
+          are now measured into PCR 12 as tagged events. Such DeviceTrees are
+          only loaded when Secure Boot is disabled, as they are not
+          authenticated, and they use an event tag separate from the one used
+          for DeviceTree addons. If the measurement fails, the entry is not
+          booted. Existing PCR 12 policies for such entries need to be updated
+          to include the new measurement.
+
         Changes in systemd-firstboot, systemd-creds and systemd-sysinstall:
 
         * systemd-firstboot --image= gained --addon= to write settings into

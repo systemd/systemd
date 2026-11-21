@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "devicetree.h"
+#include "efi-log.h"
+#include "measure.h"
 #include "proto/dt-fixup.h"
+#include "tpm2-pcr.h"
 #include "util.h"
 
 #define FDT_V1_SIZE (7*4)
@@ -65,17 +68,13 @@ static EFI_STATUS devicetree_fixup(struct devicetree_state *state, size_t len) {
 EFI_STATUS devicetree_install(struct devicetree_state *state, EFI_FILE *root_dir, char16_t *name) {
         _cleanup_file_close_ EFI_FILE *handle = NULL;
         _cleanup_free_ EFI_FILE_INFO *info = NULL;
+        _cleanup_free_ char *dtb = NULL;
         size_t len;
         EFI_STATUS err;
 
         assert(state);
         assert(root_dir);
         assert(name);
-
-        /* Capture the original value for the devicetree table. NULL is not an error in this case so we don't
-         * need to check the return value. NULL simply means the system fw had no devicetree initially (and
-         * is the correct value to use to return to the initial state if needed). */
-        state->orig = find_configuration_table(MAKE_GUID_PTR(EFI_DTB_TABLE));
 
         err = root_dir->Open(root_dir, &handle, name, EFI_FILE_MODE_READ, EFI_FILE_READ_ONLY);
         if (err != EFI_SUCCESS)
@@ -88,22 +87,30 @@ EFI_STATUS devicetree_install(struct devicetree_state *state, EFI_FILE *root_dir
                 /* 32MB device tree blob doesn't seem right */
                 return EFI_INVALID_PARAMETER;
 
-        len = info->FileSize;
-
-        err = devicetree_allocate(state, len);
+        err = file_handle_read(handle, /* offset= */ 0, info->FileSize, &dtb, &len);
         if (err != EFI_SUCCESS)
                 return err;
+        if (len != info->FileSize)
+                return EFI_INVALID_PARAMETER;
 
-        err = handle->Read(handle, &len, PHYSICAL_ADDRESS_TO_POINTER(state->addr));
+        /* DeviceTrees referenced by Type #1 entries are not authenticated, hence measure them before
+         * installing them, and refuse to install them if that fails. Note that this measures the DeviceTree
+         * as read from disk, i.e. before any firmware fixups are applied. */
+        err = tpm_log_tagged_event(
+                        TPM2_PCR_KERNEL_CONFIG,
+                        POINTER_TO_PHYSICAL_ADDRESS(dtb),
+                        len,
+                        TYPE1_DEVICETREE_EVENT_TAG_ID,
+                        name,
+                        /* ret_measured= */ NULL);
         if (err != EFI_SUCCESS)
-                return err;
+                return log_error_status(
+                                err,
+                                "Unable to extend PCR %i with DTB '%ls': %m",
+                                TPM2_PCR_KERNEL_CONFIG,
+                                name);
 
-        err = devicetree_fixup(state, len);
-        if (err != EFI_SUCCESS)
-                return err;
-
-        return BS->InstallConfigurationTable(
-                        MAKE_GUID_PTR(EFI_DTB_TABLE), PHYSICAL_ADDRESS_TO_POINTER(state->addr));
+        return devicetree_install_from_memory(state, dtb, len);
 }
 
 static const char* devicetree_get_compatible(const void *dtb) {
