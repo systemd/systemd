@@ -425,7 +425,22 @@
     key, can only be unlocked when a profile with such a file is booted. It defaults to on for profile
     <literal>@0</literal> and to off for all other profiles (e.g. set <literal>PCRLOCK=yes</literal> in a
     profile that only adds debug options to the kernel command line, and leave it off in a factory reset
-    profile).</para>
+    profile). <literal>CONFIRM=</literal> takes a message string. If set,
+    <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> shows
+    this message when the profile is selected for booting, and asks the user to type
+    <literal>YES</literal> to confirm, before invoking it. If the user enters anything else, or presses
+    Escape, the boot menu is shown again. This is useful for profiles that perform destructive operations,
+    such as a factory reset (e.g. <literal>CONFIRM='This will erase all data on this device!'</literal>).
+    Note that this is enforced by the boot menu only, it has no effect if the UKI is invoked by other
+    means. <literal>CONDITION_TPM=</literal>, <literal>CONDITION_SECUREBOOT=</literal> and
+    <literal>CONDITION_NETBOOT=</literal> take booleans. If set to true, the profile is only shown in the
+    <command>systemd-boot</command> menu if a TPM is available, if UEFI Secure Boot is enabled, or if the
+    system has been booted from the network (i.e. via UEFI HTTP boot), respectively. If set to false, the
+    profile is only shown if the TPM is missing, if UEFI Secure Boot is disabled, or if the system has not
+    been booted from the network, respectively. If multiple conditions are specified, all of them must be
+    met for the profile to be shown. If not specified, the profile is shown regardless of these
+    properties. Like <literal>CONFIRM=</literal> these fields are only evaluated by the boot menu, they
+    have no effect if the UKI is invoked by other means.</para>
   </refsect1>
 
   <refsect1>
