@@ -28,7 +28,8 @@ at_exit() {
     rm -rf /tmp/TEST-07-PID1-private-pids-root
     # Stop any test services
     systemctl kill --signal=KILL TEST-07-PID1-private-pid.service
-    systemctl stop TEST-07-PID1-private-pids-socket.socket
+    systemctl stop TEST-07-PID1-private-pids-socket-no.socket TEST-07-PID1-private-pids-socket-yes.socket
+    rm -f /tmp/TEST-07-PID1-private-pids-socket-no /tmp/TEST-07-PID1-private-pids-socket-yes
     # Remove any failed transient units
     systemctl reset-failed
 }
@@ -68,20 +69,26 @@ testcase_socket_activation() {
     # https://github.com/systemd/systemd/issues/44953
     local unit="TEST-07-PID1-private-pids-socket"
     local fdstore=/usr/lib/systemd/tests/unit-tests/manual/test-fdstore
+    local private_pids
 
-    if [[ ! -x "$fdstore" ]]; then
-        echo "test-fdstore is not available, skipping the test..."
-        return 0
+    # sd_listen_fds() must accept the fds, i.e. $LISTEN_PID and $LISTEN_PIDFDID must refer to the payload.
+    # The payload also records $LISTEN_PIDFDID, which is only set if the kernel supports pidfd IDs.
+    for private_pids in no yes; do
+        systemd-run --unit="$unit-$private_pids" \
+                    --socket-property=ListenStream="/run/$unit-$private_pids.sock" \
+                    -p Type=oneshot \
+                    -p PrivatePIDs="$private_pids" \
+                    bash -c 'echo "$${LISTEN_PIDFDID-unset}" >"$$0" && exec "$$1" listen exit' \
+                    "/tmp/$unit-$private_pids" "$fdstore"
+        systemctl start "$unit-$private_pids.service"
+        systemctl stop "$unit-$private_pids.socket"
+    done
+
+    # With PrivatePIDs=yes, $LISTEN_PIDFDID must be set whenever it is set without it
+    if [[ "$(cat "/tmp/$unit-no")" != unset ]]; then
+        assert_neq "$(cat "/tmp/$unit-yes")" unset
     fi
-
-    # sd_listen_fds() must accept the fds, i.e. $LISTEN_PID and $LISTEN_PIDFDID must refer to the payload
-    systemd-run --unit="$unit" \
-                --socket-property=ListenStream="/run/$unit.sock" \
-                -p Type=oneshot \
-                -p PrivatePIDs=yes \
-                "$fdstore" listen exit
-    systemctl start "$unit.service"
-    systemctl stop "$unit.socket"
+    rm -f "/tmp/$unit-no" "/tmp/$unit-yes"
 }
 
 testcase_analyze() {
