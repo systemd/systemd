@@ -1024,7 +1024,8 @@ ID=storagetm' \
 
       <programlisting>$ ukify build \
       --profile='TITLE=Factory Reset
-ID=factory-reset' \
+ID=factory-reset
+CONFIRM=This will erase all data on this device!' \
       --cmdline='quiet rw systemd.unit=factory-reset.target' \
       --output=profile2.efi
 </programlisting>
