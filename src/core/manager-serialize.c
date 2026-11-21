@@ -6,6 +6,7 @@
 #include "alloc-util.h"
 #include "bpf-restrict-fsaccess.h"
 #include "dbus.h"
+#include "dbus-job.h"
 #include "dynamic-user.h"
 #include "fd-util.h"
 #include "fdset.h"
@@ -205,6 +206,11 @@ int manager_serialize(
                                sd_id128_is_null(m->bus_id) ? m->deserialized_bus_id : m->bus_id);
         bus_track_serialize(m->subscribed, f, "subscribed");
         (void) serialize_strv(f, "subscribed", m->subscribed_as_strv);
+
+        /* The held back JobRemoved signals stay around on daemon-reload (in contrast to reexec), hence only
+         * pass them along if we'll go away. */
+        if (m->objective != MANAGER_RELOAD)
+                bus_job_serialize_held_removed_signals(m, f);
 
         r = dynamic_user_serialize(m, f, fds);
         if (r < 0)
@@ -800,6 +806,13 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         r = strv_extend(&m->subscribed_as_strv, val);
                         if (r < 0)
                                 return r;
+                } else if ((val = startswith(l, "held-job-removed="))) {
+
+                        r = bus_job_deserialize_held_removed_signal(m, val);
+                        if (r == -ENOMEM)
+                                return r;
+                        if (r < 0)
+                                log_notice_errno(r, "Failed to deserialize held back JobRemoved signal '%s', ignoring: %m", val);
                 } else if ((val = startswith(l, "varlink-server-metrics-connections="))) {
                         r = manager_setup_varlink_metrics_server(m);
                         if (r < 0)
