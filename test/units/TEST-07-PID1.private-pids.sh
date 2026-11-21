@@ -30,6 +30,7 @@ at_exit() {
     systemctl kill --signal=KILL TEST-07-PID1-private-pid.service
     systemctl stop TEST-07-PID1-private-pids-socket-no.socket TEST-07-PID1-private-pids-socket-yes.socket
     rm -f /tmp/TEST-07-PID1-private-pids-socket-no /tmp/TEST-07-PID1-private-pids-socket-yes
+    systemctl stop TEST-07-PID1-private-pids-env-no.socket TEST-07-PID1-private-pids-env-yes.socket
     # Remove any failed transient units
     systemctl reset-failed
 }
@@ -90,6 +91,24 @@ testcase_socket_activation() {
         assert_neq "$(cat "/tmp/$unit-yes")" unset
     fi
     rm -f "/tmp/$unit-no" "/tmp/$unit-yes"
+}
+
+testcase_pid_environment() {
+    # https://github.com/systemd/systemd/issues/44960
+    local unit="TEST-07-PID1-private-pids-env"
+    local private_pids
+
+    # $LISTEN_PID, $WATCHDOG_PID and $SYSTEMD_EXEC_PID must refer to the payload
+    for private_pids in no yes; do
+        systemd-run --unit="$unit-$private_pids" \
+                    --socket-property=ListenStream="/run/$unit-$private_pids.sock" \
+                    -p Type=oneshot \
+                    -p WatchdogSec=1h \
+                    -p PrivatePIDs="$private_pids" \
+                    bash -xec 'test "$$LISTEN_PID" = "$$$$"; test "$$WATCHDOG_PID" = "$$$$"; test "$$SYSTEMD_EXEC_PID" = "$$$$"'
+        systemctl start "$unit-$private_pids.service"
+        systemctl stop "$unit-$private_pids.socket"
+    done
 }
 
 testcase_analyze() {
