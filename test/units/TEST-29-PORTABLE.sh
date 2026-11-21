@@ -27,21 +27,13 @@ openssl smime -sign -nocerts -noattr -binary \
               -outform der \
               -out /tmp/untrusted/minimal_9.roothash.p7s
 
-# Set longer timeout for slower machines, e.g. non-KVM vm.
-mkdir -p /run/systemd/system.conf.d
-cat >/run/systemd/system.conf.d/10-timeout.conf <<EOF
-[Manager]
-DefaultEnvironment=SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC=30
-ManagerEnvironment=SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC=30
-EOF
-
 mkdir -p /run/systemd/system/systemd-portabled.service.d/
 cat <<EOF >/run/systemd/system/systemd-portabled.service.d/override.conf
 [Service]
 Environment=SYSTEMD_LOG_LEVEL=debug
 EOF
 
-systemctl daemon-reexec
+systemctl daemon-reload
 
 ARGS=()
 STATE_DIRECTORY=/var/lib/private/
@@ -54,7 +46,6 @@ if [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
 fi
 export STATE_DIRECTORY
 export SYSTEMD_LOG_LEVEL=debug
-export SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC=30
 
 # Quick smoke tests
 
