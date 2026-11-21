@@ -366,7 +366,8 @@ static int manager_synthesize_orphaned_unit(
         if (!description)
                 return log_oom();
 
-        r = unit_deserialize_state(orphan, f, fds);
+        /* The canonical unit may still be using the directories configured by the old fragment. */
+        r = unit_deserialize_state(orphan, f, fds, /* restore_clean_directories= */ false);
         if (r < 0)
                 return log_notice_errno(r, "Failed to deserialize state into orphan unit '%s': %m", orphaned_name);
 
@@ -450,7 +451,7 @@ static int manager_deserialize_one_unit(
                 return r;
         }
 
-        r = unit_deserialize_state(u, f, fds);
+        r = unit_deserialize_state(u, f, fds, /* restore_clean_directories= */ true);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0)
