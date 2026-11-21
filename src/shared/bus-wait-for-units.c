@@ -496,10 +496,14 @@ static int wait_for_item_parse_properties(WaitForItem *item, sd_bus_message *m) 
                 return 0;
         }
 
+        /* A unit whose file is gone may still be doing maintenance (cleaning its directories). In
+         * that case wait for the real state and result, like we do for units with a fragment. */
+        bool missing = streq_ptr(item->load_state, "not-found") && !FLAGS_SET(item->flags, BUS_WAIT_FOR_MAINTENANCE_END);
+
         if (item->removed) {
                 /* The unit was removed while the service manager was reloading, and we are now checking
                  * whether it came back. If it isn't loaded anymore it's gone for good. */
-                if (streq_ptr(item->load_state, "not-found")) {
+                if (missing) {
                         log_error("Unit %s has been removed during service manager reload while waiting for it.",
                                   item->name);
                         wait_for_item_fail(item);
@@ -509,7 +513,7 @@ static int wait_for_item_parse_properties(WaitForItem *item, sd_bus_message *m) 
                 item->removed = false;
         }
 
-        if (!had_load_state && streq_ptr(item->load_state, "not-found")) {
+        if (!had_load_state && missing) {
                 /* The unit did not exist from the beginning. Treat it as terminated successfully. */
                 log_debug("Unit %s is not loaded.", item->name);
 
