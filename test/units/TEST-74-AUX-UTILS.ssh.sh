@@ -81,3 +81,55 @@ if test -e /dev/vsock -a -d /sys/module/vsock_loopback ; then
         rm -f "$OUT_FILE"
     fi
 fi
+
+# Test mptcp/ via a loopback sshd socket. If MPTCP is not available in the kernel, listen via plain TCP
+# instead, which also covers systemd-ssh-proxy's fallback to TCP.
+SOCKET_PROTOCOL=
+if [[ "$(cat /proc/sys/net/mptcp/enabled 2>/dev/null)" == 1 ]]; then
+    SOCKET_PROTOCOL="SocketProtocol=mptcp"
+fi
+
+cat >/run/systemd/system/sshd-mptcp-test.socket <<EOF
+[Socket]
+ListenStream=127.0.0.1:2222
+$SOCKET_PROTOCOL
+Accept=yes
+EOF
+
+cat >/run/systemd/system/sshd-mptcp-test@.service <<EOF
+[Service]
+ExecStart=-$(command -v sshd) -i
+StandardInput=socket
+EOF
+
+rm_mptcp_units() {
+    systemctl stop sshd-mptcp-test.socket
+    rm -f /run/systemd/system/sshd-mptcp-test.socket /run/systemd/system/sshd-mptcp-test@.service
+    systemctl daemon-reload
+    rm_sshd_conf
+}
+trap rm_mptcp_units EXIT
+
+systemctl daemon-reload
+systemctl start sshd-mptcp-test.socket
+
+SSH_OPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i "$ROOTID" -p 2222)
+
+ssh "${SSH_OPTS[@]}" -v mptcp/127.0.0.1 cat /etc/machine-id | cmp - /etc/machine-id
+# "localhost" goes through getaddrinfo(), and might resolve to ::1 first, which is refused, since we only
+# listen on IPv4, hence this also covers trying multiple addresses in a row.
+ssh "${SSH_OPTS[@]}" -v mptcp/localhost cat /etc/machine-id | cmp - /etc/machine-id
+
+# Interface suffixes are only valid for IPv6 link-local addresses
+(! /usr/lib/systemd/systemd-ssh-proxy mptcp/127.0.0.1%lo 2222 </dev/null)
+(! /usr/lib/systemd/systemd-ssh-proxy mptcp/::1%lo 2222 </dev/null)
+(! /usr/lib/systemd/systemd-ssh-proxy mptcp/fe80::1%nosuchif0 2222 </dev/null)
+
+if ! command -v scp >/dev/null ; then
+    echo "scp not found, skipping subtest" >&2
+else
+    OUT_FILE=$(mktemp -u)
+    scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i "$ROOTID" -P 2222 -v mptcp%127.0.0.1:/etc/machine-id "$OUT_FILE"
+    cmp "$OUT_FILE" /etc/machine-id
+    rm -f "$OUT_FILE"
+fi

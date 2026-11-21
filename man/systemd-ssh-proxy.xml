@@ -74,8 +74,9 @@ Host mptcp/* mptcp%*
     multiplexer over <constant>AF_UNIX</constant> sockets. See
     <ulink url="https://github.com/cloud-hypervisor/cloud-hypervisor/blob/main/docs/vsock.md">cloud-hypervisor VSOCK support</ulink>
     and <ulink url="https://github.com/firecracker-microvm/firecracker/blob/main/docs/vsock.md">Using the Firecracker Virtio-vsock Device</ulink>.
-    <literal>mptcp/</literal> followed by a host name, or an IPv4 or IPv6 address (optionally suffixed
-    with <literal>%</literal> and a network interface name or index, for link-local IPv6 addresses) will
+    <literal>mptcp/</literal> followed by a host name, or an IPv4 or IPv6 address (link-local IPv6
+    addresses must be suffixed with <literal>%</literal> and a network interface name or index, which is
+    refused for any other kind of address) will
     result in an SSH connection made to that host via Multipath TCP (see
     <citerefentry project="man-pages"><refentrytitle>mptcp</refentrytitle><manvolnum>7</manvolnum></citerefentry>).
     Host names are resolved via NSS, and all returned addresses are tried in order until a connection
