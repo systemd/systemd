@@ -1721,11 +1721,6 @@ static int socket_open_fds(Socket *orig_s) {
                                         if (IN_SET(protocol, IPPROTO_SCTP, IPPROTO_MPTCP))
                                                 p->address.protocol = protocol;
                                         break;
-
-                                case SOCK_DGRAM:
-                                        if (protocol == IPPROTO_UDPLITE)
-                                                p->address.protocol = protocol;
-                                        break;
                                 }
                         }
 

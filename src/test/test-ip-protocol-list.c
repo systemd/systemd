@@ -72,7 +72,6 @@ TEST(parse_ip_protocol_full) {
 TEST(socket_protocol_from_string) {
         ASSERT_OK_EQ(socket_protocol_from_string(""), IPPROTO_IP);
         ASSERT_OK_EQ(socket_protocol_from_string("sctp"), IPPROTO_SCTP);
-        ASSERT_OK_EQ(socket_protocol_from_string("udplite"), IPPROTO_UDPLITE);
         ASSERT_OK_EQ(socket_protocol_from_string("mptcp"), IPPROTO_MPTCP);
         ASSERT_OK_EQ(socket_protocol_from_string("mptcp-auto"), IPPROTO_MPTCP | SOCKET_PROTOCOL_AUTO);
         ASSERT_OK_EQ(socket_protocol_from_string("MPTCP-auto"), IPPROTO_MPTCP | SOCKET_PROTOCOL_AUTO);
@@ -94,7 +93,7 @@ TEST(socket_protocol_to_string) {
         ASSERT_NULL(socket_protocol_to_string(SOCKET_PROTOCOL_AUTO));
         ASSERT_NULL(socket_protocol_to_string(-1));
 
-        FOREACH_STRING(s, "sctp", "udplite", "mptcp", "mptcp-auto")
+        FOREACH_STRING(s, "sctp", "mptcp", "mptcp-auto")
                 ASSERT_STREQ(socket_protocol_to_string(socket_protocol_from_string(s)), s);
 }
 

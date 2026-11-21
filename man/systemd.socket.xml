@@ -323,11 +323,9 @@
 
       <varlistentry>
         <term><varname>SocketProtocol=</varname></term>
-        <listitem><para>Takes one of <option>udplite</option>,
-        <option>sctp</option> or <option>mptcp</option>. The socket will use
-        the UDP-Lite (<constant>IPPROTO_UDPLITE</constant>), SCTP
-        (<constant>IPPROTO_SCTP</constant>) or MPTCP
-        (<constant>IPPROTO_MPTCP</constant>) protocol, respectively.</para>
+        <listitem><para>Takes one of <option>sctp</option> or <option>mptcp</option>. The socket will
+        use the SCTP (<constant>IPPROTO_SCTP</constant>) or MPTCP (<constant>IPPROTO_MPTCP</constant>)
+        protocol, respectively.</para>
 
         <para>Also takes <option>mptcp-auto</option>, which is equivalent to <option>mptcp</option> if
         MPTCP is available, and otherwise falls back to TCP. MPTCP is considered unavailable if the kernel

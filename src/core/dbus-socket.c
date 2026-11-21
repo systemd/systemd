@@ -170,7 +170,7 @@ static const char* socket_protocol_to_string_checked(int32_t i) {
         if (i == IPPROTO_IP)
                 return "";
 
-        if (!IN_SET(i, IPPROTO_UDPLITE, IPPROTO_SCTP, IPPROTO_MPTCP, IPPROTO_MPTCP | SOCKET_PROTOCOL_AUTO))
+        if (!IN_SET(i, IPPROTO_SCTP, IPPROTO_MPTCP, IPPROTO_MPTCP | SOCKET_PROTOCOL_AUTO))
                 return NULL;
 
         return socket_protocol_to_string(i);

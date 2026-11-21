@@ -56,7 +56,6 @@ ListenSpecial=
 #ListenNetlink=
 ListenMessageQueue=
 ListenUSBFunction=
-SocketProtocol=udplite
 SocketProtocol=sctp
 SocketProtocol=mptcp
 SocketProtocol=mptcp-auto
