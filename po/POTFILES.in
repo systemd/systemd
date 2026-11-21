@@ -13,5 +13,7 @@ src/portable/org.freedesktop.portable1.policy
 src/resolve/org.freedesktop.resolve1.policy
 src/sysupdate/org.freedesktop.sysupdate1.policy
 src/timedate/org.freedesktop.timedate1.policy
+src/core/dbus-job.c
+src/core/dbus-scope.c
 src/core/dbus-unit.c
 src/shared/libfido2-util.c
