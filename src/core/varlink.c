@@ -381,6 +381,8 @@ static void vl_disconnect(sd_varlink_server *s, sd_varlink *link, void *userdata
 
         if (link == m->managed_oom_varlink)
                 m->managed_oom_varlink = sd_varlink_unref(link);
+        if (link == m->pending_reexecute_message_vl)
+                m->pending_reexecute_message_vl = sd_varlink_unref(link);
 
         if (link == m->pending_reload_message_vl)
                 m->pending_reload_message_vl = sd_varlink_unref(link);
@@ -644,6 +646,7 @@ void manager_varlink_done(Manager *m) {
         sd_varlink_close_unref(TAKE_PTR(m->managed_oom_varlink));
 
         m->pending_reload_message_vl = sd_varlink_unref(m->pending_reload_message_vl);
+        m->pending_reexecute_message_vl = sd_varlink_unref(m->pending_reexecute_message_vl);
         m->stashed_varlink_job_clients = hashmap_free(m->stashed_varlink_job_clients);
 
         m->varlink_server = sd_varlink_server_unref(m->varlink_server);
@@ -665,6 +668,17 @@ void manager_varlink_send_pending_reload_message(Manager *m) {
                 log_warning_errno(r, "Failed to send queued reload message, ignoring: %m");
 
         m->pending_reload_message_vl = sd_varlink_unref(m->pending_reload_message_vl);
+}
+
+void manager_varlink_send_pending_reexecute_error(Manager *m, int error) {
+        assert(m);
+
+        if (!m->pending_reexecute_message_vl)
+                return;
+
+        (void) sd_varlink_error_errno(m->pending_reexecute_message_vl, error);
+
+        m->pending_reexecute_message_vl = sd_varlink_unref(m->pending_reexecute_message_vl);
 }
 
 int manager_varlink_claim_connection(Manager *m, const char *id, sd_varlink_server_claim_flags_t flags, sd_varlink **ret) {
