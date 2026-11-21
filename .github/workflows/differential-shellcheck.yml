@@ -6,22 +6,22 @@ on:
   push:
     paths:
       - '**'
-      - "!docs/**"
-      - "!README*"
-      - "!LICENSE*"
-      - "!LICENSES/**"
-      - "!TODO.md"
+      - '!docs/**'
+      - '!**/README*'
+      - '!LICENSE*'
+      - '!LICENSES/**'
+      - '!TODO.md'
       - '!po/**'
     branches:
       - main
   pull_request:
     paths:
       - '**'
-      - "!docs/**"
-      - "!README*"
-      - "!LICENSE*"
-      - "!LICENSES/**"
-      - "!TODO.md"
+      - '!docs/**'
+      - '!**/README*'
+      - '!LICENSE*'
+      - '!LICENSES/**'
+      - '!TODO.md'
       - '!po/**'
     branches:
       - main

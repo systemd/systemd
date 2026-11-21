@@ -17,6 +17,7 @@ on:
       - 'meson_options.txt'
       - 'src/**'
       - 'test/fuzz/**'
+      - 'test/test-bcd/**'
       - 'tools/oss-fuzz.sh'
   pull_request_target:
     types: [closed]
@@ -28,6 +29,7 @@ on:
       - 'meson_options.txt'
       - 'src/**'
       - 'test/fuzz/**'
+      - 'test/test-bcd/**'
       - 'tools/oss-fuzz.sh'
     branches:
       - main
