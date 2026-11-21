@@ -2560,6 +2560,98 @@ EOF
     systemd-dissect -U "$imgs/mnt"
 }
 
+testcase_make_mount_nodes() {
+    local defs imgs epoch
+
+    if systemd-detect-virt --quiet --container; then
+        echo "Skipping MakeMountNodes= test in container."
+        return
+    fi
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod 0755 "$defs"
+
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=root
+Format=ext4
+MakeDirectories=/existing
+MakeMountNodes=/usr /home /existing /a/b/c
+EOF
+
+    epoch=1700000000
+
+    env SOURCE_DATE_EPOCH="$epoch" \
+        systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --empty=create \
+                   --size=1G \
+                   --dry-run=no \
+                   --json=pretty \
+                   "$imgs/zzz"
+
+    systemd-dissect "$imgs/zzz" -M "$imgs/mnt"
+
+    for d in usr home existing a/b/c; do
+        assert_eq "$(stat -c %F:%a "$imgs/mnt/$d")" "directory:0"
+        assert_eq "$(stat -c %Y "$imgs/mnt/$d")" "$epoch"
+        assert_eq "$(find "$imgs/mnt/$d" -mindepth 1 | wc -l)" "0"
+    done
+
+    # Parent directories are created with the usual MakeDirectories= mode, and their mtime is clamped
+    assert_eq "$(stat -c %a "$imgs/mnt/a/b")" "755"
+    assert_eq "$(stat -c %Y "$imgs/mnt/a/b")" "$epoch"
+
+    # The immutable flag is only set when populating the mounted file system, mkfs does not carry it over
+    # from a staging directory.
+    if [[ "$OFFLINE" == "no" ]]; then
+        for d in usr home existing a/b/c; do
+            assert_in "i" "$(lsattr -d "$imgs/mnt/$d" | cut -d " " -f1)"
+        done
+        (! mkdir "$imgs/mnt/usr/foo")
+    fi
+
+    systemd-dissect -U "$imgs/mnt"
+
+    # A mount node that is not empty is refused
+    rm -f "$imgs/zzz"
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=root
+Format=ext4
+MakeDirectories=/srv/foo
+MakeMountNodes=/srv
+EOF
+
+    (! systemd-repart --offline="$OFFLINE" \
+                      --definitions="$defs" \
+                      --empty=create \
+                      --size=1G \
+                      --dry-run=no \
+                      "$imgs/zzz")
+
+    # The root directory and nested mount nodes are refused
+    for nodes in "/" "/a /a/b" "/a/b /a"; do
+        rm -f "$imgs/zzz"
+        tee "$defs/root.conf" <<EOF
+[Partition]
+Type=root
+Format=ext4
+MakeMountNodes=$nodes
+EOF
+
+        (! systemd-repart --offline="$OFFLINE" \
+                          --definitions="$defs" \
+                          --empty=create \
+                          --size=1G \
+                          --dry-run=no \
+                          "$imgs/zzz")
+    done
+}
+
 testcase_fallback_partitions() {
     local workdir image defs
 
