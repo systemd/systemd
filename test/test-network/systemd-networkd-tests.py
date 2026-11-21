@@ -2647,6 +2647,172 @@ ReorderHeader=no
         networkctl()
         self.wait_online('vxcan99:carrier', 'vxcan-peer:carrier')
 
+    @expectedFailureIfModuleIsNotAvailable('amneziawg')
+    @unittest.skipUnless(shutil.which('awg'), 'awg is not available')
+    def test_amneziawg(self):
+        copy_credential(
+            '25-wireguard-preshared-key-peer2-cred.txt',
+            'network.wireguard.amneziawg.header-protection',
+        )
+        copy_network_unit('25-amneziawg.netdev', '25-amneziawg.network', '25-wireguard-private-key.txt')
+        for name, settings in (
+            ('overlap', 'H1=100-200\nH2=200-300\n'),
+            ('long', 'I3=<b 0x' + '00' * 32768 + '>\n'),
+            (
+                'short-hpk',
+                'HeaderProtectionKey=6Fsg8XN0DE6aPQgAX4r2oazEYJOGqyHUz3QRH/jCB+I=\n'
+                'S1=11\nS2=12\nS3=12\nS4=12\n',
+            ),
+        ):
+            with open(
+                os.path.join(network_unit_dir, f'25-amneziawg-{name}.netdev'), mode='w', encoding='utf-8'
+            ) as f:
+                f.write(
+                    f'[NetDev]\nName=awg-{name}\nKind=amneziawg\n'
+                    '[WireGuard]\nPrivateKey=EEGlnEPYJV//kbvvIqxKkQwOiS+UENyPncC4bF46ong=\n'
+                    f'[AmneziaWG]\n{settings}'
+                )
+        start_networkd()
+        self.wait_online('awg99:routable')
+        self.check_link_exists('awg-overlap', expected=False)
+        self.check_link_exists('awg-long', expected=False)
+        self.check_link_exists('awg-short-hpk', expected=False)
+        self.networkctl_check_unit('awg99', '25-amneziawg', '25-amneziawg')
+        self.wait_route(
+            'awg99', '192.168.26.0/24 proto static scope link metric 123', table='1234', ipv='-4'
+        )
+        self.wait_route('awg99', 'fd31:bf08:57cb::/48 proto static metric 123', table='1234', ipv='-6')
+
+        expected = {
+            'ListenPort': '51822',
+            'PrivateKey': 'EEGlnEPYJV//kbvvIqxKkQwOiS+UENyPncC4bF46ong=',
+            'Jc': '4',
+            'Jmin': '40',
+            'Jmax': '80',
+            'S1': '12',
+            'S2': '13',
+            'S3': '14',
+            'S4': '15',
+            'H1': '100-200',
+            'H2': '300',
+            'H3': '400-500',
+            'H4': '4294967295',
+            'I1': '<b 0x01020304><r 16>',
+            'I2': '<b 0x0506>',
+            'I3': '<r 8>',
+            'I4': '<rc 4>',
+            'I5': '<rd 4>',
+            'HeaderProtectionKey': '6Fsg8XN0DE6aPQgAX4r2oazEYJOGqyHUz3QRH/jCB+I=',
+            'ContentPaddingAddition': '16-32',
+            'RekeyAfterTime': '120-140',
+            'RekeyTimeout': '5',
+            'RejectAfterTime': '180-200',
+            'KeepaliveTimeout': '10-15',
+            'MaxHandshakeAttempts': '18',
+            'RandomTrailers': 'on',
+            'DisableCookies': 'off',
+            'PersistentKeepalive': '20-30',
+        }
+        output = check_output('awg showconf awg99')
+        print(output)
+        for key, value in expected.items():
+            self.assertIn(f'{key} = {value}', output.splitlines())
+
+        # Keep readback within the kernel's device dump buffer. test-netlink covers larger attributes.
+        signature = '<b 0x' + '00' * 1024 + '>'
+        with open(os.path.join(network_unit_dir, '25-amneziawg.netdev'), mode='a', encoding='utf-8') as f:
+            f.write(
+                '\n[AmneziaWG]\nJc=5\nH1=1000-2000\nRandomTrailers=no\nDisableCookies=yes\n'
+                f'I1={signature}\n'
+                'HeaderProtectionKeyFile=/run/systemd/network/25-wireguard-private-key.txt\n'
+            )
+        networkctl_reload()
+        self.wait_online('awg99:routable')
+
+        expected.update(
+            {
+                'Jc': '5',
+                'H1': '1000-2000',
+                'I1': signature,
+                'RandomTrailers': 'off',
+                'DisableCookies': 'on',
+                'HeaderProtectionKey': 'CJQUtcS9emY2fLYqDlpSZiE/QJyHkPWr+WHtZLZ90FU=',
+            }
+        )
+        output = check_output('awg showconf awg99')
+        print(output)
+        for key, value in expected.items():
+            self.assertIn(f'{key} = {value}', output.splitlines())
+
+    @expectedFailureIfModuleIsNotAvailable('amneziawg')
+    @unittest.skipUnless(shutil.which('awg'), 'awg is not available')
+    def test_amneziawg_invalid_signature(self):
+        copy_credential(
+            '25-wireguard-preshared-key-peer2-cred.txt',
+            'network.wireguard.amneziawg.header-protection',
+        )
+        copy_network_unit('25-amneziawg.netdev', '25-amneziawg.network')
+        with open(os.path.join(network_unit_dir, '25-amneziawg.netdev'), mode='a', encoding='utf-8') as f:
+            f.write('Endpoint=localhost:51821\n[AmneziaWG]\nI3=<invalid>\n')
+        start_networkd()
+        self.wait_links('awg99')
+        self.check_networkd_log('awg99: Failed to configure amneziawg interface:')
+
+        # A kernel-rejected signature must prevent installing keys and peers, including through DNS updates.
+        output = check_output('awg showconf awg99')
+        self.assertNotIn('PrivateKey =', output)
+        self.assertNotIn('[Peer]', output)
+
+        with open(os.path.join(network_unit_dir, '25-amneziawg.netdev'), mode='a', encoding='utf-8') as f:
+            f.write('I3=<r 8>\n')
+        networkctl_reload()
+        self.wait_online('awg99:routable')
+        output = check_output('awg showconf awg99')
+        self.assertIn('PrivateKey = EEGlnEPYJV//kbvvIqxKkQwOiS+UENyPncC4bF46ong=', output)
+        self.assertIn('[Peer]', output)
+
+    @expectedFailureIfModuleIsNotAvailable('wireguard')
+    @unittest.skipUnless(shutil.which('wg'), 'wg is not available')
+    def test_wireguard_split(self):
+        # One peer must span multiple 64K messages, including continuation of the first peer.
+        public_key = 'RDf+LSpeEre7YEIKaxg+wbpsNV7du+ktR99uBEtIiCA='
+        other_key = 'TTiCUpCxS7zDn/ax4p5W6Evg41r8hOrnWQw2Sq6Nh10='
+        with open(
+            os.path.join(network_unit_dir, '25-wireguard-split.network'), mode='w', encoding='utf-8'
+        ) as f:
+            f.write(
+                '[Match]\nName=wg-split\n[Network]\nAddress=192.0.2.1/24\nLinkLocalAddressing=no\nIPv6AcceptRA=no\n'
+            )
+
+        for offset in (0, 4096):
+            allowed_ips = [
+                str(ipaddress.IPv6Network(f'fd00:1234::{i:x}/128')) for i in range(offset, offset + 4096)
+            ]
+            with open(
+                os.path.join(network_unit_dir, '25-wireguard-split.netdev'), mode='w', encoding='utf-8'
+            ) as f:
+                f.write(
+                    '[NetDev]\nName=wg-split\nKind=wireguard\n'
+                    '[WireGuard]\nPrivateKey=EEGlnEPYJV//kbvvIqxKkQwOiS+UENyPncC4bF46ong=\nRouteTable=off\n'
+                    f'[WireGuardPeer]\nPublicKey={other_key}\nAllowedIPs=192.0.2.2/32\n'
+                    f'[WireGuardPeer]\nPublicKey={public_key}\nAllowedIPs=' + ','.join(allowed_ips) + '\n'
+                )
+            if offset == 0:
+                start_networkd()
+            else:
+                networkctl_reload()
+            self.wait_online('wg-split:routable')
+
+            for _ in range(20):
+                output = check_output('wg show wg-split allowed-ips')
+                peers = dict(line.split('\t', 1) for line in output.splitlines())
+                if set(peers.get(public_key, '').split()) == set(allowed_ips):
+                    break
+                time.sleep(0.5)
+            self.assertEqual(set(peers), {public_key, other_key})
+            self.assertEqual(set(peers[public_key].split()), set(allowed_ips))
+            self.assertEqual(peers[other_key], '192.0.2.2/32')
+
     @expectedFailureIfModuleIsNotAvailable('wireguard')
     def test_wireguard(self):
         copy_credential(
