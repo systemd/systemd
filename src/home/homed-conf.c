@@ -18,7 +18,7 @@ int manager_parse_config_file(Manager *m) {
                         m);
 }
 
-DEFINE_CONFIG_PARSE_ENUM(config_parse_default_storage, user_storage, UserStorage);
+DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_default_storage, user_storage, UserStorage, _USER_STORAGE_INVALID);
 
 int config_parse_default_file_system_type(
                 const char *unit,

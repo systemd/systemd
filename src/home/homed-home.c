@@ -2058,6 +2058,8 @@ static int home_may_change_password(
         r = user_record_test_password_change_required(h->record);
         if (IN_SET(r, -EKEYREVOKED, -EOWNERDEAD, -EKEYEXPIRED, -ESTALE))
                 return 0; /* expired in some form, but changing is allowed */
+        if (r == -ENETDOWN)
+                return 0; /* no password change timestamp known, changing the password will establish one */
         if (IN_SET(r, -EKEYREJECTED, -EROFS))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Expiration settings of account %s do not allow changing of password.", h->user_name);
         if (r < 0)
@@ -2103,9 +2105,14 @@ int home_passwd(Home *h,
         if (r < 0)
                 return r;
 
-        r = home_may_change_password(h, error);
-        if (r < 0)
-                return r;
+        /* Without a new password the record is only synced to storage, no password ageing or quality
+         * checks apply */
+        bool new_password = !strv_isempty(new_secret->password);
+        if (new_password) {
+                r = home_may_change_password(h, error);
+                if (r < 0)
+                        return r;
+        }
 
         r = user_record_clone(h->record, USER_RECORD_LOAD_REFUSE_SECRET|USER_RECORD_PERMISSIVE, &c);
         if (r < 0)
@@ -2123,7 +2130,7 @@ int home_passwd(Home *h,
         if (r < 0)
                 return r;
 
-        if (!strv_isempty(new_secret->password)) {
+        if (new_password) {
                 /* Update the password only if one is specified, otherwise let's just reuse the old password
                  * data. This is useful as a way to propagate updated user records into the LUKS backends
                  * properly. */
@@ -2137,7 +2144,7 @@ int home_passwd(Home *h,
                         return r;
         }
 
-        r = user_record_update_last_changed(c, /* with_password= */ true);
+        r = user_record_update_last_changed(c, /* with_password= */ new_password);
         if (r == -ECHRNG)
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_RECORD_MISMATCH, "Record last change time of %s is newer than current time, cannot update.", h->user_name);
         if (r < 0)
@@ -2149,7 +2156,7 @@ int home_passwd(Home *h,
 
         if (c->enforce_password_policy == false)
                 log_debug("Password quality check turned off for account, skipping.");
-        else {
+        else if (new_password) {
                 r = user_record_check_password_quality(c, merged_secret, error);
                 if (r < 0)
                         return r;
@@ -2508,7 +2515,9 @@ static int home_get_disk_status_luks(
                 disk_usage = stat_used;
 
         /* If we have the magic, determine floor preferably by magic */
-        disk_floor = minimal_size_by_fs_magic(sfs.f_type) + header_size;
+        disk_floor = minimal_size_by_fs_magic(sfs.f_type);
+        if (disk_floor != UINT64_MAX)
+                disk_floor += header_size;
 
 finish:
         /* If we don't know the magic, go by file system name */
@@ -2615,12 +2624,10 @@ static int home_get_disk_status_directory(
                                                 disk_size = qi.referenced_max;
                                 }
 
-                                if (disk_size != UINT64_MAX) {
-                                        if (disk_size > disk_usage)
-                                                disk_free = disk_size - disk_usage;
-                                        else
-                                                disk_free = 0;
-                                }
+                                /* Other users may use the file system too, hence don't report more than is
+                                 * free on it */
+                                if (disk_size != UINT64_MAX)
+                                        disk_free = MIN(disk_free, LESS_BY(disk_size, disk_usage));
                         }
 
                         goto finish;
@@ -2630,44 +2637,42 @@ static int home_get_disk_status_directory(
         if (IN_SET(h->record->storage, USER_CLASSIC, USER_DIRECTORY, USER_FSCRYPT)) {
                 r = quotactl_fd_with_fallback(fd, QCMD_FIXED(Q_GETQUOTA, USRQUOTA), h->uid, &req);
                 if (r < 0) {
-                        if (ERRNO_IS_NOT_SUPPORTED(r)) {
+                        if (ERRNO_IS_NOT_SUPPORTED(r))
                                 log_debug_errno(r, "No UID quota support on %s.", path);
-                                goto finish;
-                        }
-                        if (r != -ESRCH) {
+                        else if (r == -ESRCH) /* The kernel returns ESRCH if UID quota is not enabled */
+                                log_debug_errno(r, "UID quota not enabled on %s.", path);
+                        else if (r == -ENOENT)
+                                disk_usage = 0; /* XFS returns ENOENT if the UID has no quota record */
+                        else
                                 log_debug_errno(r, "Failed to query disk quota for UID " UID_FMT ": %m", h->uid);
-                                goto finish;
-                        }
+                        goto finish;
+                }
 
-                        disk_usage = 0; /* No record of this user? then nothing was used */
-                } else {
-                        if (FLAGS_SET(req.dqb_valid, QIF_SPACE) && disk_free != UINT64_MAX) {
-                                disk_ceiling = req.dqb_curspace + disk_free;
+                if (FLAGS_SET(req.dqb_valid, QIF_SPACE) && disk_free != UINT64_MAX) {
+                        disk_ceiling = req.dqb_curspace + disk_free;
 
-                                if (disk_size != UINT64_MAX && disk_ceiling > disk_size)
-                                        disk_ceiling = disk_size;
-                        }
+                        if (disk_size != UINT64_MAX && disk_ceiling > disk_size)
+                                disk_ceiling = disk_size;
+                }
 
-                        if (FLAGS_SET(req.dqb_valid, QIF_BLIMITS)) {
-                                uint64_t q;
+                /* A hard limit of zero means there's no limit */
+                if (FLAGS_SET(req.dqb_valid, QIF_BLIMITS) && req.dqb_bhardlimit > 0) {
+                        uint64_t q;
 
-                                /* Take the minimum of the quota and the available disk space here */
-                                q = req.dqb_bhardlimit * QIF_DQBLKSIZE;
-                                if (disk_size != UINT64_MAX)
-                                        disk_size = MIN(disk_size, q);
-                                else
-                                        disk_size = q;
-                        }
-                        if (FLAGS_SET(req.dqb_valid, QIF_SPACE)) {
-                                disk_usage = req.dqb_curspace;
+                        /* Take the minimum of the quota and the available disk space here */
+                        q = req.dqb_bhardlimit * QIF_DQBLKSIZE;
+                        if (disk_size != UINT64_MAX)
+                                disk_size = MIN(disk_size, q);
+                        else
+                                disk_size = q;
+                }
+                if (FLAGS_SET(req.dqb_valid, QIF_SPACE)) {
+                        disk_usage = req.dqb_curspace;
 
-                                if (disk_size != UINT64_MAX) {
-                                        if (disk_size > disk_usage)
-                                                disk_free = disk_size - disk_usage;
-                                        else
-                                                disk_free = 0;
-                                }
-                        }
+                        /* Other users may use the file system too, hence don't report more than is
+                         * free on it */
+                        if (disk_size != UINT64_MAX)
+                                disk_free = MIN(disk_free, LESS_BY(disk_size, disk_usage));
                 }
         }
 

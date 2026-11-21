@@ -615,6 +615,14 @@ testcase_blob() {
     (! PASSWORD=EMJuc3zQaMibJo homectl update blob-user -b файл=/tmp/external-test3 )
     (! PASSWORD=EMJuc3zQaMibJo homectl update blob-user -b special@chars=/tmp/external-test3 )
 
+    # homectl refuses invalid filenames by itself, hence also check that homed does
+    local record
+    record="$(homectl inspect --json=short blob-user | jq -c 'del(.binding, .status)')"
+    (! busctl call org.freedesktop.home1 /org/freedesktop/home1 org.freedesktop.home1.Manager \
+            UpdateHomeEx 'sa{sh}t' "$record" 1 .hidden 3 0 3</tmp/external-test3 2>/tmp/blob-error)
+    grep -F 'Call failed: Invalid blob directory filename: .hidden' /tmp/blob-error >/dev/null
+    rm /tmp/blob-error
+
     # Make sure offline updates to blobs get propagated in
     homectl deactivate blob-user
     inspect blob-user
@@ -942,6 +950,23 @@ testcase_alias() {
     homectl remove aliastest
 }
 
+testcase_password_change_min() {
+    NEWPASSWORD=foobar homectl create pwchangetest --storage=directory --password-change-min=1d --enforce-password-policy=no
+
+    # Syncing the record without a new password is no password change, hence it is allowed and keeps the
+    # password change time
+    local ts
+    ts="$(homectl inspect --json=short pwchangetest | jq '.lastPasswordChangeUSec')"
+    busctl call org.freedesktop.home1 /org/freedesktop/home1 org.freedesktop.home1.Manager \
+            ChangePasswordHome sss pwchangetest '{}' '{"password":["foobar"]}'
+    [[ "$(homectl inspect --json=short pwchangetest | jq '.lastPasswordChangeUSec')" == "$ts" ]]
+
+    # An actual password change is still refused
+    (! PASSWORD=foobar NEWPASSWORD=barfoo homectl passwd pwchangetest)
+
+    homectl remove pwchangetest
+}
+
 testcase_quota() {
     # 'run0 -u' requires systemd NSS module.
     if ! check_nss_module systemd; then
@@ -969,6 +994,30 @@ testcase_quota() {
     systemctl stop user@"$(id -u tmpfsquota)".service
     wait_for_state tmpfsquota inactive
     homectl remove tmpfsquota
+}
+
+testcase_quota_disk_status() {
+    local MNT
+    MNT="$(mktemp -d /tmp/quota-mnt.XXXXXX)"
+    # shellcheck disable=SC2064
+    trap "homectl remove quotatest 2>/dev/null || true; umount '$MNT' 2>/dev/null || true; rm -rf '$MNT'" RETURN ERR
+
+    if ! mount -t tmpfs -o usrquota tmpfs "$MNT"; then
+        echo "tmpfs doesn't support quota, skipping."
+        return 0
+    fi
+
+    # Without a disk size there's no quota hard limit, which must not be taken as a disk size of zero
+    NEWPASSWORD=quux homectl create quotatest -P --storage=directory --image-path="$MNT/quotatest"
+    homectl inspect quotatest
+    homectl inspect --json=short quotatest | jq -e '.status[].diskSize > 0' >/dev/null
+    homectl remove quotatest
+    umount "$MNT"
+
+    # Without UID quota the disk usage is unknown, which must not be reported as zero
+    mount -t tmpfs -o grpquota tmpfs "$MNT"
+    NEWPASSWORD=quux homectl create quotatest -P --storage=directory --image-path="$MNT/quotatest"
+    homectl inspect --json=short quotatest | jq -e '.status[] | has("diskUsage") | not' >/dev/null
 }
 
 testcase_subarea() {

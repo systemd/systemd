@@ -2827,7 +2827,7 @@ bool record_name_matches_alias_realm(const char *name, char * const *aliases, co
         return false;
 }
 
-int suitable_blob_filename(const char *name) {
+bool suitable_blob_filename(const char *name) {
         /* Enforces filename requirements as described in docs/USER_RECORD_BULK_DIRS.md */
         return filename_is_valid(name) &&
                in_charset(name, URI_UNRESERVED) &&
