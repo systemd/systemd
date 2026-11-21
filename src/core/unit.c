@@ -395,6 +395,14 @@ static bool unit_success_failure_handler_has_jobs(Unit *unit) {
         return false;
 }
 
+static void unit_destroy_runtime_directory(Unit *u, const ExecContext *context) {
+        int r;
+
+        r = exec_context_destroy_runtime_directory(context, u->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
+        if (r < 0)
+                log_unit_warning_errno(u, r, "Failed to remove runtime directories, ignoring: %m");
+}
+
 void unit_release_resources(Unit *u) {
         UnitActiveState state;
         ExecContext *ec;
@@ -415,14 +423,16 @@ void unit_release_resources(Unit *u) {
                 return;
 
         ec = unit_get_exec_context(u);
-        if (ec && ec->runtime_directory_preserve_mode == EXEC_PRESERVE_RESTART)
-                exec_context_destroy_runtime_directory(ec, u->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
+        if (ec && ec->runtime_directory_preserve_mode == EXEC_PRESERVE_RESTART) {
+                unit_destroy_runtime_directory(u, ec);
+                unit_add_to_gc_queue(u);
+        }
 
         if (UNIT_VTABLE(u)->release_resources)
                 UNIT_VTABLE(u)->release_resources(u);
 }
 
-bool unit_may_gc(Unit *u) {
+static bool unit_may_gc_fast(Unit *u) {
         UnitActiveState state;
         int r;
 
@@ -495,6 +505,37 @@ bool unit_may_gc(Unit *u) {
         return UNIT_VTABLE(u)->may_gc(u);
 }
 
+bool unit_may_gc(Unit *u) {
+        _cleanup_strv_free_ char **paths = NULL;
+        int r;
+
+        if (!unit_may_gc_fast(u))
+                return false;
+
+        if (!unit_may_pin_directories(u))
+                return true;
+
+        /* Do the filesystem checks at sweep time, not each time the unit is queued. In particular,
+         * RuntimeDirectory= may still be in the process of being removed when we enter the dead state. */
+        r = unit_get_clean_directories(u, EXEC_CLEAN_ALL, &paths);
+        if (r < 0) {
+                log_unit_debug_errno(u, r, "Failed to get directories to clean, deferring garbage collection: %m");
+                return false;
+        }
+
+        STRV_FOREACH(p, paths) {
+                r = access_nofollow(*p, F_OK);
+                if (r >= 0)
+                        return false;
+                if (!IN_SET(r, -ENOENT, -ENOTDIR)) {
+                        log_unit_debug_errno(u, r, "Failed to check '%s', deferring garbage collection: %m", *p);
+                        return false;
+                }
+        }
+
+        return true;
+}
+
 void unit_add_to_load_queue(Unit *u) {
         assert(u);
         assert(u->type != _UNIT_TYPE_INVALID);
@@ -522,7 +563,7 @@ void unit_add_to_gc_queue(Unit *u) {
         if (u->in_gc_queue || u->in_cleanup_queue)
                 return;
 
-        if (!unit_may_gc(u))
+        if (!unit_may_gc_fast(u))
                 return;
 
         LIST_PREPEND(gc_queue, u->manager->gc_unit_queue, u);
@@ -775,6 +816,11 @@ static void unit_done(Unit *u) {
                 cgroup_context_done(cc);
 }
 
+static void unit_clear_orphaned_directories(Unit *u) {
+        FOREACH_ELEMENT(d, u->orphaned_directories)
+                *d = strv_free(*d);
+}
+
 Unit* unit_free(Unit *u) {
         Unit *slice;
         char *t;
@@ -898,6 +944,7 @@ Unit* unit_free(Unit *u) {
         free(u->fragment_path);
         free(u->source_path);
         strv_free(u->dropin_paths);
+        unit_clear_orphaned_directories(u);
         free(u->instance);
 
         free(u->job_timeout_reboot_arg);
@@ -1752,6 +1799,10 @@ int unit_load(Unit *u) {
         assert(u->load_state != UNIT_STUB);
 
         if (u->load_state == UNIT_LOADED) {
+                /* A new fragment takes precedence over cleanup information from an earlier one. */
+                if (u->fragment_path)
+                        unit_clear_orphaned_directories(u);
+
                 unit_add_to_target_deps_queue(u);
 
                 r = unit_add_slice_dependencies(u);
@@ -2766,6 +2817,26 @@ static void unit_check_concurrency_limit(Unit *u) {
         }
 }
 
+static void unit_prune_orphaned_directories(Unit *u) {
+        /* Don't let a later clean of a removed unit delete something newly created at an already
+         * cleaned path. Check even on failure, as the worker may have removed some of its paths. */
+        FOREACH_ELEMENT(d, u->orphaned_directories) {
+                if (strv_isempty(*d))
+                        continue;
+
+                char **keep = *d;
+                STRV_FOREACH(p, *d)
+                        if (IN_SET(access_nofollow(*p, F_OK), -ENOENT, -ENOTDIR))
+                                free(*p);
+                        else
+                                *keep++ = *p;
+                *keep = NULL;
+
+                if (strv_isempty(*d))
+                        *d = mfree(*d);
+        }
+}
+
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_success) {
         assert(u);
         assert(os < _UNIT_ACTIVE_STATE_MAX);
@@ -2812,6 +2883,9 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
         /* Make sure the cgroup and state files are always removed when we become inactive */
         if (UNIT_IS_INACTIVE_OR_FAILED(ns)) {
+                if (os == UNIT_MAINTENANCE)
+                        unit_prune_orphaned_directories(u);
+
                 SET_FLAG(u->markers,
                          (1u << UNIT_MARKER_NEEDS_RELOAD)|(1u << UNIT_MARKER_NEEDS_RESTART)|(1u << UNIT_MARKER_NEEDS_STOP),
                          false);
@@ -5489,6 +5563,7 @@ bool unit_is_pristine(Unit *u) {
          */
 
         return IN_SET(u->load_state, UNIT_NOT_FOUND, UNIT_LOADED) &&
+               !unit_has_orphaned_directories(u) &&
                !u->fragment_path &&
                !u->source_path &&
                !u->job &&
@@ -5831,6 +5906,12 @@ int unit_fork_and_watch_rm_rf(Unit *u, char **paths, PidRef *ret_pid) {
 
         assert(u);
         assert(ret_pid);
+
+        /* A unit whose fragment disappeared may never have acquired a slice on load. Put its cleaning
+         * process in the usual slice rather than creating a top-level cgroup for it. */
+        r = unit_set_default_slice(u);
+        if (r < 0)
+                return r;
 
         r = unit_fork_helper_process(u, "(sd-rmrf)", /* into_cgroup= */ true, &pid);
         if (r < 0)
@@ -6516,10 +6597,65 @@ void unit_destroy_runtime_data(Unit *u, const ExecContext *context, bool destroy
 
         /* EXEC_PRESERVE_RESTART is handled via unit_release_resources()! */
         if (destroy_runtime_dir && context->runtime_directory_preserve_mode == EXEC_PRESERVE_NO)
-                exec_context_destroy_runtime_directory(context, u->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
+                unit_destroy_runtime_directory(u, context);
 
         exec_context_destroy_credentials(context, u->manager->prefix[EXEC_DIRECTORY_RUNTIME], u->id);
         exec_context_destroy_mount_ns_dir(u);
+}
+
+bool unit_may_pin_directories(const Unit *u) {
+        assert(u);
+
+        /* Transient names must be reusable, and a template can have arbitrarily many instances sharing
+         * the same directory. */
+        return !u->transient && !u->instance && unit_get_exec_context(u);
+}
+
+static ExecCleanMask unit_orphaned_directory_mask(const Unit *u) {
+        ExecCleanMask mask = 0;
+
+        assert(u);
+
+        if (IN_SET(u->load_state, UNIT_NOT_FOUND, UNIT_LOADED))
+                for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++)
+                        if (!strv_isempty(u->orphaned_directories[t]))
+                                mask |= 1U << t;
+
+        return mask;
+}
+
+bool unit_has_orphaned_directories(const Unit *u) {
+        return unit_orphaned_directory_mask(u) != 0;
+}
+
+int unit_get_clean_directories(Unit *u, ExecCleanMask mask, char ***ret) {
+        _cleanup_strv_free_ char **paths = NULL;
+        int r;
+
+        assert(u);
+        assert(ret);
+
+        if (u->load_state == UNIT_LOADED) {
+                ExecContext *c = unit_get_exec_context(u);
+                if (c) {
+                        r = exec_context_get_clean_directories(c, u->manager->prefix, mask, &paths);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        if (IN_SET(u->load_state, UNIT_NOT_FOUND, UNIT_LOADED))
+                for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
+                        if (!BIT_SET(mask, t))
+                                continue;
+
+                        r = strv_extend_strv(&paths, u->orphaned_directories[t], /* filter_duplicates= */ true);
+                        if (r < 0)
+                                return r;
+                }
+
+        *ret = TAKE_PTR(paths);
+        return 0;
 }
 
 int unit_clean(Unit *u, ExecCleanMask mask) {
@@ -6541,7 +6677,7 @@ int unit_clean(Unit *u, ExecCleanMask mask) {
         if (mask == 0)
                 return -EUNATCH;
 
-        if (u->load_state != UNIT_LOADED)
+        if (u->load_state != UNIT_LOADED && !unit_has_orphaned_directories(u))
                 return -EBUSY;
 
         if (u->job)
@@ -6555,11 +6691,14 @@ int unit_clean(Unit *u, ExecCleanMask mask) {
 }
 
 int unit_can_clean(Unit *u, ExecCleanMask *ret) {
+        ExecCleanMask mask;
+        int r;
+
         assert(u);
         assert(ret);
 
-        if (!UNIT_VTABLE(u)->clean ||
-            u->load_state != UNIT_LOADED) {
+        ExecCleanMask orphaned = unit_orphaned_directory_mask(u);
+        if (!UNIT_VTABLE(u)->clean || (u->load_state != UNIT_LOADED && orphaned == 0)) {
                 *ret = 0;
                 return 0;
         }
@@ -6567,7 +6706,12 @@ int unit_can_clean(Unit *u, ExecCleanMask *ret) {
         /* When the clean() method is set, can_clean() really should be set too */
         assert(UNIT_VTABLE(u)->can_clean);
 
-        return UNIT_VTABLE(u)->can_clean(u, ret);
+        r = UNIT_VTABLE(u)->can_clean(u, &mask);
+        if (r < 0)
+                return r;
+
+        *ret = mask | orphaned;
+        return 0;
 }
 
 bool unit_can_start_refuse_manual(Unit *u) {

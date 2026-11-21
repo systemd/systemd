@@ -586,6 +586,12 @@
       the service manager itself lives in.</para></listitem>
 
       <listitem><para>The unit has running processes associated with it.</para></listitem>
+
+      <listitem><para>At least one directory configured with <varname>RuntimeDirectory=</varname>,
+      <varname>StateDirectory=</varname>, <varname>CacheDirectory=</varname>, <varname>LogsDirectory=</varname>,
+      or <varname>ConfigurationDirectory=</varname> still exists. This allows <command>systemctl clean</command>
+      to remove these resources even after the unit file has been removed. These directories do not pin
+      transient units or template instances.</para></listitem>
     </orderedlist>
 
     <para>The garbage collection logic may be altered with the <varname>CollectMode=</varname> option, which allows
