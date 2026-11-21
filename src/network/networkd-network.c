@@ -400,6 +400,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_send_hostname = true,
                 .dhcp_send_hostname_updates = true,
                 .dhcp_send_release = true,
+                .dhcp_accept_reconfigure = true,
                 .dhcp_extra_options = TLV_INIT(TLV_DHCP4),
                 .dhcp_vendor_options = TLV_INIT(TLV_DHCP4_SUBOPTION),
                 .dhcp_route_metric = DHCP_ROUTE_METRIC,
@@ -427,6 +428,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp6_duid.type = _DUID_TYPE_INVALID,
                 .dhcp6_client_start_mode = _DHCP6_CLIENT_START_MODE_INVALID,
                 .dhcp6_send_release = true,
+                .dhcp6_accept_reconfigure = true,
                 .dhcp6_pd_prefix_route_type = RTN_UNREACHABLE,
                 .dhcp6_route_table = RT_TABLE_MAIN,
 

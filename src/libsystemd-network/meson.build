@@ -6,6 +6,7 @@ libsystemd_network_sources = files(
         'dhcp-message.c',
         'dhcp-message-dump.c',
         'dhcp-protocol.c',
+        'dhcp-rkap.c',
         'dhcp-relay-downstream.c',
         'dhcp-relay-interface.c',
         'dhcp-relay-upstream.c',

@@ -5,6 +5,7 @@
 
 #include "dhcp-client-id-internal.h"
 #include "dhcp-forward.h"
+#include "dhcp-rkap.h"
 #include "ether-addr-util.h"
 
 typedef struct sd_dhcp_server_lease {
@@ -20,6 +21,10 @@ typedef struct sd_dhcp_server_lease {
         be32_t gateway;
         usec_t expiration;
         char *hostname;
+
+        /* RFC 6704: the nonce handed out to the client, used to authenticate DHCPFORCERENEW messages.
+         * Not saved to the lease file, a new one is handed out on the next DHCPREQUEST. */
+        DHCPRKAPKey forcerenew_nonce;
 } sd_dhcp_server_lease;
 
 extern const struct hash_ops dhcp_server_lease_hash_ops;

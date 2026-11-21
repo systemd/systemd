@@ -11,6 +11,7 @@
 #include "sd-dhcp6-client.h"
 
 #include "dhcp-duid-internal.h"
+#include "dhcp-rkap.h"
 #include "dhcp6-option.h"
 #include "dhcp6-protocol.h"
 #include "forward.h"
@@ -76,6 +77,9 @@ struct sd_dhcp6_client {
         sd_dhcp6_client_callback_t state_callback;
         void *state_userdata;
         bool send_release;
+        bool accept_reconfigure;
+        DHCPRKAPKey reconfigure_key;
+        bool reconfigure_information_request; /* the Information-request answers a Reconfigure */
 };
 
 int dhcp6_network_bind_udp_socket(int ifindex, const struct in6_addr *address);

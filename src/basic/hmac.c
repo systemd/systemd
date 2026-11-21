@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "hmac.h"
+#include "md5.h"
 #include "memory-util.h"
 #include "sha256.h"
 
@@ -61,4 +62,52 @@ void hmac_sha256(const void *key,
         sha256_process_bytes(outer_padding, HMAC_BLOCK_SIZE, &hash);
         sha256_process_bytes(res, SHA256_DIGEST_SIZE, &hash);
         sha256_finish_ctx(&hash, res);
+}
+
+void hmac_md5(const void *key,
+              size_t key_size,
+              const void *input,
+              size_t input_size,
+              uint8_t res[static MD5_DIGEST_SIZE]) {
+
+        uint8_t inner_padding[HMAC_BLOCK_SIZE] = { };
+        CLEANUP_ERASE(inner_padding); /* carries key ^ 0x36, trivially reversible to the original key */
+        uint8_t outer_padding[HMAC_BLOCK_SIZE] = { };
+        CLEANUP_ERASE(outer_padding); /* carries key ^ 0x5c, trivially reversible to the original key */
+        uint8_t replacement_key[MD5_DIGEST_SIZE];
+        CLEANUP_ERASE(replacement_key); /* MD5 of the key when key_size > block size */
+        struct md5_ctx hash;
+        CLEANUP_ERASE(hash); /* intermediate state derived from key material */
+
+        assert(key);
+        assert(key_size > 0);
+        assert(input || input_size == 0);
+        assert(res);
+
+        /* Same as hmac_sha256() above, RFC 2104 with MD5 (whose block size is also 64 bytes). */
+        assert_cc(MD5_BLOCK_SIZE == HMAC_BLOCK_SIZE);
+
+        if (key_size > HMAC_BLOCK_SIZE) {
+                md5_direct(key, key_size, replacement_key);
+                key = replacement_key;
+                key_size = MD5_DIGEST_SIZE;
+        }
+
+        memcpy(inner_padding, key, key_size);
+        memcpy(outer_padding, key, key_size);
+
+        for (size_t i = 0; i < HMAC_BLOCK_SIZE; i++) {
+                inner_padding[i] ^= INNER_PADDING_BYTE;
+                outer_padding[i] ^= OUTER_PADDING_BYTE;
+        }
+
+        md5_init_ctx(&hash);
+        md5_process_bytes(inner_padding, HMAC_BLOCK_SIZE, &hash);
+        md5_process_bytes(input, input_size, &hash);
+        md5_finish_ctx(&hash, res);
+
+        md5_init_ctx(&hash);
+        md5_process_bytes(outer_padding, HMAC_BLOCK_SIZE, &hash);
+        md5_process_bytes(res, MD5_DIGEST_SIZE, &hash);
+        md5_finish_ctx(&hash, res);
 }

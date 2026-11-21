@@ -10,9 +10,11 @@
 #include "alloc-util.h"
 #include "dhcp-client-internal.h"
 #include "dhcp-lease-internal.h"
+#include "dhcp-rkap.h"
 #include "dhcp-route.h"
 #include "dns-resolver-internal.h"
 #include "in-addr-util.h"
+#include "iovec-util.h"
 #include "ip-util.h"
 #include "set.h"
 #include "string-util.h"
@@ -353,6 +355,7 @@ static sd_dhcp_lease* dhcp_lease_free(sd_dhcp_lease *lease) {
         assert(lease);
 
         sd_dhcp_message_unref(lease->message);
+        dhcp_rkap_key_clear(&lease->forcerenew_nonce);
 
         free(lease->router);
         free(lease->timezone);
@@ -703,6 +706,45 @@ static int client_parse_bootreply(sd_dhcp_client *client, sd_dhcp_message *messa
         return DHCP_ACK;
 }
 
+static int client_parse_forcerenew_nonce(sd_dhcp_client *client, sd_dhcp_message *message, sd_dhcp_lease *lease) {
+        int r;
+
+        assert(client);
+        assert(message);
+        assert(lease);
+
+        if (!client->accept_reconfigure)
+                return 0;
+
+        _cleanup_(iovec_done_erase) struct iovec auth = {};
+        r = dhcp_message_get_option_alloc(message, SD_DHCP_OPTION_AUTHENTICATION, &auth);
+        if (r < 0 && r != -ENODATA)
+                return log_dhcp_client_errno(client, r, "Failed to read %s option: %m",
+                                             dhcp_option_code_to_string(SD_DHCP_OPTION_AUTHENTICATION));
+        if (r >= 0) {
+                /* Do not keep the nonce in the lease message, which is exposed e.g. via varlink. */
+                dhcp_message_remove_option(message, SD_DHCP_OPTION_AUTHENTICATION);
+
+                r = dhcp_rkap_key_set_from_auth(&lease->forcerenew_nonce, auth.iov_base, auth.iov_len);
+                if (r == -EOPNOTSUPP)
+                        log_dhcp_client(client, "Received %s option with unsupported protocol, ignoring.",
+                                        dhcp_option_code_to_string(SD_DHCP_OPTION_AUTHENTICATION));
+                else if (r < 0)
+                        log_dhcp_client_errno(client, r, "Received invalid forcerenew nonce, ignoring: %m");
+        }
+
+        /* RFC 6704 section 3.1.4: if the server indicated the capability in the DHCPOFFER, and the
+         * DHCPACK received in the selecting state does not contain a valid nonce, the client MUST discard
+         * the message. */
+        if (client->state == DHCP_STATE_REQUESTING &&
+            client->lease && client->lease->forcerenew_nonce_capable &&
+            !lease->forcerenew_nonce.set)
+                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(EBADMSG),
+                                             "Received DHCPACK without forcerenew nonce, although the DHCPOFFER announced it, ignoring.");
+
+        return 0;
+}
+
 static int client_parse_ack(sd_dhcp_client *client, sd_dhcp_message *message, sd_dhcp_lease **ret) {
         int r;
 
@@ -734,6 +776,10 @@ static int client_parse_ack(sd_dhcp_client *client, sd_dhcp_message *message, sd
         if (r < 0)
                 return log_dhcp_client_errno(client, r, "Failed to create DHCP lease: %m");
 
+        r = client_parse_forcerenew_nonce(client, message, lease);
+        if (r < 0)
+                return r;
+
         log_dhcp_client(client, "Received DHCPACK from %s", IN4_ADDR_TO_STRING(&(struct in_addr) { .s_addr = lease->server_address }));
 
         *ret = TAKE_PTR(lease);
@@ -754,6 +800,18 @@ static int client_parse_offer(sd_dhcp_client *client, sd_dhcp_message *message, 
         r = dhcp_lease_new_from_message(client, message, &lease);
         if (r < 0)
                 return log_dhcp_client_errno(client, r, "Failed to create DHCP lease: %m");
+
+        if (client->accept_reconfigure) {
+                _cleanup_(iovec_done) struct iovec iov = {};
+
+                r = dhcp_message_get_option_alloc(message, SD_DHCP_OPTION_FORCERENEW_NONCE_CAPABLE, &iov);
+                if (r < 0 && r != -ENODATA)
+                        return log_dhcp_client_errno(client, r, "Failed to read %s option: %m",
+                                                     dhcp_option_code_to_string(SD_DHCP_OPTION_FORCERENEW_NONCE_CAPABLE));
+
+                lease->forcerenew_nonce_capable =
+                        r >= 0 && memchr(iov.iov_base, DHCP_RKAP_ALGORITHM_HMAC_MD5, iov.iov_len);
+        }
 
         log_dhcp_client(client, "Received DHCPOFFER from %s", IN4_ADDR_TO_STRING(&(struct in_addr) { .s_addr = lease->server_address }));
 
@@ -792,6 +850,66 @@ static int client_parse_nak(sd_dhcp_client *client, sd_dhcp_message *message, sd
         return DHCP_NAK;
 }
 
+static int client_parse_forcerenew(
+                sd_dhcp_client *client,
+                const struct iovec *iov,
+                sd_dhcp_message *message,
+                sd_dhcp_lease **ret) {
+
+        int r;
+
+        assert(client);
+        assert(iov);
+        assert(message);
+        assert(ret);
+
+        if (client->state != DHCP_STATE_BOUND)
+                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(EBADMSG), "Received unexpected DHCPFORCERENEW.");
+
+        assert(client->lease);
+
+        /* RFC 3203 section 6 and RFC 6704 section 3: FORCERENEW messages MUST be authenticated. We support
+         * only the Forcerenew Nonce Authentication protocol. */
+        if (!client->forcerenew_nonce.set)
+                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOKEY),
+                                             "Received DHCPFORCERENEW, but the server did not provide a forcerenew nonce, ignoring.");
+
+        /* The Server Identifier option is optional here, but if present, it must match. */
+        struct in_addr a;
+        r = dhcp_message_get_option_address(message, SD_DHCP_OPTION_SERVER_IDENTIFIER, &a);
+        if (r < 0 && r != -ENODATA)
+                return log_dhcp_client_errno(client, r, "Failed to read Server Identifier option in DHCPFORCERENEW: %m");
+        if (r >= 0 && a.s_addr != client->lease->server_address)
+                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(EBADMSG),
+                                             "Received DHCPFORCERENEW from unexpected server (%s), ignoring.",
+                                             IN4_ADDR_TO_STRING(&a));
+
+        struct iovec auth;
+        r = dhcp_message_find_raw_option(iov, SD_DHCP_OPTION_AUTHENTICATION, &auth);
+        if (r == -ENODATA)
+                return log_dhcp_client_errno(client, r, "Received DHCPFORCERENEW without authentication, ignoring.");
+        if (r < 0)
+                return log_dhcp_client_errno(client, r, "Failed to find %s option in DHCPFORCERENEW, ignoring: %m",
+                                             dhcp_option_code_to_string(SD_DHCP_OPTION_AUTHENTICATION));
+
+        r = dhcp_rkap_verify(&client->forcerenew_nonce, iov->iov_base, iov->iov_len, auth.iov_base, auth.iov_len);
+        if (r == -ENOMEM)
+                return r;
+        if (r == -ESTALE)
+                return log_dhcp_client_errno(client, r, "Received DHCPFORCERENEW with an old replay detection value, ignoring.");
+        if (r == -EPERM)
+                return log_dhcp_client_errno(client, r, "Received DHCPFORCERENEW that failed authentication, ignoring.");
+        if (r < 0)
+                return log_dhcp_client_errno(client, r, "Received DHCPFORCERENEW with an invalid %s option, ignoring: %m",
+                                             dhcp_option_code_to_string(SD_DHCP_OPTION_AUTHENTICATION));
+
+        log_dhcp_client(client, "Received authenticated DHCPFORCERENEW from %s",
+                        IN4_ADDR_TO_STRING(&(struct in_addr) { .s_addr = client->lease->server_address }));
+
+        *ret = NULL;
+        return DHCP_FORCERENEW;
+}
+
 int dhcp_client_parse_message(sd_dhcp_client *client, const struct iovec *iov, sd_dhcp_lease **ret) {
         int r;
 
@@ -800,10 +918,11 @@ int dhcp_client_parse_message(sd_dhcp_client *client, const struct iovec *iov, s
         assert(ret);
 
         _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *message = NULL;
+        /* When bound, we only listen for DHCPFORCERENEW, whose xid is chosen by the server. */
         r = dhcp_message_parse(
                         iov,
                         BOOTREPLY,
-                        &client->xid,
+                        client->state == DHCP_STATE_BOUND ? NULL : &client->xid,
                         client->arp_type,
                         &client->hw_addr,
                         &message);
@@ -812,6 +931,9 @@ int dhcp_client_parse_message(sd_dhcp_client *client, const struct iovec *iov, s
 
         if (client->bootp)
                 return client_parse_bootreply(client, message, ret);
+
+        if (client->state == DHCP_STATE_BOUND && !client->forcerenew_nonce.set)
+                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(EBADMSG), "Received unexpected message while bound.");
 
         uint8_t type;
         r = dhcp_message_get_option_u8(message, SD_DHCP_OPTION_MESSAGE_TYPE, &type);
@@ -825,6 +947,8 @@ int dhcp_client_parse_message(sd_dhcp_client *client, const struct iovec *iov, s
                 return client_parse_ack(client, message, ret);
         case DHCP_NAK:
                 return client_parse_nak(client, message, ret);
+        case DHCP_FORCERENEW:
+                return client_parse_forcerenew(client, iov, message, ret);
         default:
                 return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(EBADMSG), "Received message with unexpected type (%u).", type);
         }

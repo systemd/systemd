@@ -5,6 +5,7 @@
 
 #include "dhcp-client-id-internal.h"
 #include "dhcp-forward.h"
+#include "dhcp-rkap.h"
 #include "dhcp-protocol.h"
 #include "ether-addr-util.h"
 #include "iovec-wrapper.h"
@@ -67,6 +68,8 @@ struct sd_dhcp_client {
         bool ipv6_acquired;
         bool bootp;
         bool send_release;
+        bool accept_reconfigure;
+        DHCPRKAPKey forcerenew_nonce;
 };
 
 int dhcp_client_set_state_callback(
@@ -78,6 +81,8 @@ int dhcp_client_get_state(sd_dhcp_client *client);
 int dhcp_client_set_extra_options(sd_dhcp_client *client, TLV *options);
 int dhcp_client_set_vendor_options(sd_dhcp_client *client, TLV *options);
 int dhcp_client_set_user_class(sd_dhcp_client *client, const struct iovec_wrapper *user_class);
+
+int dhcp_client_listen_forcerenew(sd_dhcp_client *client);
 
 int client_receive_message_raw(
                 sd_event_source *s,

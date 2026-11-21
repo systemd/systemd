@@ -6,6 +6,7 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
+#include "dhcp-rkap.h"
 #include "dhcp-server-internal.h"
 #include "dhcp-server-lease-internal.h"
 #include "dhcp-server-request.h"
@@ -17,6 +18,7 @@
 #include "in-addr-util.h"
 #include "iovec-util.h"
 #include "json-util.h"
+#include "random-util.h"
 
 static sd_dhcp_server_lease* dhcp_server_lease_free(sd_dhcp_server_lease *lease) {
         if (!lease)
@@ -29,6 +31,7 @@ static sd_dhcp_server_lease* dhcp_server_lease_free(sd_dhcp_server_lease *lease)
                 hashmap_remove_value(lease->server->static_leases_by_client_id, &lease->client_id, lease);
         }
 
+        dhcp_rkap_key_clear(&lease->forcerenew_nonce);
         free(lease->hostname);
         return mfree(lease);
 }
@@ -129,6 +132,26 @@ int dhcp_server_set_lease(sd_dhcp_server *server, DHCPRequest *req) {
         char *hostname = NULL;
         (void) dhcp_message_get_option_hostname(req->message, &hostname);
         free_and_replace(lease->hostname, hostname);
+
+        /* RFC 6704 section 3.1.3: if the client is capable and no nonce is recorded, generate one and
+         * include it in the DHCPACK. The nonce SHOULD NOT be included when responding to a renewal,
+         * unless it was newly generated. Also include it when the client does not have an address yet
+         * (ciaddr is zero), as the client then starts afresh and discards any previous nonce. */
+        if (req->forcerenew_nonce_capable) {
+                bool new_nonce = !lease->forcerenew_nonce.set;
+
+                if (new_nonce) {
+                        r = crypto_random_bytes(lease->forcerenew_nonce.key, sizeof(lease->forcerenew_nonce.key));
+                        if (r < 0)
+                                return r;
+                        lease->forcerenew_nonce.set = true;
+                }
+
+                if (new_nonce || req->message->header.ciaddr == INADDR_ANY)
+                        req->forcerenew_nonce = &lease->forcerenew_nonce;
+        } else
+                /* The client does not (or no longer) support it. */
+                dhcp_rkap_key_clear(&lease->forcerenew_nonce);
 
         TAKE_PTR(lease);
         return 0;

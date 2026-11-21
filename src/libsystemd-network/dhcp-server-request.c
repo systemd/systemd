@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "dhcp-message.h"
+#include "dhcp-rkap.h"
 #include "dhcp-server-internal.h"
 #include "dhcp-server-lease-internal.h"
 #include "dhcp-server-request.h"
@@ -208,6 +209,12 @@ static int dhcp_server_parse_message(sd_dhcp_server *server, const struct iovec 
 
         /* Parameter Request List: optional */
         (void) dhcp_message_get_option_parameter_request_list(message, &req->parameter_request_list);
+
+        /* Forcerenew Nonce Capable (RFC 6704): optional, a list of supported algorithms */
+        _cleanup_(iovec_done) struct iovec algorithms = {};
+        if (dhcp_message_get_option_alloc(message, SD_DHCP_OPTION_FORCERENEW_NONCE_CAPABLE, &algorithms) >= 0)
+                req->forcerenew_nonce_capable =
+                        memchr(algorithms.iov_base, DHCP_RKAP_ALGORITHM_HMAC_MD5, algorithms.iov_len);
 
         *ret = TAKE_PTR(req);
         return 0;

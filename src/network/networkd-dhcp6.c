@@ -819,6 +819,12 @@ static int dhcp6_configure(Link *link) {
                                             "DHCPv6 CLIENT: Failed to %s sending release message on stop: %m",
                                             enable_disable(link->network->dhcp6_send_release));
 
+        r = sd_dhcp6_client_set_accept_reconfigure(client, link->network->dhcp6_accept_reconfigure);
+        if (r < 0)
+                return log_link_debug_errno(link, r,
+                                            "DHCPv6 CLIENT: Failed to %s accepting Reconfigure messages: %m",
+                                            enable_disable(link->network->dhcp6_accept_reconfigure));
+
         link->dhcp6_client = TAKE_PTR(client);
 
         return 0;
