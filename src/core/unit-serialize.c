@@ -7,11 +7,15 @@
 #include "cgroup.h"
 #include "condition.h"
 #include "dbus.h"
+#include "escape.h"
 #include "extract-word.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "glyph-util.h"
+#include "manager.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "serialize.h"
 #include "set.h"
 #include "string-util.h"
@@ -58,6 +62,73 @@ static int deserialize_markers(Unit *u, const char *value) {
 
                 u->markers |= 1u << m;
         }
+}
+
+static int serialize_clean_directories(Unit *u, FILE *f) {
+        bool have_directories = false;
+        int r;
+
+        if (!unit_may_pin_directories(u))
+                return 0;
+
+        /* As the unit might disappear on reload, take a backup list of the directories to clean. */
+
+        for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
+                _cleanup_strv_free_ char **paths = NULL;
+
+                r = unit_get_clean_directories(u, 1U << t, &paths);
+                if (r < 0)
+                        return r;
+                if (strv_isempty(paths))
+                        continue;
+
+                _cleanup_free_ char *key = strjoin("clean-directory-", exec_resource_type_to_string(t));
+                if (!key)
+                        return -ENOMEM;
+
+                r = serialize_strv(f, key, paths);
+                if (r < 0)
+                        return r;
+
+                have_directories = true;
+        }
+
+        /* Keep using the unit file's label to authorize cleanup after it disappears. */
+        if (have_directories)
+                return serialize_item(f, "clean-access-selinux-context", u->access_selinux_context);
+
+        return 0;
+}
+
+static int deserialize_clean_directory(Unit *u, const char *type, const char *value) {
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        /* If the unit exists after reload then do not deserialize the backup list. Mount and swap units can
+         * be loaded from kernel state even though their fragment has disappeared. */
+        if (!unit_may_pin_directories(u) ||
+            (u->load_state != UNIT_NOT_FOUND &&
+             !(u->load_state == UNIT_LOADED && !u->fragment_path && IN_SET(u->type, UNIT_MOUNT, UNIT_SWAP))))
+                return 0;
+
+        ExecDirectoryType t = exec_resource_type_from_string(type);
+        if (t < 0)
+                return t;
+
+        r = cunescape(value, /* flags= */ 0, &path);
+        if (r < 0)
+                return r;
+        if (!u->manager->prefix[t] || !path_is_normalized(path) ||
+            isempty(path_startswith(path, u->manager->prefix[t])))
+                return -EINVAL;
+
+        if (IN_SET(access_nofollow(path, F_OK), -ENOENT, -ENOTDIR))
+                return 0;
+
+        if (strv_contains(u->orphaned_directories[t], path))
+                return 0;
+
+        return strv_consume(&u->orphaned_directories[t], TAKE_PTR(path));
 }
 
 int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
@@ -133,6 +204,10 @@ int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         bus_track_serialize(u->bus_track, f, "ref");
 
         if (!switching_root) {
+                r = serialize_clean_directories(u, f);
+                if (r < 0)
+                        return r;
+
                 if (u->job) {
                         fputs("job\n", f);
                         job_serialize(u->job, f);
@@ -209,6 +284,7 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                 _cleanup_free_ char *l  = NULL;
                 size_t k;
                 char *v;
+                const char *type;
 
                 r = deserialize_read_line(f, &l);
                 if (r < 0)
@@ -292,7 +368,21 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                 else if (MATCH_DESERIALIZE("exported-log-rate-limit-burst", l, v, parse_boolean, u->exported_log_ratelimit_burst))
                         continue;
 
-                else if (streq(l, "ref-uid")) {
+                else if ((type = startswith(l, "clean-directory-"))) {
+                        r = deserialize_clean_directory(u, type, v);
+                        if (r < 0)
+                                log_unit_warning_errno(u, r, "Failed to deserialize '%s=%s', ignoring: %m", l, v);
+                        continue;
+
+                } else if (streq(l, "clean-access-selinux-context")) {
+                        if (unit_has_orphaned_directories(u)) {
+                                r = free_and_strdup(&u->access_selinux_context, v);
+                                if (r < 0)
+                                        return r;
+                        }
+                        continue;
+
+                } else if (streq(l, "ref-uid")) {
                         uid_t uid;
 
                         r = parse_uid(v, &uid);
@@ -363,6 +453,11 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                                 log_unit_warning(u, "Failed to deserialize unit parameter '%s', ignoring.", l);
                 }
         }
+
+        /* If the transient fragment disappeared, a subsequent lazy load must read a replacement from
+         * disk rather than treating it as a transient unit we just wrote. */
+        if (u->load_state == UNIT_NOT_FOUND)
+                u->transient = false;
 
         /* Let's make sure that everything that is deserialized also gets any potential new cgroup settings
          * applied after we are done. For that we invalidate anything already realized, so that we can

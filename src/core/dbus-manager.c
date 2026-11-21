@@ -794,8 +794,9 @@ static int method_reload_or_try_restart_unit(sd_bus_message *message, void *user
 }
 
 typedef enum GenericUnitOperationFlags {
-        GENERIC_UNIT_LOAD            = 1 << 0, /* Load if the unit is not loaded yet */
-        GENERIC_UNIT_VALIDATE_LOADED = 1 << 1, /* Verify unit is properly loaded before forwarding call */
+        GENERIC_UNIT_LOAD                       = 1 << 0, /* Load if the unit is not loaded yet */
+        GENERIC_UNIT_VALIDATE_LOADED            = 1 << 1, /* Verify unit is properly loaded before forwarding call */
+        GENERIC_UNIT_ALLOW_ORPHANED_DIRECTORIES = 1 << 2, /* Allow a missing unit file if directories remain to clean */
 } GenericUnitOperationFlags;
 
 static int method_generic_unit_operation(
@@ -833,7 +834,8 @@ static int method_generic_unit_operation(
                                          "%s operation is not supported for unit type '%s'",
                                          sd_bus_message_get_member(message), unit_type_to_string(u->type));
 
-        if (FLAGS_SET(flags, GENERIC_UNIT_VALIDATE_LOADED)) {
+        if (FLAGS_SET(flags, GENERIC_UNIT_VALIDATE_LOADED) &&
+            !(FLAGS_SET(flags, GENERIC_UNIT_ALLOW_ORPHANED_DIRECTORIES) && unit_has_orphaned_directories(u))) {
                 r = bus_unit_validate_load_state(u, reterr_error);
                 if (r < 0)
                         return r;
@@ -1008,9 +1010,8 @@ static int method_kill_unit_subgroup(sd_bus_message *message, void *userdata, sd
 }
 
 static int method_clean_unit(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        /* Load the unit if necessary, in order to load it, and insist on the unit being loaded to be
-         * cleaned */
-        return method_generic_unit_operation(message, userdata, reterr_error, _UNIT_TYPE_INVALID, bus_unit_method_clean, GENERIC_UNIT_LOAD|GENERIC_UNIT_VALIDATE_LOADED);
+        return method_generic_unit_operation(message, userdata, reterr_error, _UNIT_TYPE_INVALID, bus_unit_method_clean,
+                                             GENERIC_UNIT_LOAD|GENERIC_UNIT_VALIDATE_LOADED|GENERIC_UNIT_ALLOW_ORPHANED_DIRECTORIES);
 }
 
 static int method_freeze_unit(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
@@ -1045,8 +1046,9 @@ static int method_mount_image_unit(sd_bus_message *message, void *userdata, sd_b
 }
 
 static int method_ref_unit(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        /* Only allow reffing of fully loaded units, and make sure reffing a unit loads it. */
-        return method_generic_unit_operation(message, userdata, reterr_error, _UNIT_TYPE_INVALID, bus_unit_method_ref, GENERIC_UNIT_LOAD|GENERIC_UNIT_VALIDATE_LOADED);
+        /* systemctl clean takes a reference while waiting for the cleanup process. */
+        return method_generic_unit_operation(message, userdata, reterr_error, _UNIT_TYPE_INVALID, bus_unit_method_ref,
+                                             GENERIC_UNIT_LOAD|GENERIC_UNIT_VALIDATE_LOADED|GENERIC_UNIT_ALLOW_ORPHANED_DIRECTORIES);
 }
 
 static int method_unref_unit(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
