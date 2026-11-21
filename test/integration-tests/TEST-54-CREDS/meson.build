@@ -10,6 +10,10 @@ integration_tests += [
                         'systemd.set_credential=login.issue:welcome',
                         'systemd.set_credential_binary=waldi:d29vb29mZmZ3dWZmZnd1ZmYK',
                         'rd.systemd.import_credentials=no',
+                        # Everything not starting with "z" is imported (except for kernel command line
+                        # credentials, which always pass), hence the SMBIOS "zfilteredcred" is filtered out
+                        'systemd.import_credentials_filter=[!z]*',
+                        'systemd.set_credential=zcmdlinecred:yes',
                         'rd.systemd.wants=initrdcred.service',
                 ],
                 'credentials' : integration_test_template['credentials'] + [
@@ -19,6 +23,7 @@ integration_tests += [
                         files('systemd.unit-dropin.my-service.service~30-named.service'),
                         'smbioscredential=magicdata',
                         'binarysmbioscredential=magicbinarydata',
+                        'zfilteredcred=nope',
                         'sysusers.extra="u credtestuser"',
                         'tmpfiles.extra="f /tmp/sourcedfromcredential - - - - tmpfilessecret"',
                         'fstab.extra="injected /injected tmpfs X-mount.mkdir 0 0"',
