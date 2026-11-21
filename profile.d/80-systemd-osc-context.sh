@@ -59,6 +59,14 @@ __systemd_osc_context_common() {
 }
 
 __systemd_osc_context_precmdline() {
+    {
+        # Disable xtrace for the scope of this function, so the terminal
+        # is not flooded with unexpected noise, disrupting debugging.
+        # Bash will still print the function name, so it's still obvious
+        # whether or not this function is running and when.
+        local -
+        set +x
+    } 2>/dev/null
     local systemd_exitstatus="$?" systemd_signal
 
     # Close previous command
@@ -85,6 +93,12 @@ __systemd_osc_context_precmdline() {
 }
 
 __systemd_osc_context_ps0() {
+    {
+        # See the beginning of __systemd_osc_context_precmdline.
+        local -
+        set +x
+    } 2>/dev/null
+
     # Skip if PROMPT_COMMAND= is cleared manually or by other profiles.
     [ -n "${systemd_osc_context_cmd_id:-}" ] || return
 
