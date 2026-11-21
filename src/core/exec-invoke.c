@@ -3758,6 +3758,7 @@ static int setup_smack(
 static int compile_bind_mounts(
                 const ExecContext *context,
                 const ExecParameters *params,
+                PinnedResource *rootfs,
                 uid_t exec_directory_uid, /* only used for id-mapped mounts Exec directories */
                 gid_t exec_directory_gid, /* only used for id-mapped mounts Exec directories */
                 BindMount **ret_bind_mounts,
@@ -3771,6 +3772,7 @@ static int compile_bind_mounts(
 
         assert(context);
         assert(params);
+        assert(rootfs);
         assert(ret_bind_mounts);
         assert(ret_n_bind_mounts);
         assert(ret_empty_directories);
@@ -3811,7 +3813,7 @@ static int compile_bind_mounts(
                         continue;
 
                 if (exec_directory_is_private(context, t) &&
-                    !exec_context_with_rootfs(context)) {
+                    pinned_resource_is_host_root(rootfs)) {
                         char *private_root;
 
                         /* So this is for a dynamic user, and we need to make sure the process can access its own
@@ -3845,7 +3847,7 @@ static int compile_bind_mounts(
                                 return -ENOMEM;
 
                         if (exec_directory_is_private(context, t) &&
-                            exec_context_with_rootfs(context))
+                            !pinned_resource_is_host_root(rootfs))
                                 /* When RootDirectory= or RootImage= are set, then the symbolic link to the private
                                  * directory is not created on the root directory. So, let's bind-mount the directory
                                  * on the 'non-private' place. */
@@ -3883,6 +3885,7 @@ static int compile_bind_mounts(
 static int compile_symlinks(
                 const ExecContext *context,
                 const ExecParameters *params,
+                PinnedResource *rootfs,
                 bool setup_os_release_symlink,
                 char ***ret_symlinks) {
 
@@ -3891,6 +3894,7 @@ static int compile_symlinks(
 
         assert(context);
         assert(params);
+        assert(rootfs);
         assert(ret_symlinks);
 
         for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++)
@@ -3911,7 +3915,7 @@ static int compile_symlinks(
                         }
 
                         if (!exec_directory_is_private(context, dt) ||
-                            exec_context_with_rootfs(context) ||
+                            !pinned_resource_is_host_root(rootfs) ||
                             FLAGS_SET(i->flags, EXEC_DIRECTORY_ONLY_CREATE))
                                 continue;
 
@@ -3942,6 +3946,170 @@ static int compile_symlinks(
         }
 
         *ret_symlinks = TAKE_PTR(symlinks);
+
+        return 0;
+}
+
+static int access_mounts_add(
+                const char *root_directory, /* the root directory in use, to translate plain paths into, may be NULL */
+                const char *e,
+                AccessMountMode mode,
+                bool root_relative, /* the path is relative to the root directory already */
+                AccessMount **access_mounts,
+                size_t *n_access_mounts) {
+
+        bool ignore = false;
+
+        assert(e);
+        assert(access_mounts);
+        assert(n_access_mounts);
+
+        /* Look for any prefixes */
+        if (startswith(e, "-")) {
+                e++;
+                ignore = true;
+        }
+        if (startswith(e, "+")) {
+                e++;
+                root_relative = true;
+        }
+
+        if (!path_is_absolute(e))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Path is not absolute: %s", e);
+
+        if (root_directory && !root_relative) {
+                /* The path is relative to the host's root directory, hence translate it into one
+                 * relative to the root directory: strip the root directory prefix. Paths outside
+                 * the root directory are ignored, as nothing below them is visible inside the root
+                 * anyway (and always were). Note that path_startswith_full() also returns NULL for
+                 * an exact match, hence the special case for the root directory itself. */
+                const char *translated = path_startswith_full(e, root_directory,
+                                                              PATH_STARTSWITH_RETURN_LEADING_SLASH);
+                if (translated)
+                        e = translated;
+                else if (path_equal(e, root_directory))
+                        e = "/";
+                else {
+                        log_debug("%s is outside of root directory, ignoring.", e);
+                        return 0;
+                }
+        }
+
+        _cleanup_free_ char *path = strdup(e);
+        if (!path)
+                return -ENOMEM;
+
+        if (!GREEDY_REALLOC(*access_mounts, *n_access_mounts + 1))
+                return -ENOMEM;
+
+        (*access_mounts)[(*n_access_mounts)++] = (AccessMount) {
+                .path = TAKE_PTR(path),
+                .mode = mode,
+                .ignore = ignore,
+        };
+
+        return 0;
+}
+
+static int access_mounts_add_many(
+                const char *root_directory,
+                char * const *paths,
+                AccessMountMode mode,
+                AccessMount **access_mounts,
+                size_t *n_access_mounts) {
+
+        int r;
+
+        assert(access_mounts);
+        assert(n_access_mounts);
+
+        STRV_FOREACH(i, paths) {
+                r = access_mounts_add(root_directory, *i, mode, /* root_relative = */ false,
+                                      access_mounts, n_access_mounts);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+/* Compile ReadWritePaths= and friends: parse the '-'/'+' prefixes, and translate the paths that are
+ * relative to the host's root directory into paths relative to the root directory, as the mount
+ * namespace is assembled in a staging copy of the root directory. */
+static int compile_access_mounts(
+                const ExecContext *context,
+                const PinnedResource *rootfs,
+                char * const *pressure_path,
+                bool needs_sandboxing,
+                AccessMount **ret_access_mounts,
+                size_t *ret_n_access_mounts) {
+
+        int r;
+
+        assert(context);
+        assert(rootfs);
+        assert(pressure_path);
+        assert(ret_access_mounts);
+        assert(ret_n_access_mounts);
+
+        AccessMount *access_mounts = NULL;
+        size_t n_access_mounts = 0;
+        CLEANUP_ARRAY(access_mounts, n_access_mounts, access_mount_free_many);
+
+        /* Plain paths are relative to the host's root directory. When the root in use is the
+         * configured root directory, translate them into paths relative to the root directory. When
+         * another root takes precedence (RootImage=, RootDirectoryFileDescriptor=, RootMStack=), or
+         * the command is not chrooted into it (RootDirectoryStartOnly=yes control processes), keep
+         * them relative to the root as-is. Use the configured path rather than the pinned one for
+         * the translation: the latter is resolved (symlinks followed) and replaced by the ephemeral
+         * copy when RootEphemeral= is used, while the paths are spelled like in the unit file. */
+        const char *root_directory = rootfs->directory ? context->root_directory : NULL;
+
+        r = access_mounts_add_many(root_directory, context->read_write_paths, ACCESS_MOUNT_READ_WRITE,
+                                   &access_mounts, &n_access_mounts);
+        if (r < 0)
+                return r;
+
+        /* We need to make the pressure paths writable even if /sys/fs/cgroups is made read-only, as
+         * the service will need to write to them in order to start the notifications. They are
+         * cgroupfs paths as the service sees them inside its namespace (they are also exported in
+         * $MEMORY_PRESSURE_WATCH), hence relative to the root directory. */
+        if (exec_is_cgroup_mount_read_only(context))
+                for (PressureResource t = 0; t < _PRESSURE_RESOURCE_MAX; t++) {
+                        if (!pressure_path[t] || streq(pressure_path[t], "/dev/null"))
+                                continue;
+
+                        r = access_mounts_add(root_directory, pressure_path[t], ACCESS_MOUNT_READ_WRITE,
+                                              /* root_relative = */ true,
+                                              &access_mounts, &n_access_mounts);
+                        if (r < 0)
+                                return r;
+                }
+
+        if (needs_sandboxing) {
+                r = access_mounts_add_many(root_directory, context->read_only_paths, ACCESS_MOUNT_READ_ONLY,
+                                           &access_mounts, &n_access_mounts);
+                if (r < 0)
+                        return r;
+
+                r = access_mounts_add_many(root_directory, context->inaccessible_paths, ACCESS_MOUNT_INACCESSIBLE,
+                                           &access_mounts, &n_access_mounts);
+                if (r < 0)
+                        return r;
+
+                r = access_mounts_add_many(root_directory, context->exec_paths, ACCESS_MOUNT_EXEC,
+                                           &access_mounts, &n_access_mounts);
+                if (r < 0)
+                        return r;
+
+                r = access_mounts_add_many(root_directory, context->no_exec_paths, ACCESS_MOUNT_NOEXEC,
+                                           &access_mounts, &n_access_mounts);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret_access_mounts = TAKE_PTR(access_mounts);
+        *ret_n_access_mounts = n_access_mounts;
 
         return 0;
 }
@@ -3987,6 +4155,73 @@ static bool insist_on_sandboxing(
         return false;
 }
 
+static int make_ephemeral_copy(
+                ExecRuntime *runtime,
+                const PinnedResource *rootfs,
+                const char *new_root,
+                char **reterr_path) {
+
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        assert(runtime);
+        assert(rootfs);
+        assert(new_root);
+        assert(reterr_path);
+
+        if (rootfs->image) {
+                log_debug("Making ephemeral copy of %s to %s", rootfs->image, new_root);
+
+                fd = copy_file(rootfs->image, new_root, O_EXCL, 0600,
+                               COPY_LOCK_BSD|COPY_CRTIME|COPY_NOCOW_AFTER);
+                if (fd < 0) {
+                        *reterr_path = strdup(rootfs->image);
+                        return log_debug_errno(fd, "Failed to copy image %s to %s: %m",
+                                               rootfs->image, new_root);
+                }
+        } else {
+                int src_fd;
+                const char *src_path;
+
+                if (rootfs->directory) {
+                        src_fd = AT_FDCWD;
+                        src_path = rootfs->directory;
+
+                        log_debug("Making ephemeral snapshot of %s to %s", rootfs->directory, new_root);
+                } else {
+                        /* RootDirectoryFileDescriptor= */
+                        src_fd = ASSERT_FD(rootfs->directory_fd);
+                        src_path = NULL;
+
+                        log_debug("Making ephemeral snapshot of the root directory to %s", new_root);
+                }
+
+                fd = btrfs_subvol_snapshot_at(
+                                src_fd, src_path,
+                                AT_FDCWD, new_root,
+                                BTRFS_SNAPSHOT_FALLBACK_COPY |
+                                BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
+                                BTRFS_SNAPSHOT_RECURSIVE |
+                                BTRFS_SNAPSHOT_LOCK_BSD);
+                if (fd < 0) {
+                        if (rootfs->directory) {
+                                *reterr_path = strdup(rootfs->directory);
+                                return log_debug_errno(fd, "Failed to snapshot directory %s to %s: %m",
+                                                       rootfs->directory, new_root);
+                        }
+
+                        return log_debug_errno(fd, "Failed to snapshot the root directory to %s: %m", new_root);
+                }
+        }
+
+        /* Queue the fd, so that subsequent spawns of the service can reuse the copy. */
+        r = send_one_fd(runtime->ephemeral_storage_socket[1], fd, MSG_DONTWAIT);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to queue file descriptor on ephemeral storage socket: %m");
+
+        return TAKE_FD(fd);
+}
+
 static int setup_ephemeral(
                 const ExecContext *context,
                 ExecRuntime *runtime,
@@ -4002,7 +4237,7 @@ static int setup_ephemeral(
         assert(rootfs);
         assert(reterr_path);
 
-        if (!rootfs->image && !rootfs->directory)
+        if (!rootfs->image && !rootfs->directory && rootfs->directory_fd < 0)
                 return 0;
 
         if (!runtime->ephemeral_copy)
@@ -4021,55 +4256,31 @@ static int setup_ephemeral(
 
         CLEANUP_POSIX_UNLOCK(runtime->ephemeral_storage_socket[0]);
 
+        /* Either an fd is queued already, i.e. the ephemeral copy is set up and we reuse it, or
+         * nothing is queued yet and we make the copy now. */
         fd = receive_one_fd(runtime->ephemeral_storage_socket[0], MSG_PEEK|MSG_DONTWAIT);
-        if (fd >= 0)
-                /* We got an fd! That means ephemeral has already been set up, so nothing to do here. */
-                return 0;
-        if (fd != -EAGAIN)
+        if (fd == -EAGAIN) {
+                fd = make_ephemeral_copy(runtime, rootfs, new_root, reterr_path);
+                if (fd < 0)
+                        return fd;
+        } else if (fd < 0)
                 return log_debug_errno(fd, "Failed to receive file descriptor queued on ephemeral storage socket: %m");
 
-        if (rootfs->image) {
-                log_debug("Making ephemeral copy of %s to %s", rootfs->image, new_root);
-
-                fd = copy_file(rootfs->image, new_root, O_EXCL, 0600,
-                               COPY_LOCK_BSD|COPY_CRTIME|COPY_NOCOW_AFTER);
-                if (fd < 0) {
-                        *reterr_path = strdup(rootfs->image);
-                        return log_debug_errno(fd, "Failed to copy image %s to %s: %m",
-                                               rootfs->image, new_root);
-                }
-        } else {
-                assert(rootfs->directory);
-
-                log_debug("Making ephemeral snapshot of %s to %s", rootfs->directory, new_root);
-
-                fd = btrfs_subvol_snapshot_at(
-                                AT_FDCWD, rootfs->directory,
-                                AT_FDCWD, new_root,
-                                BTRFS_SNAPSHOT_FALLBACK_COPY |
-                                BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
-                                BTRFS_SNAPSHOT_RECURSIVE |
-                                BTRFS_SNAPSHOT_LOCK_BSD);
-                if (fd < 0) {
-                        *reterr_path = strdup(rootfs->directory);
-                        return log_debug_errno(fd, "Failed to snapshot directory %s to %s: %m",
-                                               rootfs->directory, new_root);
-                }
-        }
-
-        r = send_one_fd(runtime->ephemeral_storage_socket[1], fd, MSG_DONTWAIT);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to queue file descriptor on ephemeral storage socket: %m");
-
+        /* Switch the pinned root fs over to the ephemeral copy. */
         if (rootfs->image) {
                 free_and_replace(rootfs->image, new_root);
                 close_and_replace(rootfs->image_fd, fd);
-        } else {
-                assert(rootfs->directory);
-
+        } else if (rootfs->directory) {
                 free_and_replace(rootfs->directory, new_root);
                 close_and_replace(rootfs->directory_fd, fd);
+        } else {
+                /* RootDirectoryFileDescriptor=: keep this an fd-based root (i.e. don't set the path),
+                 * so that the mount namespace semantics stay the same as without RootEphemeral=. */
+                close_and_replace(rootfs->directory_fd, fd);
         }
+
+        /* The pinned directory switched over to the ephemeral copy, invalidate the host root cache. */
+        rootfs->directory_fd_is_host_root = -1;
 
         return 1;
 }
@@ -4136,6 +4347,9 @@ static int pin_rootfs(
         assert(ret);
         assert(reterr_path);
 
+        /* If more than one root is configured, the first one that is set is used:
+         * RootDirectoryFileDescriptor=, RootImage=, RootDirectory=, RootMStack=. */
+
         if (!FLAGS_SET(params->flags, EXEC_APPLY_CHROOT)) {
                 *ret = PINNED_RESOURCE_NULL;
                 return 0;
@@ -4148,6 +4362,7 @@ static int pin_rootfs(
 
                 *ret = (PinnedResource) {
                         .directory_fd = TAKE_FD(fd),
+                        .directory_fd_is_host_root = -1,
                         .image_fd = -EBADF,
                 };
 
@@ -4192,6 +4407,7 @@ static int pin_rootfs(
                         .image = TAKE_PTR(result.path),
                         .image_fd = TAKE_FD(reopened_fd),
                         .directory_fd = -EBADF,
+                        .directory_fd_is_host_root = -1,
                 };
 
                 return r;
@@ -4222,6 +4438,7 @@ static int pin_rootfs(
                 *ret = (PinnedResource) {
                         .directory = TAKE_PTR(result.path),
                         .directory_fd = TAKE_FD(result.fd),
+                        .directory_fd_is_host_root = -1,
                         .image_fd = -EBADF,
                 };
 
@@ -4262,6 +4479,7 @@ static int pin_rootfs(
                         .mstack_loaded = TAKE_PTR(mstack),
                         .image_fd = -EBADF,
                         .directory_fd = -EBADF,
+                        .directory_fd_is_host_root = -1,
                 };
 
                 return r;
@@ -4276,7 +4494,7 @@ static int apply_mount_namespace(
                 const ExecContext *context,
                 const ExecParameters *params,
                 const ExecRuntime *runtime,
-                const PinnedResource *rootfs,
+                PinnedResource *rootfs,
                 char *const *pressure_path,
                 bool needs_sandboxing,
                 uid_t exec_directory_uid,
@@ -4288,15 +4506,15 @@ static int apply_mount_namespace(
                 char **reterr_path) {
 
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
-        _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL,
-                        **read_write_paths_cleanup = NULL;
+        _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL;
         _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL,
                 *private_namespace_dir = NULL, *host_os_release_stage = NULL;
         const char *tmp_dir = NULL, *var_tmp_dir = NULL;
-        char **read_write_paths;
         bool setup_os_release_symlink;
         BindMount *bind_mounts = NULL;
         size_t n_bind_mounts = 0;
+        AccessMount *access_mounts = NULL;
+        size_t n_access_mounts = 0;
         int r;
 
         assert(context);
@@ -4308,37 +4526,17 @@ static int apply_mount_namespace(
         assert(reterr_path);
 
         CLEANUP_ARRAY(bind_mounts, n_bind_mounts, bind_mount_free_many);
+        CLEANUP_ARRAY(access_mounts, n_access_mounts, access_mount_free_many);
 
-        r = compile_bind_mounts(context, params, exec_directory_uid, exec_directory_gid, &bind_mounts, &n_bind_mounts, &empty_directories);
+        r = compile_bind_mounts(context, params, rootfs, exec_directory_uid, exec_directory_gid,
+                                &bind_mounts, &n_bind_mounts, &empty_directories);
         if (r < 0)
                 return r;
 
-        /* We need to make the pressure paths writable even if /sys/fs/cgroups is made read-only, as the
-         * service will need to write to them in order to start the notifications. */
-        bool need_pressure_rw = false;
-        for (PressureResource t = 0; t < _PRESSURE_RESOURCE_MAX; t++)
-                if (pressure_path[t] && !streq(pressure_path[t], "/dev/null")) {
-                        need_pressure_rw = true;
-                        break;
-                }
-
-        if (exec_is_cgroup_mount_read_only(context) && need_pressure_rw) {
-                read_write_paths_cleanup = strv_copy(context->read_write_paths);
-                if (!read_write_paths_cleanup)
-                        return -ENOMEM;
-
-                for (PressureResource t = 0; t < _PRESSURE_RESOURCE_MAX; t++) {
-                        if (!pressure_path[t] || streq(pressure_path[t], "/dev/null"))
-                                continue;
-
-                        r = strv_extend(&read_write_paths_cleanup, pressure_path[t]);
-                        if (r < 0)
-                                return r;
-                }
-
-                read_write_paths = read_write_paths_cleanup;
-        } else
-                read_write_paths = context->read_write_paths;
+        r = compile_access_mounts(context, rootfs, pressure_path, needs_sandboxing,
+                                  &access_mounts, &n_access_mounts);
+        if (r < 0)
+                return r;
 
         if (needs_sandboxing) {
                 /* The runtime struct only contains the parent of the private /tmp, which is non-accessible
@@ -4362,7 +4560,7 @@ static int apply_mount_namespace(
 
         /* Symlinks (exec dirs, os-release) are set up after other mounts, before they are made read-only. */
         setup_os_release_symlink = needs_sandboxing && exec_context_get_effective_mount_apivfs(context) && pinned_resource_is_set(rootfs);
-        r = compile_symlinks(context, params, setup_os_release_symlink, &symlinks);
+        r = compile_symlinks(context, params, rootfs, setup_os_release_symlink, &symlinks);
         if (r < 0)
                 return r;
 
@@ -4426,12 +4624,8 @@ static int apply_mount_namespace(
                 .root_image_options = context->root_image_options,
                 .root_image_policy = context->root_image_policy ?: &image_policy_service,
 
-                .read_write_paths = read_write_paths,
-                .read_only_paths = needs_sandboxing ? context->read_only_paths : NULL,
-                .inaccessible_paths = needs_sandboxing ? context->inaccessible_paths : NULL,
-
-                .exec_paths = needs_sandboxing ? context->exec_paths : NULL,
-                .no_exec_paths = needs_sandboxing ? context->no_exec_paths : NULL,
+                .access_mounts = access_mounts,
+                .n_access_mounts = n_access_mounts,
 
                 .empty_directories = empty_directories,
                 .symlinks = symlinks,
@@ -5056,7 +5250,7 @@ static bool exec_needs_cap_sys_admin(const ExecContext *context, const ExecParam
                context->bind_log_sockets > 0 ||
                context->n_bind_mounts > 0 ||
                context->n_temporary_filesystems > 0 ||
-               exec_context_with_rootfs_strict(context) ||
+               exec_context_with_rootfs(context) ||
                !strv_isempty(context->extension_directories) ||
                context->n_mount_images > 0 ||
                context->n_extension_images > 0 ||
@@ -5130,7 +5324,7 @@ static int setup_delegated_namespaces(
                 const ExecContext *context,
                 ExecParameters *params,
                 const ExecRuntime *runtime,
-                const PinnedResource *rootfs,
+                PinnedResource *rootfs,
                 bool delegate,
                 char *const *pressure_path,
                 uid_t uid,

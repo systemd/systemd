@@ -876,6 +876,15 @@ static int bus_service_set_transient_property(
         if (streq(name, "RootDirectoryFileDescriptor")) {
                 int fd;
 
+                /* The fd we receive here is a detached recursive clone of the root directory's mount tree,
+                 * typically taken by systemd-run --root-directory= with open_tree(OPEN_TREE_CLONE|AT_RECURSIVE).
+                 * Such a clone is a snapshot: mounts that appear in the original tree afterwards — for
+                 * example mount units that finish only after the client took the clone — never show up in
+                 * it, even if they complete before the unit is started. Neither re-cloning the fd (here and
+                 * again when spawning) nor ordering dependencies on the missing mounts can help with that:
+                 * re-cloning clones the detached tree rather than the original one, and since we do not
+                 * know the original path we cannot re-open it either. */
+
                 r = sd_bus_message_read(message, "h", &fd);
                 if (r < 0)
                         return r;
