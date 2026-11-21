@@ -270,8 +270,8 @@ int vl_method_reload_manager(sd_varlink *link, sd_json_variant *parameters, sd_v
         varlink_log_caller(link, manager, "Reload");
 
         /* See method_reload(). */
-        if (manager->pending_reload_message_vl || manager->pending_reload_message_dbus) {
-                log_warning("Reloading request rejected, reply to previous reload still pending.");
+        if (!manager_can_reload(manager)) {
+                log_warning("Reloading request rejected, another conflicting operation is still pending.");
                 return sd_varlink_error_errno(link, -EBUSY);
         }
 
@@ -318,8 +318,8 @@ int vl_method_reexecute_manager(sd_varlink *link, sd_json_variant *parameters, s
         varlink_log_caller(link, manager, "Reexecute");
 
         /* See method_reload(). */
-        if (manager->pending_reload_message_vl || manager->pending_reload_message_dbus) {
-                log_warning("Reexecution request rejected, reply to previous reload still pending.");
+        if (!manager_can_reload(manager)) {
+                log_warning("Reexecution request rejected, another conflicting operation is still pending.");
                 return sd_varlink_error_errno(link, -EBUSY);
         }
 
@@ -337,9 +337,6 @@ int vl_method_reexecute_manager(sd_varlink *link, sd_json_variant *parameters, s
                 return r;
 
         manager->pending_reload_message_vl = sd_varlink_ref(link);
-
-        assert(!manager->pending_reexecute_message_vl);
-        assert(!manager->pending_reexecute_message_dbus);
 
         manager->pending_reexecute_message_vl = sd_varlink_ref(link);
         manager->objective = MANAGER_REEXECUTE;
