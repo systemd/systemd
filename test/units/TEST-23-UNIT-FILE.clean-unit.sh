@@ -18,6 +18,21 @@ at_exit() {
 
 trap at_exit EXIT
 
+unit_in_memory() {
+    # GetUnit, unlike LoadUnit or systemctl show, never loads the unit.
+    busctl --quiet call org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager GetUnit s "$1"
+}
+
+wait_for_gc() {
+    for _ in {1..50}; do
+        if ! unit_in_memory "$1"; then
+            return 0
+        fi
+        sleep .1
+    done
+    return 1
+}
+
 cat >/run/systemd/system/test-service.service <<EOF
 [Service]
 ConfigurationDirectory=test-service
@@ -31,6 +46,10 @@ Type=exec
 EOF
 
 systemctl daemon-reload
+
+# Merely having directory settings must not pin the unit.
+systemctl clean test-service --what=cache
+wait_for_gc test-service.service
 
 test ! -e /etc/test-service
 test ! -e /run/test-service
@@ -50,6 +69,9 @@ test -d /var/log/test-service
 
 systemctl stop test-service
 
+unit_in_memory test-service.service
+rm /run/systemd/system/test-service.service
+
 test -d /etc/test-service
 test -d /run/test-service
 test -d /var/lib/test-service
@@ -57,6 +79,11 @@ test -d /var/cache/test-service
 test -d /var/log/test-service
 
 systemctl clean test-service --what=configuration
+
+systemctl daemon-reload
+unit_in_memory test-service.service
+test "$(systemctl show -P LoadState test-service)" = not-found
+(! systemctl start test-service)
 
 test ! -e /etc/test-service
 test -d /run/test-service
@@ -80,7 +107,12 @@ test -d /var/lib/test-service
 test ! -e /var/cache/test-service
 test ! -e /var/log/test-service
 
+test "$(systemctl show -P CanClean test-service)" = state
+# A new directory at a path already cleaned no longer belongs to the removed unit.
+mkdir /var/cache/test-service
 systemctl clean test-service --what=all
+wait_for_gc test-service.service
+rmdir /var/cache/test-service
 
 test ! -e /etc/test-service
 test ! -e /run/test-service
@@ -171,7 +203,14 @@ test -L /var/lib/test-service
 test ! -L /var/cache/test-service
 test ! -L /var/log/test-service
 
+# A dangling symlink is itself a resource to clean, even if its private target is already gone.
+rmdir /var/lib/private/test-service
+test -L /var/lib/test-service
+test ! -e /var/lib/test-service
+systemctl daemon-reload
+unit_in_memory test-service.service
 systemctl clean test-service --what=all
+wait_for_gc test-service.service
 
 test ! -d /etc/test-service
 test ! -d /run/private/test-service
@@ -219,6 +258,9 @@ test -d /var/cache/hoge
 test -d /var/log/hoge
 
 systemctl stop tmp-hoge.mount
+
+rm /run/systemd/system/tmp-hoge.mount
+systemctl daemon-reload
 
 test -d /etc/hoge
 test ! -d /run/hoge
