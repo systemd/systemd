@@ -1728,7 +1728,8 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <para>To remove any of the directories created by these settings, use the <command>systemctl clean
         …</command> command on the relevant units, see
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
-        details.</para>
+        details. Except for transient units and template instances, the unit stays in memory while any of
+        these directories exist, so it can still be cleaned if its unit file is removed.</para>
 
         <para>Example: if a system service unit has the following,
         <programlisting>RuntimeDirectory=foo/bar baz</programlisting>
