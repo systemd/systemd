@@ -275,19 +275,18 @@ sed -n 's/^\x1e//p' "$MONITOR_OUT" | \
 # invalid data gracefully and continue capturing subsequent messages.
 # -----------------------------------------------------------------------
 echo "=== Test 7: garbage data ==="
-start_monitor
+GARBAGE_SOCK="@test-monitor-garbage"
+start_unix_server "$GARBAGE_SOCK"
+start_monitor --path="$GARBAGE_SOCK"
 
-# Send garbage to a varlink socket
-printf 'this is not json\0' | varlink_raw_send /run/systemd/io.systemd.Hostname || true
-
-# Send a normal call to verify the monitor still works
-varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}'
-
-wait_for_output "io.systemd.Hostname.Describe"
+# Send a malformed frame followed by a valid request on the same connection. The sink does not reply.
+printf 'this is not json\0\n\n{"method":"io.systemd.GarbageTest.After","parameters":{}}\0' | \
+    varlink_raw_send "$GARBAGE_SOCK"
+wait "$UNIX_SERVER_PID"
+wait_for_output "io.systemd.GarbageTest.After"
 
 stop_monitor
 grep "invalid JSON" "$MONITOR_OUT" >/dev/null
-grep "io.systemd.Hostname.Describe" "$MONITOR_OUT" >/dev/null
 
 # -----------------------------------------------------------------------
 # Test 8: JSON output mode
