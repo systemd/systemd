@@ -35,10 +35,11 @@ permissions:
   contents: read
 
 env:
-  # masoncl/semcode-devel main plus its pull request 10, which lets semcode-mcp
-  # answer requests concurrently, from the fork the pull request comes from.
+  # masoncl/semcode-devel main plus its pull requests 10 and 11, which let
+  # semcode-mcp answer requests concurrently and report readiness over
+  # sd_notify, from the fork the pull requests come from.
   SEMCODE_REPOSITORY: https://github.com/brauner/semcode-devel.git
-  SEMCODE_REF: 08a0feefd4f97fce906420ee25961c44727efac8
+  SEMCODE_REF: 1a5f8228353cdba75d6e6a52ba1cf90a001649ab
 
 jobs:
   build:
