@@ -1,0 +1,181 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="io.systemd.Timedate"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>io.systemd.Timedate</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>io.systemd.Timedate</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>io.systemd.Timedate</refname>
+    <refpurpose>APIs for querying and changing the system clock and timezone settings</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><interfacename>io.systemd.Timedate</interfacename> is a Varlink interface implemented by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-related
+    components. It can be introspected and called with
+    <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+    <para><function>Describe()</function> returns the current time (<varname>TimeUSec</varname>), the
+    configured timezone (<varname>Timezone</varname>), whether the RTC is in local time
+    (<varname>LocalRTC</varname>), whether NTP synchronization is enabled (<varname>NTP</varname>),
+    whether it has completed (<varname>NTPSynchronized</varname>), whether the system supports NTP at
+    all (<varname>CanNTP</varname>), and the RTC's view of the time (<varname>RTCTimeUSec</varname>).
+    <function>ListTimezones()</function> returns every timezone name the system knows about.</para>
+
+    <para><function>SetTime()</function>, <function>SetTimezone()</function>,
+    <function>SetLocalRTC()</function> and <function>SetNTP()</function> change the corresponding
+    setting, mirroring the D-Bus methods of the same name on
+    <citerefentry><refentrytitle>org.freedesktop.timedate1</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    <function>SetTime()</function> is refused with <varname>AutomaticTimeSyncEnabled</varname> while
+    NTP synchronization is enabled, and the NTP-related calls are refused with
+    <varname>NoNTPSupport</varname> if the build has no NTP support.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Security</title>
+
+    <para>The interface is served by
+    <citerefentry><refentrytitle>systemd-timedated.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    on the <filename>/run/systemd/io.systemd.Timedate</filename> socket, which is world-connectable
+    (<constant>SocketMode=0666</constant>). The <function>Set*()</function> methods authenticate
+    through the polkit actions <varname>org.freedesktop.timedate1.set-time</varname>,
+    <varname>org.freedesktop.timedate1.set-timezone</varname>,
+    <varname>org.freedesktop.timedate1.set-local-rtc</varname> and
+    <varname>org.freedesktop.timedate1.set-ntp</varname>, which default to administrator
+    authentication; interactive authentication is requested when the caller sets
+    <varname>allowInteractiveAuthentication</varname>. <function>Describe()</function> and
+    <function>ListTimezones()</function> need no authentication.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Interface Definition</title>
+
+    <para>The following interface definition is exposed:</para>
+
+    <programlisting varlink-interface="io.systemd.Timedate">
+<emphasis role="varlink-comment"># APIs for querying and changing the system clock and timezone settings.</emphasis>
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.Timedate
+
+<emphasis role="varlink-comment"># Returns the time zone, RTC mode, NTP status and current system and RTC time in one call.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> Describe() -&gt; (
+	<emphasis role="varlink-comment"># The configured system time zone. Null if none could be determined.</emphasis>
+	Timezone: ?string,
+	<emphasis role="varlink-comment"># Whether the RTC is maintained in local time rather than UTC.</emphasis>
+	LocalRTC: bool,
+	<emphasis role="varlink-comment"># Whether a network time synchronization service is installed.</emphasis>
+	CanNTP: bool,
+	<emphasis role="varlink-comment"># Whether automatic time synchronization via a network time service is enabled.</emphasis>
+	NTP: bool,
+	<emphasis role="varlink-comment"># Whether the system clock is synchronized.</emphasis>
+	NTPSynchronized: bool,
+	<emphasis role="varlink-comment"># The current system time, in µs since the UNIX epoch.</emphasis>
+	TimeUSec: int,
+	<emphasis role="varlink-comment"># The current time of the RTC, in µs since the UNIX epoch. Null if it could not be read.</emphasis>
+	RTCTimeUSec: ?int
+)
+
+<emphasis role="varlink-comment"># Returns the list of known time zones.</emphasis>
+<emphasis role="varlink-comment"># [Requires 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> ListTimezones() -&gt; (
+	<emphasis role="varlink-comment"># One known time zone.</emphasis>
+	timezone: string
+)
+
+<emphasis role="varlink-comment"># Sets the system time zone.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> SetTimezone(
+	<emphasis role="varlink-comment"># The time zone to set, e.g. 'Europe/Berlin' or 'Asia/Tokyo'. Must be a valid, installed time zone.</emphasis>
+	timezone: string,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool
+) -&gt; ()
+
+<emphasis role="varlink-comment"># Configures whether the RTC is maintained in local time or UTC.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> SetLocalRTC(
+	<emphasis role="varlink-comment"># If true the RTC is maintained in local time, otherwise in UTC.</emphasis>
+	localRTC: bool,
+	<emphasis role="varlink-comment"># If true the system clock is updated from the RTC, otherwise the RTC is updated from the system clock. Defaults to false.</emphasis>
+	adjustSystemClock: ?bool,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool
+) -&gt; ()
+
+<emphasis role="varlink-comment"># Sets the system clock.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> SetTime(
+	<emphasis role="varlink-comment"># The time to set, in µs. If 'relative' is true this is an offset to the current system time (and may be negative), otherwise an absolute timestamp in µs since the UNIX epoch.</emphasis>
+	timeUSec: int,
+	<emphasis role="varlink-comment"># If true 'timeUSec' is interpreted relative to the current system time, otherwise as an absolute timestamp. Defaults to false.</emphasis>
+	relative: ?bool,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool
+) -&gt; ()
+
+<emphasis role="varlink-comment"># Enables or disables automatic time synchronization via a network time service. The reply is delayed until the relevant units have been started or stopped.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> SetNTP(
+	<emphasis role="varlink-comment"># If true, enables automatic time synchronization via a network time service, otherwise disables it.</emphasis>
+	useNTP: bool,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool
+) -&gt; ()
+
+<emphasis role="varlink-comment"># Returned when the clock cannot be set because automatic time synchronization (NTP) is enabled, or a previous enablement request is still in progress.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> AutomaticTimeSyncEnabled()
+
+<emphasis role="varlink-comment"># Returned when automatic time synchronization cannot be configured because no network time service is installed.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NoNTPSupport()
+</programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="varlink-interface" generated="True" extra-ref="io.systemd.Timedate"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Describe()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="ListTimezones()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SetTimezone()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SetLocalRTC()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SetTime()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SetNTP()"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="AutomaticTimeSyncEnabled"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoNTPSupport"/>
+
+    <!--End of Autogenerated section-->
+
+    </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.Timedate</screen> shows the
+    interface definition as served by <replaceable>SERVICE</replaceable>, and
+    <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.Timedate.Describe '{}'</screen>
+    invokes its <function>Describe()</function> method.</para>
+  </refsect1>
+
+  <refsect1><title>History</title><para>The io.systemd.Timedate interface was added in version 263.</para><para><varname>AutomaticTimeSyncEnabled</varname>, <function>Describe()</function>, <function>ListTimezones()</function>, <varname>NoNTPSupport</varname>, <function>SetLocalRTC()</function>, <function>SetNTP()</function>, <function>SetTime()</function>, and <function>SetTimezone()</function> were added in version 263.</para></refsect1><refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.varlink</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

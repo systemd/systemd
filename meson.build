@@ -1671,6 +1671,19 @@ if dbus_interfaces_dir == '' or dbus_interfaces_dir == 'yes'
         endif
 endif
 
+varlink_interfaces_dir = get_option('varlink-interfaces-dir')
+if varlink_interfaces_dir == '' or varlink_interfaces_dir == 'yes'
+        if meson.is_cross_build() and varlink_interfaces_dir != 'yes'
+                varlink_interfaces_dir = 'no'
+                warning('Exporting Varlink IDL interface files is disabled during cross build. Pass path or "yes" to force enable.')
+        else
+                # The exported directory keeps its name on install (like export-dbus-interfaces,
+                # which however cannot be reused verbatim here since its output is also called
+                # "interfaces", colliding with ours in the build dir).
+                varlink_interfaces_dir = datadir / 'varlink-interfaces'
+        endif
+endif
+
 dmi_arches = ['x86', 'x86_64', 'aarch64', 'arm', 'ia64', 'loongarch64', 'mips', 'riscv64']
 conf.set10('HAVE_DMI', host_machine.cpu_family() in dmi_arches)
 
@@ -2505,8 +2518,9 @@ subdir('src/update-utmp')
 subdir('src/user-sessions')
 subdir('src/userdb')
 subdir('src/validatefs')
-subdir('src/varlinkctl')
+subdir('src/varlink-introspect')
 subdir('src/varlink-monitor')
+subdir('src/varlinkctl')
 subdir('src/vconsole')
 subdir('src/veritysetup')
 subdir('src/vmspawn')
@@ -3374,6 +3388,19 @@ if not meson.is_cross_build()
                 install : dbus_interfaces_dir != 'no',
                 install_dir : fs.parent(dbus_interfaces_dir),
                 command : [python, dbus_exporter_py, '@OUTPUT@', dbus_programs])
+
+        # Export all built-in Varlink interfaces as canonical IDL files, mirroring
+        # export-dbus-interfaces (including its install layout: <install_dir>/<basename>).
+        # Skipped on cross builds since the introspection tool cannot run on the build host
+        # there.
+        export_varlink_interfaces = custom_target(
+                'varlink-interfaces',
+                output : fs.name(varlink_interfaces_dir),
+                install : varlink_interfaces_dir != 'no',
+                install_dir : fs.parent(varlink_interfaces_dir),
+                command : [executables_by_name['systemd-varlink-introspect'], 'export', '@OUTPUT@'])
+
+        alias_target('export-varlink-interfaces', export_varlink_interfaces)
 endif
 
 custom_target(
@@ -3424,6 +3451,7 @@ summary({
         'D-Bus session directory'                   : dbussessionservicedir,
         'D-Bus system directory'                    : dbussystemservicedir,
         'D-Bus interfaces directory'                : dbus_interfaces_dir,
+        'Varlink interfaces directory'              : varlink_interfaces_dir,
         'bash completions directory'                : bashcompletiondir,
         'zsh completions directory'                 : zshcompletiondir,
         'private shared lib version tag'            : shared_lib_tag,
