@@ -3037,7 +3037,7 @@ static int vl_method_check_new(sd_varlink *link, sd_json_variant *parameters, sd
         if (context.candidate)
                 r = sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("available", context.candidate->version));
         else
-                r = sd_varlink_error(link, "io.systemd.SysUpdate.NoUpdateNeeded", /* parameters= */ NULL);
+                r = sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_NULL("available"));
         if (r < 0)
                 return r;
 
