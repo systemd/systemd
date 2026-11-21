@@ -2407,7 +2407,6 @@ static int build_environment(
         _cleanup_strv_free_ char **e = NULL;
         _cleanup_free_ char *_username = NULL, *_home = NULL, *_shell = NULL;
         size_t n = 0;
-        pid_t exec_pid;
         int r;
 
         assert(c);
@@ -2416,17 +2415,12 @@ static int build_environment(
         assert(pressure_path);
         assert(ret);
 
-        exec_pid = needs_sandboxing && exec_needs_pid_namespace(c, p) ? 1 : getpid_cached();
+        /* $LISTEN_PID, $LISTEN_PIDFDID, $WATCHDOG_PID and $SYSTEMD_EXEC_PID are set later by
+         * build_pid_environment(), since with PrivatePIDs= the payload is a child we fork off after this
+         * point. */
 
         if (p->n_socket_fds + p->n_stashed_fds > 0) {
                 _cleanup_free_ char *joined = NULL;
-
-                r = strv_extendf_with_size(&e, &n, "LISTEN_PID="PID_FMT, exec_pid);
-                if (r < 0)
-                        return r;
-
-                /* $LISTEN_PIDFDID is set later in exec_invoke(), since with PrivatePIDs= the payload is a
-                 * child we fork off after this point, which has a different pidfd ID. */
 
                 r = strv_extendf_with_size(&e, &n, "LISTEN_FDS=%zu", p->n_socket_fds + p->n_stashed_fds);
                 if (r < 0)
@@ -2442,10 +2436,6 @@ static int build_environment(
         }
 
         if ((p->flags & EXEC_SET_WATCHDOG) && p->watchdog_usec > 0) {
-                r = strv_extendf_with_size(&e, &n, "WATCHDOG_PID="PID_FMT, exec_pid);
-                if (r < 0)
-                        return r;
-
                 r = strv_extendf_with_size(&e, &n, "WATCHDOG_USEC="USEC_FMT, p->watchdog_usec);
                 if (r < 0)
                         return r;
@@ -2579,10 +2569,6 @@ static int build_environment(
                         return r;
         }
 
-        r = strv_extendf_with_size(&e, &n, "SYSTEMD_EXEC_PID=" PID_FMT, exec_pid);
-        if (r < 0)
-                return r;
-
         for (PressureResource t = 0; t < _PRESSURE_RESOURCE_MAX; t++) {
                 if (!pressure_path[t])
                         continue;
@@ -2640,6 +2626,46 @@ static int build_environment(
         }
 
         *ret = TAKE_PTR(e);
+        return 0;
+}
+
+static int build_pid_environment(const ExecParameters *p, char ***env) {
+        uint64_t pidfdid;
+        int r;
+
+        assert(p);
+        assert(env);
+
+        /* Sets the variables that refer to the process that execs the payload. Must be called in that
+         * process, i.e. after we forked into the PID namespace for PrivatePIDs=. A value set explicitly by
+         * the unit takes precedence. */
+
+        if (p->n_socket_fds + p->n_stashed_fds > 0) {
+                if (!strv_env_get(*env, "LISTEN_PID")) {
+                        r = strv_env_assignf(env, "LISTEN_PID", PID_FMT, getpid_cached());
+                        if (r < 0)
+                                return r;
+                }
+
+                if (!strv_env_get(*env, "LISTEN_PIDFDID") && pidfd_get_inode_id_self_cached(&pidfdid) >= 0) {
+                        r = strv_env_assignf(env, "LISTEN_PIDFDID", "%" PRIu64, pidfdid);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        if ((p->flags & EXEC_SET_WATCHDOG) && p->watchdog_usec > 0 && !strv_env_get(*env, "WATCHDOG_PID")) {
+                r = strv_env_assignf(env, "WATCHDOG_PID", PID_FMT, getpid_cached());
+                if (r < 0)
+                        return r;
+        }
+
+        if (!strv_env_get(*env, "SYSTEMD_EXEC_PID")) {
+                r = strv_env_assignf(env, "SYSTEMD_EXEC_PID", PID_FMT, getpid_cached());
+                if (r < 0)
+                        return r;
+        }
+
         return 0;
 }
 
@@ -6925,19 +6951,11 @@ int exec_invoke(
         keep_parent_fd = safe_close(keep_parent_fd);
 
         /* This process will exec the payload, with or without PrivatePIDs= (in which case we forked into
-         * the new PID namespace above), so set $LISTEN_PIDFDID here for all units, unless the unit set it
-         * explicitly. */
-        if (params->n_socket_fds + params->n_stashed_fds > 0 &&
-            !strv_env_get(accum_env, "LISTEN_PIDFDID")) {
-                uint64_t pidfdid;
-
-                if (pidfd_get_inode_id_self_cached(&pidfdid) >= 0) {
-                        r = strv_env_assignf(&accum_env, "LISTEN_PIDFDID", "%" PRIu64, pidfdid);
-                        if (r < 0) {
-                                *exit_status = EXIT_MEMORY;
-                                return log_oom();
-                        }
-                }
+         * the new PID namespace above). */
+        r = build_pid_environment(params, &accum_env);
+        if (r < 0) {
+                *exit_status = EXIT_MEMORY;
+                return log_oom();
         }
 
         /* We don't need the pinned rootfs anymore at this point. Close the fds now, so that they are
