@@ -48,6 +48,8 @@ int acquire_luks2_key(
                         rp_id ?: "io.systemd.cryptsetup",
                         salt, salt_size,
                         cid, cid_size,
+                        /* public_key= */ NULL,
+                        /* public_key_algorithm= */ NULL,
                         pins,
                         required,
                         &decrypted_key,
