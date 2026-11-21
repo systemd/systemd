@@ -2896,7 +2896,7 @@ static int udev_rule_apply_token_to_event(
                         event->owner_final = true;
 
                 event->uid = PTR_TO_UID(ASSERT_PTR(token->data));
-                log_event_debug(event, token, "Set owner ID: %u", event->uid);
+                log_event_debug(event, token, "Set owner ID: "UID_FMT, event->uid);
                 return true;
 
         case TK_A_GROUP: {
@@ -2940,7 +2940,7 @@ static int udev_rule_apply_token_to_event(
                         event->group_final = true;
 
                 event->gid = PTR_TO_GID(ASSERT_PTR(token->data));
-                log_event_debug(event, token, "Set group ID: %u", event->gid);
+                log_event_debug(event, token, "Set group ID: "GID_FMT, event->gid);
                 return true;
 
         case TK_A_MODE: {
