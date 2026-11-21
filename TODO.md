@@ -1652,9 +1652,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - Maybe rename pkcs7 and public verbs of systemd-keyutil to be more verb like.
 
-- maybe rework systemd-modules-load to be a generator that just instantiates
-  modprobe@.service a bunch of times
-
 - maybe teach repart.d/ dropins a new setting MakeMountNodes= or so, which is
   just like MakeDirectories=, but uses an access mode of 0000 and sets the +i
   chattr bit. This is useful as protection against early uses of /var/ or /tmp/
@@ -1873,8 +1870,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   important because certain measurements are supposed to "destroy" tpm object
   access.
 
-- pcrlock: add support for multi-profile UKIs
-
 - **pcrlock:**
   - add kernel-install plugin that automatically creates UKI .pcrlock file when
     UKI is installed, and removes it when it is removed again
@@ -2050,12 +2045,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   on next boot). Could be used by live media and similar, to boot up as usual
   but automatically start at zero on each boot. There should also be a way to
   make ghost partitions properly persistent on request.
-
-- repart: introduce MigrateFileSystem= or so which is a bit like
-  CopyFiles=/CopyBlocks= but operates via btrfs device logic: adds target as
-  new device then removes source from btrfs. Usecase: a live medium which uses
-  "ghost" partitions as suggested above, which can become persistent on request
-  on another device.
 
 - replace all \x1b, \x1B, \033 C string escape sequences in our codebase with a
   more readable \e. It's a GNU extension, but a ton more readable than the
@@ -2244,8 +2233,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   - inbuilt piping support (essentially degenerate async)? see loopback-setup.c and other places
 
 - **sd-stub:**
-  - detect if we are running with uefi console output on serial, and if so
-    automatically add console= to kernel cmdline matching the same port.
   - add ".bootcfg" section for kernel bootconfig data (as per
     https://docs.kernel.org/admin-guide/bootconfig.html)
 
@@ -2543,16 +2530,12 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - **sysupdate:**
   - add fuzzing to the pattern parser
   - support casync as download mechanism
-  - "systemd-sysupdate update --all" support, that iterates through all components
-    defined on the host, plus all images installed into /var/lib/machines/,
-    /var/lib/portable/ and so on.
   - Allow invocation with a single transfer definition, i.e. with
     --definitions= pointing to a file rather than a dir.
   - add ability to disable implicit decompression of downloaded artifacts,
     i.e. a Compress=no option in the transfer definitions
   - download multiple arbitrary patterns from same source
   - SHA256SUMS format with bearer tokens for each resource to download
-  - decrypt SHA256SUMS with key from tpm
   - for each transfer support looking at multiple sources,
     pick source with newest entry. If multiple sources have the same entry, use
     first configured source. Usecase: "sideload" components from local dirs,
@@ -2584,9 +2567,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - The bind(AF_UNSPEC) construct (for resetting sockets to their initial state)
   should be blocked in many cases because it punches holes in many sandboxes.
-
-- the pub/priv key pair generated on the TPM2 should probably also be one you
-  can use to get a remote attestation quote.
 
 - The udev blkid built-in should expose a property that reflects
   whether media was sensed in USB CF/SD card readers. This should then
