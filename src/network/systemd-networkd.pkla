@@ -3,5 +3,5 @@
 
 [Allow systemd-networkd to set timezone, get product UUID, transient hostname and control ModemManager]
 Identity=unix-user:systemd-network
-Action=org.freedesktop.hostname1.set-hostname;org.freedesktop.hostname1.get-product-uuid;org.freedesktop.timedate1.set-timezone;org.freedesktop.ModemManager1.Device.Control;
+Action=org.freedesktop.hostname1.set-hostname;org.freedesktop.hostname1.get-hardware-serial;org.freedesktop.timedate1.set-timezone;org.freedesktop.ModemManager1.Device.Control;
 ResultAny=yes

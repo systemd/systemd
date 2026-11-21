@@ -20,6 +20,7 @@
 #include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-dhcp4.h"
 #include "networkd-dhcp4-bus.h"
+#include "networkd-hostname.h"
 #include "networkd-ipv4ll.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"

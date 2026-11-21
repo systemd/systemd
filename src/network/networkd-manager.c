@@ -26,7 +26,6 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
-#include "hostname-setup.h"
 #include "initrd-util.h"
 #include "iovec-util.h"
 #include "mount-util.h"
@@ -36,7 +35,7 @@
 #include "networkd-address-label.h"
 #include "networkd-address-pool.h"
 #include "networkd-dhcp4.h"
-#include "networkd-dhcp6.h"
+#include "networkd-hostname.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-manager-bus.h"
@@ -98,13 +97,9 @@ static int on_connected(sd_bus_message *message, void *userdata, sd_bus_error *r
 
         assert(message);
 
-        /* Did we get a timezone or transient hostname from DHCP while D-Bus wasn't up yet? */
-        if (m->dynamic_hostname)
-                (void) manager_set_hostname(m, m->dynamic_hostname);
+        /* Did we get a timezone from DHCP while the bus wasn't up yet? */
         if (m->dynamic_timezone)
                 (void) manager_send_timezone(m);
-        if (m->product_uuid_requested)
-                (void) manager_request_product_uuid(m);
 
         (void) manager_notify_mm_bus_connected(m);
 
@@ -574,66 +569,6 @@ static int manager_set_keep_configuration(Manager *m) {
         return 0;
 }
 
-static int on_hostname_change(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_free_ char *hostname = NULL;
-        Manager *m = ASSERT_PTR(userdata);
-        Link *link;
-
-        /* Pollers are woken up when the hostname is changed in any UTS namespace, hence check if ours
-         * has actually changed. */
-        hostname = gethostname_malloc();
-        if (!hostname) {
-                log_oom_warning();
-                return 0;
-        }
-
-        if (streq_ptr(hostname, m->kernel_hostname))
-                return 0;
-
-        log_debug("System hostname changed to '%s', updating hostname in DHCP clients.", hostname);
-
-        free_and_replace(m->kernel_hostname, hostname);
-
-        HASHMAP_FOREACH(link, m->links_by_index) {
-                (void) dhcp4_update_hostname(link);
-                (void) dhcp6_update_hostname(link);
-        }
-
-        return 0;
-}
-
-static int manager_watch_hostname(Manager *m) {
-        _cleanup_close_ int fd = -EBADF;
-        int r;
-
-        assert(m);
-
-        /* The kernel wakes up pollers of this file when the hostname is changed. */
-        fd = xopenat(AT_FDCWD, "/proc/sys/kernel/hostname", O_RDONLY|O_NONBLOCK|O_NOCTTY);
-        if (fd < 0) {
-                log_warning_errno(fd, "Failed to open /proc/sys/kernel/hostname, ignoring: %m");
-                return 0;
-        }
-
-        r = sd_event_add_io(m->event, &m->hostname_event_source, fd, /* events= */ 0, on_hostname_change, m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add hostname event source: %m");
-
-        r = sd_event_source_set_io_fd_own(m->hostname_event_source, /* own= */ true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to pass ownership of hostname file descriptor to event source: %m");
-
-        TAKE_FD(fd);
-
-        (void) sd_event_source_set_description(m->hostname_event_source, "hostname");
-
-        m->kernel_hostname = gethostname_malloc();
-        if (!m->kernel_hostname)
-                return log_oom();
-
-        return 0;
-}
-
 int manager_setup(Manager *m) {
         _cleanup_close_ int rtnl_fd = -EBADF, varlink_fd = -EBADF, varlink_metrics_fd = -EBADF, resolve_hook_fd = -EBADF;
         int r;
@@ -643,6 +578,8 @@ int manager_setup(Manager *m) {
         r = sd_event_default(&m->event);
         if (r < 0)
                 return r;
+
+        (void) sd_event_set_userdata(m->event, m);
 
         (void) sd_event_set_watchdog(m->event, true);
         (void) sd_event_add_signal(m->event, /* ret= */ NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, signal_terminate_callback, m);
@@ -859,6 +796,9 @@ Manager* manager_free(Manager *m) {
         m->query_filter_subscriptions = set_free(m->query_filter_subscriptions);
         hashmap_free(m->polkit_registry);
         sd_bus_flush_close_unref(m->bus);
+
+        hostname_varlink_close(m->hostname_varlink);
+        sd_varlink_close_unref(m->product_uuid_varlink);
 
         free(m->dynamic_timezone);
         free(m->dynamic_hostname);
@@ -1257,51 +1197,6 @@ int manager_enumerate(Manager *m) {
                 return log_error_errno(r, "Could not enumerate wireless LAN stations: %m");
 
         log_debug("Enumeration completed.");
-        return 0;
-}
-
-static int set_hostname_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
-        const sd_bus_error *e;
-        int r;
-
-        assert(m);
-
-        e = sd_bus_message_get_error(m);
-        if (e) {
-                r = sd_bus_error_get_errno(e);
-                log_warning_errno(r, "Could not set hostname: %s", bus_error_message(e, r));
-        }
-
-        return 1;
-}
-
-int manager_set_hostname(Manager *m, const char *hostname) {
-        int r;
-
-        log_debug("Setting transient hostname: '%s'", strna(hostname));
-
-        r = free_and_strdup_warn(&m->dynamic_hostname, hostname);
-        if (r < 0)
-                return r;
-
-        if (sd_bus_is_ready(m->bus) <= 0) {
-                log_debug("Not connected to system bus, setting system hostname later.");
-                return 0;
-        }
-
-        r = bus_call_method_async(
-                        m->bus,
-                        /* ret_slot= */ NULL,
-                        bus_hostname,
-                        "SetHostname",
-                        set_hostname_handler,
-                        m,
-                        "sb",
-                        hostname,
-                        false);
-        if (r < 0)
-                return log_error_errno(r, "Could not set transient hostname: %m");
-
         return 0;
 }
 

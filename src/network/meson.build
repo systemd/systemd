@@ -49,6 +49,7 @@ networkctl_export_sources = files(
         'networkd-dhcp6-bus.c',
         'networkd-dhcp6.c',
         'networkd-dns.c',
+        'networkd-hostname.c',
         'networkd-ipv4acd.c',
         'networkd-ipv4ll.c',
         'networkd-ipv6ll.c',

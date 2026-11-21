@@ -119,6 +119,8 @@ int sd_event_get_iteration(sd_event *e, uint64_t *ret);
 int sd_event_set_signal_exit(sd_event *e, int b);
 int sd_event_set_exit_on_idle(sd_event *e, int b);
 int sd_event_get_exit_on_idle(sd_event *e);
+void* sd_event_get_userdata(sd_event *e);
+void* sd_event_set_userdata(sd_event *e, void *userdata);
 
 _SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_event_source);
 sd_event_source* sd_event_source_disable_unref(sd_event_source *s);
