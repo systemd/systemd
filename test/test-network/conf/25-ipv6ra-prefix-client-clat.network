@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=veth-peer
+
+[Network]
+DHCP=no
+IPv6AcceptRA=yes
+CLAT=yes
+
+[IPv6AcceptRA]
+PrefixAllowList=2001:db8:0:1::/64
+UsePREF64=yes

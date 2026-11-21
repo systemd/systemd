@@ -332,11 +332,17 @@ endif
 conf.set10('HAVE_LSM_INTEGRITY_TYPE', have_lsm_integrity_type)
 
 conf.set10('ENABLE_SYSCTL_BPF', conf.get('HAVE_VMLINUX_H') == 1 and libbpf.version().version_compare('>= 0.7'))
+conf.set10('ENABLE_CLAT_BPF', conf.get('HAVE_VMLINUX_H') == 1 and libbpf.version().version_compare('>= 0.7'))
 
 bpf_programs = [
         {
                 'source' : files('bind-iface.bpf.c'),
                 'condition' : 'BPF_FRAMEWORK',
+        },
+        {
+                'source' : files('clat.bpf.c'),
+                'condition' : 'ENABLE_CLAT_BPF',
+                'depend_files' : vmlinux_h_depend_files,
         },
         {
                 'source' : files('restrict-fsaccess.bpf.c'),

@@ -76,7 +76,8 @@ int run_networkd(int argc, char *argv[]) {
                                     (1ULL << CAP_NET_BROADCAST) |
                                     (1ULL << CAP_NET_RAW) |
                                     (1ULL << CAP_SYS_ADMIN) |
-                                    (1ULL << CAP_BPF));
+                                    (1ULL << CAP_BPF) |
+                                    (1ULL << CAP_PERFMON));
                 if (r < 0)
                         return log_error_errno(r, "Failed to drop privileges: %m");
         }

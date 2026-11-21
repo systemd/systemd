@@ -67,6 +67,7 @@
 #include "networkd-sysctl.h"
 #include "networkd-wifi.h"
 #include "networkd-wwan-bus.h"
+#include "networkd-xlat.h"
 #include "ordered-set.h"
 #include "set.h"
 #include "socket-util.h"
@@ -260,6 +261,8 @@ static void link_free_engines(Link *link) {
         ndisc_flush(link);
 
         link->radv = sd_radv_unref(link->radv);
+
+        xlat_done(link);
 }
 
 static Link* link_free(Link *link) {
@@ -421,6 +424,8 @@ int link_stop_engines(Link *link, bool may_keep_dynamic) {
                         RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop IPv6 Router Discovery: %m"));
 
                 ndisc_flush(link);
+
+                xlat_stop(link);
         }
 
         r = sd_dhcp_relay_interface_stop(link->dhcp_relay_interface);
@@ -658,6 +663,10 @@ void link_check_ready(Link *link) {
         }
 
         link_set_state(link, LINK_STATE_CONFIGURED);
+
+        /* CLAT is stopped when the link is reconfigured, and may also have been deferred until now. Start it
+         * if it is still wanted. This does nothing if it is running already or not enabled. */
+        (void) xlat_start(link);
 }
 
 static int link_request_static_configs(Link *link) {
@@ -1586,6 +1595,11 @@ int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags) {
 
         /* Then, apply new .network file */
         link->network = network_ref(network);
+
+        /* CLAT depends on CLAT= and Pref64Prefix= of the .network file, and its address, route and neighbor
+         * entry are dropped below like any other configuration that is not requested by the new file. Stop it
+         * here, so that the new settings take effect. It is started again once the link is configured. */
+        xlat_stop(link);
 
         if (FLAGS_SET(network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC) ||
             !FLAGS_SET(flags, LINK_RECONFIGURE_CLEANLY)) {
@@ -2958,6 +2972,14 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
                 .kind = TAKE_PTR(kind),
 
                 .bridge_vlan_pvid = UINT16_MAX,
+
+                .clat_tun_fd = -EBADF,
+                .clat_send_fd = -EBADF,
+                .clat_recv_fd = -EBADF,
+#if ENABLE_CLAT_BPF
+                .clat_bpf_ingress_fd = -EBADF,
+                .clat_bpf_egress_fd = -EBADF,
+#endif
 
                 .ipv6ll_address_gen_mode = _IPV6_LINK_LOCAL_ADDRESS_GEN_MODE_INVALID,
 

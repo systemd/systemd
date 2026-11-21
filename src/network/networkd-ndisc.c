@@ -26,6 +26,7 @@
 #include "networkd-route.h"
 #include "networkd-state-file.h"
 #include "networkd-sysctl.h"
+#include "networkd-xlat.h"
 #include "ordered-set.h"
 #include "set.h"
 #include "siphash24.h"
@@ -2307,6 +2308,12 @@ static int ndisc_router_process_pref64(Link *link, sd_ndisc_router *rt, bool zer
                                         .prefix = a,
                                         .prefix_len = prefix_len
                                 }));
+
+                /* Stops CLAT if it depends on discovered prefixes and none is left, and switches to another
+                 * prefix if the one in use was removed. With a manually configured Pref64Prefix=, CLAT
+                 * does not need the discovered entries. */
+                (void) xlat_pref64_removed(link, &a, prefix_len);
+
                 return 0;
         }
 
@@ -2319,6 +2326,9 @@ static int ndisc_router_process_pref64(Link *link, sd_ndisc_router *rt, bool zer
                 /* update existing entry */
                 exist->router = router;
                 exist->lifetime_usec = lifetime_usec;
+
+                /* Retry CLAT start - it may have been deferred if no IPv6 address was available */
+                (void) xlat_start(link);
                 return 0;
         }
 
@@ -2344,6 +2354,8 @@ static int ndisc_router_process_pref64(Link *link, sd_ndisc_router *rt, bool zer
 
         assert(r > 0);
         TAKE_PTR(new_entry);
+
+        (void) xlat_start(link);
 
         return 0;
 }
@@ -2659,9 +2671,14 @@ static int ndisc_drop_outdated(Link *link, const struct in6_addr *router, usec_t
                 if (router && !in6_addr_equal(&p64->router, router))
                         continue;
 
+                struct in6_addr removed_prefix = p64->prefix;
+                uint8_t removed_prefix_len = p64->prefix_len;
+
                 free(set_remove(link->ndisc_pref64, p64));
                 /* The pref64 prefix is not exported through the state file, hence it is not necessary to set
                  * the 'updated' flag. */
+
+                (void) xlat_pref64_removed(link, &removed_prefix, removed_prefix_len);
         }
 
         SET_FOREACH(dnr, link->ndisc_dnr) {
