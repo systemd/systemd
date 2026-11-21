@@ -13,6 +13,7 @@ on:
     paths:
       - .github/workflows/coverage.yml
       - test/integration-tests/integration-test-wrapper.py
+      - src/boot/efi-gcov.c
 
 permissions:
   contents: read

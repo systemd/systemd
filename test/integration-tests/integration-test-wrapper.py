@@ -258,6 +258,42 @@ def process_sanitizer_report(args: argparse.Namespace, journal_file: Path) -> bo
     return total > 0
 
 
+def find_gcov_tool(tmp: Path, mkosi_dir: Path) -> list[str]:
+    # The gcda files were written by the compiler of the guest image, which may be newer than the
+    # gcov on the host (e.g., an arch or rawhide guest on a stable host). Probe a gcda file with the
+    # host gcov and, on a version mismatch, fall back to the gcov of the mkosi tools tree, which is
+    # built from the same distribution as the guest image.
+    gcda = next(iter(sorted(tmp.rglob('*.gcda'))), None)
+    if gcda is None:
+        return []
+
+    candidates = [shutil.which('gcov')]
+    tools_gcov = mkosi_dir / 'mkosi.tools' / 'usr' / 'bin' / 'gcov'
+    if tools_gcov.is_file():
+        candidates.append(os.fspath(tools_gcov))
+    candidates = [c for c in candidates if c]
+    if len(candidates) < 2:
+        return []
+
+    for candidate in candidates:
+        probe = subprocess.run(
+            [candidate, '-n', os.fspath(gcda)],
+            env={**os.environ, 'LC_ALL': 'C'},
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        if probe.returncode == 0:
+            if candidate != 'gcov':
+                print(f'Guest gcda files need a newer gcov, using {candidate}', file=sys.stderr)
+            return ['--gcov-tool', candidate]
+        if not re.search(r'(?i)version[^\n]*(prefer|mismatch|incompatible)', probe.stdout):
+            # The failure is unrelated to the gcov/gcda version (missing sources, etc.), keep the default.
+            return []
+
+    return []
+
+
 def process_coverage(args: argparse.Namespace, summary: Summary, name: str, journal_file: Path) -> None:
     coverage = subprocess.run(
         [
@@ -310,7 +346,6 @@ def process_coverage(args: argparse.Namespace, summary: Summary, name: str, jour
                     '-size', '0',
                     '-delete',
                 ],
-                input=tarball,
                 stdout=sys.stderr,
                 check=True,
             )  # fmt: skip
@@ -330,17 +365,16 @@ def process_coverage(args: argparse.Namespace, summary: Summary, name: str, jour
                 check=True,
             )
 
+            gcov_tool = (
+                ['--gcov-tool', 'llvm-cov', '--gcov-tool', 'gcov']
+                if summary.environment.get('LLVM', '0') == '1'
+                else find_gcov_tool(Path(tmp), Path(args.mkosi_dir))
+            )
+
             subprocess.run(
                 [
                     'lcov',
-                    *(
-                        [
-                            '--gcov-tool', 'llvm-cov',
-                            '--gcov-tool', 'gcov',
-                        ]
-                        if summary.environment.get('LLVM', '0') == '1'
-                        else []
-                    ),
+                    *gcov_tool,
                     '--directory', tmp,
                     '--base-directory', 'src/',
                     '--capture',
