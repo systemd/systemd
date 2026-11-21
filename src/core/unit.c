@@ -529,6 +529,15 @@ void unit_add_to_gc_queue(Unit *u) {
         u->in_gc_queue = true;
 }
 
+static bool unit_has_untracked_bus_clients(Unit *u) {
+        assert(u);
+
+        /* While the API bus is being set up, the subscribers and the clients referencing the unit that we
+         * deserialized aren't tracked again yet, see api_bus_instance_id_reply(). */
+        return u->manager->api_bus && !u->manager->api_bus_ready &&
+                (!strv_isempty(u->manager->subscribed_as_strv) || !strv_isempty(u->deserialized_refs));
+}
+
 void unit_add_to_dbus_queue(Unit *u) {
         assert(u);
         assert(u->type != _UNIT_TYPE_INVALID);
@@ -539,6 +548,7 @@ void unit_add_to_dbus_queue(Unit *u) {
         /* Shortcut things if nobody cares */
         if (sd_bus_track_count(u->manager->subscribed) <= 0 &&
             sd_bus_track_count(u->bus_track) <= 0 &&
+            !unit_has_untracked_bus_clients(u) &&
             set_isempty(u->manager->private_buses) &&
             !u->varlink_unit_change) {
                 u->sent_dbus_new_signal = true;
