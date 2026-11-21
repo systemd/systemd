@@ -6,6 +6,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "namespace-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 #include "uid-range.h"
@@ -557,6 +558,28 @@ TEST(uid_range_translate) {
         ASSERT_EQ(uid, 1000U);
         ASSERT_ERROR(uid_range_translate(o, i, 999, &uid), ESRCH);
         ASSERT_ERROR(uid_range_translate(o, i, 1001, &uid), ESRCH);
+}
+
+TEST(uid_range_translate_userns_fd) {
+        uid_t uid;
+        gid_t gid;
+
+        _cleanup_close_ int userns_fd = userns_acquire_self_root();
+        if (ERRNO_IS_NEG_PRIVILEGE(userns_fd) || ERRNO_IS_NEG_NOT_SUPPORTED(userns_fd))
+                return (void) log_tests_skipped_errno(userns_fd, "User namespaces not available");
+        ASSERT_OK(userns_fd);
+
+        ASSERT_OK(uid_range_translate_userns_fd(userns_fd, UID_RANGE_USERNS_OUTSIDE, getuid(), &uid));
+        ASSERT_EQ(uid, 0U);
+        ASSERT_OK(uid_range_translate_userns_fd(userns_fd, UID_RANGE_USERNS_INSIDE, /* uid= */ 0, &uid));
+        ASSERT_EQ(uid, getuid());
+        ASSERT_OK(uid_range_translate_userns_fd(userns_fd, GID_RANGE_USERNS_OUTSIDE, getgid(), &gid));
+        ASSERT_EQ(gid, 0U);
+        ASSERT_OK(uid_range_translate_userns_fd(userns_fd, GID_RANGE_USERNS_INSIDE, /* uid= */ 0, &gid));
+        ASSERT_EQ(gid, getgid());
+
+        ASSERT_ERROR(uid_range_translate_userns_fd(userns_fd, UID_RANGE_USERNS_INSIDE, /* uid= */ 1, &uid), ESRCH);
+        ASSERT_ERROR(uid_range_translate_userns_fd(userns_fd, GID_RANGE_USERNS_INSIDE, /* uid= */ 1, &gid), ESRCH);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

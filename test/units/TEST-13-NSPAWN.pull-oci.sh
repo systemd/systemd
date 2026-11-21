@@ -134,6 +134,15 @@ run0 -u testuser systemd-nspawn -q --pipe -M ocicombo /sbin/init | grep luftikus
 
 run0 -u testuser --pipe systemd-run -q --unit=fimpel --user -p PrivateUsers=managed -p RootMStack=/home/testuser/.local/state/machines/ocicombo.mstack --pipe /sbin/init | grep luftikus >/dev/null
 
+# With PrivateDevices=yes, units in a managed user namespace get their own devpts instance, hence the PTYs of
+# the host are not visible to them, and the PTYs they allocate belong to their own tty group. The system
+# service manager sets up the mount namespace before joining the user namespace, i.e. this checks that it uses
+# the group's ID as seen from outside of it, while the per-user service manager joins the user namespace first.
+TTY_GID="$(getent group tty | cut -d: -f3)"
+DEVPTS_CHECK='exec 3<>/dev/ptmx && [[ "$(ls /dev/pts)" == "$(printf "0\nptmx")" ]] && [[ "$(stat -c %g /dev/pts/0)" == "$TTY_GID" ]]'
+systemd-run -q --wait --pipe --unit=fimpel-devpts-system -p PrivateUsers=managed -p PrivateDevices=yes -E TTY_GID="$TTY_GID" bash -c "$DEVPTS_CHECK"
+run0 -u testuser --pipe systemd-run -q --unit=fimpel-devpts-user --user -p PrivateUsers=managed -p PrivateDevices=yes -E TTY_GID="$TTY_GID" --pipe bash -c "$DEVPTS_CHECK"
+
 # With PrivatePIDs=yes, the process that calls mountfsd is not the one that connected to it
 test "$(run0 -u testuser --pipe systemd-run -q --unit=fimpel-pidns --user -p PrivateUsers=managed -p PrivatePIDs=yes -p RootMStack=/home/testuser/.local/state/machines/ocicombo.mstack --pipe readlink /proc/self)" = 1
 
