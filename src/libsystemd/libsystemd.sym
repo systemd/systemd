@@ -1120,6 +1120,7 @@ global:
         sd_journal_get_data_to_fd;
         sd_varlink_deserialize;
         sd_varlink_get_connection_id;
+        sd_varlink_idl_format_json;
         sd_varlink_invoke_and_upgrade;
         sd_varlink_invoke_and_upgradeb;
         sd_varlink_serialize;
