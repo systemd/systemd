@@ -222,6 +222,10 @@
         <literal>-</literal>, the image is read from standard input, in which case the second argument is
         mandatory.</para>
 
+        <para>When a TAR image is unpacked without privileges, i.e. with <option>--user</option>, the
+        character and block device nodes it contains are skipped. The same applies to
+        <command>pull-tar</command> and <command>pull-oci</command>.</para>
+
         <para>No cryptographic validation is done when importing the images.</para>
 
         <para>Much like image downloads, ongoing imports may be listed with <command>list</command>
