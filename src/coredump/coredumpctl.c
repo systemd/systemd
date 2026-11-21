@@ -338,10 +338,11 @@ static int run(int argc, char *argv[]) {
         r = dispatch_verb(args, NULL);
 
         if (units_active > 0)
-                printf("%s-- Notice: %d systemd-coredump@.service %s, output may be incomplete.%s\n",
-                       ansi_highlight_red(),
-                       units_active, units_active == 1 ? "unit is running" : "units are running",
-                       ansi_normal());
+                fprintf(sd_json_format_enabled(arg_json_format_flags) || arg_field ? stderr : stdout,
+                        "%s-- Notice: %d systemd-coredump@.service %s, output may be incomplete.%s\n",
+                        ansi_highlight_red(),
+                        units_active, units_active == 1 ? "unit is running" : "units are running",
+                        ansi_normal());
 
         return r;
 }
