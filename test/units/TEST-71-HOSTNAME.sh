@@ -286,6 +286,21 @@ test_varlink() {
     cmp "$A" "$B"
 }
 
+testcase_file_system_id() {
+    local fsid
+
+    # FileSystemID is the UUID of the file system backing /var/, or null if it does not report one
+    fsid="$(hostnamectl --json=short | jq -r .FileSystemID)"
+    assert_eq "$(varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}' | jq -r .FileSystemID)" "$fsid"
+
+    if [[ "$fsid" == null ]]; then
+        assert_not_in "File System ID:" "$(hostnamectl)"
+    else
+        # JSON carries the plain hex form, hostnamectl shows it formatted as UUID
+        assert_in "File System ID: ${fsid:0:8}-${fsid:8:4}-${fsid:12:4}-${fsid:16:4}-${fsid:20:12}" "$(hostnamectl)"
+    fi
+}
+
 testcase_wildcard() {
     SAVED=""
     [[ -f /etc/hostname ]] && SAVED="$(cat /etc/hostname)"
