@@ -536,12 +536,23 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         if (r != 0)
                 return r;
 
+        Machine *machine = NULL;
+        if (p.name || pidref_is_set(&p.pidref) || pidref_is_automatic(&p.pidref)) {
+                r = lookup_machine_by_name_or_pidref(link, m, p.name, &p.pidref, &machine);
+                if (r == -ESRCH)
+                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE, /* parameters= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
         if (m->runtime_scope != RUNTIME_SCOPE_USER && should_acquire_metadata(p.acquire_metadata)) {
+                /* When listing all machines, we act on all of them at once, hence pass no details */
                 r = varlink_verify_polkit_async(
                                 link,
                                 m->system_bus,
                                 "org.freedesktop.machine1.inspect-machines",
-                                (const char**) STRV_MAKE("name", strna(p.name)),
+                                machine ? (const char**) STRV_MAKE("machine", machine->name,
+                                                                   "owner_uid", FORMAT_UID(machine->uid)) : NULL,
                                 &m->polkit_registry);
                 if (r <= 0)
                         return r;
@@ -551,21 +562,12 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         if (r < 0)
                 return r;
 
-        if (p.name || pidref_is_set(&p.pidref) || pidref_is_automatic(&p.pidref)) {
-                Machine *machine;
-                r = lookup_machine_by_name_or_pidref(link, m, p.name, &p.pidref, &machine);
-                if (r == -ESRCH)
-                        return 0;
-                if (r < 0)
-                        return r;
-
+        if (machine)
                 return list_machine_one_and_maybe_read_metadata(link, machine, p.acquire_metadata);
-        }
 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, /* parameters= */ NULL);
 
-        Machine *machine;
         HASHMAP_FOREACH(machine, m->machines) {
                 r = list_machine_one_and_maybe_read_metadata(link, machine, p.acquire_metadata);
                 if (r < 0)
@@ -694,12 +696,18 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
         if (r != 0)
                 return r;
 
+        if (p.image_name && !image_name_is_valid(p.image_name))
+                return sd_varlink_error_invalid_parameter_name(link, "name");
+
         if (m->runtime_scope != RUNTIME_SCOPE_USER && should_acquire_metadata(p.acquire_metadata)) {
+                /* When listing all images, we act on the whole pool, hence pass only its class */
                 r = varlink_verify_polkit_async(
                                 link,
                                 m->system_bus,
                                 "org.freedesktop.machine1.inspect-images",
-                                (const char**) STRV_MAKE("name", strna(p.image_name)),
+                                p.image_name ? (const char**) STRV_MAKE("image", p.image_name,
+                                                                        "class", image_class_to_string(IMAGE_MACHINE))
+                                             : (const char**) STRV_MAKE("class", image_class_to_string(IMAGE_MACHINE)),
                                 &m->polkit_registry);
                 if (r <= 0)
                         return r;
@@ -711,9 +719,6 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
 
         if (p.image_name) {
                 _cleanup_(image_unrefp) Image *found = NULL;
-
-                if (!image_name_is_valid(p.image_name))
-                        return sd_varlink_error_invalid_parameter_name(link, "name");
 
                 r = image_find(m->runtime_scope, IMAGE_MACHINE, p.image_name, /* root= */ NULL, &found);
                 if (r == -ENOENT)

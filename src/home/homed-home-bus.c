@@ -190,14 +190,11 @@ int bus_home_method_activate(
 
         if_referenced = endswith(sd_bus_message_get_member(message), "IfReferenced");
 
-        r = bus_verify_polkit_async_full(
+        r = home_verify_polkit_async(
+                        h,
                         message,
                         "org.freedesktop.home1.activate-home",
-                        /* details= */ NULL,
                         h->uid,
-                        /* flags= */ 0,
-                        &h->manager->polkit_registry,
-                        /* ret_admin= */ NULL,
                         error);
         if (r < 0)
                 return r;

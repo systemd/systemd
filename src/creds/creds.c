@@ -18,6 +18,7 @@
 #include "escape.h"
 #include "fileio.h"
 #include "format-table.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
@@ -1251,7 +1252,7 @@ static const char* credential_scope_table[_CREDENTIAL_SCOPE_MAX] = {
         [CREDENTIAL_USER]   = "user",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(credential_scope, CredentialScope);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(credential_scope, CredentialScope);
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_credential_scope, CredentialScope, credential_scope_from_string);
 
 typedef struct MethodEncryptParameters {
@@ -1313,6 +1314,20 @@ static int settle_scope(
         }
 
         return 0;
+}
+
+/* Describes a credential to polkit: its name, scope and, for user-scoped credentials, owner, plus whether the
+ * timestamp is fresh, as users may access their own credentials with a fresh timestamp without polkit. */
+static char** credential_polkit_details(const char *name, CredentialScope scope, uid_t uid, bool timestamp_fresh) {
+        if (scope == CREDENTIAL_USER)
+                return strv_new("credential", strempty(name),
+                                "scope", credential_scope_to_string(scope),
+                                "uid", FORMAT_UID(uid),
+                                "timestamp_fresh", one_zero(timestamp_fresh));
+
+        return strv_new("credential", strempty(name),
+                        "scope", credential_scope_to_string(scope),
+                        "timestamp_fresh", one_zero(timestamp_fresh));
 }
 
 static char normalize_separator(char c) {
@@ -1439,11 +1454,15 @@ static int vl_method_encrypt(sd_varlink *link, sd_json_variant *parameters, sd_v
 
         if (!own_scope || !timestamp_fresh) {
                 /* Insist on PK if client wants to encrypt for another user or the system, or if the timestamp was explicitly overridden. */
+                _cleanup_strv_free_ char **details = credential_polkit_details(p.name, p.scope, p.uid, timestamp_fresh);
+                if (!details)
+                        return -ENOMEM;
+
                 r = varlink_verify_polkit_async(
                                 link,
                                 /* bus= */ NULL,
                                 "io.systemd.credentials.encrypt",
-                                /* details= */ NULL,
+                                (const char**) details,
                                 polkit_registry);
                 if (r <= 0)
                         return r;
@@ -1549,13 +1568,18 @@ static int vl_method_decrypt(sd_varlink *link, sd_json_variant *parameters, sd_v
         /* Relax security requirements if peer wants to encrypt credentials for themselves */
         bool own_scope = p.scope == CREDENTIAL_USER && p.uid == peer_uid;
         bool ask_polkit = !own_scope || !timestamp_fresh;
+        CredentialScope polkit_scope = p.scope;
         for (;;) {
                 if (ask_polkit) {
+                        _cleanup_strv_free_ char **details = credential_polkit_details(p.name, polkit_scope, p.uid, timestamp_fresh);
+                        if (!details)
+                                return -ENOMEM;
+
                         r = varlink_verify_polkit_async(
                                         link,
                                         /* bus= */ NULL,
                                         "io.systemd.credentials.decrypt",
-                                        /* details= */ NULL,
+                                        (const char**) details,
                                         polkit_registry);
                         if (r <= 0)
                                 return r;
@@ -1580,6 +1604,7 @@ static int vl_method_decrypt(sd_varlink *link, sd_json_variant *parameters, sd_v
                 /* So the secret was apparently intended for the system. Let's retry decrypting it after
                  * acquiring polkit's permission. */
                 ask_polkit = true;
+                polkit_scope = CREDENTIAL_SYSTEM;
         }
 
         if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r))

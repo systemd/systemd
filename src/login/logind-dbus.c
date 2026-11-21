@@ -1454,7 +1454,7 @@ static int method_activate_session_on_seat(sd_bus_message *message, void *userda
                 return sd_bus_error_setf(error, BUS_ERROR_SESSION_NOT_ON_SEAT,
                                          "Session %s not on seat %s", session_name, seat_name);
 
-        r = check_polkit_chvt(message, m, error);
+        r = check_polkit_chvt(message, m, seat, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -1641,11 +1641,16 @@ static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
+        const char *details[] = {
+                "uid", FORMAT_UID(uid),
+                NULL
+        };
+
         r = bus_verify_polkit_async_full(
                         message,
                         uid == auth_uid ? "org.freedesktop.login1.set-self-linger" :
                                           "org.freedesktop.login1.set-user-linger",
-                        /* details= */ NULL,
+                        details,
                         /* good_user= */ UID_INVALID,
                         interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &m->polkit_registry,
@@ -1819,10 +1824,15 @@ static int method_attach_device(sd_bus_message *message, void *userdata, sd_bus_
         } else if (!seat_name_is_valid(seat)) /* Note that a seat does not have to exist yet for this operation to succeed */
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Seat name %s is not valid", seat);
 
+        const char *details[] = {
+                "device", sysfs,
+                NULL
+        };
+
         r = bus_verify_polkit_async_full(
                         message,
                         "org.freedesktop.login1.attach-device",
-                        /* details= */ NULL,
+                        details,
                         /* good_user= */ UID_INVALID,
                         interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &m->polkit_registry,
