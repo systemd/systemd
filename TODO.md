@@ -1652,11 +1652,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - Maybe rename pkcs7 and public verbs of systemd-keyutil to be more verb like.
 
-- maybe teach repart.d/ dropins a new setting MakeMountNodes= or so, which is
-  just like MakeDirectories=, but uses an access mode of 0000 and sets the +i
-  chattr bit. This is useful as protection against early uses of /var/ or /tmp/
-  before their contents is mounted.
-
 - maybe trigger a uevent "change" on a device if "systemctl reload xyz.device"
   is issued.
 

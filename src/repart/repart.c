@@ -20,6 +20,7 @@
 #include "blockdev-util.h"
 #include "btrfs-util.h"
 #include "build.h"
+#include "capability-util.h"
 #include "chase.h"
 #include "chattr-util.h"
 #include "conf-files.h"
@@ -547,6 +548,7 @@ typedef struct Partition {
         char **exclude_files_source;
         char **exclude_files_target;
         char **make_directories;
+        char **make_mount_nodes;
         char **make_symlinks;
         OrderedHashmap *subvolumes;
         char *default_subvolume;
@@ -916,6 +918,7 @@ static Partition* partition_free(Partition *p) {
         strv_free(p->exclude_files_source);
         strv_free(p->exclude_files_target);
         strv_free(p->make_directories);
+        strv_free(p->make_mount_nodes);
         strv_free(p->make_symlinks);
         ordered_hashmap_free(p->subvolumes);
         free(p->default_subvolume);
@@ -973,6 +976,7 @@ static void partition_foreignize(Partition *p) {
         p->exclude_files_source = strv_free(p->exclude_files_source);
         p->exclude_files_target = strv_free(p->exclude_files_target);
         p->make_directories = strv_free(p->make_directories);
+        p->make_mount_nodes = strv_free(p->make_mount_nodes);
         p->make_symlinks = strv_free(p->make_symlinks);
         p->subvolumes = ordered_hashmap_free(p->subvolumes);
         p->default_subvolume = mfree(p->default_subvolume);
@@ -2466,7 +2470,7 @@ static int config_parse_make_dirs(
                 r = specifier_printf(word, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, /* userdata= */ NULL, &d);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to expand specifiers in MakeDirectories= parameter, ignoring: %s", word);
+                                   "Failed to expand specifiers in %s= parameter, ignoring: %s", lvalue, word);
                         continue;
                 }
 
@@ -3123,6 +3127,7 @@ static bool partition_needs_populate(const Partition *p) {
 
         return p->n_copy_files > 0 ||
                 !strv_isempty(p->make_directories) ||
+                !strv_isempty(p->make_mount_nodes) ||
                 !strv_isempty(p->make_symlinks) ||
                 partition_add_validatefs(p) ||
                 (p->suppressing_supplement && partition_needs_populate(p->supplemented_by));
@@ -3217,6 +3222,7 @@ static int partition_read_definition(
                 { "Partition", "ExcludeFiles",             config_parse_exclude_files,     0,                                  &p->exclude_files_source    },
                 { "Partition", "ExcludeFilesTarget",       config_parse_exclude_files,     0,                                  &p->exclude_files_target    },
                 { "Partition", "MakeDirectories",          config_parse_make_dirs,         0,                                  &p->make_directories        },
+                { "Partition", "MakeMountNodes",            config_parse_make_dirs,         0,                                  &p->make_mount_nodes        },
                 { "Partition", "MakeSymlinks",             config_parse_make_symlinks,     0,                                  &p->make_symlinks           },
                 { "Partition", "Encrypt",                  config_parse_encrypt,           0,                                  &p->encrypt                 },
                 { "Partition", "Verity",                   config_parse_verity,            0,                                  &p->verity                  },
@@ -3295,13 +3301,25 @@ static int partition_read_definition(
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Type= not defined, refusing.");
 
+        STRV_FOREACH(a, p->make_mount_nodes) {
+                if (empty_or_root(*a))
+                        return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                          "MakeMountNodes= may not be used for the root directory, refusing.");
+
+                /* A mount node must be empty, hence refuse mount nodes below other mount nodes */
+                STRV_FOREACH(b, p->make_mount_nodes)
+                        if (a != b && path_startswith(*a, *b))
+                                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                                  "MakeMountNodes= path '%s' is located below '%s', refusing.", *a, *b);
+        }
+
         if ((p->copy_blocks_path || p->copy_blocks_auto) && (p->format || partition_needs_populate(p)))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Format=/CopyFiles=/MakeDirectories=/MakeSymlinks= and CopyBlocks= cannot be combined, refusing.");
+                                  "Format=/CopyFiles=/MakeDirectories=/MakeMountNodes=/MakeSymlinks= and CopyBlocks= cannot be combined, refusing.");
 
         if (p->block_device_replace && (p->format || partition_needs_populate(p)))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Format=/CopyFiles=/MakeDirectories=/MakeSymlinks= and BlockDeviceReplace= cannot be combined, refusing.");
+                                  "Format=/CopyFiles=/MakeDirectories=/MakeMountNodes=/MakeSymlinks= and BlockDeviceReplace= cannot be combined, refusing.");
 
         if ((p->copy_blocks_path || p->copy_blocks_auto) && p->block_device_replace)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
@@ -3329,7 +3347,7 @@ static int partition_read_definition(
 
         if (partition_needs_populate(p) && streq_ptr(p->format, "swap"))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Format=swap and CopyFiles=/MakeDirectories=/MakeSymlinks= cannot be combined, refusing.");
+                                  "Format=swap and CopyFiles=/MakeDirectories=/MakeMountNodes=/MakeSymlinks= cannot be combined, refusing.");
 
         if (!p->format) {
                 const char *format = NULL;
@@ -3374,7 +3392,7 @@ static int partition_read_definition(
 
         if (partition_needs_populate(p) && !mkfs_supports_root_option(p->format) && geteuid() != 0)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EPERM),
-                                  "Need to be root to populate %s filesystems with CopyFiles=/MakeDirectories=/MakeSymlinks=.",
+                                  "Need to be root to populate %s filesystems with CopyFiles=/MakeDirectories=/MakeMountNodes=/MakeSymlinks=.",
                                   p->format);
 
         if (p->format && fstype_is_ro(p->format) && !partition_needs_populate(p))
@@ -3400,7 +3418,7 @@ static int partition_read_definition(
         if (IN_SET(p->verity, VERITY_HASH, VERITY_SIG)) {
                 if (p->format || partition_needs_populate(p))
                         return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                          "CopyFiles=/Format=/MakeDirectories=/MakeSymlinks= cannot be used with Verity=%s.",
+                                          "CopyFiles=/Format=/MakeDirectories=/MakeMountNodes=/MakeSymlinks= cannot be used with Verity=%s.",
                                           verity_mode_to_string(p->verity));
 
                 /* Later we check that the same CopyBlocks= type (auto vs path) is used for the entire verity set.
@@ -7379,6 +7397,129 @@ static int do_make_directories(Partition *p, const char *root) {
         return 0;
 }
 
+static bool partition_has_mount_nodes(const Partition *p) {
+        assert(p);
+
+        return !strv_isempty(p->make_mount_nodes) ||
+                (p->suppressing_supplement && !strv_isempty(p->supplemented_by->make_mount_nodes));
+}
+
+static int do_make_mount_nodes(Partition *p, const char *root, mode_t mode) {
+        _cleanup_hashmap_free_ Hashmap *subvolumes = NULL;
+        _cleanup_free_ char **override_dirs = NULL;
+        usec_t ts = parse_source_date_epoch();
+        int r;
+
+        assert(p);
+        assert(root);
+
+        /* Creates empty directories with the specified access mode (normally 0000), intended to be
+         * over-mounted by other file systems. The immutable flag is applied separately, in
+         * do_make_mount_nodes_immutable(), once all files have been written, since it would otherwise
+         * prohibit any further changes to them. */
+
+        r = make_subvolumes_hashmap(p, &subvolumes);
+        if (r < 0)
+                return r;
+
+        if (p->suppressing_supplement) {
+                r = shallow_join_strv(&override_dirs, p->make_mount_nodes, p->supplemented_by->make_mount_nodes);
+                if (r < 0)
+                        return r;
+        }
+
+        STRV_FOREACH(d, override_dirs ?: p->make_mount_nodes) {
+                _cleanup_free_ char *parent = NULL, *fn = NULL;
+
+                r = path_extract_directory(*d, &parent);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract parent directory of '%s': %m", *d);
+
+                r = path_extract_filename(*d, &fn);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract file name of '%s': %m", *d);
+
+                r = mkdir_p_root_full(root, parent, UID_INVALID, GID_INVALID, 0755, ts, subvolumes);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create parent directory of '%s' in file system: %m", *d);
+
+                _cleanup_close_ int pfd = chase_and_open(parent, root, CHASE_PREFIX_ROOT, O_DIRECTORY, /* ret_path= */ NULL);
+                if (pfd < 0)
+                        return log_error_errno(pfd, "Failed to open parent directory of '%s' in file system: %m", *d);
+
+                bool existed_already = false;
+                r = RET_NERRNO(mkdirat(pfd, fn, mode));
+                if (r == -EEXIST)
+                        existed_already = true;
+                else if (r < 0)
+                        return log_error_errno(r, "Failed to create mount node '%s' in file system: %m", *d);
+
+                /* Only pin the mount node via O_PATH, so that we never have to open the (inaccessible)
+                 * directory for reading, and this works without privileges too. */
+                _cleanup_close_ int fd = xopenat(pfd, fn, O_PATH|O_DIRECTORY|O_NOFOLLOW);
+                if (fd < 0)
+                        return log_error_errno(fd, "Failed to open mount node '%s': %m", *d);
+
+                if (existed_already) {
+                        /* Already exists (e.g. created via CopyFiles=), it must be empty, and we adjust the
+                         * access mode. */
+                        r = dir_is_empty_at(fd, /* path= */ NULL, /* ignore_hidden_or_backup= */ false);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to check if mount node '%s' is empty: %m", *d);
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTEMPTY), "Mount node '%s' is not empty, refusing.", *d);
+
+                        r = fchmod_opath(fd, mode);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set access mode of mount node '%s': %m", *d);
+                }
+
+                if (ts != USEC_INFINITY) {
+                        r = futimens_opath(fd, (const struct timespec[2]) { *TIMESPEC_STORE(ts), *TIMESPEC_STORE(ts) });
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set timestamp of mount node '%s': %m", *d);
+                }
+
+                r = clamp_directory_mtime(pfd, ts);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set timestamp of parent directory of '%s': %m", *d);
+        }
+
+        return 0;
+}
+
+static int do_make_mount_nodes_immutable(Partition *p, const char *root) {
+        _cleanup_free_ char **override_dirs = NULL;
+        int r;
+
+        assert(p);
+        assert(root);
+
+        /* Marks the mount nodes immutable, so that nothing can be placed in them unless they are
+         * over-mounted. This is not done when populating via a staging directory, since mkfs does not
+         * carry over inode flags anyway. */
+
+        if (p->suppressing_supplement) {
+                r = shallow_join_strv(&override_dirs, p->make_mount_nodes, p->supplemented_by->make_mount_nodes);
+                if (r < 0)
+                        return r;
+        }
+
+        STRV_FOREACH(d, override_dirs ?: p->make_mount_nodes) {
+                _cleanup_close_ int fd = chase_and_open(*d, root, CHASE_PREFIX_ROOT|CHASE_NOFOLLOW, O_DIRECTORY, /* ret_path= */ NULL);
+                if (fd < 0)
+                        return log_error_errno(fd, "Failed to open mount node '%s': %m", *d);
+
+                r = chattr_fd(fd, FS_IMMUTABLE_FL, FS_IMMUTABLE_FL);
+                if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                        log_debug_errno(r, "File system does not support the immutable flag, not setting it on mount node '%s': %m", *d);
+                else if (r < 0)
+                        return log_error_errno(r, "Failed to set immutable flag on mount node '%s': %m", *d);
+        }
+
+        return 0;
+}
+
 static int do_make_symlinks(Partition *p, const char *root) {
         usec_t ts = parse_source_date_epoch();
         int r;
@@ -7738,6 +7879,21 @@ static int partition_populate_directory(Context *context, Partition *p, char **r
         if (r < 0)
                 return r;
 
+        /* Created after everything else, so that the emptiness check covers all other population steps.
+         *
+         * mkfs reads the staging directory with our privileges. Without CAP_DAC_READ_SEARCH it cannot
+         * descend into (or even list) directories with access mode 0000, hence make the mount nodes
+         * accessible to the owner in that case. */
+        mode_t mount_node_mode = 0000;
+        if (partition_has_mount_nodes(p) && have_effective_cap(CAP_DAC_READ_SEARCH) <= 0) {
+                log_notice("Lacking privileges to populate %s file system with inaccessible directories, creating MakeMountNodes= directories with access mode 0500 instead.", p->format);
+                mount_node_mode = 0500;
+        }
+
+        r = do_make_mount_nodes(p, root, mount_node_mode);
+        if (r < 0)
+                return r;
+
         r = do_make_validatefs_xattrs(p, root);
         if (r < 0)
                 return r;
@@ -7807,7 +7963,15 @@ static int partition_populate_filesystem(Context *context, Partition *p, const c
                 if (do_make_symlinks(p, fs) < 0)
                         _exit(EXIT_FAILURE);
 
+                if (do_make_mount_nodes(p, fs, 0000) < 0)
+                        _exit(EXIT_FAILURE);
+
                 if (do_make_validatefs_xattrs(p, fs) < 0)
+                        _exit(EXIT_FAILURE);
+
+                /* Must happen before the subvolumes are made read-only, as btrfs refuses changing inode
+                 * flags on read-only subvolumes. */
+                if (do_make_mount_nodes_immutable(p, fs) < 0)
                         _exit(EXIT_FAILURE);
 
                 if (make_subvolumes_read_only(p, fs) < 0)
