@@ -29,4 +29,30 @@ TEST(manager_recv_nothing_to_read) {
         ASSERT_NULL(p);
 }
 
+/* ================================================================
+ * manager_get_dnssec_mode()
+ * ================================================================ */
+
+TEST(manager_get_dnssec_mode_no_crypto) {
+        Manager manager = {
+                .dnssec_crypto = -EOPNOTSUPP,
+        };
+
+        /* Without libcrypto we can't validate, so allow-downgrade would always downgrade… */
+        manager.dnssec_mode = DNSSEC_ALLOW_DOWNGRADE;
+        ASSERT_EQ(manager_get_dnssec_mode(&manager), DNSSEC_NO);
+        ASSERT_FALSE(manager_dnssec_supported(&manager));
+
+        /* … but DNSSEC=yes stays, so that lookups fail instead */
+        manager.dnssec_mode = DNSSEC_YES;
+        ASSERT_EQ(manager_get_dnssec_mode(&manager), DNSSEC_YES);
+
+        manager.dnssec_mode = DNSSEC_NO;
+        ASSERT_EQ(manager_get_dnssec_mode(&manager), DNSSEC_NO);
+
+        manager.dnssec_crypto = 1;
+        manager.dnssec_mode = DNSSEC_ALLOW_DOWNGRADE;
+        ASSERT_EQ(manager_get_dnssec_mode(&manager), DNSSEC_ALLOW_DOWNGRADE);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
