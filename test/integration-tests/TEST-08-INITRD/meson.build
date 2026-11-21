@@ -6,6 +6,8 @@ integration_tests += [
                 'cmdline' : integration_test_template['cmdline'] + [
                         'rd.systemd.wants=initrd-run-mount.service',
                         'rd.systemd.wants=initrd-run-initramfs.service',
+                        'rd.systemd.wants=initrd-cgroup-remount.service',
+                        'systemd.memory_hugetlb_accounting=yes',
                 ],
                 'exit-code' : 124,
                 'vm' : true,

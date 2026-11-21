@@ -2024,4 +2024,50 @@ testcase_cap_net_bind_service() {
     rm -fr "$root"
 }
 
+testcase_cgroup_mount_options() {
+    local root base initial options cmdline
+
+    # If nspawn does not use a cgroup namespace, the options of the cgroupfs instance it mounts for the
+    # container apply to the whole hierarchy. Whether HugeTLB pages are charged to the memory controller
+    # has to stay as it is then, on or off, whatever the kernel command line that nspawn sees says. The
+    # same goes for a service manager in such a container that has to mount cgroupfs itself.
+    if systemd-detect-virt -qc; then
+        echo "A cgroupfs mount in a container does not change the options of the hierarchy, skipping"
+        return 0
+    fi
+
+    if ! grep -w memory_hugetlb_accounting /sys/kernel/cgroup/features >/dev/null; then
+        echo "The kernel does not support memory_hugetlb_accounting, skipping"
+        return 0
+    fi
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.cgroup-mount-options.XXX)"
+    create_dummy_container "$root"
+
+    base="nosuid,nodev,noexec,nsdelegate,memory_recursiveprot"
+    initial="$base"
+    if [[ "$(findmnt --noheadings --output OPTIONS /sys/fs/cgroup)" == *memory_hugetlb_accounting* ]]; then
+        initial+=",memory_hugetlb_accounting"
+    fi
+
+    for options in "$base" "$base,memory_hugetlb_accounting"; do
+        mount -o "remount,$options" cgroup2 /sys/fs/cgroup
+        options="$(findmnt --noheadings --output OPTIONS /sys/fs/cgroup)"
+
+        for cmdline in systemd.memory_hugetlb_accounting=yes systemd.memory_hugetlb_accounting=no; do
+            SYSTEMD_PROC_CMDLINE="$cmdline" SYSTEMD_NSPAWN_USE_CGNS=0 \
+                systemd-nspawn --register=no --directory="$root" true
+            [[ "$(findmnt --noheadings --output OPTIONS /sys/fs/cgroup)" == "$options" ]]
+
+            SYSTEMD_NSPAWN_USE_CGNS=0 \
+                systemd-nspawn --register=no --directory=/ --volatile=yes \
+                               bash -xec "umount --lazy /sys/fs/cgroup; exec /usr/lib/systemd/systemd $cmdline systemd.unit=poweroff.target"
+            [[ "$(findmnt --noheadings --output OPTIONS /sys/fs/cgroup)" == "$options" ]]
+        done
+    done
+
+    mount -o "remount,$initial" cgroup2 /sys/fs/cgroup
+    rm -fr "$root"
+}
+
 run_testcases
