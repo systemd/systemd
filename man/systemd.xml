@@ -966,6 +966,41 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>systemd.import_credentials_filter=</varname></term>
+
+        <listitem><para>Takes a comma-separated list of shell-style glob patterns (as understood by
+        <citerefentry project='man-pages'><refentrytitle>fnmatch</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
+        If specified, only credentials whose names match at least one of the patterns are imported from the
+        DMI/SMBIOS OEM string table, the qemu_fw_cfg subsystem, the EFI kernel stub (i.e. from the ESP) or
+        the <filename>/.extra/system_credentials/</filename> directory in the initrd (as for example supplied
+        by
+        <citerefentry><refentrytitle>systemd-vmspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>);
+        all others are skipped. For credentials picked up by the EFI kernel stub the pattern is matched
+        against the credential name without the <filename>.cred</filename> suffix. May be specified multiple
+        times, in which case the lists are combined. If assigned the empty string, the list is reset, and all
+        credentials are imported again. If not specified, no filtering takes place. Example:
+        <literal>systemd.import_credentials_filter=firstboot.*,ssh.authorized_keys.root</literal>.</para>
+
+        <para>Credentials configured via <varname>systemd.set_credential=</varname> and
+        <varname>systemd.set_credential_binary=</varname> on the kernel command line are always imported,
+        regardless of this filter, as is the filter itself configured on the kernel command line. Note that
+        outside of confidential VMs
+        <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        appends the contents of the <varname>io.systemd.stub.kernel-cmdline-extra=</varname> SMBIOS OEM
+        string to the kernel command line, which hence may be used to set additional credentials or to reset
+        the filter. For the filter to be effective the kernel command line must hence be protected
+        accordingly.</para>
+
+        <para>Note that credentials are imported only once per boot: if the initrd imported any credentials,
+        they are passed on to the host system as they are, and the host does not import any credentials from
+        the sources listed above again. Hence, unlike many other options, this option does not support the
+        <literal>rd.</literal> prefix. Credentials passed from the initrd to the host via
+        <filename>/run/credentials/@initrd/</filename> are not subject to this filter.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>systemd.credentials_boot_policy=</varname></term>
 
         <listitem><para>Controls under which conditions a credential encrypted with a <literal>null</literal>

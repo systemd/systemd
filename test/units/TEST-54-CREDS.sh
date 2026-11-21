@@ -274,6 +274,11 @@ elif [ -d /sys/firmware/qemu_fw_cfg/by_name ]; then
     # Verify that passing creds through kernel cmdline works
     [ "$(systemd-creds --system cat kernelcmdlinecred)" = "uff" ]
     [ "$(systemd-creds --system cat waldi)" = "woooofffwufffwuff" ]
+    # Kernel command line credentials are not subject to systemd.import_credentials_filter=…
+    [ "$(systemd-creds --system cat zcmdlinecred)" = "yes" ]
+    # …but SMBIOS and qemu fw_cfg ones are
+    (! systemd-creds --system cat zfilteredcred)
+    (! systemd-creds --system cat zfilteredqemucred)
 
     # And that it also works via SMBIOS
     [ "$(systemd-creds --system cat smbioscredential)" = "magicdata" ]
