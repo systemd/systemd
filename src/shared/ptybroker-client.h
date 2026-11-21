@@ -6,6 +6,7 @@
 
 #include "runtime-scope.h"
 
+int pty_broker_connect_full(RuntimeScope scope, int log_level, sd_varlink **ret);
 int pty_broker_connect(RuntimeScope scope, sd_varlink **ret);
 int pty_broker_terminal_settings_to_json(sd_json_variant **ret);
 
