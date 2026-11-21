@@ -101,7 +101,7 @@ maybe_reload_coredumpd
 "$MAKE_DUMP_SCRIPT" "$CORE_TEST_BIN" "SIGABRT"
 # Wait a bit for the coredumps to get processed
 timeout 30 bash -c "while [[ \$(coredumpctl list -q --no-legend $CORE_TEST_BIN | wc -l) -lt 4 ]]; do sleep 1; done"
-OUT="$(coredumpctl list --field=COREDUMP_PID 'MESSAGE_ID=00000000000000000000000000000000')"
+OUT="$(coredumpctl list -q --field=COREDUMP_PID 'MESSAGE_ID=00000000000000000000000000000000')"
 [[ -z "$OUT" ]]
 rm -fv /run/systemd/coredump.conf.d/99-external.conf
 maybe_reload_coredumpd
@@ -209,7 +209,7 @@ cp -vf /usr/lib/systemd/tests/unit-tests/manual/test-coredump-thread "${CORE_TES
     done
 )
 timeout 30 bash -c "until [[ \$(coredumpctl list -q --no-legend $CORE_TEST_TID_BIN | wc -l) -ge 2 ]]; do sleep .2; done"
-coredumpctl info --json=short "$CORE_TEST_TID_BIN" |
+coredumpctl -q info --json=short "$CORE_TEST_TID_BIN" |
     jq -se 'any(.[]; (.CommandLine | endswith(" main")) and
                      .TID == .PID and .ThreadName == "test-tid-main") and
             any(.[]; (.CommandLine | endswith(" thread")) and
