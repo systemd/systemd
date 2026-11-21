@@ -19,12 +19,12 @@
   <refnamediv>
     <refname>systemd-ssh-proxy</refname>
     <refpurpose>SSH client plugin for connecting to <constant>AF_VSOCK</constant> and
-    <constant>AF_UNIX</constant> sockets</refpurpose>
+    <constant>AF_UNIX</constant> sockets, and to IP hosts via Multipath TCP</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
     <programlisting>
-Host unix/* unix%* vsock/* vsock%* vsock-mux/* vsock-mux%*
+Host unix/* unix%* vsock/* vsock%* vsock-mux/* vsock-mux%* mptcp/* mptcp%*
     ProxyCommand /usr/lib/systemd/systemd-ssh-proxy %h %p
     ProxyUseFdpass yes
 </programlisting>
@@ -55,6 +55,10 @@ Host .host
     ProxyCommand /usr/lib/systemd/systemd-ssh-proxy unix/run/ssh-unix-local/socket %p
     ProxyUseFdpass yes
     CheckHostIP no
+
+Host mptcp/* mptcp%*
+    ProxyCommand /usr/lib/systemd/systemd-ssh-proxy %h %p
+    ProxyUseFdpass yes
 </programlisting>
 
     <para>A configuration fragment along these lines is by default installed into
@@ -70,6 +74,15 @@ Host .host
     multiplexer over <constant>AF_UNIX</constant> sockets. See
     <ulink url="https://github.com/cloud-hypervisor/cloud-hypervisor/blob/main/docs/vsock.md">cloud-hypervisor VSOCK support</ulink>
     and <ulink url="https://github.com/firecracker-microvm/firecracker/blob/main/docs/vsock.md">Using the Firecracker Virtio-vsock Device</ulink>.
+    <literal>mptcp/</literal> followed by a host name, or an IPv4 or IPv6 address (optionally suffixed
+    with <literal>%</literal> and a network interface name or index, for link-local IPv6 addresses) will
+    result in an SSH connection made to that host via Multipath TCP (see
+    <citerefentry project="man-pages"><refentrytitle>mptcp</refentrytitle><manvolnum>7</manvolnum></citerefentry>).
+    Host names are resolved via NSS, and all returned addresses are tried in order until a connection
+    succeeds. If the local kernel does not support MPTCP, or it is turned off, plain TCP is used instead. If the remote
+    side does not support MPTCP the kernel transparently falls back to plain TCP, too. Note that unlike the
+    other address types, host key checking is not turned off for <literal>mptcp/</literal> by the
+    configuration fragment shipped by default, since these are regular network hosts.
     Note that <literal>%</literal> can be used as a separator instead of <literal>/</literal> to be
     compatible with tools like <literal>scp</literal> and <literal>rsync</literal>.</para>
 
@@ -121,6 +134,16 @@ Host .host
 
       <programlisting>scp foo vsock%1348:</programlisting>
     </example>
+
+    <example>
+      <title>Talk to a remote host via Multipath TCP</title>
+
+      <programlisting>ssh mptcp/example.com</programlisting>
+
+      <para>or, by IP address:</para>
+
+      <programlisting>ssh mptcp/192.168.0.7</programlisting>
+    </example>
   </refsect1>
 
   <refsect1>
@@ -130,6 +153,7 @@ Host .host
       <member><citerefentry><refentrytitle>systemd-ssh-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry project="man-pages"><refentrytitle>vsock</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
       <member><citerefentry project="man-pages"><refentrytitle>unix</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry project="man-pages"><refentrytitle>mptcp</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
       <member><citerefentry project="man-pages"><refentrytitle>ssh</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry project="man-pages"><refentrytitle>sshd</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
     </simplelist></para>

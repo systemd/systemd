@@ -30,3 +30,10 @@ Host unix/* unix%* vsock/* vsock%* vsock-mux/* vsock-mux%* machine/* machine%*
         # Disable all kinds of host identity checks, since these addresses are generally ephemeral.
         StrictHostKeyChecking no
         UserKnownHostsFile /dev/null
+
+# Make sure mptcp/* can be used to connect to IP hosts (by name or address) via Multipath TCP
+# (falling back to TCP if MPTCP is not available). Unlike the above these are regular network
+# hosts, hence keep the host identity checks enabled.
+Host mptcp/* mptcp%*
+        ProxyCommand {{LIBEXECDIR}}/systemd-ssh-proxy %h %p
+        ProxyUseFdpass yes
