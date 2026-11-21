@@ -10,7 +10,7 @@
 #include "string-util.h"
 #include "terminal-util.h"
 
-int pty_broker_connect(RuntimeScope scope, sd_varlink **ret) {
+int pty_broker_connect_full(RuntimeScope scope, int log_level, sd_varlink **ret) {
         int r;
 
         assert(ret);
@@ -18,15 +18,19 @@ int pty_broker_connect(RuntimeScope scope, sd_varlink **ret) {
         _cleanup_free_ char *socket_path = NULL;
         r = runtime_directory_generic(scope, "systemd/io.systemd.PTYBroker", &socket_path);
         if (r < 0)
-                return log_error_errno(r, "Failed to determine ptybrokerd socket path: %m");
+                return log_full_errno(log_level, r, "Failed to determine ptybrokerd socket path: %m");
 
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         r = sd_varlink_connect_address(&vl, socket_path);
         if (r < 0)
-                return log_error_errno(r, "Failed to connect to ptybrokerd: %m");
+                return log_full_errno(log_level, r, "Failed to connect to ptybrokerd: %m");
 
         *ret = TAKE_PTR(vl);
         return 0;
+}
+
+int pty_broker_connect(RuntimeScope scope, sd_varlink **ret) {
+        return pty_broker_connect_full(scope, LOG_ERR, ret);
 }
 
 int pty_broker_terminal_settings_to_json(sd_json_variant **ret) {
