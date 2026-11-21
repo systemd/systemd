@@ -707,7 +707,8 @@ int tar_pull_start(
                 ImportFlags flags,
                 ImportVerify verify,
                 const struct iovec *checksum,
-                const struct iovec *decoded_checksum) {
+                const struct iovec *decoded_checksum,
+                char * const *http_headers) {
 
         int r;
 
@@ -813,6 +814,11 @@ int tar_pull_start(
 
                 j->on_progress = tar_pull_job_on_progress;
                 j->sync = FLAGS_SET(flags, IMPORT_SYNC);
+
+                /* The header fields are bound to the origin of the image URL, also for auxiliary files */
+                r = pull_job_set_http_headers(j, http_headers, url);
+                if (r < 0)
+                        return r;
 
                 /* The signature job might only be started once the checksum job finished, see tar_pull_job_on_finished() */
                 if (j == p->signature_job && pull_signature_job_deferred(p->checksum_job, p->signature_job))

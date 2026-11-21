@@ -2,6 +2,7 @@
 
 #include <locale.h>
 
+#include "sd-daemon.h"
 #include "sd-event.h"
 #include "sd-json.h"
 
@@ -11,6 +12,8 @@
 #include "discover-image.h"
 #include "dlopen-note.h"
 #include "env-util.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "hexdecoct.h"
 #include "import-common.h"
 #include "import-util.h"
@@ -28,6 +31,7 @@
 #include "runtime-scope.h"
 #include "signal-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "verbs.h"
 #include "web-util.h"
 
@@ -40,11 +44,13 @@ static Compression arg_compression = _COMPRESSION_INVALID;
 static struct iovec arg_checksum = {};
 static struct iovec arg_decoded_checksum = {};
 static ImageClass arg_class = IMAGE_MACHINE;
+static char **arg_http_headers = NULL;
 static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
 
 STATIC_DESTRUCTOR_REGISTER(arg_checksum, iovec_done);
 STATIC_DESTRUCTOR_REGISTER(arg_decoded_checksum, iovec_done);
 STATIC_DESTRUCTOR_REGISTER(arg_image_root, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_http_headers, strv_free_erasep);
 
 COMMAND(
         "systemd-pull\0",
@@ -200,7 +206,8 @@ static int verb_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         arg_import_flags & IMPORT_PULL_FLAGS_MASK_TAR,
                         arg_verify,
                         &arg_checksum,
-                        &arg_decoded_checksum);
+                        &arg_decoded_checksum,
+                        arg_http_headers);
         if (r < 0)
                 return log_error_errno(r, "Failed to pull image: %m");
 
@@ -274,7 +281,8 @@ static int verb_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         arg_import_flags & IMPORT_PULL_FLAGS_MASK_RAW,
                         arg_verify,
                         &arg_checksum,
-                        &arg_decoded_checksum);
+                        &arg_decoded_checksum,
+                        arg_http_headers);
         if (r < 0)
                 return log_error_errno(r, "Failed to pull image: %m");
 
@@ -306,6 +314,8 @@ static int verb_oci(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--compression= and --verify-decoded= are not supported for OCI images.");
         if (arg_import_flags & (IMPORT_PULL_CHECKSUM_FILE_YES|IMPORT_PULL_CHECKSUM_FILE_NO))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--checksum-file= is not supported for OCI images.");
+        if (arg_http_headers)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--http-headers= is not supported for OCI images.");
 
         r = refuse_ranges("OCI");
         if (r < 0)
@@ -362,6 +372,81 @@ static int verb_oci(int argc, char *argv[], uintptr_t _data, void *userdata) {
 }
 
 VERB_COMMON_HELP_AUTO_HIDDEN();
+
+static int set_http_headers_from_stream(FILE *f, const char *name) {
+        int r;
+
+        assert(f);
+        assert(name);
+
+        /* Reads additional HTTP header fields, in the format HTTP itself uses, i.e. one "Name: value" line per
+         * field. These might carry credentials, hence they are not accepted on the command line directly
+         * (where anyone could see them), but only from a file, or from a file descriptor passed in via the
+         * socket activation protocol. */
+
+        if (arg_http_headers)
+                return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "HTTP header fields specified more than once, refusing.");
+
+        _cleanup_strv_free_erase_ char **l = NULL;
+        r = http_headers_parse(f, &l);
+        if (r == -ENOTUNIQ)
+                return log_error_errno(r, "HTTP header fields from %s contain duplicate fields, refusing.", name);
+        if (r == -E2BIG)
+                return log_error_errno(r, "Too many HTTP header fields in %s, refusing.", name);
+        if (r == -EINVAL)
+                return log_error_errno(r, "HTTP header fields from %s are not valid, refusing.", name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse HTTP header fields from %s: %m", name);
+
+        STRV_FOREACH_PAIR(a, b, l)
+                if (http_field_name_is_client_owned(*a))
+                        return log_error_errno(SYNTHETIC_ERRNO(EPERM), "HTTP header field '%s' is managed by systemd-pull itself, refusing.", *a);
+
+        arg_http_headers = TAKE_PTR(l);
+        return 0;
+}
+
+static int parse_http_headers_argument(const char *path) {
+        assert(path);
+
+        _cleanup_fclose_ FILE *f = fopen(path, "re");
+        if (!f)
+                return log_error_errno(errno, "Failed to open '%s': %m", path);
+
+        return set_http_headers_from_stream(f, path);
+}
+
+static int parse_listen_fds(void) {
+        int r, n;
+
+        /* systemd-sysupdate passes the HTTP header fields to us via the socket activation protocol, as a
+         * file descriptor named "http-headers". */
+
+        _cleanup_strv_free_ char **names = NULL;
+        n = sd_listen_fds_with_names(/* unset_environment= */ true, &names);
+        if (n < 0)
+                return log_error_errno(n, "Failed to determine passed file descriptors: %m");
+
+        for (int i = 0; i < n; i++) {
+                _cleanup_close_ int fd = SD_LISTEN_FDS_START + i;
+
+                if (!streq_ptr(names[i], "http-headers")) {
+                        log_warning("Passed file descriptor with unknown name '%s', closing.", strna(names[i]));
+                        continue;
+                }
+
+                /* No need to set O_CLOEXEC, sd_listen_fds() already did that for us */
+                _cleanup_fclose_ FILE *f = take_fdopen(&fd, "r");
+                if (!f)
+                        return log_error_errno(errno, "Failed to open passed file descriptor: %m");
+
+                r = set_http_headers_from_stream(f, "passed file descriptor");
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         int r;
@@ -587,6 +672,13 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                                 return r;
                         break;
 
+                OPTION_LONG("http-headers", "PATH",
+                            "Read additional HTTP request header fields (one 'Name: value' line each) from the specified file"):
+                        r = parse_http_headers_argument(opts.arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 OPTION_LONG("class", "CLASS",
                             "Select image class (machine, sysext, confext, portable)"):
                         arg_class = image_class_from_string(opts.arg);
@@ -703,6 +795,10 @@ static int run(int argc, char *argv[]) {
         log_setup();
 
         parse_env();
+
+        r = parse_listen_fds();
+        if (r < 0)
+                return r;
 
         char **args = NULL;
         r = parse_argv(argc, argv, &args);
