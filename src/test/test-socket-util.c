@@ -8,6 +8,8 @@
 #include <linux/pidfd.h>
 #include <linux/pkt_sched.h>
 #include <netinet/ip.h>
+#include <netinet/udp.h>
+#include <poll.h>
 #include <pthread.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -18,6 +20,7 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "in-addr-util.h"
+#include "io-util.h"
 #include "iovec-util.h"
 #include "log.h"
 #include "path-util.h"
@@ -28,6 +31,7 @@
 #include "rm-rf.h"
 #include "socket-util.h"
 #include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
 
@@ -126,6 +130,19 @@ TEST(sockaddr_equal) {
         ASSERT_FALSE(sockaddr_equal(&a, &c));
         ASSERT_FALSE(sockaddr_equal(&b, &c));
         ASSERT_FALSE(sockaddr_equal(&a, &e));
+
+        /* Ports must match too */
+        union sockaddr_union f = a, g = d, h = e;
+        f.in.sin_port = htobe16(53);
+        g.in6.sin6_port = htobe16(53);
+        h.vm.svm_port = 53;
+
+        ASSERT_TRUE(sockaddr_equal(&f, &f));
+        ASSERT_TRUE(sockaddr_equal(&g, &g));
+        ASSERT_TRUE(sockaddr_equal(&h, &h));
+        ASSERT_FALSE(sockaddr_equal(&a, &f));
+        ASSERT_FALSE(sockaddr_equal(&d, &g));
+        ASSERT_FALSE(sockaddr_equal(&e, &h));
 }
 
 TEST(sockaddr_un_len) {
@@ -306,6 +323,151 @@ TEST(recvmsg_safe_packet) {
         };
 
         ASSERT_ERROR(recvmsg_safe(fd, &msg, MSG_DONTWAIT), EAGAIN);
+}
+
+static int make_loopback_udp_socket(union sockaddr_union *ret) {
+        assert(ret);
+
+        _cleanup_close_ int fd = ASSERT_OK_ERRNO(socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0));
+        union sockaddr_union sa = {
+                .in.sin_family = AF_INET,
+                .in.sin_addr.s_addr = htobe32(INADDR_LOOPBACK),
+        };
+        socklen_t salen = sizeof(sa.in);
+
+        /* The loopback interface is down when running in a network namespace without networking, e.g. in
+         * package build sandboxes. Depending on the kernel either bind() fails then, or bind() succeeds
+         * but routing to the address fails. Check both, the latter via a connect() on a scratch
+         * socket. */
+        int r = RET_NERRNO(bind(fd, &sa.sa, salen));
+        if (r >= 0) {
+                ASSERT_OK_ERRNO(getsockname(fd, &sa.sa, &salen));
+
+                _cleanup_close_ int probe_fd = ASSERT_OK_ERRNO(socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC, 0));
+                r = RET_NERRNO(connect(probe_fd, &sa.sa, salen));
+        }
+        if (IN_SET(r, -EADDRNOTAVAIL, -ENETUNREACH)) {
+                log_tests_skipped_errno(r, "Loopback address not available");
+                return r;
+        }
+        ASSERT_OK(r);
+
+        *ret = sa;
+        return TAKE_FD(fd);
+}
+
+TEST(recvmsg_safe_short_name) {
+        union sockaddr_union sa;
+        _cleanup_close_ int fd = make_loopback_udp_socket(&sa);
+        if (fd < 0)
+                return;
+
+        _cleanup_close_ int sender_fd = ASSERT_OK_ERRNO(socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC, 0));
+
+        /* The kernel reports the full address length in msg_namelen even if the buffer is shorter, and
+         * silently truncates the address. Such a truncated address must be refused. */
+        socklen_t size;
+        FOREACH_ARGUMENT(size, sizeof(sa_family_t) - 1, sizeof(struct sockaddr_in) - 1) {
+                union sockaddr_union peer = {};
+                char buf[4];
+                struct msghdr msg = {
+                        .msg_name = &peer,
+                        .msg_namelen = size,
+                        .msg_iov = &IOVEC_MAKE(buf, sizeof(buf)),
+                        .msg_iovlen = 1,
+                };
+
+                ASSERT_OK_EQ_ERRNO(sendto(sender_fd, "foo", 4, /* flags= */ 0, &sa.sa, sizeof(sa.in)), (ssize_t) 4);
+                ASSERT_OK_POSITIVE(fd_wait_for_event(fd, POLLIN, 5 * USEC_PER_SEC));
+                ASSERT_ERROR(recvmsg_safe(fd, &msg, MSG_DONTWAIT), ENOTNAM);
+                ASSERT_EQ(msg.msg_namelen, (socklen_t) sizeof(struct sockaddr_in));
+        }
+
+        /* The datagrams were consumed */
+        ASSERT_OK_ZERO(fd_wait_for_event(fd, POLLIN, /* timeout= */ 0));
+}
+
+static void send_udp_from_port_zero(int raw_fd, uint16_t dest_port) {
+        struct {
+                struct udphdr udp;
+                char payload[4];
+        } _packed_ packet = {
+                .udp.source = 0,
+                .udp.dest = htobe16(dest_port),
+                .udp.len = htobe16(sizeof(packet)),
+                .udp.check = 0, /* no checksum, valid for IPv4 */
+                .payload = "foo",
+        };
+        union sockaddr_union sa = {
+                .in.sin_family = AF_INET,
+                .in.sin_addr.s_addr = htobe32(INADDR_LOOPBACK),
+        };
+
+        ASSERT_OK_EQ_ERRNO(sendto(raw_fd, &packet, sizeof(packet), /* flags= */ 0, &sa.sa, sizeof(sa.in)), (ssize_t) sizeof(packet));
+}
+
+TEST(recvmsg_safe_port_zero) {
+        _cleanup_close_ int raw_fd = socket(AF_INET, SOCK_RAW|SOCK_CLOEXEC, IPPROTO_UDP);
+        if (raw_fd < 0) {
+                if (ERRNO_IS_PRIVILEGE(errno) || ERRNO_IS_NOT_SUPPORTED(errno))
+                        return (void) log_tests_skipped_errno(errno, "Failed to create raw UDP socket");
+                ASSERT_OK_ERRNO(raw_fd);
+        }
+
+        union sockaddr_union sa;
+        _cleanup_close_ int fd = make_loopback_udp_socket(&sa);
+        if (fd < 0)
+                return;
+        uint16_t port = be16toh(sa.in.sin_port);
+        ASSERT_GT(port, 0u);
+
+        union sockaddr_union peer;
+        char buf[16];
+        struct msghdr msg = {
+                .msg_name = &peer,
+                .msg_iov = &IOVEC_MAKE(buf, sizeof(buf)),
+                .msg_iovlen = 1,
+        };
+
+        /* A datagram from port 0 is suppressed, and with MSG_PEEK also dropped from the queue */
+        send_udp_from_port_zero(raw_fd, port);
+        ASSERT_OK_POSITIVE(fd_wait_for_event(fd, POLLIN, 5 * USEC_PER_SEC));
+        msg.msg_namelen = sizeof(peer);
+        ASSERT_ERROR(recvmsg_safe(fd, &msg, MSG_PEEK|MSG_DONTWAIT), EAGAIN);
+        ASSERT_OK_ZERO(fd_wait_for_event(fd, POLLIN, /* timeout= */ 0));
+
+        /* Same without MSG_PEEK */
+        send_udp_from_port_zero(raw_fd, port);
+        ASSERT_OK_POSITIVE(fd_wait_for_event(fd, POLLIN, 5 * USEC_PER_SEC));
+        msg.msg_namelen = sizeof(peer);
+        ASSERT_ERROR(recvmsg_safe(fd, &msg, MSG_DONTWAIT), EAGAIN);
+        ASSERT_OK_ZERO(fd_wait_for_event(fd, POLLIN, /* timeout= */ 0));
+
+        /* With RECVMSG_SAFE_ALLOW_PORT_ZERO it is let through */
+        send_udp_from_port_zero(raw_fd, port);
+        ASSERT_OK_POSITIVE(fd_wait_for_event(fd, POLLIN, 5 * USEC_PER_SEC));
+        msg.msg_namelen = sizeof(peer);
+        ASSERT_OK_EQ(recvmsg_safe_full(fd, &msg, MSG_DONTWAIT, RECVMSG_SAFE_ALLOW_PORT_ZERO), (ssize_t) 4);
+        ASSERT_EQ(peer.sa.sa_family, AF_INET);
+        ASSERT_EQ(peer.in.sin_port, 0);
+
+        /* Without a msg_name we cannot know the port, hence the datagram is let through */
+        send_udp_from_port_zero(raw_fd, port);
+        ASSERT_OK_POSITIVE(fd_wait_for_event(fd, POLLIN, 5 * USEC_PER_SEC));
+        msg.msg_name = NULL;
+        msg.msg_namelen = 0;
+        ASSERT_OK_EQ(recvmsg_safe(fd, &msg, MSG_DONTWAIT), (ssize_t) 4);
+        msg.msg_name = &peer;
+
+        /* A datagram from a regular port is let through */
+        _cleanup_close_ int sender_fd = ASSERT_OK_ERRNO(socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC, 0));
+        ASSERT_OK_EQ_ERRNO(sendto(sender_fd, "bar", 4, /* flags= */ 0, &sa.sa, sizeof(sa.in)), (ssize_t) 4);
+        ASSERT_OK_POSITIVE(fd_wait_for_event(fd, POLLIN, 5 * USEC_PER_SEC));
+        msg.msg_namelen = sizeof(peer);
+        ASSERT_OK_EQ(recvmsg_safe(fd, &msg, MSG_DONTWAIT), (ssize_t) 4);
+        ASSERT_STREQ(buf, "bar");
+        ASSERT_EQ(peer.sa.sa_family, AF_INET);
+        ASSERT_NE(peer.in.sin_port, 0);
 }
 
 TEST(passfd_contents_read) {
