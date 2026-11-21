@@ -394,7 +394,7 @@ TEST(restrict_namespace) {
                 ASSERT_OK(seccomp_restrict_namespaces(CLONE_NEWNET));
 
                 /* open_tree() without OPEN_TREE_CLONE does not create a mount namespace. */
-                _cleanup_close_ int fd = ASSERT_OK_ERRNO(open_tree(AT_FDCWD, "/", OPEN_TREE_CLOEXEC));
+                _unused_ _cleanup_close_ int fd = ASSERT_OK_ERRNO(open_tree(AT_FDCWD, "/", OPEN_TREE_CLOEXEC));
 
                 /* Anonymous and regular mount namespaces are prohibited. Without the filter, the kernel
                  * would refuse the invalid file descriptors with EBADF. */
