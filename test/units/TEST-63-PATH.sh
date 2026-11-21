@@ -118,4 +118,27 @@ echo test2 >/tmp/copyme
 exec {lock}<&-
 timeout 30 bash -c 'until diff /tmp/copyme /tmp/copied >/dev/null; do sleep .2; done'
 
+# Test that PathChanged= triggers for a file below a directory that the manager may search but not read
+# (https://github.com/systemd/systemd/issues/44888). inotify cannot watch such a directory, but it can
+# watch the file below it. Root bypasses the permission check, so use the user manager of testuser.
+searchonly=""
+at_exit() {
+    systemctl --user -M testuser@.host stop test63-searchonly.path ||:
+    [[ -n "$searchonly" ]] && rm -rf "$searchonly"
+    loginctl disable-linger testuser ||:
+}
+trap at_exit EXIT
+
+loginctl enable-linger testuser
+searchonly="$(mktemp -d /tmp/test63-searchonly-XXXXXX)"
+mkdir -p "$searchonly/dir/sub"
+touch "$searchonly/dir/sub/file"
+chown -R testuser:testuser "$searchonly"
+chmod 0100 "$searchonly/dir"
+systemd-run --user -M testuser@.host --unit=test63-searchonly \
+            --path-property=PathChanged="$searchonly/dir/sub/file" \
+            touch "$searchonly/triggered"
+echo change >"$searchonly/dir/sub/file"
+timeout 30 bash -c "until test -e '$searchonly/triggered'; do sleep .2; done"
+
 touch /testok
