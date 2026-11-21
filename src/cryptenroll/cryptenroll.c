@@ -24,6 +24,7 @@
 #include "cryptenroll-wipe.h"
 #include "cryptsetup-util.h"
 #include "dlopen-note.h"
+#include "efi-loader.h"
 #include "extract-word.h"
 #include "initrd-util.h"
 #include "libfido2-util.h"
@@ -817,9 +818,23 @@ static int parse_argv(int argc, char *argv[]) {
                                 log_info("Automatically using pcrlock policy '%s'.", arg_tpm2_pcrlock);
                 }
 
+                /* Only bind to an automatically found public key if the UKI and the OS are measured into
+                 * PCR 11, as otherwise it never reaches the signed values. --tpm2-signature= explicitly asks
+                 * for the signed policy, hence keep the binding then. The same applies with
+                 * --tpm2-device-key=, as we then enroll for another TPM that the local one tells nothing
+                 * about. */
                 if (auto_public_key_pcr_mask) {
-                        assert(arg_tpm2_public_key_pcr_mask == 0);
-                        arg_tpm2_public_key_pcr_mask = INDEX_TO_MASK(uint32_t, TPM2_PCR_KERNEL_BOOT);
+                        if (arg_tpm2_public_key || arg_tpm2_signature || arg_tpm2_device_key ||
+                            efi_should_use_pcrsig(LOG_DEBUG) > 0) {
+                                assert(arg_tpm2_public_key_pcr_mask == 0);
+                                arg_tpm2_public_key_pcr_mask = INDEX_TO_MASK(uint32_t, TPM2_PCR_KERNEL_BOOT);
+                        } else if (arg_tpm2_load_public_key) {
+                                _cleanup_free_ void *pubkey = NULL;
+                                size_t pubkey_size;
+
+                                if (tpm2_load_pcr_public_key(/* path= */ NULL, &pubkey, &pubkey_size) >= 0)
+                                        log_info("Not binding to the automatically found PCR public key, as the UKI or the OS is not measured into PCR 11.");
+                        }
                 }
 
                 if (arg_tpm2_n_hash_pcr_values == 0 &&

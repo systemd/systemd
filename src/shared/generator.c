@@ -266,13 +266,14 @@ static int write_fsck_sysroot_service(
         return 0;
 }
 
-int generator_write_fsck_deps(
+int generator_write_fsck_deps_full(
                 FILE *f,
                 const char *dir,
                 const char *what,
                 const char *where,
                 const char *fstype,
-                const char *options) {
+                const char *options,
+                bool early) {
 
         int r;
 
@@ -368,7 +369,14 @@ int generator_write_fsck_deps(
 
                         dep = path_equal(where, "/usr") ? "Wants" : "Requires";
 
-                        r = unit_name_from_path_instance("systemd-fsck", what, ".service", &_fsck);
+                        /* File systems that are needed before the root file system is available use
+                         * systemd-fsck-early@.service, which is not ordered after the root file system
+                         * check. */
+                        r = unit_name_from_path_instance(
+                                        early ? "systemd-fsck-early" : "systemd-fsck",
+                                        what,
+                                        ".service",
+                                        &_fsck);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create fsck service name: %m");
 

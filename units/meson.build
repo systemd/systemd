@@ -406,6 +406,7 @@ units = [
           'file' : 'systemd-firstboot@.service',
           'conditions' : ['ENABLE_FIRSTBOOT'],
         },
+        { 'file' : 'systemd-fsck-early@.service.in' },
         { 'file' : 'systemd-fsck-root.service.in' },
         { 'file' : 'systemd-fsck@.service.in' },
         {

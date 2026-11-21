@@ -15,13 +15,23 @@ static inline int generator_add_symlink(const char *dir, const char *dst, const 
         return generator_add_symlink_full(dir, dst, dep_type, src, /* instance= */ NULL);
 }
 
-int generator_write_fsck_deps(
+int generator_write_fsck_deps_full(
         FILE *f,
         const char *dir,
         const char *what,
         const char *where,
         const char *type,
-        const char *options);
+        const char *options,
+        bool early);
+static inline int generator_write_fsck_deps(
+                FILE *f,
+                const char *dir,
+                const char *what,
+                const char *where,
+                const char *type,
+                const char *options) {
+        return generator_write_fsck_deps_full(f, dir, what, where, type, options, /* early= */ false);
+}
 
 int generator_write_device_timeout(
         const char *dir,
