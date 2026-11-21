@@ -209,7 +209,18 @@ int socket_autobind(int fd, char **ret_name);
 #define CMSG_SPACE_TIMESPEC                                             \
         (CMSG_SPACE(sizeof(struct timespec)) + CMSG_SPACE(2 * sizeof(uint64_t)))
 
-ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags);
+typedef enum RecvMsgSafeFlags {
+        /* By default recvmsg_safe() suppresses AF_INET/AF_INET6 datagrams whose source port is 0. Raw IP
+         * sockets (SOCK_RAW, e.g. ICMP/ICMPv6/NDisc) and ICMP "ping" sockets (SOCK_DGRAM + IPPROTO_ICMP)
+         * have no concept of ports, and the kernel always reports the source port as 0 for them. Set this
+         * flag when receiving from such sockets, otherwise every datagram would be dropped. */
+        RECVMSG_SAFE_ALLOW_PORT_ZERO = 1 << 0,
+} RecvMsgSafeFlags;
+
+ssize_t recvmsg_safe_full(int sockfd, struct msghdr *msg, int flags, RecvMsgSafeFlags safe_flags);
+static inline ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags) {
+        return recvmsg_safe_full(sockfd, msg, flags, /* safe_flags= */ 0);
+}
 
 int socket_get_family(int fd);
 int socket_set_recvpktinfo(int fd, int af, bool b);
