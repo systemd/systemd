@@ -505,3 +505,19 @@ foreach efi_elf_binary : efi_elf_binaries
 endforeach
 
 alias_target('systemd-boot', boot_targets)
+
+# shim reads options.csv from the directory that it is started from, and loads the binary that the file names
+# instead of grub<arch>.efi. bootctl copies the files below the "extra" directory to the ESP. shim expects
+# UTF-16LE, hence options.csv.in is stored in that encoding.
+shim_options = configure_file(
+        input : 'options.csv.in',
+        output : 'options.csv',
+        encoding : 'utf-16-le',
+        configuration : { 'EFI_ARCH' : efi_arch })
+
+foreach dir : ['EFI/BOOT', 'EFI/systemd']
+        install_data(
+                shim_options,
+                install_dir : bootlibdir / 'extra' / dir,
+                install_tag : 'systemd-boot')
+endforeach
