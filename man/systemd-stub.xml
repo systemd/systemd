@@ -432,7 +432,16 @@
     Escape, the boot menu is shown again. This is useful for profiles that perform destructive operations,
     such as a factory reset (e.g. <literal>CONFIRM='This will erase all data on this device!'</literal>).
     Note that this is enforced by the boot menu only, it has no effect if the UKI is invoked by other
-    means.</para>
+    means. <literal>CONDITION_TPM=</literal>, <literal>CONDITION_SECUREBOOT=</literal> and
+    <literal>CONDITION_NETBOOT=</literal> take booleans. If set to true, the profile is only shown in the
+    <command>systemd-boot</command> menu if a TPM is available, if UEFI Secure Boot is enabled, or if the
+    system has been booted from the network (i.e. via UEFI HTTP boot), respectively. If set to false, the
+    profile is only shown if the TPM is missing, if UEFI Secure Boot is disabled, or if the system has not
+    been booted from the network, respectively. If multiple conditions are specified, all of them must be
+    met for the profile to be shown. If not specified, the profile is shown regardless of these
+    properties. If the first profile is hidden this way, the first profile that is shown is considered the
+    default profile of the UKI when automatically selecting a default boot menu entry. Like <literal>CONFIRM=</literal> these fields are only evaluated by the boot menu, they
+    have no effect if the UKI is invoked by other means.</para>
   </refsect1>
 
   <refsect1>
