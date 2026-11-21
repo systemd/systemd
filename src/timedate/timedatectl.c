@@ -382,6 +382,13 @@ typedef struct NTPStatusInfo {
         usec_t jitter;
 
         int64_t freq;
+
+        const char *phc_device;
+        const char *phc_clock_name;
+        int64_t phc_offset;
+        int64_t phc_delay;
+        uint64_t phc_sample_count;
+        usec_t phc_jitter;
 } NTPStatusInfo;
 
 static void ntp_status_info_clear(NTPStatusInfo *p) {
@@ -398,6 +405,54 @@ static const char * const ntp_leap_table[4] = {
 DISABLE_WARNING_TYPE_LIMITS;
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(ntp_leap, uint32_t);
 REENABLE_WARNING;
+
+static int print_phc_status_info(Table *table, NTPStatusInfo *i) {
+        int r;
+
+        assert(table);
+        assert(i);
+
+        r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_FIELD, "PHC device");
+        if (r < 0)
+                return table_log_add_error(r);
+
+        if (isempty(i->phc_clock_name))
+                r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_STRING, i->phc_device);
+        else
+                r = table_add_cell_stringf(table, /* ret_cell= */ NULL, "%s (%s)", i->phc_device, i->phc_clock_name);
+        if (r < 0)
+                return table_log_add_error(r);
+
+        r = table_add_many(table,
+                           TABLE_FIELD, "Poll interval",
+                           TABLE_TIMESPAN, i->poll_interval,
+                           TABLE_FIELD, "Offset");
+        if (r < 0)
+                return table_log_add_error(r);
+
+        r = table_add_cell_stringf(table, /* ret_cell= */ NULL, "%s%s",
+                                   i->phc_offset < 0 ? "-" : "+",
+                                   FORMAT_TIMESPAN(DIV_ROUND_UP((uint64_t) ABS(i->phc_offset), NSEC_PER_USEC), 0));
+        if (r < 0)
+                return table_log_add_error(r);
+
+        r = table_add_many(table,
+                           TABLE_FIELD, "Delay",
+                           TABLE_STRING, FORMAT_TIMESPAN(DIV_ROUND_UP((uint64_t) MAX(i->phc_delay, 0), NSEC_PER_USEC), 0),
+                           TABLE_FIELD, "Jitter",
+                           TABLE_STRING, FORMAT_TIMESPAN(i->phc_jitter, 0),
+                           TABLE_FIELD, "Sample count",
+                           TABLE_UINT64, i->phc_sample_count,
+                           TABLE_FIELD, "Frequency");
+        if (r < 0)
+                return table_log_add_error(r);
+
+        r = table_add_cell_stringf(table, /* ret_cell= */ NULL, "%+.3fppm", (double) i->freq / 0x10000);
+        if (r < 0)
+                return table_log_add_error(r);
+
+        return table_print_or_warn(table);
+}
 
 static int print_ntp_status_info(NTPStatusInfo *i) {
         usec_t delay, t14, t23, offset, root_distance;
@@ -429,6 +484,9 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
          *  The round-trip delay, d, and system clock offset, t, are defined as:
          *  d = (T4 - T1) - (T3 - T2)     t = ((T2 - T1) + (T3 - T4)) / 2"
          */
+
+        if (!isempty(i->phc_device))
+                return print_phc_status_info(table, i);
 
         r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_FIELD, "Server");
         if (r < 0)
@@ -639,6 +697,12 @@ static int show_timesync_status_once(sd_bus *bus) {
                 { "RootDistanceMaxUSec",  "t",                  NULL,               offsetof(NTPStatusInfo, root_distance_max) },
                 { "NTPMessage",           "(uuuuittayttttbtt)", map_ntp_message,    0                                          },
                 { "Frequency",            "x",                  NULL,               offsetof(NTPStatusInfo, freq)              },
+                { "PHCDevice",            "s",                  NULL,               offsetof(NTPStatusInfo, phc_device)        },
+                { "PHCClockName",         "s",                  NULL,               offsetof(NTPStatusInfo, phc_clock_name)    },
+                { "PHCOffsetNSec",        "x",                  NULL,               offsetof(NTPStatusInfo, phc_offset)        },
+                { "PHCDelayNSec",         "x",                  NULL,               offsetof(NTPStatusInfo, phc_delay)         },
+                { "PHCSampleCount",       "t",                  NULL,               offsetof(NTPStatusInfo, phc_sample_count)  },
+                { "PHCJitterUSec",        "t",                  NULL,               offsetof(NTPStatusInfo, phc_jitter)        },
                 {}
         };
         _cleanup_(ntp_status_info_clear) NTPStatusInfo info = {};
