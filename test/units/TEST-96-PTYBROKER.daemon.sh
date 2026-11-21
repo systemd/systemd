@@ -62,6 +62,8 @@ expect_error ConfigurePty '{"name":"no-such-pty-96","terminalSettings":{"columns
 expect_invalid_parameter AcquirePty '{"frontendType":"null","backendType":"take","name":"not a valid name"}' name
 expect_invalid_parameter AcquirePty '{"frontendType":"null","backendType":"take","user":"root"}' user
 expect_invalid_parameter AcquirePty '{"frontendType":"null","backendType":"take","lightweight":true}' lightweight
+expect_invalid_parameter AcquirePty '{"frontendType":"null","backendType":"take","acquirePaused":true}' acquirePaused
+expect_error WatchPty '{"name":"no-such-pty-96"}' org.varlink.service.ExpectedMore
 expect_invalid_parameter AcquirePty '{"frontendType":"null","backendType":"take","commandLine":["/bin/true"]}' commandLine
 expect_invalid_parameter AcquirePty '{"frontendType":"null","backendType":"take","viaShell":true}' viaShell
 expect_invalid_parameter AcquirePty '{"frontendType":"null","backendType":"shell","viaShell":false}' viaShell
