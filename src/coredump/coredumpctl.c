@@ -337,11 +337,17 @@ static int run(int argc, char *argv[]) {
 
         r = dispatch_verb(args, NULL);
 
-        if (units_active > 0)
-                printf("%s-- Notice: %d systemd-coredump@.service %s, output may be incomplete.%s\n",
-                       ansi_highlight_red(),
-                       units_active, units_active == 1 ? "unit is running" : "units are running",
-                       ansi_normal());
+        if (units_active > 0) {
+                /* Flush stdout first, so that pending output (which may be fully buffered, e.g. when
+                 * connected to the pager) is written before the unbuffered notice below. */
+                (void) fflush(stdout);
+
+                fprintf(stderr,
+                        "%s-- Notice: %d systemd-coredump@.service %s, output may be incomplete.%s\n",
+                        ansi_highlight_red(),
+                        units_active, units_active == 1 ? "unit is running" : "units are running",
+                        ansi_normal());
+        }
 
         return r;
 }
