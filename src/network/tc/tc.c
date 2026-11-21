@@ -6,8 +6,10 @@
 #include "qdisc.h"
 #include "tc.h"
 #include "tclass.h"
+#include "tfilter.h"
 
 int link_request_traffic_control(Link *link) {
+        TFilter *tfilter;
         TClass *tclass;
         QDisc *qdisc;
         int r;
@@ -27,6 +29,12 @@ int link_request_traffic_control(Link *link) {
                 r = link_request_tclass(link, tclass);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Failed to request TClass: %m");
+        }
+
+        HASHMAP_FOREACH(tfilter, link->network->tfilters_by_section) {
+                r = link_request_tfilter(link, tfilter);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to request TFilter: %m");
         }
 
         if (link->tc_messages == 0) {
