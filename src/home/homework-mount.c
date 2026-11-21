@@ -14,6 +14,7 @@
 #include "log.h"
 #include "mkdir.h"
 #include "mount-util.h"
+#include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "path-util.h"
 #include "string-util.h"
@@ -61,7 +62,7 @@ int home_mount_node(
                         return log_oom();
         }
 
-        if (!strextend_with_separator(&joined, ",", discard ? "discard" : "nodiscard"))
+        if (!strextend_with_separator(&joined, ",", discard ? fstype_discard_option(fstype) ?: "discard" : "nodiscard"))
                 return log_oom();
 
         if (extra_mount_options) {
