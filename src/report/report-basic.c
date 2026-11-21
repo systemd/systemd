@@ -21,6 +21,7 @@
 #include "fs-util.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
+#include "id128-util.h"
 #include "limits-util.h"
 #include "log.h"
 #include "metrics.h"
@@ -166,6 +167,29 @@ static int deployment_timestamp_generate(const MetricFamily *mf, sd_varlink *lin
                         link,
                         /* object= */ NULL,
                         ns,
+                        /* fields= */ NULL);
+}
+
+static int file_system_id_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
+        sd_id128_t id;
+        int r;
+
+        assert(mf && mf->name);
+        assert(link);
+
+        /* The UUID of the file system backing /var/ identifies the installation, as /var/ carries its
+         * persistent, writable state. Not exposed in containers, see id128_get_var_fs_uuid(). */
+        r = id128_get_var_fs_uuid(&id);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to read UUID of file system backing /var/, skipping: %m");
+                return 0;
+        }
+
+        return metric_build_send_string(
+                        mf,
+                        link,
+                        /* object= */ NULL,
+                        SD_ID128_TO_STRING(id),
                         /* fields= */ NULL);
 }
 
@@ -924,6 +948,12 @@ static const MetricFamily metric_family_table[] = {
                 METRIC_FAMILY_TYPE_COUNTER,
         },
         /* Keep those ↑ in sync with disk_io_generate(). */
+        {
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "FileSystemID",
+                "UUID of the file system backing /var/ (not reported in containers)",
+                METRIC_FAMILY_TYPE_STRING,
+                .generate = file_system_id_generate,
+        },
         {
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "Hostname",
                 "System hostname",
