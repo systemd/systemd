@@ -8,10 +8,11 @@
 #include "cryptsetup-util.h"
 #include "env-util.h"
 #include "fido2-util.h"
+#include "hexdecoct.h"
 #include "iovec-util.h"
 #include "libfido2-util.h"
 #include "log.h"
-
+#include "sha256.h"
 #include "strv.h"
 
 int acquire_fido2_key(
@@ -29,39 +30,83 @@ int acquire_fido2_key(
                 Fido2EnrollFlags required,
                 const char *askpw_credential,
                 AskPasswordFlags askpw_flags,
+                bool prompt_salt,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size) {
-
+log_info("acquire_fido2_key called, prompt_salt=%s", yes_no(prompt_salt));
 #if HAVE_LIBCRYPTSETUP && HAVE_LIBFIDO2
         _cleanup_(erase_and_freep) char *envpw = NULL;
         _cleanup_strv_free_erase_ char **pins = NULL;
+        _cleanup_(iovec_done_erase) struct iovec prompted_salt = {};
         _cleanup_(iovec_done_erase) struct iovec loaded_salt = {};
         bool device_exists = false;
         struct iovec salt;
         int r;
 
-        if ((required & (FIDO2ENROLL_PIN | FIDO2ENROLL_UP | FIDO2ENROLL_UV)) && FLAGS_SET(askpw_flags, ASK_PASSWORD_HEADLESS))
-                return log_error_errno(SYNTHETIC_ERRNO(ENOPKG),
+        if (prompt_salt) {
+                if (FLAGS_SET(askpw_flags, ASK_PASSWORD_HEADLESS))
+                        return log_error_errno(
+                                        SYNTHETIC_ERRNO(ENOPKG),
+                                        "Salt prompting requested but headless mode is set.");
+
+                AskPasswordRequest salt_req = {
+                        .tty_fd = -EBADF,
+                        .message = "Please enter FIDO2 salt passphrase:",
+                        .icon = "drive-harddisk",
+                        .id = volume_name,
+                        .keyring = NULL, /* no caching */
+                        .credential = NULL,
+                        .until = until,
+                        .hup_fd = -EBADF,
+                };
+
+                _cleanup_strv_free_erase_ char **salt_passphrases = NULL;
+                r = ask_password_auto(
+                                &salt_req,
+                                askpw_flags & ~ASK_PASSWORD_ACCEPT_CACHED & ~ASK_PASSWORD_PUSH_CACHE,
+                                &salt_passphrases);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to ask for FIDO2 salt: %m");
+
+                if (strv_isempty(salt_passphrases))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOKEY), "No salt passphrase provided.");
+
+                /* SHA-256 of the passphrase → 32-byte salt */
+                prompted_salt = IOVEC_MAKE(NULL, SHA256_DIGEST_SIZE);
+                prompted_salt.iov_base = malloc(SHA256_DIGEST_SIZE);
+                if (!prompted_salt.iov_base)
+                        return log_oom();
+
+                sha256_direct(salt_passphrases[0], strlen(salt_passphrases[0]), prompted_salt.iov_base);
+                salt = prompted_salt;
+        } else {
+                if ((required & (FIDO2ENROLL_PIN | FIDO2ENROLL_UP | FIDO2ENROLL_UV)) &&
+                    FLAGS_SET(askpw_flags, ASK_PASSWORD_HEADLESS))
+                        return log_error_errno(
+                                        SYNTHETIC_ERRNO(ENOPKG),
                                         "Local verification is required to unlock this volume, but the 'headless' parameter was set.");
 
-        assert(cid);
-        assert(key_file || iovec_is_set(key_data));
+                assert(cid);
+                assert(key_file || iovec_is_set(key_data));
 
-        if (iovec_is_set(key_data))
-                salt = *key_data;
-        else {
-                if (key_file_size > 0)
-                        log_debug("Ignoring 'keyfile-size=' option for a FIDO2 salt file.");
 
-                r = fido2_read_salt_file(
-                                key_file, key_file_offset,
-                                /* client= */ "cryptsetup",
-                                /* node= */ volume_name,
-                                &loaded_salt);
-                if (r < 0)
-                        return r;
+                if (iovec_is_set(key_data))
+                        salt = *key_data;
+                else {
+                        if (key_file_size > 0)
+                                log_debug("Ignoring 'keyfile-size=' option for a FIDO2 salt file.");
 
-                salt = loaded_salt;
+                        r = fido2_read_salt_file(
+                                        key_file,
+                                        key_file_offset,
+                                        /* client= */ "cryptsetup",
+                                        /* node= */ volume_name,
+                                        &loaded_salt);
+                        if (r < 0)
+                                return r;
+
+                        salt = loaded_salt;
+                }
         }
 
         r = getenv_steal_erase("PIN", &envpw);
@@ -85,7 +130,7 @@ int acquire_fido2_key(
                         if (r == 0) /* no device found, return EAGAIN so that caller will wait/watch udev */
                                 return -EAGAIN;
 
-                        device_exists = true;  /* now we know for sure, a device exists, no need to ask again */
+                        device_exists = true; /* now we know for sure, a device exists, no need to ask again */
                 }
 
                 /* Always make an attempt before asking for PIN.
@@ -95,22 +140,26 @@ int acquire_fido2_key(
                 r = fido2_use_hmac_hash(
                                 device,
                                 rp_id ?: "io.systemd.cryptsetup",
-                                salt.iov_base, salt.iov_len,
-                                cid, cid_size,
+                                salt.iov_base,
+                                salt.iov_len,
+                                cid,
+                                cid_size,
                                 pins,
                                 required,
                                 ret_decrypted_key,
                                 ret_decrypted_key_size);
                 if (!IN_SET(r,
-                            -ENOANO,   /* needs pin */
-                            -ENOLCK))  /* pin incorrect */
+                            -ENOANO,  /* needs pin */
+                            -ENOLCK)) /* pin incorrect */
                         return r;
 
                 device_exists = true; /* that a PIN is needed/wasn't correct means that we managed to
                                        * talk to a device */
 
                 if (FLAGS_SET(askpw_flags, ASK_PASSWORD_HEADLESS))
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOPKG), "PIN querying disabled via 'headless' option. Use the '$PIN' environment variable.");
+                        return log_error_errno(
+                                        SYNTHETIC_ERRNO(ENOPKG),
+                                        "PIN querying disabled via 'headless' option. Use the '$PIN' environment variable.");
 
                 AskPasswordRequest req = {
                         .tty_fd = -EBADF,
@@ -164,6 +213,7 @@ int acquire_fido2_key_auto(
                 _cleanup_free_ void *salt = NULL;
                 _cleanup_free_ char *rp = NULL;
                 size_t salt_size = 0;
+                bool salt_prompt = false;
                 int ks;
 
                 r = cryptsetup_get_token_as_json(cd, token, "systemd-fido2", &v);
@@ -176,14 +226,18 @@ int acquire_fido2_key_auto(
                 if (ks < 0) {
                         /* Handle parsing errors of the keyslots field gracefully, since it's not 'owned' by
                          * us, but by the LUKS2 spec */
-                        log_warning_errno(ks, "Failed to extract keyslot index from FIDO2 JSON data token %i, skipping: %m", token);
+                        log_warning_errno(
+                                        ks,
+                                        "Failed to extract keyslot index from FIDO2 JSON data token %i, skipping: %m",
+                                        token);
                         continue;
                 }
 
                 w = sd_json_variant_by_key(v, "fido2-credential");
                 if (!w)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "FIDO2 token data lacks 'fido2-credential' field.");
+                        return log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL),
+                                        "FIDO2 token data lacks 'fido2-credential' field.");
 
                 r = sd_json_variant_unbase64(w, &cid, &cid_size);
                 if (r < 0)
@@ -191,22 +245,29 @@ int acquire_fido2_key_auto(
 
                 w = sd_json_variant_by_key(v, "fido2-salt");
                 if (!w)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "FIDO2 token data lacks 'fido2-salt' field.");
+                        return log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL), "FIDO2 token data lacks 'fido2-salt' field.");
+                w = sd_json_variant_by_key(v, "fido2-salt-prompt");
+                if (w && sd_json_variant_is_boolean(w))
+                        salt_prompt = sd_json_variant_boolean(w);
 
-                assert(!salt);
-                assert(salt_size == 0);
-                r = sd_json_variant_unbase64(w, &salt, &salt_size);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to decode base64 encoded salt: %m");
+                log_info("fido2-salt-prompt = %s", yes_no(salt_prompt));
+                if(!salt_prompt) {
+                        assert(!salt);
+                        assert(salt_size == 0);
+                        r = sd_json_variant_unbase64(w, &salt, &salt_size);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to decode base64 encoded salt: %m");
+                }
 
                 w = sd_json_variant_by_key(v, "fido2-rp");
                 if (w) {
                         /* The "rp" field is optional. */
 
                         if (!sd_json_variant_is_string(w))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "FIDO2 token data's 'fido2-rp' field is not a string.");
+                                return log_error_errno(
+                                                SYNTHETIC_ERRNO(EINVAL),
+                                                "FIDO2 token data's 'fido2-rp' field is not a string.");
 
                         assert(!rp);
                         rp = strdup(sd_json_variant_string(w));
@@ -219,8 +280,9 @@ int acquire_fido2_key_auto(
                         /* The "fido2-clientPin-required" field is optional. */
 
                         if (!sd_json_variant_is_boolean(w))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "FIDO2 token data's 'fido2-clientPin-required' field is not a boolean.");
+                                return log_error_errno(
+                                                SYNTHETIC_ERRNO(EINVAL),
+                                                "FIDO2 token data's 'fido2-clientPin-required' field is not a boolean.");
 
                         SET_FLAG(required, FIDO2ENROLL_PIN, sd_json_variant_boolean(w));
                 } else
@@ -231,8 +293,9 @@ int acquire_fido2_key_auto(
                         /* The "fido2-up-required" field is optional. */
 
                         if (!sd_json_variant_is_boolean(w))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "FIDO2 token data's 'fido2-up-required' field is not a boolean.");
+                                return log_error_errno(
+                                                SYNTHETIC_ERRNO(EINVAL),
+                                                "FIDO2 token data's 'fido2-up-required' field is not a boolean.");
 
                         SET_FLAG(required, FIDO2ENROLL_UP, sd_json_variant_boolean(w));
                 } else
@@ -243,8 +306,9 @@ int acquire_fido2_key_auto(
                         /* The "fido2-uv-required" field is optional. */
 
                         if (!sd_json_variant_is_boolean(w))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "FIDO2 token data's 'fido2-uv-required' field is not a boolean.");
+                                return log_error_errno(
+                                                SYNTHETIC_ERRNO(EINVAL),
+                                                "FIDO2 token data's 'fido2-uv-required' field is not a boolean.");
 
                         SET_FLAG(required, FIDO2ENROLL_UV, sd_json_variant_boolean(w));
                 } else
@@ -255,7 +319,8 @@ int acquire_fido2_key_auto(
                                 friendly_name,
                                 fido2_device,
                                 rp,
-                                cid, cid_size,
+                                cid,
+                                cid_size,
                                 /* key_file= */ NULL, /* salt is read from LUKS header instead of key_file */
                                 /* key_file_size= */ 0,
                                 /* key_file_offset= */ 0,
@@ -264,6 +329,7 @@ int acquire_fido2_key_auto(
                                 required,
                                 "cryptsetup.fido2-pin",
                                 askpw_flags,
+                                salt_prompt,
                                 ret_decrypted_key,
                                 ret_decrypted_key_size);
                 if (ret == 0)
@@ -271,8 +337,7 @@ int acquire_fido2_key_auto(
         }
 
         if (!cid)
-                return log_error_errno(SYNTHETIC_ERRNO(ENXIO),
-                                       "No valid FIDO2 token data found.");
+                return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "No valid FIDO2 token data found.");
 
         if (ret == -EAGAIN) /* fido2 device does not exist, or UV is blocked; caller will prompt for retry */
                 return log_debug_errno(ret, "FIDO2 token does not exist, or UV is blocked.");

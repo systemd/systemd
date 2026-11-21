@@ -534,6 +534,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--fido2-salt-prompt=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>When enrolling a FIDO2 security token, controls
+        whether the salt should be prompted from the user on every unlock
+        (derived via SHA-256) instead of being stored in the LUKS2 header.
+        Defaults to false. When enabled, the boolean is recorded in the
+        systemd-fido2 token metadata.</para>
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--fido2-with-client-pin=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>When enrolling a FIDO2 security token, controls whether to require the user to enter

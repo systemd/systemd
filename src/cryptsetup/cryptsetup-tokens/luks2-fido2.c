@@ -108,8 +108,11 @@ int parse_luks2_fido2_data(
                 return crypt_log_error_errno(cd, r, "Failed to parse 'fido2-credentials' field: %m");
 
         w = sd_json_variant_by_key(v, "fido2-salt");
-        if (!w)
-                return -EINVAL;
+        if (!w) {
+                w = sd_json_variant_by_key(v, "fido2-salt-prompt");
+                if (!w || !sd_json_variant_boolean(w)) // if no salt is defined prompt must be true
+                        return -EINVAL;
+        }
 
         r = sd_json_variant_unbase64(w, &salt, &salt_size);
         if (r < 0)
