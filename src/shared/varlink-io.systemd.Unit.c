@@ -2026,15 +2026,15 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(context, UnitContext, 0),
                 SD_VARLINK_FIELD_COMMENT("Job mode. Defaults to replace."),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(mode, JobMode, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("If true and 'more' is set, stream job state change notifications. Defaults to false."),
+                SD_VARLINK_FIELD_COMMENT("If true, wait for job completion before sending final reply. If true and 'more' is set, stream job state change notifications. Defaults to false."),
                 SD_VARLINK_DEFINE_INPUT(notifyJobChanges, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("If true and 'more' is set, stream unit runtime notifications on state changes. Defaults to false."),
+                SD_VARLINK_FIELD_COMMENT("If true, wait for job completion before sending final reply. If true and 'more' is set, stream unit runtime state change notifications. Defaults to false."),
                 SD_VARLINK_DEFINE_INPUT(notifyUnitChanges, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Unit context. Set in the final reply."),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(context, UnitContext, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Unit runtime state. Set in the final reply and in intermediate streaming notifications when notifyUnitChanges is true."),
+                SD_VARLINK_FIELD_COMMENT("Unit runtime state. Always set in the final reply, and in intermediate streaming notifications when notifyUnitChanges is true and 'more' is set."),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(runtime, UnitRuntime, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The job that was enqueued. Always set in the final streaming reply; also included in intermediate streaming notifications when notifyJobChanges is true."),
+                SD_VARLINK_FIELD_COMMENT("The job that was enqueued. Always set in the final reply, and in intermediate streaming notifications when notifyJobChanges is true and 'more' is set."),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(job, Job, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
