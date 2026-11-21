@@ -2438,8 +2438,10 @@ static bool ptybroker_compatible(void) {
                 arg_ignore_sigpipe <= 0;
 }
 
-static int start_via_ptybroker(void) {
+static int start_via_ptybroker(sd_varlink *vl) {
         int r;
+
+        assert(vl);
 
         _cleanup_(run_context_done) RunContext c = RUN_CONTEXT_NULL;
         r = sd_event_default(&c.event);
@@ -2450,11 +2452,6 @@ static int start_via_ptybroker(void) {
          * case we need to authenticate interactively. */
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
         (void) ask_password_agent_open_if_enabled(arg_transport, arg_ask_password);
-
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
-        r = pty_broker_connect(arg_runtime_scope, &vl);
-        if (r < 0)
-                return r;
 
         r = sd_varlink_set_allow_fd_passing_input(vl, true);
         if (r < 0)
@@ -3109,8 +3106,17 @@ static int run(int argc, char* argv[]) {
 
         /* We generally prefer activating this session – if compatible – via the ptybroker, since it generates
          * better PolicyKit requests */
-        if (ptybroker_compatible())
-                return start_via_ptybroker();
+        if (ptybroker_compatible()) {
+                _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+
+                r = pty_broker_connect_full(arg_runtime_scope, LOG_DEBUG, &vl);
+                if (r != -ENOENT && !ERRNO_IS_NEG_DISCONNECT(r))
+                        return log_error_errno(r, "Failed to connect to ptybrokerd: %m");
+                if (r >= 0)
+                        return start_via_ptybroker(vl);
+
+                /* The broker is not available. Fall back to the D-Bus logic. */
+        }
 
         r = connect_bus(&bus);
         if (r < 0)
