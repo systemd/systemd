@@ -763,6 +763,23 @@ static int event_log_record_extract_firmware_description(EventLogRecord *rec) {
                                 break;
                         }
 
+                        case TYPE1_DEVICETREE_EVENT_TAG_ID: {
+                                _cleanup_free_ char *raw = NULL, *s = NULL;
+
+                                raw = utf16_to_utf8((const char16_t*) tag->taggedEventData, tag->taggedEventDataSize);
+                                if (!raw)
+                                        return log_oom();
+
+                                s = cescape(raw);
+                                if (!s)
+                                        return log_oom();
+
+                                r = strextendf_with_separator(&rec->description, ", ", "systemd-boot: devicetree %s", s);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to format EV_EVENT_TAG description string: %m");
+                                break;
+                        }
+
                         case TOFU_ADDON_EVENT_TAG_ID: {
                                 _cleanup_free_ char *raw = NULL, *s = NULL;
 

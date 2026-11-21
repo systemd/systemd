@@ -48,6 +48,9 @@ enum {
 /* The tag used for EV_EVENT_TAG event log records covering DeviceTree blobs */
 #define DEVICETREE_ADDON_EVENT_TAG_ID UINT32_C(0x6c46f751)
 
+/* The tag used for EV_EVENT_TAG event log records covering DeviceTree blobs referenced by Type #1 entries */
+#define TYPE1_DEVICETREE_EVENT_TAG_ID UINT32_C(0x37c1e1f3)
+
 /* The tag used for EV_EVENT_TAG event log records covering initrd addons */
 #define INITRD_ADDON_EVENT_TAG_ID UINT32_C(0x49dffe0f)
 
