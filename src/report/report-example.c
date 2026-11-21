@@ -11,6 +11,7 @@
 COMMAND(
         "systemd-report-example\0",
         "Report example metrics.",
+        .flags = COMMAND_EXPERIMENTAL,
         .option_namespace = "common",
 );
 

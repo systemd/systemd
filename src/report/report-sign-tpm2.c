@@ -29,6 +29,7 @@ COMMAND(
         "Get an attestation report from a Trusted Platform Module (TPM) "
         "that includes the hash of the system report.",
         .man_page = "systemd-report-sign-tpm2@.service(8)",
+        .flags = COMMAND_EXPERIMENTAL,
         .option_namespace = "common",
 );
 
