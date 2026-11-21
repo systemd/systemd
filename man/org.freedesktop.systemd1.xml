@@ -1672,8 +1672,11 @@ node /org/freedesktop/systemd1 {
       <literal>unlink</literal>, <literal>mask-dependency</literal> (an entry resolving to
       <filename>/dev/null</filename>, which the service manager ignores when loading dependencies, was placed
       over a dependency symlink the vendor installed below <filename>/usr/</filename>, whose path is reported as
-      the destination) or
-      <literal>unmask-dependency</literal> (such a symlink was removed again). Clients should ignore types
+      the destination, or where the vendor might install one later, in which case the destination is
+      empty) or
+      <literal>unmask-dependency</literal> (such a symlink was removed again) or <literal>shadowed</literal>
+      (the symlink has no effect, because the service manager uses the entry with the same name in a
+      directory with a higher priority, whose path is reported as the destination). Clients should ignore types
       they do not know, as further ones may be added. Note that most of the following calls return a changes
       list in the same format.</para>
 
@@ -1687,12 +1690,19 @@ node /org/freedesktop/systemd1 {
 #define SD_SYSTEMD_UNIT_RUNTIME  (UINT64_C(1) &lt;&lt; 0)
 #define SD_SYSTEMD_UNIT_FORCE    (UINT64_C(1) &lt;&lt; 1)
 #define SD_SYSTEMD_UNIT_PORTABLE (UINT64_C(1) &lt;&lt; 2)
+#define SD_SYSTEMD_UNIT_REMOVE_ONLY (UINT64_C(1) &lt;&lt; 7)
 </programlisting>
 
       <para><varname>SD_SYSTEMD_UNIT_RUNTIME</varname> will enable or disable the unit for runtime only,
       <varname>SD_SYSTEMD_UNIT_FORCE</varname> controls whether symlinks pointing to other units shall be
       replaced if necessary. <varname>SD_SYSTEMD_UNIT_PORTABLE</varname> will add or remove the symlinks in
-      <filename>/etc/systemd/system.attached</filename> and <filename>/run/systemd/system.attached</filename>.</para>
+      <filename>/etc/systemd/system.attached</filename> and <filename>/run/systemd/system.attached</filename>.
+      <varname>SD_SYSTEMD_UNIT_REMOVE_ONLY</varname> is only accepted by
+      <function>DisableUnitFilesWithFlags()</function> and
+      <function>DisableUnitFilesWithFlagsAndInstallInfo()</function>. With this flag, the call only removes
+      symlinks and places no <filename>/dev/null</filename> entries, see
+      <command>systemctl disable</command>. Package managers use this flag when they remove a package, because the package removal also removes
+      the vendor symlinks.</para>
 
       <para><function>DisableUnitFilesWithFlagsAndInstallInfo()</function> is similar to
       <function>DisableUnitFilesWithFlags()</function> and takes the same arguments, but returns
