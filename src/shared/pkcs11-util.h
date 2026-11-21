@@ -41,6 +41,8 @@ P11KitUri *uri_from_module_info(const CK_INFO *info);
 P11KitUri *uri_from_slot_info(const CK_SLOT_INFO *slot_info);
 P11KitUri *uri_from_token_info(const CK_TOKEN_INFO *token_info);
 
+bool pkcs11_slot_is_enumerable(const CK_SLOT_INFO *slot_info);
+
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(P11KitUri*, sym_p11_kit_uri_free, p11_kit_uri_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(CK_FUNCTION_LIST**, sym_p11_kit_modules_finalize_and_release, p11_kit_modules_finalize_and_releasep, NULL);
 
