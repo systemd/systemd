@@ -218,6 +218,31 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--install-kernel=</option></term>
+        <term><option>--install-boot-loader=</option></term>
+
+        <listitem><para>Take boolean arguments, and both default to true. If false, the kernel image (and
+        with it the credentials, see above) or the boot loader, respectively, are not installed on the
+        target disk. This is useful for OS images whose partitions as copied by
+        <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        (e.g. via <varname>CopyBlocks=</varname>) already carry the complete boot chain, for example a
+        shim and a different boot loader on the ESP, and boot loader entries of their own. If
+        <option>--install-kernel=no</option> is used, the currently booted kernel is not looked for, hence
+        the system does not need to be booted via
+        <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        If <option>--install-boot-loader=no</option> is used, <option>--variables=</option> has no effect
+        and EFI variables are not modified.</para>
+
+        <para>When invoked via Varlink, the <varname>installKernel</varname> and
+        <varname>installBootLoader</varname> parameters of the <function>Run()</function> call override
+        these settings. If the caller does not specify them, the values passed on the command line of the
+        service are used, hence an OS may change the defaults via a drop-in for
+        <filename>systemd-sysinstall@.service</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--set-credential=<replaceable>id</replaceable>:<replaceable>value</replaceable></option></term>
 
         <listitem><para>Accepts an additional system credential to encrypt (with a key generated on the local
