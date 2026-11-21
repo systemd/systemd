@@ -5,11 +5,46 @@
 #include "sd-journal.h"
 
 #include "alloc-util.h"
+#include "journal-def.h"
 #include "journal-upload.h"
 #include "log.h"
 #include "string-util.h"
 #include "time-util.h"
 #include "utf8.h"
+
+/* journal-remote rejects uploads whose size exceeds ENTRY_SIZE_MAX. Keep each
+ * request at half that, so that a large backlog is sent as several requests
+ * that are each accepted, instead of one request that is cut off mid-stream
+ * after entries have already been written. */
+#define JOURNAL_UPLOAD_MAX_BATCH (ENTRY_SIZE_MAX / 2)
+
+/* Upper bound for the serialized size of the entry the journal is positioned
+ * at: cursor and timestamp lines, plus every field at full size with the
+ * binary field framing added. */
+static size_t entry_serialized_size(Uploader *u) {
+        const void *data;
+        size_t len, size = 256;
+        int r;
+
+        sd_journal_restart_data(u->journal);
+
+        for (;;) {
+                r = sd_journal_enumerate_data(u->journal, &data, &len);
+                if (r < 0) {
+                        size = SIZE_MAX; /* undecidable, end the request */
+                        break;
+                }
+                if (r == 0)
+                        break;
+                size = size_add(size, size_add(len, 16));
+                if (size == SIZE_MAX)
+                        break;
+        }
+
+        /* Leave the field enumeration fresh for write_entry(). */
+        sd_journal_restart_data(u->journal);
+        return size;
+}
 
 /**
  * Write up to size bytes to buf. Return negative on error, and number of
@@ -300,6 +335,12 @@ static size_t journal_input_callback(void *buf, size_t size, size_t nmemb, void 
         }
 
         while (j && filled < size * nmemb) {
+                if (u->batch_end)
+                        /* The limit for this request was reached. End it here;
+                         * entry_state says whether the next request continues
+                         * with the entry that is current now. */
+                        break;
+
                 if (u->entry_state == ENTRY_DONE) {
                         r = sd_journal_next(j);
                         if (r == 0) {
@@ -328,6 +369,33 @@ static size_t journal_input_callback(void *buf, size_t size, size_t nmemb, void 
                                 log_error_errno(r, "Failed to move to next entry in journal: %m");
                                 return CURL_READFUNC_ABORT;
                         }
+
+                        /* Start the next entry only if it fits into this
+                         * request; an oversized single entry is sent on its
+                         * own. */
+                        size_t entry_size = entry_serialized_size(u);
+
+                        if (u->batch_bytes > 0 &&
+                            (entry_size == SIZE_MAX || size_add(u->batch_bytes, entry_size) > JOURNAL_UPLOAD_MAX_BATCH)) {
+                                log_debug("Serialized %zu bytes for this request, ending it at an entry boundary.",
+                                          u->batch_bytes);
+                                u->batch_end = true;
+                                u->entry_state = ENTRY_CURSOR;
+                                /* Remember the pending entry: journal file changes may
+                                 * detach the reader's location before the next request
+                                 * starts, and the next request must not skip it. */
+                                r = sd_journal_get_cursor(j, &u->pending_cursor);
+                                if (r < 0) {
+                                        log_error_errno(r, "Failed to get cursor of the pending entry: %m");
+                                        return CURL_READFUNC_ABORT;
+                                }
+                                /* An earlier exhaustion in this request may have
+                                 * cleared this; the current entry is pending, so
+                                 * the next request must be started. */
+                                u->uploading = true;
+                                break;
+                        }
+
                         u->entry_state = ENTRY_CURSOR;
                 }
 
@@ -335,6 +403,7 @@ static size_t journal_input_callback(void *buf, size_t size, size_t nmemb, void 
                 if (w < 0)
                         return CURL_READFUNC_ABORT;
                 filled += w;
+                u->batch_bytes += w;
 
                 if (filled == 0) {
                         log_error("Buffer space is too small to write entry.");
@@ -393,6 +462,11 @@ static int process_journal_input(Uploader *u, int skip) {
 }
 
 int check_journal_input(Uploader *u) {
+        /* Keep the journal position stable until a pending entry has been sent
+         * by the next request, even if the journal rotates in the meantime. */
+        if (u->uploading)
+                return 0;
+
         if (u->input_event) {
                 int r;
 

@@ -16,6 +16,7 @@ typedef struct RemoteSource {
         Compression compression;
         char *encoding;
         char *client_certificate_subject;
+        uint64_t raw_uploaded;               /* raw (pre-decompression) upload bytes received so far */
 } RemoteSource;
 
 RemoteSource* source_new(int fd, bool passive_fd, char *name, Writer *writer);

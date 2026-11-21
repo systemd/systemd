@@ -113,6 +113,21 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>MaxUploadSizeBytes=</varname></term>
+
+        <listitem><para>Takes a data size. Uploads declaring a larger <varname>Content-Length</varname> are
+        rejected with HTTP status 413 before the body is read; uploads sent with <varname>Transfer-Encoding:
+        chunked</varname> declare no size, and with this setting in place they are rejected with HTTP status
+        413 if the received total exceeds the configured limit. If unset, chunked uploads are not limited
+        in total size, matching older clients which send their whole backlog in a single request.
+        A value of zero is invalid. Values below <constant>ENTRY_SIZE_MAX</constant> (770 MiB) are raised
+        to it, as <command>systemd-journal-upload</command> splits its backlog into requests of up to half
+        that size.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>MaxUse=</varname></term>
         <term><varname>KeepFree=</varname></term>
         <term><varname>MaxFileSize=</varname></term>
