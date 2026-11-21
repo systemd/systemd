@@ -27,6 +27,15 @@ TEST(link_new) {
         ASSERT_NOT_NULL(link);
 }
 
+TEST(link_mdns_defaults_to_disabled) {
+        Manager manager = { .mdns_support = RESOLVE_SUPPORT_YES };
+        _cleanup_(link_freep) Link *link = NULL;
+
+        ASSERT_OK(link_new(&manager, &link, 1));
+        ASSERT_NOT_NULL(link);
+        ASSERT_EQ(link_get_mdns_support(link), RESOLVE_SUPPORT_NO);
+}
+
 /* ================================================================
  * link_process_rtnl()
  * ================================================================ */
