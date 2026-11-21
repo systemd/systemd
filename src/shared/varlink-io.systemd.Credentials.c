@@ -18,7 +18,7 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(auto_initrd),
                 SD_VARLINK_FIELD_COMMENT("Bind to the host key only, i.e. not the TPM"),
                 SD_VARLINK_DEFINE_ENUM_VALUE(host),
-                SD_VARLINK_FIELD_COMMENT("Bind to the TPM only, not the host key"),
+                SD_VARLINK_FIELD_COMMENT("Bind to the TPM only, automatically selecting whether a public-key policy is used"),
                 SD_VARLINK_DEFINE_ENUM_VALUE(tpm2),
                 SD_VARLINK_FIELD_COMMENT("Bind to the TPM only (using a public key identifying the UKI), not the host key"),
                 SD_VARLINK_DEFINE_ENUM_VALUE(tpm2_with_public_key),
