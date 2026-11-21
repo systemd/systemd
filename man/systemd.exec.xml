@@ -2071,6 +2071,21 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <filename>/dev/mem</filename>, system ports <filename>/dev/port</filename> and others. This is useful
         to turn off physical device access by the executed process. Defaults to false.</para>
 
+        <para>If <varname>PrivateUsers=</varname><option>managed</option> is used as well, a new
+        <filename>/dev/pts/</filename> instance is mounted for the unit instead of sharing the host's, and
+        the pseudo TTYs allocated in it belong to the <literal>tty</literal> group of the unit's user
+        namespace. Pseudo TTYs passed in from outside of the unit, i.e. configured with
+        <varname>TTYPath=</varname> or acquired from
+        <citerefentry><refentrytitle>systemd-ptybrokerd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for <varname>StandardInput=</varname><option>broker</option> and similar, remain on the host's
+        instance. They may still be used via the standard input, output and error file descriptors and via
+        <filename>/dev/tty</filename>, but they are not accessible below <filename>/dev/pts/</filename> from
+        within the unit, hence
+        <citerefentry project='man-pages'><refentrytitle>ttyname</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        fails for them.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/>
+
         <para>Enabling this option will install a system call filter to block low-level I/O system calls that
         are grouped in the <varname>@raw-io</varname> set, remove <constant>CAP_MKNOD</constant> and
         <constant>CAP_SYS_RAWIO</constant> from the capability bounding set for the unit, and set
@@ -3598,7 +3613,10 @@ SystemCallErrorNumber=EPERM</programlisting>
         and the terminal window size) are derived from the unit's <varname>Environment=</varname> and
         <varname>TTYColumns=</varname>/<varname>TTYRows=</varname> settings. When one of these options is used the
         unit gains implicit <varname>After=</varname> and <varname>Wants=</varname> dependencies on
-        <filename>systemd-ptybrokerd.socket</filename>.</para>
+        <filename>systemd-ptybrokerd.socket</filename>. Note that if <varname>PrivateDevices=</varname> is
+        combined with <varname>PrivateUsers=</varname><option>managed</option>, the pseudo TTY is not
+        accessible below <filename>/dev/pts/</filename> from within the unit, see
+        <varname>PrivateDevices=</varname> above.</para>
 
         <para>This setting defaults to <option>null</option>, unless
         <varname>StandardInputText=</varname>/<varname>StandardInputData=</varname> are set, in which case it
