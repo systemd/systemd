@@ -2416,7 +2416,8 @@ static int build_environment(
         assert(pressure_path);
         assert(ret);
 
-        exec_pid = needs_sandboxing && exec_needs_pid_namespace(c, p) ? 1 : getpid_cached();
+        bool pid_namespace = needs_sandboxing && exec_needs_pid_namespace(c, p);
+        exec_pid = pid_namespace ? 1 : getpid_cached();
 
         if (p->n_socket_fds + p->n_stashed_fds > 0) {
                 _cleanup_free_ char *joined = NULL;
@@ -2425,8 +2426,10 @@ static int build_environment(
                 if (r < 0)
                         return r;
 
+                /* With a PID namespace, the payload is a child we fork off later, which has a different
+                 * pidfd ID. $LISTEN_PIDFDID is set in that child, see exec_invoke(). */
                 uint64_t pidfdid;
-                if (pidfd_get_inode_id_self_cached(&pidfdid) >= 0) {
+                if (!pid_namespace && pidfd_get_inode_id_self_cached(&pidfdid) >= 0) {
                         r = strv_extendf_with_size(&e, &n, "LISTEN_PIDFDID=%"PRIu64, pidfdid);
                         if (r < 0)
                                 return r;
@@ -6733,6 +6736,23 @@ int exec_invoke(
         mountfsd_link = sd_varlink_unref(mountfsd_link);
         /* With PrivatePIDs=, this releases the parent process that set up the connections */
         keep_parent_fd = safe_close(keep_parent_fd);
+
+        /* We are now the process that will execute the payload, so set $LISTEN_PIDFDID, unless the unit
+         * set it explicitly. build_environment() skipped it, since it ran before we forked into the PID
+         * namespace. */
+        if (needs_sandboxing && exec_needs_pid_namespace(context, params) &&
+            params->n_socket_fds + params->n_stashed_fds > 0 &&
+            !strv_env_get(accum_env, "LISTEN_PIDFDID")) {
+                uint64_t pidfdid;
+
+                if (pidfd_get_inode_id_self_cached(&pidfdid) >= 0) {
+                        r = strv_env_assignf(&accum_env, "LISTEN_PIDFDID", "%" PRIu64, pidfdid);
+                        if (r < 0) {
+                                *exit_status = EXIT_MEMORY;
+                                return log_oom();
+                        }
+                }
+        }
 
         /* We don't need the pinned rootfs anymore at this point. Close the fds now, so that they are
          * definitely gone before we do our fd rearrangements below. */
