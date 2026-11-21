@@ -18,7 +18,7 @@ void bus_manager_send_finished(
                 usec_t total_usec);
 
 void bus_manager_send_reloading(Manager *m, bool active);
-void bus_manager_send_change_signal(Manager *m);
+void bus_manager_send_change_signal(Manager *m, char **properties);
 
 int bus_property_get_oom_policy(
                 sd_bus *bus,

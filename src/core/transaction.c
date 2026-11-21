@@ -480,8 +480,14 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                         uint64_t *id_buf = newdup(uint64_t, &tr->id, 1);
                         if (!id_buf)
                                 log_oom_warning();
-                        else
-                                (void) set_ensure_consume(&j->manager->transactions_with_cycle, &uint64_hash_ops_value_free, id_buf);
+                        else {
+                                bool was_empty;
+
+                                was_empty = set_isempty(j->manager->transactions_with_cycle);
+                                r = set_ensure_consume(&j->manager->transactions_with_cycle, &uint64_hash_ops_value_free, id_buf);
+                                if (r > 0 && was_empty)
+                                        manager_queue_system_state_refresh(j->manager);
+                        }
                 }
 
                 if (delete) {
