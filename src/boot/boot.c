@@ -136,6 +136,7 @@ typedef struct BootEntry {
         char16_t *directory;
         char16_t *current_name;
         char16_t *next_name;
+        char16_t *confirm;    /* If set, a message to show, and ask the user to confirm before invoking the entry */
         unsigned profile;
 } BootEntry;
 
@@ -441,6 +442,8 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
                         printf("       options: %ls\n", entry->options);
                 if (entry->profile > 0)
                         printf("       profile: %u\n", entry->profile);
+                if (!isempty(entry->confirm))
+                        printf("       confirm: %ls\n", entry->confirm);
                 printf(" internal call: %ls\n", yes_no(LOADER_TYPE_IS_INTERNAL(entry->type)));
 
                 printf("counting boots: %ls\n", yes_no(entry->tries_left >= 0));
@@ -1062,6 +1065,7 @@ static BootEntry* boot_entry_free(BootEntry *entry) {
         free(entry->directory);
         free(entry->current_name);
         free(entry->next_name);
+        free(entry->confirm);
 
         return mfree(entry);
 }
@@ -2437,7 +2441,7 @@ static void boot_entry_add_type2(
                                     &good_sort_key))
                         continue;
 
-                _cleanup_free_ char16_t *profile_id = NULL, *profile_title = NULL;
+                _cleanup_free_ char16_t *profile_id = NULL, *profile_title = NULL, *profile_confirm = NULL;
 
                 if (PE_SECTION_VECTOR_IS_SET(sections + SECTION_PROFILE)) {
                         content = mfree(content);
@@ -2462,6 +2466,9 @@ static void boot_entry_add_type2(
                                 } else if (streq8(key, "TITLE")) {
                                         free(profile_title);
                                         profile_title = xstr8_to_16(value);
+                                } else if (streq8(key, "CONFIRM")) {
+                                        free(profile_confirm);
+                                        profile_confirm = xstr8_to_16(value);
                                 }
                 }
 
@@ -2488,6 +2495,7 @@ static void boot_entry_add_type2(
                         .tries_done = -1,
                         .tries_left = -1,
                         .profile = profile,
+                        .confirm = TAKE_PTR(profile_confirm),
                         .call = call_image_start,
                 };
 
@@ -3483,6 +3491,82 @@ static void config_load_all_entries(
         config_select_default_entry(config);
 }
 
+static bool boot_entry_confirm(const BootEntry *entry) {
+        char16_t input[16];
+        size_t n = 0;
+        EFI_STATUS err;
+
+        assert(entry);
+
+        /* If the boot entry requests it, show the configured message and ask the user to type "YES" before
+         * we invoke it. This is useful for profiles that do destructive things, such as factory reset. Any
+         * other input, or Escape cancels. Returns true if the entry shall be invoked, false otherwise. */
+
+        if (isempty(entry->confirm))
+                return true;
+
+        clear_screen(COLOR_NORMAL);
+        printf("%ls\n"
+               "\n"
+               "Type YES and press Enter to continue, or press Escape to cancel: ",
+               entry->confirm);
+
+        for (;;) {
+                uint64_t key;
+
+                err = console_key_read(&key, /* timeout_usec= */ UINT64_MAX);
+                if (err == EFI_NOT_READY)
+                        continue;
+                if (err != EFI_SUCCESS) {
+                        printf("\n");
+                        log_error_status(err, "Error waiting for user input: %m");
+                        return false;
+                }
+
+                switch (key) {
+
+                case KEYPRESS(0, SCAN_ESC, 0):
+                case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'c'):
+                case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('c')):
+                        printf("\n");
+                        return false;
+
+                case KEYPRESS(0, 0, '\r'):
+                case KEYPRESS(0, 0, '\n'):
+                case KEYPRESS(0, SCAN_F3, '\r'): /* Teclast X98+ II firmware sends malformed events */
+                        printf("\n");
+                        input[n] = '\0';
+                        if (streq16(input, u"YES"))
+                                return true;
+
+                        log_info("Boot entry not confirmed, not starting it.");
+                        return false;
+
+                case KEYPRESS(0, 0, '\b'):
+                        if (n > 0) {
+                                n--;
+                                printf("\b \b");
+                        }
+                        break;
+
+                default: {
+                        char16_t c = KEYCHAR(key);
+
+                        /* Only accept printable ASCII characters without modifiers, ignore anything else */
+                        if (key != KEYPRESS(0, 0, c) && key != KEYPRESS(EFI_SHIFT_PRESSED, 0, c))
+                                break;
+                        if (c < ' ' || c > '~')
+                                break;
+                        if (n >= ELEMENTSOF(input) - 1)
+                                break;
+
+                        input[n++] = c;
+                        printf("%c", c);
+                        break;
+                }}
+        }
+}
+
 static EFI_STATUS discover_root_dir(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, EFI_FILE **ret_dir) {
         if (is_direct_boot(loaded_image->DeviceHandle))
                 return vmm_open(&loaded_image->DeviceHandle, ret_dir);
@@ -3583,6 +3667,13 @@ static EFI_STATUS run(EFI_HANDLE image) {
                         efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeMenuUSec", /* usec= */ 0);
                         if (!menu_run(&config, &entry, loaded_image_path))
                                 return EFI_SUCCESS;
+                }
+
+                if (!boot_entry_confirm(entry)) {
+                        /* Not confirmed, show the menu again */
+                        menu = true;
+                        config.timeout_sec = 0;
+                        continue;
                 }
 
                 (void) boot_entry_bump_counters(entry);
