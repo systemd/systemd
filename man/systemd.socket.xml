@@ -323,11 +323,20 @@
 
       <varlistentry>
         <term><varname>SocketProtocol=</varname></term>
-        <listitem><para>Takes one of <option>udplite</option>,
-        <option>sctp</option> or <option>mptcp</option>. The socket will use
-        the UDP-Lite (<constant>IPPROTO_UDPLITE</constant>), SCTP
-        (<constant>IPPROTO_SCTP</constant>) or MPTCP
-        (<constant>IPPROTO_MPTCP</constant>) protocol, respectively.</para>
+        <listitem><para>Takes one of <option>sctp</option> or <option>mptcp</option>. The socket will
+        use the SCTP (<constant>IPPROTO_SCTP</constant>) or MPTCP (<constant>IPPROTO_MPTCP</constant>)
+        protocol, respectively.</para>
+
+        <para>Also takes <option>mptcp-auto</option>, which is equivalent to <option>mptcp</option> if
+        MPTCP is available, and otherwise falls back to TCP. MPTCP is considered unavailable if the kernel
+        does not support it, or if it has been disabled for the network namespace via the
+        <varname>net.mptcp.enabled</varname> sysctl. Whether MPTCP is available is checked again each time
+        the socket is opened.</para>
+
+        <para>This setting only applies to <constant>AF_INET</constant> and <constant>AF_INET6</constant>
+        sockets of a matching socket type, and is ignored for all others.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/>
 
         <xi:include href="version-info.xml" xpointer="v229"/>
         </listitem>

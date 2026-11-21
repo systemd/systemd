@@ -137,7 +137,7 @@ DEFINE_BUS_APPEND_PARSE("i", seccomp_parse_errno_or_action);
 DEFINE_BUS_APPEND_PARSE("i", sched_policy_from_string);
 DEFINE_BUS_APPEND_PARSE("i", secure_bits_from_string);
 DEFINE_BUS_APPEND_PARSE("i", signal_from_string);
-DEFINE_BUS_APPEND_PARSE("i", parse_ip_protocol);
+DEFINE_BUS_APPEND_PARSE("i", socket_protocol_from_string);
 DEFINE_BUS_APPEND_PARSE("i", mpol_from_string);
 DEFINE_BUS_APPEND_PARSE_PTR("i", int32_t, int, ioprio_parse_priority);
 DEFINE_BUS_APPEND_PARSE_PTR("i", int32_t, int, parse_nice);
@@ -2947,7 +2947,7 @@ static const BusProperty socket_properties[] = {
         { "XAttrEntryPoint",                       bus_append_xattr                              },
         { "XAttrListen",                           bus_append_xattr                              },
         { "XAttrAccept",                           bus_append_xattr                              },
-        { "SocketProtocol",                        bus_append_parse_ip_protocol                  },
+        { "SocketProtocol",                        bus_append_socket_protocol_from_string        },
         { "ListenStream",                          bus_append_listen                             },
         { "ListenDatagram",                        bus_append_listen                             },
         { "ListenSequentialPacket",                bus_append_listen                             },

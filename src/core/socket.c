@@ -820,7 +820,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, FORMAT_TIMESPAN(s->poll_limit.interval, USEC_PER_SEC),
                 prefix, s->poll_limit.burst);
 
-        str = ip_protocol_to_name(s->socket_protocol);
+        str = socket_protocol_to_string(s->socket_protocol);
         if (str)
                 fprintf(f, "%sSocketProtocol: %s\n", prefix, str);
 
@@ -1499,10 +1499,12 @@ static int socket_address_listen_do(
                 const SocketAddress *address,
                 const char *selinux_label) {
 
+        int fd;
+
         assert(s);
         assert(address);
 
-        return socket_address_listen(
+        fd = socket_address_listen(
                         address,
                         SOCK_NONBLOCK,
                         s->backlog,
@@ -1517,6 +1519,24 @@ static int socket_address_listen_do(
                         s->smack,
                         s->xattr_entrypoint,
                         s->xattr_listen);
+        if (fd >= 0 ||
+            !FLAGS_SET(s->socket_protocol, SOCKET_PROTOCOL_AUTO) ||
+            address->protocol != IPPROTO_MPTCP ||
+            !ERRNO_IS_NEG_NOT_SUPPORTED(fd))
+                return fd;
+
+        /* The kernel was built without MPTCP support (EPROTONOSUPPORT), it has been turned off for the
+         * network namespace via net.mptcp.enabled=0 (ENOPROTOOPT), or it is blocked in some other way (for
+         * example by a seccomp filter returning some other "not supported" error). Since
+         * SocketProtocol=mptcp-auto was used, fall back to TCP. If the error has nothing to do with MPTCP,
+         * the TCP attempt will simply fail the same way. */
+        log_unit_debug_errno(UNIT(s), fd, "MPTCP not available, falling back to TCP: %m");
+
+        SocketAddress fallback = *address;
+        fallback.protocol = IPPROTO_TCP;
+
+        /* Since the protocol is TCP now, this won't recurse any further */
+        return socket_address_listen_do(s, &fallback, selinux_label);
 }
 
 #define log_address_error_errno(u, address, error, fmt)          \
@@ -1689,23 +1709,19 @@ static int socket_open_fds(Socket *orig_s) {
                                 know_label = true;
                         }
 
-                        /* Apply the socket protocol */
-                        switch (p->address.type) {
+                        /* Apply the socket protocol. Note that the SOCKET_PROTOCOL_AUTO flag is stripped
+                         * here, it is handled in socket_address_listen_do(). All protocols we support are
+                         * IP protocols, hence don't apply them to AF_UNIX, AF_VSOCK, … sockets. */
+                        if (IN_SET(socket_address_family(&p->address), AF_INET, AF_INET6)) {
+                                int protocol = s->socket_protocol & ~SOCKET_PROTOCOL_AUTO;
 
-                        case SOCK_STREAM:
-                                if (IN_SET(s->socket_protocol, IPPROTO_SCTP, IPPROTO_MPTCP))
-                                        p->address.protocol = s->socket_protocol;
-                                break;
+                                switch (p->address.type) {
 
-                        case SOCK_SEQPACKET:
-                                if (s->socket_protocol == IPPROTO_SCTP)
-                                        p->address.protocol = s->socket_protocol;
-                                break;
-
-                        case SOCK_DGRAM:
-                                if (s->socket_protocol == IPPROTO_UDPLITE)
-                                        p->address.protocol = s->socket_protocol;
-                                break;
+                                case SOCK_STREAM:
+                                        if (IN_SET(protocol, IPPROTO_SCTP, IPPROTO_MPTCP))
+                                                p->address.protocol = protocol;
+                                        break;
+                                }
                         }
 
                         p->fd = socket_address_listen_in_cgroup(s, &p->address, label);
