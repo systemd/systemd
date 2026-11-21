@@ -8,6 +8,7 @@ set -o pipefail
 
 at_exit() {
     set +e
+    systemctl start systemd-ptybrokerd.socket
     rm -f /tmp/pty96-run0-*
 }
 
@@ -34,10 +35,27 @@ exit 7
 SHELLEOF
 chmod +x /tmp/pty96-run0-shell
 
-run0_test() {
-    local option=$1 output rc=0
+# The same shell, but with checks for the D-Bus code path that run0 falls back to when the broker
+# is not available: the shell is placed in a run-*.service unit, in a PAM session of systemd-run0's
+# own PAM stack.
+cat >/tmp/pty96-run0-shell-dbus <<'SHELLEOF'
+#!/usr/bin/env bash
+set -eux
+test -t 0; test -t 1; test -t 2
+[[ "$(id -u)" == 0 ]]
+[[ "$SHELL" == /tmp/pty96-run0-shell-dbus ]]
+[[ "$(loginctl show-session "$XDG_SESSION_ID" -P Service)" == systemd-run0 ]]
+systemctl list-units --no-legend 'run-*.service' | grep . >/dev/null
+echo pty96-forwarded
+touch /tmp/pty96-run0-ok
+exit 7
+SHELLEOF
+chmod +x /tmp/pty96-run0-shell-dbus
 
-    output=$(script -qec "run0 ${option} --setenv=SHELL=/tmp/pty96-run0-shell" /dev/null </dev/null) || rc=$?
+run0_test() {
+    local option=$1 shell=$2 output rc=0
+
+    output=$(script -qec "run0 ${option} --setenv=SHELL=${shell}" /dev/null </dev/null) || rc=$?
     [[ "$rc" == 7 ]]
     [[ "$output" == *pty96-forwarded* ]]
     test -e /tmp/pty96-run0-ok
@@ -45,5 +63,12 @@ run0_test() {
 }
 
 # run0 defaults to --pty-late unless --no-ask-password is specified.
-run0_test ""
-run0_test --pty
+run0_test "" /tmp/pty96-run0-shell
+run0_test --pty /tmp/pty96-run0-shell
+
+# When the broker is not available run0 must fall back to the D-Bus code path. Stop
+# systemd-ptybrokerd.socket and .service to simulate that.
+systemctl stop systemd-ptybrokerd.socket systemd-ptybrokerd.service
+run0_test "" /tmp/pty96-run0-shell-dbus
+run0_test --pty /tmp/pty96-run0-shell-dbus
+systemctl start systemd-ptybrokerd.socket
