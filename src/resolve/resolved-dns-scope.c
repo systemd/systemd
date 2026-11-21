@@ -725,8 +725,12 @@ DnsScopeMatch dns_scope_good_domain(
             dns_name_equal(domain, "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa") > 0)
                 return DNS_SCOPE_NO;
 
-        /* Never respond to some of the domains listed in RFC6303 + RFC6761 */
-        if (dns_name_dont_resolve(domain))
+        /* Never respond to some of the domains listed in RFC6303 + RFC6761 + RFC7686 + RFC9476.
+         * Names without a dot (like "onion") are let through for normal DNS, since a search domain may
+         * still be added to them. They are checked again later, in dns_scope_good_key(). */
+        if (dns_name_dont_resolve(domain) &&
+            (FLAGS_SET(flags, SD_RESOLVED_NO_SEARCH) ||
+             !dns_scope_name_wants_search_domain(s, domain)))
                 return DNS_SCOPE_NO;
 
         /* Avoid asking invalid questions of some special use domains */
@@ -913,6 +917,12 @@ bool dns_scope_good_key(DnsScope *s, const DnsResourceKey *key) {
                 return false;
 
         if (s->protocol == DNS_PROTOCOL_DNS) {
+                const char *name = dns_resource_key_name(key);
+
+                /* Never send special names like "foo.onion" to the network
+                 * (checked after search domains are added). */
+                if (dns_name_dont_resolve(name))
+                        return false;
 
                 /* On classic DNS, looking up non-address RRs is always fine. (Specifically, we want to
                  * permit looking up DNSKEY and DS records on the root and top-level domains.) */
@@ -922,8 +932,6 @@ bool dns_scope_good_key(DnsScope *s, const DnsResourceKey *key) {
                 /* Unless explicitly overridden, we refuse to look up A and AAAA RRs on the root and
                  * single-label domains, under the assumption that those should be resolved via LLMNR or
                  * search path only, and should not be leaked onto the internet. */
-                const char* name = dns_resource_key_name(key);
-
                 if (!s->manager->resolve_unicast_single_label &&
                     dns_name_is_single_label(name))
                         return false;
