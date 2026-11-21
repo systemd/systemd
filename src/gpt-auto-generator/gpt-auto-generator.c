@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "blockdev-util.h"
+#include "chase.h"
 #include "device-util.h"
 #include "devnum-util.h"
 #include "dissect-image.h"
@@ -29,6 +30,7 @@
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "special.h"
+#include "specifier.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -323,6 +325,7 @@ static int add_mount(
                 const char *id,
                 const char *what,
                 const char *where,
+                const char *original_where,
                 const char *fstype,
                 MountPointFlags flags,
                 const char *options,
@@ -330,13 +333,14 @@ static int add_mount(
                 const char *post,
                 const char *conflicts) {
 
-        _cleanup_free_ char *unit = NULL, *crypto_what = NULL, *opts_filtered = NULL;
+        _cleanup_free_ char *unit = NULL, *crypto_what = NULL, *opts_filtered = NULL, *where_escaped = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
-        /* Note that we don't apply specifier escaping on the input strings here, since we know they are not configured
-         * externally, but all originate from our own sources here, and hence we know they contain no % characters that
-         * could potentially be understood as specifiers. */
+        /* Note that we don't apply specifier escaping on most input strings here, since we know they are not
+         * configured externally, but all originate from our own sources here, and hence we know they contain
+         * no % characters that could potentially be understood as specifiers. The mount point is the
+         * exception, as add_partition_mount() might have resolved it through symlinks in the file system. */
 
         assert(id);
         assert(what);
@@ -407,9 +411,16 @@ static int add_mount(
         fprintf(f,
                 "\n"
                 "[Mount]\n"
-                "What=%s\n"
-                "Where=%s\n",
-                what, where);
+                "What=%s\n",
+                what);
+
+        if (original_where)
+                fprintf(f, "# Canonicalized from %s\n", original_where);
+
+        where_escaped = specifier_escape(where);
+        if (!where_escaped)
+                return log_oom();
+        fprintf(f, "Where=%s\n", where_escaped);
 
         if (fstype)
                 fprintf(f, "Type=%s\n", fstype);
@@ -490,10 +501,23 @@ static int add_partition_mount(
                 const char *where,
                 const char *description) {
 
-        _cleanup_free_ char *options = NULL;
+        _cleanup_free_ char *options = NULL, *resolved = NULL;
+        const char *original_where = NULL;
         int r;
 
         assert(p);
+
+        /* PID 1 refuses to mount on paths that contain symlinks, hence resolve them here, like
+         * systemd-fstab-generator does. This matters e.g. on OSTree systems where /home is a symlink to
+         * /var/home. */
+        r = chase(where, /* root= */ NULL, CHASE_NONEXISTENT|CHASE_NO_SYNC, &resolved, /* ret_fd= */ NULL);
+        if (r < 0)
+                log_debug_errno(r, "Failed to chase '%s', using as-is: %m", where);
+        else if (!path_equal(where, resolved)) {
+                log_debug("Canonicalized mount point '%s' to '%s'.", where, resolved);
+                original_where = where;
+                where = resolved;
+        }
 
         r = path_is_busy(where);
         if (r != 0)
@@ -513,6 +537,7 @@ static int add_partition_mount(
                         id,
                         p->node,
                         where,
+                        original_where,
                         p->fstype,
                         (p->rw ? MOUNT_RW : 0) |
                         MOUNT_VALIDATEFS |
@@ -606,6 +631,7 @@ static int add_automount(
         r = add_mount(id,
                       what,
                       where,
+                      /* original_where= */ NULL,
                       fstype,
                       flags,
                       options,
@@ -941,6 +967,7 @@ static int add_root_mount(void) {
                         "root",
                         bdev,
                         in_initrd() ? "/sysroot" : "/",
+                        /* original_where= */ NULL,
                         arg_root_fstype,
                         (arg_root_rw > 0 ? MOUNT_RW : 0) |
                         (in_initrd() ? MOUNT_VALIDATEFS : 0) |
@@ -1021,6 +1048,7 @@ static int add_usr_mount(void) {
         r = add_mount("usr",
                       "/dev/disk/by-designator/usr",
                       in_initrd() ? "/sysusr/usr" : "/usr",
+                      /* original_where= */ NULL,
                       arg_usr_fstype,
                       /* flags= */ 0,
                       options,
@@ -1036,6 +1064,7 @@ static int add_usr_mount(void) {
                 r = add_mount("usr-bind",
                               "/sysusr/usr",
                               "/sysroot/usr",
+                              /* original_where= */ NULL,
                               /* fstype= */ NULL,
                               MOUNT_VALIDATEFS,
                               "bind",
@@ -1084,6 +1113,7 @@ static int add_early_esp_mount(void) {
         return add_mount("esp",
                          "/dev/disk/by-designator/esp",
                          "/sysefi/",
+                         /* original_where= */ NULL,
                          "vfat",
                          MOUNT_RW,
                          options,
