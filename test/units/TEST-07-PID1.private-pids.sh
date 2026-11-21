@@ -28,6 +28,7 @@ at_exit() {
     rm -rf /tmp/TEST-07-PID1-private-pids-root
     # Stop any test services
     systemctl kill --signal=KILL TEST-07-PID1-private-pid.service
+    systemctl stop TEST-07-PID1-private-pids-socket.socket
     # Remove any failed transient units
     systemctl reset-failed
 }
@@ -61,6 +62,26 @@ testcase_basic() {
     assert_eq "$(systemctl show -P Result TEST-07-PID1-private-pid.service)" "signal"
     assert_eq "$(systemctl show -P ExecMainStatus TEST-07-PID1-private-pid.service)" "9"
     systemctl reset-failed
+}
+
+testcase_socket_activation() {
+    # https://github.com/systemd/systemd/issues/44953
+    local unit="TEST-07-PID1-private-pids-socket"
+    local fdstore=/usr/lib/systemd/tests/unit-tests/manual/test-fdstore
+
+    if [[ ! -x "$fdstore" ]]; then
+        echo "test-fdstore is not available, skipping the test..."
+        return 0
+    fi
+
+    # sd_listen_fds() must accept the fds, i.e. $LISTEN_PID and $LISTEN_PIDFDID must refer to the payload
+    systemd-run --unit="$unit" \
+                --socket-property=ListenStream="/run/$unit.sock" \
+                -p Type=oneshot \
+                -p PrivatePIDs=yes \
+                "$fdstore" listen exit
+    systemctl start "$unit.service"
+    systemctl stop "$unit.socket"
 }
 
 testcase_analyze() {
