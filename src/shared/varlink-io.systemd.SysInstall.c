@@ -41,6 +41,10 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_INPUT(variables, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The path to a kernel image, if missing the current kernel is detected and used."),
                 SD_VARLINK_DEFINE_INPUT(kernelImagePath, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If false, no kernel image is installed on the target, and no credentials either. Useful if the copied partitions already carry the boot chain. If not specified, the service's default is used, which is true unless configured otherwise."),
+                SD_VARLINK_DEFINE_INPUT(installKernel, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If false, no boot loader is installed on the target and EFI variables are not modified. If not specified, the service's default is used, which is true unless configured otherwise."),
+                SD_VARLINK_DEFINE_INPUT(installBootLoader, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
 
                 SD_VARLINK_FIELD_COMMENT("If true, the current locale is copied to target system"),
                 SD_VARLINK_DEFINE_INPUT(copyLocale, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),

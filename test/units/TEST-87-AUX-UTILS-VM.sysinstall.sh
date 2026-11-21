@@ -366,6 +366,83 @@ testcase_sysinstall_varlink_basic() {
     validate_image
 }
 
+prepare_own_boot_chain() {
+    # An image that carries its own boot chain: the ESP is populated from the image (here via CopyFiles=,
+    # in real life typically via CopyBlocks=) with a boot loader that is not systemd-boot.
+    mkdir -p "$WORKDIR/esptree/EFI/BOOT"
+    echo "not-systemd-boot" >"$WORKDIR/esptree/EFI/BOOT/BOOTX64.EFI"
+    echo "CopyFiles=$WORKDIR/esptree:/" >>"$DEFS/10-esp.conf"
+    # Such an image also brings the ESP's mount point in its root. Nothing is mounted (and so no mount
+    # point created) after systemd-repart when neither a kernel nor a boot loader is installed, and the
+    # read-only systemd-dissect --mount below cannot create it.
+    mkdir -p "$SOURCE_ROOT/efi"
+}
+
+validate_own_boot_chain() {
+    LOOPDEV="$(systemd-dissect --attach "$WORKDIR/target.img")"
+    MNT="$WORKDIR/mnt"
+    mkdir -p "$MNT"
+    systemd-dissect --mount --read-only "$LOOPDEV" "$MNT" </dev/null
+    MOUNTED=1
+
+    # The copied boot chain is left alone, and neither a kernel nor systemd-boot was installed
+    grep '^not-systemd-boot$' "$MNT/efi/EFI/BOOT/BOOTX64.EFI" >/dev/null
+    test ! -e "$MNT/efi/loader/entries"
+    test ! -e "$MNT/efi/EFI/systemd"
+    test ! -e "$MNT/efi/EFI/Linux"
+
+    grep '^ID=testos$' "$MNT/usr/lib/os-release" >/dev/null
+}
+
+testcase_sysinstall_no_kernel_no_boot_loader() {
+    WORKDIR="$(mktemp --directory /tmp/test-sysinstall.XXXXXXXXXX)"
+    LOOPDEV=""
+    MOUNTED=0
+
+    echo "WORKDIR=$WORKDIR"
+
+    trap cleanup RETURN
+
+    create_fake_os_source_tree
+    prepare_own_boot_chain
+
+    # No --kernel= on purpose: with --install-kernel=no the booted kernel must not be looked for.
+    systemd-sysinstall \
+        --welcome=no \
+        --chrome=no \
+        --confirm=no \
+        --summary=no \
+        --erase=yes \
+        --reboot=no \
+        --mute-console=no \
+        --copy-locale=no \
+        --copy-keymap=no \
+        --copy-timezone=no \
+        --install-kernel=no \
+        --install-boot-loader=no \
+        --definitions="$DEFS" \
+        "$WORKDIR/target.img"
+
+    validate_own_boot_chain
+}
+
+testcase_sysinstall_varlink_no_kernel_no_boot_loader() {
+    WORKDIR="$(mktemp --directory /tmp/test-sysinstall.XXXXXXXXXX)"
+    LOOPDEV=""
+    MOUNTED=0
+
+    echo "WORKDIR=$WORKDIR"
+
+    trap cleanup RETURN
+
+    create_fake_os_source_tree
+    prepare_own_boot_chain
+
+    varlinkctl call /run/systemd/io.systemd.SysInstall io.systemd.SysInstall.Run "{\"erase\": true, \"installKernel\": false, \"installBootLoader\": false, \"node\": \"$WORKDIR/target.img\", \"definitions\" : [\"$DEFS\"] }" --more
+
+    validate_own_boot_chain
+}
+
 testcase_sysinstall_device_auto() {
     WORKDIR="$(mktemp --directory /tmp/test-sysinstall.XXXXXXXXXX)"
     LOOPDEV=""
