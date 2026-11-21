@@ -300,6 +300,8 @@ Manager* manager_free(Manager *m) {
         m->deferred_gc_event_source = sd_event_source_unref(m->deferred_gc_event_source);
         m->deferred_auto_login_event_source = sd_event_source_unref(m->deferred_auto_login_event_source);
         m->rebalance_event_source = sd_event_source_unref(m->rebalance_event_source);
+        m->rebalance_pending_method_calls = set_free(m->rebalance_pending_method_calls);
+        m->rebalance_queued_method_calls = set_free(m->rebalance_queued_method_calls);
 
         m->event = sd_event_unref(m->event);
 
@@ -1890,7 +1892,6 @@ static int manager_rebalance_calculate(Manager *m) {
 
                 h = array[i];
 
-                assert(h->rebalance_free <= free_sum);
                 assert(h->rebalance_usage <= usage_sum);
                 assert(h->rebalance_weight <= weight_sum);
 
@@ -1969,7 +1970,7 @@ static int manager_rebalance_apply(Manager *m) {
 
                 h->rebalance_pending = false;
 
-                r = home_resize(h, h->rebalance_goal, /* secret= */ NULL, &error);
+                r = home_resize(h, h->rebalance_goal, /* secret= */ NULL, /* automatic= */ true, &error);
                 if (r < 0)
                         log_warning_errno(r, "Failed to resize home '%s' for rebalancing, ignoring: %s",
                                           h->user_name, bus_error_message(&error, r));
@@ -1980,19 +1981,19 @@ static int manager_rebalance_apply(Manager *m) {
         return c;
 }
 
-static void manager_rebalance_reply_messages(Manager *m) {
+static void manager_rebalance_reply_messages(Set *method_calls, int result, const sd_bus_error *error) {
         int r;
 
-        assert(m);
-
         for (;;) {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *msg =
-                        set_steal_first(m->rebalance_pending_method_calls);
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *msg = set_steal_first(method_calls);
 
                 if (!msg)
                         break;
 
-                r = sd_bus_reply_method_return(msg, /* types= */ NULL);
+                if (result < 0)
+                        r = sd_bus_reply_method_errno(msg, result, error);
+                else
+                        r = sd_bus_reply_method_return(msg, /* types= */ NULL);
                 if (r < 0)
                         log_debug_errno(r, "Failed to reply to rebalance method call, ignoring: %m");
         }
@@ -2054,6 +2055,13 @@ static int manager_rebalance_now(Manager *m) {
                          * tells us what to do next. */
                         log_debug("Can't enter phase, busy.");
                         m->rebalance_state = busy_state;
+
+                        /* If we didn't manage to start the cycle, move the method calls back into the queue,
+                         * so that they are processed (and replied to) by the next attempt. */
+                        if (busy_state == REBALANCE_PENDING)
+                                SWAP_TWO(m->rebalance_pending_method_calls,
+                                         m->rebalance_queued_method_calls);
+
                         return r;
                 }
                 if (r < 0)
@@ -2073,10 +2081,12 @@ static int manager_rebalance_now(Manager *m) {
         return 0;
 
 finish:
-        /* Reset state and schedule next rebalance */
+        /* Reset state and schedule next rebalance. If method calls got queued while we were running, they
+         * want a new cycle, hence schedule that right-away. */
         m->rebalance_state = REBALANCE_IDLE;
-        manager_rebalance_reply_messages(m);
-        (void) manager_schedule_rebalance(m, /* immediately= */ false);
+        manager_rebalance_reply_messages(m->rebalance_pending_method_calls, r, /* error= */ NULL);
+        (void) manager_schedule_rebalance(m,
+                                          /* immediately= */ !set_isempty(m->rebalance_queued_method_calls));
         return r;
 }
 
@@ -2182,7 +2192,19 @@ int manager_schedule_rebalance(Manager *m, bool immediately) {
 turn_off:
         m->rebalance_event_source = sd_event_source_disable_unref(m->rebalance_event_source);
         m->rebalance_state = REBALANCE_OFF;
-        manager_rebalance_reply_messages(m);
+        manager_rebalance_reply_messages(m->rebalance_pending_method_calls, r, /* error= */ NULL);
+
+        /* No further run will pick up the queued calls, hence reply to them too. If no rebalancing is needed
+         * anymore, tell them so, the same way method_rebalance() does. */
+        if (r == 0)
+                manager_rebalance_reply_messages(
+                                m->rebalance_queued_method_calls,
+                                -EALREADY,
+                                &SD_BUS_ERROR_MAKE_CONST(BUS_ERROR_REBALANCE_NOT_NEEDED,
+                                                         "No home directories need rebalancing."));
+        else
+                manager_rebalance_reply_messages(m->rebalance_queued_method_calls, r, /* error= */ NULL);
+
         return r;
 }
 

@@ -271,6 +271,10 @@ testcase_basic() {
         inspect test-user
         inspect test-user2
 
+        # Resizing for rebalancing must not turn rebalancing off
+        homectl inspect test-user | grep -F 'Rebalance: weight 25' >/dev/null
+        homectl inspect test-user2 | grep -F 'Rebalance: weight 100' >/dev/null
+
         wait_for_state test-user2 active
         homectl deactivate test-user2
         wait_for_state test-user2 inactive
