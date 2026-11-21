@@ -71,6 +71,7 @@ typedef struct ImportCredentialsContext {
         int target_dir_fd;
         size_t size_sum;
         unsigned n_credentials;
+        char * const *filter; /* fnmatch() patterns from systemd.import_credentials_filter=, not owned */
 } ImportCredentialsContext;
 
 static void import_credentials_context_done(ImportCredentialsContext *c) {
@@ -149,6 +150,17 @@ static bool credential_size_ok(const ImportCredentialsContext *c, const char *na
         return true;
 }
 
+static bool credential_filter_ok(const ImportCredentialsContext *c, const char *name) {
+        assert(c);
+        assert(name);
+
+        if (strv_fnmatch_or_empty(c->filter, name, /* flags= */ 0))
+                return true;
+
+        log_debug("Credential '%s' does not match systemd.import_credentials_filter=, skipping.", name);
+        return false;
+}
+
 static int finalize_credentials_dir(const char *dir, const char *envvar) {
         int r;
 
@@ -218,6 +230,9 @@ static int import_credentials_from_initrd_path(
                         continue;
                 }
 
+                if (!credential_filter_ok(c, n))
+                        continue;
+
                 cfd = xopenat(source_dir_fd, d->d_name, O_RDONLY);
                 if (cfd < 0) {
                         log_warning_errno(cfd, "Failed to open %s, ignoring: %m", d->d_name);
@@ -266,6 +281,7 @@ static int import_credentials_from_initrd_path(
 static int import_credentials_boot(ImportCredentialsContext *system_ctx) {
         _cleanup_(import_credentials_context_done) ImportCredentialsContext encrypted_ctx = {
                 .target_dir_fd = -EBADF,
+                .filter = ASSERT_PTR(system_ctx)->filter,
         };
         unsigned n_system_before;
         int r;
@@ -358,6 +374,9 @@ static int proc_cmdline_callback(const char *key, const char *value, void *data)
                 return 0;
         }
 
+        /* Note: credentials explicitly set on the kernel command line are not subject to
+         * systemd.import_credentials_filter=, since they are configured in the same place as the filter. */
+
         colon++;
 
         if (base64) {
@@ -412,6 +431,50 @@ static int import_credentials_proc_cmdline(ImportCredentialsContext *c) {
         return 0;
 }
 
+static int proc_cmdline_filter_callback(const char *key, const char *value, void *data) {
+        char ***filter = ASSERT_PTR(data);
+        int r;
+
+        assert(key);
+
+        if (!proc_cmdline_key_streq(key, "systemd.import_credentials_filter"))
+                return 0;
+
+        if (proc_cmdline_value_missing(key, value))
+                return 0;
+
+        /* An empty assignment resets the list, i.e. turns off filtering again */
+        if (isempty(value)) {
+                *filter = strv_free(*filter);
+                return 0;
+        }
+
+        r = strv_split_and_extend(filter, value, ",", /* filter_duplicates= */ true);
+        if (r < 0)
+                return log_oom();
+
+        return 0;
+}
+
+static int parse_import_credentials_filter(char ***ret) {
+        _cleanup_strv_free_ char **filter = NULL;
+        int r;
+
+        assert(ret);
+
+        r = proc_cmdline_parse(proc_cmdline_filter_callback, &filter, PROC_CMDLINE_STRIP_RD_PREFIX);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse systemd.import_credentials_filter= from kernel command line: %m");
+
+        if (filter) {
+                _cleanup_free_ char *j = strv_join(filter, ", ");
+                log_debug("Only importing credentials matching: %s", strnull(j));
+        }
+
+        *ret = TAKE_PTR(filter);
+        return 0;
+}
+
 #define QEMU_FWCFG_PATH "/sys/firmware/qemu_fw_cfg/by_name/opt/io.systemd.credentials"
 
 static int import_credentials_qemu(ImportCredentialsContext *c) {
@@ -454,6 +517,9 @@ static int import_credentials_qemu(ImportCredentialsContext *c) {
                         log_warning("Credential '%s' has invalid name, ignoring.", d->d_name);
                         continue;
                 }
+
+                if (!credential_filter_ok(c, d->d_name))
+                        continue;
 
                 vfd = xopenat(source_dir_fd, d->d_name, O_RDONLY|O_DIRECTORY);
                 if (vfd < 0) {
@@ -569,6 +635,9 @@ static int parse_smbios_strings(ImportCredentialsContext *c, const char *data, s
                         log_warning("SMBIOS credential name '%s' is not valid, ignoring.", cn);
                         continue;
                 }
+
+                if (!credential_filter_ok(c, cn))
+                        continue;
 
                 /* Optionally base64 decode the data, if requested, to allow binary credentials */
                 if (unbase64) {
@@ -943,6 +1012,7 @@ int import_credentials(void) {
                 _cleanup_(import_credentials_context_done) ImportCredentialsContext system_ctx = {
                         .target_dir_fd = -EBADF,
                 };
+                _cleanup_strv_free_ char **filter = NULL;
                 bool import;
 
                 r = proc_cmdline_get_bool("systemd.import_credentials", PROC_CMDLINE_STRIP_RD_PREFIX|PROC_CMDLINE_TRUE_WHEN_MISSING, &import);
@@ -952,6 +1022,12 @@ int import_credentials(void) {
                         log_notice("systemd.import_credentials=no is set, skipping importing of credentials.");
                         return 0;
                 }
+
+                r = parse_import_credentials_filter(&filter);
+                if (r < 0)
+                        return r;
+
+                system_ctx.filter = filter;
 
                 /* System credential context is shared so a single CREDENTIALS_TOTAL_SIZE_MAX is enforced. */
                 r = import_credentials_boot(&system_ctx);

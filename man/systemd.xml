@@ -966,6 +966,27 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>systemd.import_credentials_filter=</varname></term>
+
+        <listitem><para>Takes a comma-separated list of shell-style glob patterns (as understood by
+        <citerefentry project='man-pages'><refentrytitle>fnmatch</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
+        If specified, only credentials whose names match at least one of the patterns are imported from the
+        DMI/SMBIOS OEM string table, the qemu_fw_cfg subsystem or the EFI kernel stub (i.e. from the ESP); all
+        others are skipped. Credentials configured via <varname>systemd.set_credential=</varname> and
+        <varname>systemd.set_credential_binary=</varname> on the kernel command line are always imported,
+        regardless of this filter. For credentials picked up by the EFI kernel stub the
+        pattern is matched against the credential name without the <filename>.cred</filename> suffix. May be
+        specified multiple times, in which case the lists are combined. If assigned the empty string, the list
+        is reset, and all credentials are imported again. If not specified, no filtering takes place. This
+        option may be prefixed with <literal>rd.</literal> in order to apply only in the initrd. Credentials
+        passed from the initrd to the host via <filename>/run/credentials/@initrd/</filename> are not subject
+        to this filter. Example:
+        <literal>systemd.import_credentials_filter=firstboot.*,ssh.authorized_keys.root</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>systemd.credentials_boot_policy=</varname></term>
 
         <listitem><para>Controls under which conditions a credential encrypted with a <literal>null</literal>
