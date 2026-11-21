@@ -19,7 +19,7 @@ COMMAND(
         "systemd-integritysetup-generator\0",
         "Generate units for integrity protected block devices.",
         .argspec = GENERATOR_ARGSPEC,
-        .man_pages = "systemd-integritysetup-generator(8)\0",
+        .man_page = "systemd-integritysetup-generator(8)",
         .option_namespace = "common",
 );
 

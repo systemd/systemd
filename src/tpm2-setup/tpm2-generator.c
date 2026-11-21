@@ -20,7 +20,7 @@ COMMAND(
         "systemd-tpm2-generator\0",
         "Insert a TPM2 synchronization point in the boot process.",
         .argspec = GENERATOR_ARGSPEC,
-        .man_pages = "systemd-tpm2-generator(8)\0",
+        .man_page = "systemd-tpm2-generator(8)",
         .option_namespace = "common",
 );
 

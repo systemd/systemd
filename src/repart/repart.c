@@ -274,7 +274,7 @@ COMMAND(
         "systemd-repart\0",
         "Grow and add partitions to a partition table, and generate disk images (DDIs).",
         .argspec = "[DEVICE]\0",
-        .man_pages = "systemd-repart(8)\0",
+        .man_page = "systemd-repart(8)",
         .pager_flags = &arg_pager_flags,
 );
 
@@ -6509,16 +6509,12 @@ static int iovec_roothash_from_uuid_pair(
         return 0;
 }
 
-static const VeritySettings *lookup_verity_settings_by_uuid_pair(sd_id128_t data_uuid, sd_id128_t hash_uuid) {
-        _cleanup_(iovec_done) struct iovec roothash = {};
-        int r;
-
-        r = iovec_roothash_from_uuid_pair(data_uuid, hash_uuid, &roothash);
-        if (r < 0)
-                return NULL;
+static const VeritySettings *lookup_verity_settings_by_roothash(const struct iovec *roothash) {
+        assert(roothash);
+        assert(iovec_is_set(roothash));
 
         VeritySettings key = {
-                .root_hash = roothash,
+                .root_hash = *roothash,
         };
 
         return set_get(arg_verity_settings, &key);
@@ -6558,7 +6554,7 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
                         return log_error_errno(r, "Unable to derive roothash: %m");
         }
 
-        verity_settings = lookup_verity_settings_by_uuid_pair(rp->current_uuid, hp->current_uuid);
+        verity_settings = lookup_verity_settings_by_roothash(&hp->roothash);
 
         if (!verity_settings) {
 #if HAVE_OPENSSL
@@ -6629,6 +6625,15 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
         return 0;
 }
 
+static bool verity_roothash_pending(const Partition *rp, const Partition *hp) {
+        assert(rp);
+        assert(hp);
+
+        return !iovec_is_set(&hp->roothash) &&
+               ((!PARTITION_EXISTS(rp) && rp->copy_blocks_fd < 0) ||
+                (!PARTITION_EXISTS(hp) && hp->copy_blocks_fd < 0));
+}
+
 static int progress_bytes(uint64_t n_bytes, uint64_t bps, void *userdata) {
         Partition *p = ASSERT_PTR(userdata);
         unsigned percent;
@@ -6694,8 +6699,23 @@ static int context_copy_blocks(Context *context) {
                         continue;
 
                 /* For offline signing case */
-                if (!set_isempty(arg_verity_settings) && partition_designator_is_verity_sig(p->type.designator))
-                        return partition_format_verity_sig(context, p);
+                if (!set_isempty(arg_verity_settings) && p->copy_blocks_fd < 0 &&
+                    partition_designator_is_verity_sig(p->type.designator)) {
+                        Partition *hp, *rp;
+
+                        assert_se(hp = p->siblings[VERITY_HASH]);
+                        assert_se(rp = p->siblings[VERITY_DATA]);
+
+                        /* The root hash is only available after new data/hash partitions are formatted. */
+                        if (verity_roothash_pending(rp, hp))
+                                continue;
+
+                        r = partition_format_verity_sig(context, p);
+                        if (r < 0)
+                                return r;
+
+                        continue;
+                }
 
                 if (p->copy_blocks_fd < 0)
                         continue;
@@ -7018,15 +7038,19 @@ static int make_subvolumes_hashmap(const Partition *p, Hashmap **ret) {
         }
 
         if (p->suppressing_supplement) {
-                Hashmap *supplemented_by;
+                _cleanup_hashmap_free_ Hashmap *supplemented_by = NULL;
 
                 r = make_subvolumes_hashmap(p->supplemented_by, &supplemented_by);
                 if (r < 0)
                         return r;
 
-                r = hashmap_merge(hashmap, supplemented_by);
-                if (r < 0)
-                        return log_oom();
+                if (!hashmap)
+                        hashmap = TAKE_PTR(supplemented_by);
+                else {
+                        r = hashmap_move(hashmap, supplemented_by);
+                        if (r < 0)
+                                return log_oom();
+                }
         }
 
         *ret = TAKE_PTR(hashmap);
@@ -7064,15 +7088,19 @@ static int make_subvolumes_by_source_inode_hashmap(
         }
 
         if (p->suppressing_supplement) {
-                Hashmap *supplemented_by;
+                _cleanup_hashmap_free_ Hashmap *supplemented_by = NULL;
 
                 r = make_subvolumes_by_source_inode_hashmap(p->supplemented_by, source, target, &supplemented_by);
                 if (r < 0)
                         return r;
 
-                r = hashmap_merge(hashmap, supplemented_by);
-                if (r < 0)
-                        return log_oom();
+                if (!hashmap)
+                        hashmap = TAKE_PTR(supplemented_by);
+                else {
+                        r = hashmap_move(hashmap, supplemented_by);
+                        if (r < 0)
+                                return log_oom();
+                }
         }
 
         *ret = TAKE_PTR(hashmap);
@@ -8047,10 +8075,6 @@ static int context_mkfs(Context *context) {
 
                 if (partition_defer(context, p))
                         continue;
-
-                /* For offline signing case */
-                if (!set_isempty(arg_verity_settings) && partition_designator_is_verity_sig(p->type.designator))
-                        return partition_format_verity_sig(context, p);
 
                 /* Minimized partitions will use the copy blocks logic so skip those here. */
                 if (p->copy_blocks_fd >= 0)
@@ -9205,11 +9229,23 @@ static int context_manifest_gpt(Context *context) {
                         return log_error_errno(r, "Failed to build extended attributes JSON object: %m");
         }
 
+        /* The objects carry sizes and hashes, the GPT fields, and extended attributes if configured. Declare
+         * that, since the default set of features lacks most of these. Note that if the features of the
+         * individual partition attribute flags are listed, the absence of their fields means the flag is
+         * cleared. */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *features = NULL;
+        r = uapi16_features_build_json(
+                        MANIFEST_FIELD_SIZE|MANIFEST_FIELD_HASH|_MANIFEST_FIELD_GPT_ALL|(xattrs ? MANIFEST_FIELD_USER_XATTR : 0),
+                        &features);
+        if (r < 0)
+                return log_error_errno(r, "Failed to build features JSON array: %m");
+
         /* The root object carries the fields of the GPT header */
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         r = sd_json_buildo(
                         &v,
                         SD_JSON_BUILD_PAIR("mediaType", JSON_BUILD_CONST_STRING(UAPI16_MANIFEST_MEDIA_TYPE)),
+                        SD_JSON_BUILD_PAIR_VARIANT("features", features),
                         SD_JSON_BUILD_PAIR_UUID("gptDiskUuid", context->disk_uuid));
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON object: %m");
@@ -9295,8 +9331,8 @@ static int context_manifest_gpt(Context *context) {
 
                 /* For existing partitions report the flags on disk (we never change them), for new ones
                  * the flags we just wrote. The individual flag fields are derived from these, so that they
-                 * are consistent with "gptFlags", i.e. are left out for partition types that do not
-                 * support them. */
+                 * are consistent with "gptFlags". As their features are listed, they are only included if
+                 * set, as their absence means they are cleared. */
                 uint64_t flags;
                 if (PARTITION_EXISTS(p)) {
                         r = fdisk_partition_get_attrs_as_uint64(p->current_partition, &flags);
@@ -9314,12 +9350,9 @@ static int context_manifest_gpt(Context *context) {
                                 SD_JSON_BUILD_PAIR_UUID("gptUuid", uuid),
                                 SD_JSON_BUILD_PAIR_UUID("gptTypeUuid", p->type.uuid),
                                 SD_JSON_BUILD_PAIR_UNSIGNED("gptFlags", flags),
-                                SD_JSON_BUILD_PAIR_CONDITION(p->no_auto >= 0 && gpt_partition_type_knows_no_auto(p->type),
-                                                             "gptFlagNoAuto", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(flags, SD_GPT_FLAG_NO_AUTO))),
-                                SD_JSON_BUILD_PAIR_CONDITION(p->growfs >= 0 && gpt_partition_type_knows_growfs(p->type),
-                                                             "gptFlagGrowFileSystem", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(flags, SD_GPT_FLAG_GROWFS))),
-                                SD_JSON_BUILD_PAIR_CONDITION(p->read_only >= 0 && gpt_partition_type_knows_read_only(p->type),
-                                                             "readOnly", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(flags, SD_GPT_FLAG_READ_ONLY))),
+                                SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, SD_GPT_FLAG_NO_AUTO), "gptFlagNoAuto", SD_JSON_BUILD_BOOLEAN(true)),
+                                SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, SD_GPT_FLAG_GROWFS), "gptFlagGrowFileSystem", SD_JSON_BUILD_BOOLEAN(true)),
+                                SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, SD_GPT_FLAG_READ_ONLY), "readOnly", SD_JSON_BUILD_BOOLEAN(true)),
                                 SD_JSON_BUILD_PAIR_CONDITION(!!xattrs, "extendedAttributes", SD_JSON_BUILD_VARIANT(xattrs)),
                                 SD_JSON_BUILD_PAIR_VARIANT("contents", contents));
                 if (r < 0)

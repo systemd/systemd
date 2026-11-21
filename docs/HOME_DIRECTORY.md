@@ -52,8 +52,10 @@ This storage mechanism is mostly identical to the plain directory storage
 mechanism, except that the home directory is encrypted using `fscrypt`.
 (Use `--storage=fscrypt` on the `homectl` command line.)
 Key management is implemented via extended attributes on the directory itself:
-for each password an extended attribute `trusted.fscrypt_slot0`, `trusted.fscrypt_slot1`,
-`trusted.fscrypt_slot2`, … is maintained.
+for each password an extended attribute `trusted.fscrypt_slot<N>` is maintained, where `<N>` is a
+decimal index. The indexes start at 0 when the home is created, but needn't start at 0 or be
+contiguous later on: changing the password writes the new slots above the existing ones, and only
+then removes the old ones.
 New slots are written in the `v2` format: a colon-separated string of the form
 `$v2:<iterations>:<salt>:<iv>:<ciphertext>:<tag>`, where `<iterations>` is a decimal integer
 and the salt, IV, ciphertext and tag fields are Base64 encoded.

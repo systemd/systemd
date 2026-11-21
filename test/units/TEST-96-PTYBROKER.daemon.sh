@@ -66,7 +66,7 @@ expect_invalid_parameter AcquirePty '{"frontendType":"null","backendType":"take"
 expect_invalid_parameter AcquirePty '{"frontendType":"null","backendType":"take","viaShell":true}' viaShell
 expect_invalid_parameter AcquirePty '{"frontendType":"null","backendType":"shell","viaShell":false}' viaShell
 expect_invalid_parameter AcquirePty '{"frontendType":"take","backendType":"take","monitor":true}' monitor
-expect_invalid_parameter AcquirePty '{"frontendType":"null","backendType":"take","osc2811":true}' osc2811
+expect_invalid_parameter AcquirePty '{"frontendType":"null","backendType":"take","inBandResize":true}' inBandResize
 expect_invalid_parameter EnrollPty '{"frontendFileDescriptor":0,"frontendType":"take"}' frontendType
 expect_invalid_parameter AcquirePty '{"frontendType":"null","backendType":"take","ignoreHangup":true}' ignoreHangup
 expect_invalid_parameter EnrollPty '{"frontendFileDescriptor":0,"frontendType":"null","hangUpOnDisconnect":true,"ignoreHangup":true}' ignoreHangup

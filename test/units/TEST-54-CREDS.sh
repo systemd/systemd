@@ -607,6 +607,14 @@ run0 -u testuser --pipe systemd-run --user --pipe -p ImportCredential=brummbaer 
 # https://github.com/systemd/systemd/pull/40108
 run0 -u testuser --pipe systemd-run --user --wait -p ImportCredential=brummbaer -p ExecStartPre='ls -l $CREDENTIALS_DIRECTORY' bash -c 'systemd-creds cat brummbaer | cmp /tmp/brummbaer.data'
 
+# https://github.com/systemd/systemd/issues/44728
+# Leftover temporary credential workspaces must be removed when the unit is destroyed.
+STALE_WORKSPACE="/run/user/$(id -u testuser)/systemd/temporary-credentials/stale-creds.service"
+run0 -u testuser --pipe mkdir -p "$STALE_WORKSPACE"
+assert_rc 243 systemd-run -M testuser@ --user --wait --collect --unit=stale-creds.service -p LoadCredential=brummbaer:/tmp/brummbaer.data /bin/true
+timeout 10 bash -c 'until [[ ! -e "$1" ]]; do sleep .1; done' _ "$STALE_WORKSPACE"
+systemd-run -M testuser@ --user --wait --collect --unit=stale-creds.service -p LoadCredential=brummbaer:/tmp/brummbaer.data /bin/true
+
 # https://github.com/systemd/systemd/pull/39651
 TESTUSER_CRED_DIR="/run/user/$(id -u testuser)/credentials"
 
@@ -700,6 +708,9 @@ diff "$OUTPUT_FILE" <(grep . /run/credentials/"$UNIT_NAME"/*)
 [[ ! -e "$POST_FLAG_FILE" ]]
 
 OUTPUT_FILE_USER="/tmp/TEST-54-CREDS-refreshing-user.out"
+USER_REFRESH_SOURCE="/tmp/TEST-54-CREDS-refreshing-user.cred"
+echo "initial" >"$USER_REFRESH_SOURCE"
+chmod 0644 "$USER_REFRESH_SOURCE"
 
 systemd-notify --fork -- \
     systemd-run -M testuser@ --user --wait \
@@ -707,7 +718,9 @@ systemd-notify --fork -- \
         --service-type=notify-reload \
         -p NotifyAccess=all \
         -p 'ImportCredential=brummbaer*' \
+        -p "LoadCredential=reload-timeout:$USER_REFRESH_SOURCE" \
         -p RefreshOnReload=credentials \
+        -p TimeoutStartSec=10s \
         -p ProtectSystem=strict \
         -p ReadWritePaths=/tmp \
         /usr/lib/systemd/tests/testdata/TEST-54-CREDS.units/refresh.sh "$OUTPUT_FILE_USER"
@@ -722,5 +735,20 @@ run0 -u testuser --pipe -i \
 systemctl -M testuser@ --user reload brummbaer-refresh.service
 assert_eq "$(cat "$TESTUSER_CRED_DIR"/brummbaer-refresh.service/brummbaer.refreshed)" "refreshed"
 diff "$OUTPUT_FILE_USER" <(grep . "$TESTUSER_CRED_DIR"/brummbaer-refresh.service/*)
+
+# A stale workspace left by a timed-out credential refresh must not break the next refresh.
+rm "$USER_REFRESH_SOURCE"
+mkfifo "$USER_REFRESH_SOURCE"
+chmod 0644 "$USER_REFRESH_SOURCE"
+(! systemctl -M testuser@ --user reload brummbaer-refresh.service)
+assert_eq "$(systemctl -M testuser@ --user show brummbaer-refresh.service -P ReloadResult)" "timeout"
+[[ -d "/run/user/$(id -u testuser)/systemd/temporary-credentials/brummbaer-refresh.service" ]]
+
+rm "$USER_REFRESH_SOURCE"
+echo "after-timeout" >"$USER_REFRESH_SOURCE"
+chmod 0644 "$USER_REFRESH_SOURCE"
+systemctl -M testuser@ --user reload brummbaer-refresh.service
+assert_eq "$(cat "$TESTUSER_CRED_DIR"/brummbaer-refresh.service/reload-timeout)" "after-timeout"
+[[ ! -e "/run/user/$(id -u testuser)/systemd/temporary-credentials/brummbaer-refresh.service" ]]
 
 touch /testok

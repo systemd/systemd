@@ -21,9 +21,13 @@ at_exit() {
     rm -rf /home/testuser/.local/state/machines/wamms ||:
     rm -rf /home/testuser/.local/state/machines/inodetest ||:
     rm -rf /home/testuser/.local/state/machines/inodetest2 ||:
+    rm -rf /home/testuser/.local/state/machines/unreadable ||:
+    rm -rf /home/testuser/.local/state/machines/unreadablestack.mstack ||:
     rm -rf /home/testuser/.local/state/machines/mangletest ||:
     rm -rf /home/testuser/.local/state/machines/fdstore ||:
-    machinectl terminate zurps ||:
+    # If the system machined loads zurps with the wrong unit after the restart, "machinectl terminate zurps"
+    # stops the user manager of testuser. Stop the nspawn service of testuser directly instead.
+    systemctl --user --machine testuser@ stop systemd-nspawn@zurps.service ||:
     machinectl terminate exfiltrate ||:
     systemctl --user --machine testuser@ stop exfiltrate.service ||:
     systemctl --user --machine testuser@ stop systemd-nspawn@fdstore.service ||:
@@ -72,10 +76,32 @@ run0 -u testuser -i "echo -e \"[Exec]\nKillSignal=SIGKILL\n\" >.config/systemd/n
 run0 -u testuser systemctl start --user systemd-machined.socket
 run0 -u testuser systemctl start --user systemd-nspawn@zurps.service
 
+user_unit="user@$(id -u testuser).service"
+subgroup=machine.slice/systemd-nspawn@zurps.service/payload
 machinectl status zurps
 machinectl status zurps | grep "UID:" | grep "$(id -u testuser)"
-machinectl status zurps | grep "Unit: user@" | grep "$(id -u testuser)"
-machinectl status zurps | grep "Subgroup: machine.slice/systemd-nspawn@zurps.service/payload"
+machinectl status zurps | grep -F "Unit: $user_unit"
+machinectl status zurps | grep -F "Subgroup: $subgroup"
+
+# After a restart, the system machined must still track zurps in a subgroup of the user manager unit. It must
+# not treat the whole user manager unit as the unit of zurps.
+user_manager_pid=$(systemctl show -P MainPID "$user_unit")
+leader=$(machinectl show -P Leader zurps)
+assert_gt "$user_manager_pid" 0
+assert_gt "$leader" 0
+systemctl restart systemd-machined.service
+
+get_machine_by_pid() {
+    busctl call org.freedesktop.machine1 /org/freedesktop/machine1 \
+        org.freedesktop.machine1.Manager GetMachineByPID u "$1"
+}
+
+assert_eq "$(systemctl show -P MainPID "$user_unit")" "$user_manager_pid"
+assert_eq "$(get_machine_by_pid "$leader")" 'o "/org/freedesktop/machine1/machine/zurps"'
+run_and_grep "PID $user_manager_pid does not belong to any known machine" \
+    assert_fail get_machine_by_pid "$user_manager_pid"
+assert_eq "$(machinectl show -P Unit zurps)" "$user_unit"
+assert_eq "$(machinectl show -P Subgroup zurps)" "$subgroup"
 
 # The per-user machined refers to the unit in the user's service manager
 run0 -u testuser machinectl --user status zurps
@@ -310,6 +336,24 @@ chown foreign-4711:foreign-4711 /home/testuser/.local/state/machines/inodetest/s
 
 run0 -u testuser machinectl --user remove inodetest
 run0 -u testuser machinectl --user remove inodetest2
+
+# Foreign-owned directories that the user may not read can be removed too, both as the image itself, and
+# below an image that the user owns (here the rw/ directory of an .mstack, which uses the former as layer),
+# also if they aren't writable by their owner
+for d in unreadable unreadablestack.mstack/rw; do
+    mkdir -p "/home/testuser/.local/state/machines/$d/sub"
+    touch "/home/testuser/.local/state/machines/$d/sub/file"
+    chown -R foreign-0:foreign-0 "/home/testuser/.local/state/machines/$d"
+    chmod 0700 "/home/testuser/.local/state/machines/$d"
+    chmod 0500 "/home/testuser/.local/state/machines/$d/sub"
+done
+chown testuser:testuser /home/testuser/.local/state/machines/unreadablestack.mstack
+ln -s ../unreadable /home/testuser/.local/state/machines/unreadablestack.mstack/layer@0
+run0 -u testuser machinectl --user remove unreadablestack
+test ! -e /home/testuser/.local/state/machines/unreadablestack.mstack
+test -e /home/testuser/.local/state/machines/unreadable/sub/file
+run0 -u testuser machinectl --user remove unreadable
+test ! -e /home/testuser/.local/state/machines/unreadable
 
 # Test tree mangling (i.e. moving the root dir one level up on extract)
 mkdir -p /var/tmp/mangletest/mangletest-0.1/usr/lib

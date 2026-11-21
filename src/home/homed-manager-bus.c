@@ -741,8 +741,12 @@ static int method_lock_all_homes(sd_bus_message *message, void *userdata, sd_bus
                 log_info("Automatically locking home of user %s.", h->user_name);
 
                 r = home_schedule_operation(h, o, error);
-                if (r < 0)
+                if (r < 0) {
+                        /* We'll reply with an error right away, make sure the operations already
+                         * enqueued for other homes won't reply a second time. */
+                        o->message = sd_bus_message_unref(o->message);
                         return r;
+                }
 
                 waiting = true;
         }
@@ -777,8 +781,12 @@ static int method_deactivate_all_homes(sd_bus_message *message, void *userdata, 
                 log_info("Automatically deactivating home of user %s.", h->user_name);
 
                 r = home_schedule_operation(h, o, error);
-                if (r < 0)
+                if (r < 0) {
+                        /* We'll reply with an error right away, make sure the operations already
+                         * enqueued for other homes won't reply a second time. */
+                        o->message = sd_bus_message_unref(o->message);
                         return r;
+                }
 
                 waiting = true;
         }

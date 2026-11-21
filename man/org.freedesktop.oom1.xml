@@ -98,6 +98,8 @@ node /org/freedesktop/oom1 {
 
   <refsect1>
     <title>History</title>
+    <para>The <interfacename>org.freedesktop.oom1</interfacename> D-Bus API was added in version 247 as
+    an experimental interface, and has been considered stable since version 248.</para>
     <refsect2>
       <title>The Manager Object</title>
       <para><function>Killed()</function> was added in version 252.</para>

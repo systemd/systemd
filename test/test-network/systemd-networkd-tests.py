@@ -1331,6 +1331,11 @@ class Utilities:
     def check_ipv6_sysctl_attr(self, link, attribute, expected):
         self.assertEqual(read_ipv6_sysctl_attr(link, attribute), expected)
 
+    def check_ipv6_force_forwarding(self, link, expected):
+        # The sysctl is available since kernel v6.17.
+        if os.path.exists('/proc/sys/net/ipv6/conf/all/force_forwarding'):
+            self.check_ipv6_sysctl_attr(link, 'force_forwarding', expected)
+
     def check_ipv6_neigh_sysctl_attr(self, link, attribute, expected):
         self.assertEqual(read_ipv6_neigh_sysctl_attr(link, attribute), expected)
 
@@ -5666,6 +5671,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.wait_online('dummy98:degraded')
 
         self.check_ipv6_sysctl_attr('dummy98', 'forwarding', '1')
+        self.check_ipv6_force_forwarding('dummy98', '1')
         self.check_ipv6_sysctl_attr('dummy98', 'use_tempaddr', '1')
         self.check_ipv6_sysctl_attr('dummy98', 'dad_transmits', '3')
         self.check_ipv6_sysctl_attr('dummy98', 'hop_limit', '5')
@@ -5683,6 +5689,22 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.wait_online('dummy98:degraded')
 
         self.check_ipv6_sysctl_attr('dummy98', 'use_tempaddr', '2')
+
+    def test_sysctl_ipv6_force_forwarding_reset(self):
+        copy_networkd_conf_dropin('25-global-ipv6-forwarding-no.conf')
+        copy_network_unit('25-sysctl.network', '12-dummy.netdev', copy_dropins=False)
+        start_networkd()
+        self.wait_online('dummy98:degraded')
+
+        self.check_ipv6_sysctl_attr('dummy98', 'forwarding', '1')
+        self.check_ipv6_force_forwarding('dummy98', '1')
+
+        copy_network_unit('25-sysctl.network.d/25-ipv6-forwarding-unset.conf')
+        networkctl_reload()
+        self.wait_online('dummy98:degraded')
+
+        self.check_ipv6_sysctl_attr('dummy98', 'forwarding', '0')
+        self.check_ipv6_force_forwarding('dummy98', '0')
 
     def test_sysctl_disable_ipv6(self):
         copy_network_unit('25-sysctl-disable-ipv6.network', '12-dummy.netdev')
@@ -7653,6 +7675,7 @@ class NetworkdRATests(unittest.TestCase, Utilities):
 
         # IPv6SendRA=yes implies IPv6Forwarding.
         self.check_ipv6_sysctl_attr('veth-peer', 'forwarding', '1')
+        self.check_ipv6_force_forwarding('veth-peer', '1')
 
         output = resolvectl('dns', 'veth99')
         print(output)
@@ -9599,6 +9622,41 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         else:
             self.fail('Timed out waiting for DHCPRELEASE in dnsmasq log (on bringing down interface)')
 
+    def setup_veth_ns_server(self):
+        # The REQUEST message on renewal is unicast, hence the server needs to be in another network
+        # namespace, otherwise the message would not be delivered to a local address.
+        check_output('ip netns add ns-server')
+        check_output('ip link add veth99 type veth peer veth-peer')
+        check_output('ip link set veth-peer netns ns-server')
+        check_output('ip netns exec ns-server ip link set veth-peer up')
+        check_output('ip netns exec ns-server ip address add 192.168.5.1/24 dev veth-peer')
+        check_output('ip netns exec ns-server ip address add 2600::1/64 dev veth-peer')
+
+    def test_dhcp_client_renew_nak(self):
+        self.setup_veth_ns_server()
+
+        copy_network_unit('25-dhcp-client-simple-hostname.network')
+        start_dnsmasq(namespace='ns-server', ipv4_range='192.168.5.110,192.168.5.119')
+        start_networkd()
+        self.wait_online('veth99:routable')
+        self.wait_address('veth99', r'inet 192\.168\.5\.11[0-9]/24', ipv='-4')
+
+        # Restart the server with another range and without the lease, so that it refuses the renewal.
+        # It then broadcasts the DHCPNAK (RFC 2131 section 4.1).
+        stop_dnsmasq()
+        start_dnsmasq(namespace='ns-server', ipv4_range='192.168.5.120,192.168.5.129')
+
+        # T2 of the 2 minute lease is about 100 s away. Without noticing the DHCPNAK, the client would
+        # only acquire the new address after that.
+        networkctl('renew', 'veth99')
+        try:
+            self.wait_address('veth99', r'inet 192\.168\.5\.12[0-9]/24', ipv='-4', timeout_sec=30)
+            self.wait_address_dropped('veth99', r'inet 192\.168\.5\.11[0-9]/24', ipv='-4', timeout_sec=10)
+        finally:
+            output = read_dnsmasq_log_file()
+            print(output)
+        self.assertIn('DHCPNAK', output)
+
     def test_dhcp_client_ipv4_dbus_status(self):
         copy_network_unit(
             '25-veth.netdev',
@@ -9911,14 +9969,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertNotIn('26:mtu', output)
 
     def setup_dhcp_client_send_system_hostname(self, network_unit):
-        # The REQUEST message on renewal is unicast, hence the server needs to be in another network
-        # namespace, otherwise the message would not be delivered to a local address.
-        check_output('ip netns add ns-server')
-        check_output('ip link add veth99 type veth peer veth-peer')
-        check_output('ip link set veth-peer netns ns-server')
-        check_output('ip netns exec ns-server ip link set veth-peer up')
-        check_output('ip netns exec ns-server ip address add 192.168.5.1/24 dev veth-peer')
-        check_output('ip netns exec ns-server ip address add 2600::1/64 dev veth-peer')
+        self.setup_veth_ns_server()
 
         copy_network_unit(network_unit)
 
@@ -10016,6 +10067,61 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print('## dnsmasq log after renew')
         print(output)
         self.assertIn('DHCPRENEW(veth-peer)', output)
+
+    def test_dhcp6_client_renew_on_prefix_change(self):
+        # RFC 8415 section 18.2.12: the lease must be renewed when a new prefix is announced on the link.
+        check_output('ip netns add ns-server')
+        check_output('ip link add veth99 type veth peer veth-peer')
+        check_output('ip link set veth-peer netns ns-server')
+        check_output('ip netns exec ns-server ip link set veth-peer up')
+        check_output('ip netns exec ns-server ip address add 192.168.5.1/24 dev veth-peer')
+        check_output('ip netns exec ns-server ip address add 2600::1/64 dev veth-peer')
+
+        copy_network_unit('25-dhcp6-client-renew-on-prefix-change.network')
+
+        # dnsmasq announces 2601::/64 only when veth-peer has an address in that prefix, and only in its
+        # next periodic RA, hence the short RA interval. Even so, that RA may take about 15 seconds.
+        start_dnsmasq('--dhcp-range=2601::,ra-only', '--ra-param=veth-peer,5', namespace='ns-server')
+        start_networkd()
+        self.wait_online('veth99:routable')
+        self.wait_address('veth99', r'inet6 2600::[0-9a-f:]*/128', ipv='-6')
+
+        # Periodic RAs with unchanged prefixes must not trigger a renewal. Wait for one more RA, which may
+        # take about 15 seconds, and stay well below T1 (1 minute).
+        count = read_dnsmasq_log_file().count('RTR-ADVERT(veth-peer)')
+        for _ in range(40):
+            if read_dnsmasq_log_file().count('RTR-ADVERT(veth-peer)') > count:
+                break
+            time.sleep(0.5)
+        time.sleep(1)
+
+        output = read_dnsmasq_log_file()
+        print('## dnsmasq log before adding a prefix')
+        print(output)
+        self.assertGreater(output.count('RTR-ADVERT(veth-peer)'), count)
+        self.assertNotIn('DHCPRENEW(veth-peer)', output)
+
+        since = datetime.datetime.now()
+        check_output('ip netns exec ns-server ip address add 2601::1/64 dev veth-peer')
+
+        # The lease time is 2 minutes, hence the lease must be renewed much earlier than on the regular
+        # renewal.
+        for _ in range(60):
+            output = read_dnsmasq_log_file()
+            if 'DHCPRENEW(veth-peer)' in output:
+                break
+            time.sleep(0.5)
+
+        print('## dnsmasq log after adding a prefix')
+        print(output)
+        self.assertIn('DHCPRENEW(veth-peer)', output)
+
+        # Make sure the renewal was triggered by the new prefix, not by T1.
+        if enable_debug:
+            self.check_networkd_log('New prefix 2601::/64', since=since)
+            self.check_networkd_log(
+                'Prefixes on the link changed, refreshing DHCPv6 configuration.', since=since
+            )
 
     def test_dhcp_keep_configuration_dynamic(self):
         copy_network_unit(

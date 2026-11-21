@@ -1097,11 +1097,10 @@ static void config_timeout_load_from_smbios(Config *config) {
                 return;
 
         err = config_timeout_sec_from_string(value, &config->timeout_sec_smbios);
-        if (err != EFI_SUCCESS) {
-                log_warning_status(err, "Error parsing 'timeout' smbios option, ignoring: %s",
-                                   value);
-                return;
-        }
+        if (err != EFI_SUCCESS)
+                return (void) log_warning_status(err, "Error parsing 'timeout' smbios option, ignoring: %s",
+                                                 value);
+
         config->timeout_sec = config->timeout_sec_smbios;
 }
 

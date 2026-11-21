@@ -39,7 +39,7 @@ COMMAND(
         "systemd-vconsole-setup\0",
         "Configure the virtual consoles.",
         .argspec = "[TTY]\0",
-        .man_pages = "systemd-vconsole-setup.service(8)\0",
+        .man_page = "systemd-vconsole-setup.service(8)",
         .option_namespace = "common",
 );
 
@@ -564,10 +564,9 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
                          * max_font_size 65536 in drivers/tty/vt/vt.c for more details.
                          */
                         fontbuf = malloc_multiply((cfo.width + 7) / 8 * 32, cfo.charcount);
-                        if (!fontbuf) {
-                                log_oom();
-                                return;
-                        }
+                        if (!fontbuf)
+                                return (void) log_oom();
+
                         /* get fonts from the source console */
                         cfo.data = fontbuf;
                         r = ioctl(src_fd, KDFONTOP, &cfo);

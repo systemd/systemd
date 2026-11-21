@@ -150,7 +150,7 @@ verbs! {
     COMMAND {
         names: "systemd-foo\0",
         abstract_: "Frob the foo.",
-        man_pages: "systemd-foo.1\0",
+        man_page: "systemd-foo.1",
         pager_flags: ARG_PAGER_FLAGS,
     },
     VERB_DEFAULT_NOARG(verb_status, "status", "Show the status"),

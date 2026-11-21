@@ -259,7 +259,7 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
                 r = pwritev_full(lock_fd,
                                  (struct iovec[2]) {
                                          IOVEC_MAKE_STRING(name),
-                                         IOVEC_MAKE((char[1]) { '\n' }, 1),
+                                         IOVEC_MAKE_BYTE('\n'),
                                  }, 2, /* offset= */ 0, &written);
                 if (r < 0) {
                         (void) unlink(lock_path);
@@ -589,10 +589,8 @@ void dynamic_user_deserialize_one(Manager *m, const char *value, FDSet *fds, Dyn
         /* Parse the serialization again, after a daemon reload */
 
         r = extract_many_words(&value, NULL, 0, &name, &s0, &s1);
-        if (r != 3 || !isempty(value)) {
-                log_debug("Unable to parse dynamic user line.");
-                return;
-        }
+        if (r != 3 || !isempty(value))
+                return (void) log_debug("Unable to parse dynamic user line.");
 
         fd0 = deserialize_fd(fds, s0);
         if (fd0 < 0)
@@ -603,10 +601,8 @@ void dynamic_user_deserialize_one(Manager *m, const char *value, FDSet *fds, Dyn
                 return;
 
         r = dynamic_user_add(m, name, (int[]) { fd0, fd1 }, ret);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to add dynamic user: %m");
-                return;
-        }
+        if (r < 0)
+                return (void) log_debug_errno(r, "Failed to add dynamic user: %m");
 
         TAKE_FD(fd0);
         TAKE_FD(fd1);

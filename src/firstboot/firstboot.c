@@ -45,10 +45,10 @@
 #include "lock-util.h"
 #include "loop-util.h"
 #include "machine-credential.h"
-#include "machine-tags.h"
 #include "main-func.h"
 #include "memory-util.h"
 #include "mount-util.h"
+#include "object-tags.h"
 #include "os-util.h"
 #include "parse-argument.h"
 #include "password-quality-util.h"
@@ -194,7 +194,7 @@ static void context_done(Context *c) {
 COMMAND(
         "systemd-firstboot\0",
         "Configure basic settings of the system.",
-        .man_pages = "systemd-firstboot(1)\0",
+        .man_page = "systemd-firstboot(1)",
 );
 
 static bool welcome_done = false;
@@ -2520,7 +2520,7 @@ static int vl_method_configure(sd_varlink *link, sd_json_variant *parameters, sd
         if (c.machine_tags) {
                 _cleanup_strv_free_ char **tags = NULL;
 
-                r = machine_tags_from_strv(c.machine_tags, /* graceful= */ false, &tags);
+                r = object_tags_from_strv(c.machine_tags, /* graceful= */ false, &tags);
                 if (r < 0)
                         return sd_varlink_error_invalid_parameter_name(link, "settings.machineTags");
 

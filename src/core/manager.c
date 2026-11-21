@@ -3793,10 +3793,8 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
                 return;
 
         r = unit_name_to_prefix_and_instance(u->id, &p);
-        if (r < 0) {
-                log_warning_errno(r, "Failed to extract prefix and instance of unit name, ignoring: %m");
-                return;
-        }
+        if (r < 0)
+                return (void) log_warning_errno(r, "Failed to extract prefix and instance of unit name, ignoring: %m");
 
         msg = strjoina("unit=", p);
         if (sym_audit_log_user_comm_message(audit_fd, type, msg, "systemd", /* hostname= */ NULL, /* addr= */ NULL, /* tty= */ NULL, success) < 0) {
@@ -5621,10 +5619,8 @@ void manager_log_caller(Manager *manager, PidRef *caller, const char *method) {
         assert(manager);
         assert(method);
 
-        if (!pidref_is_set(caller)) {
-                log_notice("%s requested from unknown client PID...", method);
-                return;
-        }
+        if (!pidref_is_set(caller))
+                return (void) log_notice("%s requested from unknown client PID...", method);
 
         (void) pidref_get_comm(caller, &comm);
         Unit *caller_unit = manager_get_unit_by_pidref(manager, caller);

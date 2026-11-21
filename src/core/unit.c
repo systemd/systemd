@@ -46,6 +46,7 @@
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "netlink-internal.h"
+#include "object-tags.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "quota-util.h"
@@ -450,7 +451,7 @@ bool unit_may_gc(Unit *u) {
         if (u->in_dbus_queue)
                 return false;
 
-        if (sd_bus_track_count(u->bus_track) > 0)
+        if (sd_bus_track_count(u->bus_track) > 0 || !strv_isempty(u->deserialized_refs))
                 return false;
 
         state = unit_active_state(u);
@@ -893,6 +894,7 @@ Unit* unit_free(Unit *u) {
 
         free(u->description);
         strv_free(u->documentation);
+        strv_free(u->tags);
         free(u->fragment_path);
         free(u->source_path);
         strv_free(u->dropin_paths);
@@ -1336,7 +1338,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                 r = unit_add_mounts_for(u, "/var/tmp/", UNIT_DEPENDENCY_FILE, UNIT_MOUNT_WANTS);
                 if (r < 0)
                         return r;
-        } else if (c->private_var_tmp == PRIVATE_TMP_DISCONNECTED && !exec_context_with_rootfs(c)) {
+        } else if (c->private_var_tmp == PRIVATE_TMP_DISCONNECTED && !exec_context_with_separate_rootfs(c)) {
                 /* Even if PrivateTmp=disconnected, we still require /var/tmp/ mountpoint to be present,
                  * i.e. /var/ needs to be mounted. See comments in unit_patch_contexts(). */
                 r = unit_add_mounts_for(u, "/var/", UNIT_DEPENDENCY_FILE, UNIT_MOUNT_WANTS);
@@ -1697,6 +1699,24 @@ static int unit_validate_on_termination_job_modes(Unit *u) {
         return 0;
 }
 
+static int unit_validate(Unit *u) {
+        int r;
+
+        assert(u);
+
+        r = unit_validate_on_termination_job_modes(u);
+        if (r < 0)
+                return r;
+
+        if (u->job_running_timeout != USEC_INFINITY && u->job_running_timeout > u->job_timeout)
+                log_unit_warning(u, "JobRunningTimeoutSec= is greater than JobTimeoutSec=, it has no effect.");
+
+        if (u->survive_final_kill_signal && !MANAGER_IS_SYSTEM(u->manager))
+                log_unit_warning(u, "SurviveFinalKillSignal= is only supported in the system manager, ignoring.");
+
+        return 0;
+}
+
 int unit_load(Unit *u) {
         int r;
 
@@ -1750,12 +1770,9 @@ int unit_load(Unit *u) {
                 if (r < 0)
                         goto fail;
 
-                r = unit_validate_on_termination_job_modes(u);
+                r = unit_validate(u);
                 if (r < 0)
                         goto fail;
-
-                if (u->job_running_timeout != USEC_INFINITY && u->job_running_timeout > u->job_timeout)
-                        log_unit_warning(u, "JobRunningTimeoutSec= is greater than JobTimeoutSec=, it has no effect.");
 
                 /* We finished loading, let's ensure our parents recalculate the members mask */
                 unit_invalidate_cgroup_members_masks(u);
@@ -3865,10 +3882,7 @@ int unit_coldplug(Unit *u) {
 
         u->coldplugged = true;
 
-        STRV_FOREACH(i, u->deserialized_refs)
-                RET_GATHER(r, bus_unit_track_add_name(u, *i));
-
-        u->deserialized_refs = strv_free(u->deserialized_refs);
+        RET_GATHER(r, bus_unit_coldplug_bus_track(u));
 
         if (UNIT_VTABLE(u)->coldplug)
                 RET_GATHER(r, UNIT_VTABLE(u)->coldplug(u));
@@ -4446,9 +4460,9 @@ static PrivateTmp unit_get_private_var_tmp(const Unit *u, const ExecContext *c) 
         if (u->default_dependencies)
                 return PRIVATE_TMP_DISCONNECTED;
 
-        /* When RootImage=/RootDirectory= is enabled, /var/ should be prepared by the image or directory,
-         * hence we can mount a disconnected tmpfs on /var/tmp/. */
-        if (exec_context_with_rootfs(c))
+        /* When RootImage=/RootDirectory= (with a path other than "/") is enabled, /var/ should be
+         * prepared by the image or directory, hence we can mount a disconnected tmpfs on /var/tmp/. */
+        if (exec_context_with_separate_rootfs(c))
                 return PRIVATE_TMP_DISCONNECTED;
 
         /* Even if DefaultDependencies=no, enable disconnected tmpfs when
@@ -4481,7 +4495,7 @@ static PrivateTmp unit_get_private_tmp(const Unit *u, const ExecContext *c) {
 
         if (c->private_tmp != PRIVATE_TMP_CONNECTED ||
             u->default_dependencies ||
-            exec_context_with_rootfs(c))
+            exec_context_with_separate_rootfs(c))
                 return c->private_tmp;
 
         /* Even if DefaultDependencies=no, honour tmpfs setting when
@@ -5418,10 +5432,8 @@ void unit_warn_if_dir_nonempty(Unit *u, const char* where) {
         r = dir_is_empty(where, /* ignore_hidden_or_backup= */ false);
         if (r > 0 || r == -ENOTDIR)
                 return;
-        if (r < 0) {
-                log_unit_warning_errno(u, r, "Failed to check directory %s: %m", where);
-                return;
-        }
+        if (r < 0)
+                return (void) log_unit_warning_errno(u, r, "Failed to check directory %s: %m", where);
 
         log_unit_struct(u, LOG_NOTICE,
                         LOG_MESSAGE_ID(SD_MESSAGE_OVERMOUNTING_STR),
@@ -7339,4 +7351,67 @@ unsigned unit_normalize_markers(unsigned existing_markers, unsigned new_markers)
                 CLEAR_BIT(markers, UNIT_MARKER_NEEDS_START);
 
         return markers;
+}
+
+int unit_polkit_details(const UnitPolkitDetails *details, char ***ret) {
+        _cleanup_strv_free_ char **out = NULL;
+        int r;
+
+        assert(details);
+        assert(ret);
+
+        const char *id = details->id;
+        if (!id && details->unit)
+                id = details->unit->id;
+        if (id) {
+                r = strv_extend_many(&out, "unit", id);
+                if (r < 0)
+                        return -ENOMEM;
+        }
+
+        if (details->verb) {
+                r = strv_extend_many(&out, "verb", details->verb);
+                if (r < 0)
+                        return -ENOMEM;
+        }
+
+        if (details->message) {
+                r = strv_extend_many(&out,
+                                     "polkit.message", details->message,
+                                     "polkit.gettext_domain", GETTEXT_PACKAGE);
+                if (r < 0)
+                        return -ENOMEM;
+        }
+
+        if (!details->unit) {
+                *ret = TAKE_PTR(out);
+                return 0;
+        }
+
+        STRV_FOREACH(tag, details->unit->tags) {
+                _cleanup_free_ char *tag_name = NULL, *tag_value = NULL;
+                r = object_tag_split(*tag, &tag_name, &tag_value);
+                if (r < 0 && r != -ENODATA)
+                        return r;
+
+                if (r == -ENODATA) {
+                        /* machine-tags were designed with a quirk, that it's permissible for un-parameterized
+                         * and parameterized tags to have colliding names. This means we must use different
+                         * namespaces */
+                        tag_name = strjoin("btag.", *tag);
+                        tag_value = strdup("1");
+                } else {
+                        _cleanup_free_ char *prefixed_name = strjoin("tag.", tag_name);
+                        free_and_replace(tag_name, prefixed_name);
+                }
+                if (!tag_name || !tag_value)
+                        return -ENOMEM;
+
+                r = strv_consume_pair(&out, TAKE_PTR(tag_name), TAKE_PTR(tag_value));
+                if (r < 0)
+                        return -ENOMEM;
+        }
+
+        *ret = TAKE_PTR(out);
+        return 0;
 }

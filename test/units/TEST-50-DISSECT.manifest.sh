@@ -352,14 +352,18 @@ echo -n "system" >"$WORK/system.txt"
 mcopy -i "$WORK/fat.img" "$WORK/hidden.txt" "$WORK/system.txt" ::/
 mattrib -i "$WORK/fat.img" +h -a ::/hidden.txt
 mattrib -i "$WORK/fat.img" +s +r -a ::/system.txt
+# vfat ignores the read-only attribute of directories, hence their read-only state follows the access mode
+mmd -i "$WORK/fat.img" ::/rodir
+mattrib -i "$WORK/fat.img" +r ::/rodir
 mount -o loop "$WORK/fat.img" "$FSMNT"
 FATFIELDS="+read-only,+flag-hidden,+flag-system,+flag-archive,+fat-serial,+fs-label,+fs-uuid"
 systemd-manifest make --field="$FATFIELDS" "$FSMNT" >"$WORK/fat.manifest"
 jq --seq -s -e '.[0].fatSerial == "12AB-CD34" and (.[0] | has("flagHidden") | not) and (.[0] | has("fsUUID") | not)' "$WORK/fat.manifest" >/dev/null
-jq --seq -s -e '.[] | select(.name == "hidden.txt") | .flagHidden == true and .flagSystem == false and .readOnly == false and .flagArchive == false' "$WORK/fat.manifest" >/dev/null
+jq --seq -s -e '.[] | select(.name == "hidden.txt") | .flagHidden == true and .flagSystem == false and (has("readOnly") | not) and .flagArchive == false' "$WORK/fat.manifest" >/dev/null
 jq --seq -s -e '.[] | select(.name == "system.txt") | .flagHidden == false and .flagSystem == true and .readOnly == true and .flagArchive == false' "$WORK/fat.manifest" >/dev/null
 jq --seq -s -e 'all(.[]; has("flagReadOnly") | not)' "$WORK/fat.manifest" >/dev/null
 jq --seq -s -e '.[0] | has("readOnly") | not' "$WORK/fat.manifest" >/dev/null
+jq --seq -s -e '.[] | select(.name == "rodir") | .type == "dir" and (has("readOnly") | not)' "$WORK/fat.manifest" >/dev/null
 # Only the FAT attributes that are asked for are recorded
 systemd-manifest make --field=+flag-hidden "$FSMNT" >"$WORK/flag-hidden.manifest"
 jq --seq -s -e '.[] | select(.name == "hidden.txt") | .flagHidden == true and (has("flagSystem") | not) and (has("flagArchive") | not)' "$WORK/flag-hidden.manifest" >/dev/null
@@ -393,6 +397,7 @@ systemd-manifest verify --verify-signature=no --field=+flag-system,+read-only,+f
 # FAT attributes and the FAT volume serial number are ignored when verifying against a non-FAT file system
 mkdir "$WORK/fatcopy"
 cp "$FSMNT/hidden.txt" "$FSMNT/system.txt" "$WORK/fatcopy/"
+mkdir "$WORK/fatcopy/rodir"
 umount "$FSMNT"
 systemd-manifest verify --verify-signature=no --field=-mode,-uid,-gid,-hash,-size,+read-only,+flag-hidden,+flag-system,+flag-archive "$WORK/fatcopy" "$WORK/fat.manifest"
 systemd-manifest verify --verify-signature=no --field=-mode,-uid,-gid,-hash,-size,+read-only,+flag-hidden,+flag-system,+flag-archive,+fat-serial "$WORK/fatcopy" "$WORK/fat.manifest"

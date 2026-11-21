@@ -1275,7 +1275,7 @@ static int varlink_dispatch_fiber(sd_varlink *v, const char *method, sd_varlink_
 
 static int varlink_dispatch_method(sd_varlink *v) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
-        sd_varlink_method_flags_t flags = 0;
+        sd_varlink_method_flags_t flags = 0, seen_flags = 0;
         const char *method = NULL;
         sd_json_variant *e;
         sd_varlink_method_t callback;
@@ -1312,8 +1312,9 @@ static int varlink_dispatch_method(sd_varlink *v) {
 
                 } else if (streq(k, "oneway")) {
 
-                        if ((flags & (SD_VARLINK_METHOD_ONEWAY|SD_VARLINK_METHOD_MORE|SD_VARLINK_METHOD_UPGRADE)) != 0)
+                        if (FLAGS_SET(seen_flags, SD_VARLINK_METHOD_ONEWAY))
                                 goto invalid;
+                        seen_flags |= SD_VARLINK_METHOD_ONEWAY;
 
                         if (!sd_json_variant_is_boolean(e))
                                 goto invalid;
@@ -1323,8 +1324,9 @@ static int varlink_dispatch_method(sd_varlink *v) {
 
                 } else if (streq(k, "more")) {
 
-                        if ((flags & (SD_VARLINK_METHOD_ONEWAY|SD_VARLINK_METHOD_MORE|SD_VARLINK_METHOD_UPGRADE)) != 0)
+                        if (FLAGS_SET(seen_flags, SD_VARLINK_METHOD_MORE))
                                 goto invalid;
+                        seen_flags |= SD_VARLINK_METHOD_MORE;
 
                         if (!sd_json_variant_is_boolean(e))
                                 goto invalid;
@@ -1334,8 +1336,9 @@ static int varlink_dispatch_method(sd_varlink *v) {
 
                 } else if (streq(k, "upgrade")) {
 
-                        if ((flags & (SD_VARLINK_METHOD_ONEWAY|SD_VARLINK_METHOD_MORE|SD_VARLINK_METHOD_UPGRADE)) != 0)
+                        if (FLAGS_SET(seen_flags, SD_VARLINK_METHOD_UPGRADE))
                                 goto invalid;
+                        seen_flags |= SD_VARLINK_METHOD_UPGRADE;
 
                         if (!sd_json_variant_is_boolean(e))
                                 goto invalid;
@@ -1346,6 +1349,11 @@ static int varlink_dispatch_method(sd_varlink *v) {
                 } else
                         goto invalid;
         }
+
+        if (FLAGS_SET(flags, SD_VARLINK_METHOD_ONEWAY) +
+            FLAGS_SET(flags, SD_VARLINK_METHOD_MORE) +
+            FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE) > 1)
+                goto invalid;
 
         if (!method)
                 goto invalid;
@@ -1401,7 +1409,7 @@ static int varlink_dispatch_method(sd_varlink *v) {
                                 varlink_log_errno(v, r, "Method %s() called without '%s' flag, but flag needs to be set.",
                                                   method, missing_upgrade ? "upgrade" : "more");
 
-                                if (v->state == VARLINK_PROCESSING_METHOD) {
+                                if (VARLINK_STATE_WANTS_REPLY(v->state)) {
                                         r = sd_varlink_error(v, missing_upgrade ? SD_VARLINK_ERROR_EXPECTED_UPGRADE
                                                                                 : SD_VARLINK_ERROR_EXPECTED_MORE, /* parameters= */ NULL);
                                         /* If we didn't manage to enqueue an error response, then fail the
@@ -1411,6 +1419,12 @@ static int varlink_dispatch_method(sd_varlink *v) {
                                         if (r < 0 && VARLINK_STATE_WANTS_REPLY(v->state))
                                                 goto fail;
                                 }
+                        } else if (r == -EOPNOTSUPP) {
+                                varlink_log_errno(v, r, "Method %s() called with 'upgrade' flag, but does not support it.", method);
+
+                                r = sd_varlink_error(v, SD_VARLINK_ERROR_OPERATION_NOT_SUPPORTED, /* parameters= */ NULL);
+                                if (r < 0 && VARLINK_STATE_WANTS_REPLY(v->state))
+                                        goto fail;
                         } else if (r < 0) {
                                 /* Please adjust test/units/end.sh when updating the log message. */
                                 varlink_log_errno(v, r, "Parameters for method %s() didn't pass validation on field '%s': %m",
@@ -1692,10 +1706,22 @@ finish:
         }
 
         if (r < 0) {
-                if (VARLINK_STATE_IS_ALIVE(v->state))
-                        /* Initiate disconnection */
+                if (VARLINK_STATE_IS_ALIVE(v->state)) {
+                        /* Initiate disconnection, and make sure we get called again soon to finish it, so
+                         * that we don't linger in VARLINK_PENDING_DISCONNECT. If we are not attached to an
+                         * event loop, it's up to the caller to call us again, or to close the connection. */
                         varlink_set_state(v, VARLINK_PENDING_DISCONNECT);
-                else
+
+                        if (v->defer_event_source) {
+                                int q;
+
+                                q = sd_event_source_set_enabled(v->defer_event_source, SD_EVENT_ON);
+                                if (q < 0) {
+                                        varlink_log_errno(v, q, "Failed to enable deferred event source, disconnecting right away: %m");
+                                        varlink_dispatch_disconnect(v);
+                                }
+                        }
+                } else
                         /* We failed while disconnecting, in that case close right away */
                         sd_varlink_close(v);
         }
@@ -1928,6 +1954,7 @@ _public_ int sd_varlink_close(sd_varlink *v) {
         bool connected = v->state >= 0;
 
         varlink_set_state(v, VARLINK_DISCONNECTED);
+        v->n_pending = 0; /* Nothing can be pending anymore on a closed connection */
 
         /* Let's take a reference first, since varlink_detach_server() might drop the final (dangling) ref
          * which would destroy us before we can call varlink_clear() */
@@ -2191,8 +2218,31 @@ _public_ int sd_varlink_observeb(sd_varlink *v, const char *method, ...) {
         return sd_varlink_observe(v, method, parameters);
 }
 
+static int varlink_sync_call_fail(sd_varlink *v, int error) {
+        assert(v);
+        assert(error < 0);
+
+        /* If a synchronous call fails after we enqueued the method call, the connection is not reusable
+         * anymore: either it is already dead, or a reply might still arrive later that we cannot match up
+         * with anything. Hence close it right away, so that it ends up in VARLINK_DISCONNECTED and
+         * subsequent calls fail cleanly with ENOTCONN, instead of finding the connection stuck in
+         * VARLINK_PENDING_DISCONNECT/VARLINK_PENDING_TIMEOUT/VARLINK_CALLING and failing with EBUSY. Note
+         * that we do not dispatch anything to the reply callback here, since the error is returned
+         * directly to the caller of the synchronous call.
+         *
+         * There's one exception: if the final reply was already received (and we are hence back in
+         * VARLINK_IDLE_CLIENT) and we fail only when processing it locally, the connection is still in sync
+         * and remains usable, hence leave it open in that case. */
+
+        if (v->state != VARLINK_IDLE_CLIENT)
+                sd_varlink_close(v);
+
+        return error;
+}
+
 /* On success v->state will equal VARLINK_CALLED, the caller is responsible to adjust the state further if
- * needed */
+ * needed. If we fail after the request was enqueued the connection is closed, if we fail before that (for
+ * example because the connection is busy or not connected) it is left as it is. */
 static int varlink_call_internal(sd_varlink *v, sd_json_variant *request) {
         int r;
 
@@ -2221,13 +2271,13 @@ static int varlink_call_internal(sd_varlink *v, sd_json_variant *request) {
         while (v->state == VARLINK_CALLING) {
                 r = sd_varlink_process(v);
                 if (r < 0)
-                        return r;
+                        goto fail;
                 if (r > 0)
                         continue;
 
                 r = sd_varlink_wait(v, USEC_INFINITY);
                 if (r < 0)
-                        return r;
+                        goto fail;
         }
 
         switch (v->state) {
@@ -2238,14 +2288,19 @@ static int varlink_call_internal(sd_varlink *v, sd_json_variant *request) {
 
         case VARLINK_PENDING_DISCONNECT:
         case VARLINK_DISCONNECTED:
-                return varlink_log_errno(v, SYNTHETIC_ERRNO(ECONNRESET), "Connection was closed.");
+                r = varlink_log_errno(v, SYNTHETIC_ERRNO(ECONNRESET), "Connection was closed.");
+                goto fail;
 
         case VARLINK_PENDING_TIMEOUT:
-                return varlink_log_errno(v, SYNTHETIC_ERRNO(ETIME), "Connection timed out.");
+                r = varlink_log_errno(v, SYNTHETIC_ERRNO(ETIME), "Connection timed out.");
+                goto fail;
 
         default:
                 assert_not_reached();
         }
+
+fail:
+        return varlink_sync_call_fail(v, r);
 }
 
 _public_ int sd_varlink_call_full(
@@ -2506,13 +2561,13 @@ _public_ int sd_varlink_collect_full(
                 while (v->state == VARLINK_COLLECTING) {
                         r = sd_varlink_process(v);
                         if (r < 0)
-                                return r;
+                                goto fail;
                         if (r > 0)
                                 continue;
 
                         r = sd_varlink_wait(v, USEC_INFINITY);
                         if (r < 0)
-                                return r;
+                                goto fail;
                 }
 
                 switch (v->state) {
@@ -2544,12 +2599,16 @@ _public_ int sd_varlink_collect_full(
                                 return 1;
                         }
 
-                        if (sd_json_variant_elements(collected) >= VARLINK_COLLECT_MAX)
-                                return varlink_log_errno(v, SYNTHETIC_ERRNO(E2BIG), "Number of reply messages grew too large (%zu) while collecting.", sd_json_variant_elements(collected));
+                        if (sd_json_variant_elements(collected) >= VARLINK_COLLECT_MAX) {
+                                r = varlink_log_errno(v, SYNTHETIC_ERRNO(E2BIG), "Number of reply messages grew too large (%zu) while collecting.", sd_json_variant_elements(collected));
+                                goto fail;
+                        }
 
                         r = sd_json_variant_append_array(&collected, p);
-                        if (r < 0)
-                                return varlink_log_errno(v, r, "Failed to append JSON object to array: %m");
+                        if (r < 0) {
+                                r = varlink_log_errno(v, r, "Failed to append JSON object to array: %m");
+                                goto fail;
+                        }
 
                         if (FLAGS_SET(v->current_reply_flags, SD_VARLINK_REPLY_CONTINUES)) {
                                 /* There's more to collect, continue */
@@ -2573,15 +2632,20 @@ _public_ int sd_varlink_collect_full(
 
                 case VARLINK_PENDING_DISCONNECT:
                 case VARLINK_DISCONNECTED:
-                        return varlink_log_errno(v, SYNTHETIC_ERRNO(ECONNRESET), "Connection was closed.");
+                        r = varlink_log_errno(v, SYNTHETIC_ERRNO(ECONNRESET), "Connection was closed.");
+                        goto fail;
 
                 case VARLINK_PENDING_TIMEOUT:
-                        return varlink_log_errno(v, SYNTHETIC_ERRNO(ETIME), "Connection timed out.");
+                        r = varlink_log_errno(v, SYNTHETIC_ERRNO(ETIME), "Connection timed out.");
+                        goto fail;
 
                 default:
                         assert_not_reached();
                 }
         }
+
+fail:
+        return varlink_sync_call_fail(v, r);
 }
 
 _public_ int sd_varlink_collect(
@@ -2627,6 +2691,13 @@ static int varlink_reply_internal(sd_varlink *v, sd_json_variant *parameters, bo
 
         if (!sd_varlink_wants_reply(v))
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
+
+        /* A successful upgrade reply hands the connection over to another protocol. Ordinary replies
+         * must refuse the upgrade, including for handlers without an interface description. */
+        if (IN_SET(v->state, VARLINK_PROCESSING_METHOD_UPGRADE, VARLINK_PENDING_METHOD_UPGRADE)) {
+                varlink_log_errno(v, SYNTHETIC_ERRNO(EOPNOTSUPP), "Cannot send an ordinary reply to a protocol upgrade request, refusing.");
+                return sd_varlink_error(v, SD_VARLINK_ERROR_OPERATION_NOT_SUPPORTED, /* parameters= */ NULL);
+        }
 
         bool more = IN_SET(v->state, VARLINK_PROCESSING_METHOD_MORE, VARLINK_PENDING_METHOD_MORE);
 

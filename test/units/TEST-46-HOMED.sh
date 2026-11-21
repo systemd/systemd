@@ -89,6 +89,24 @@ testcase_basic() {
         --skel="$TMP_SKEL"
     inspect test-user
 
+    # Authenticating without any password (as pam_systemd_home does first, to find out whether a security
+    # token suffices) must not count as bad authentication, while a wrong password must
+    (! busctl call org.freedesktop.home1 /org/freedesktop/home1 org.freedesktop.home1.Manager \
+          AuthenticateHome ss test-user '{}')
+    [[ "$(homectl inspect -j test-user | jq ".status.\"$(cat /etc/machine-id)\".badAuthenticationCounter // 0")" -eq 0 ]]
+    (! busctl call org.freedesktop.home1 /org/freedesktop/home1 org.freedesktop.home1.Manager \
+          AuthenticateHome ss test-user '{"password":["wrongpass"]}')
+    [[ "$(homectl inspect -j test-user | jq ".status.\"$(cat /etc/machine-id)\".badAuthenticationCounter // 0")" -eq 1 ]]
+    # Same for changing the password without the old one (as homectl passwd does first). Check the error
+    # message, to be sure it's the worker that refused it, not the password quality check before.
+    [[ "$(busctl call org.freedesktop.home1 /org/freedesktop/home1 org.freedesktop.home1.Manager \
+          ChangePasswordHome sss test-user '{"password":["Ty7wQ9pLm3Zx"]}' '{}' 2>&1 || :)" == *"incorrect or not sufficient"* ]]
+    [[ "$(homectl inspect -j test-user | jq ".status.\"$(cat /etc/machine-id)\".badAuthenticationCounter // 0")" -eq 1 ]]
+    # While a wrong old password does count
+    [[ "$(busctl call org.freedesktop.home1 /org/freedesktop/home1 org.freedesktop.home1.Manager \
+          ChangePasswordHome sss test-user '{"password":["Ty7wQ9pLm3Zx"]}' '{"password":["wrongpass"]}' 2>&1 || :)" == *"incorrect or not sufficient"* ]]
+    [[ "$(homectl inspect -j test-user | jq ".status.\"$(cat /etc/machine-id)\".badAuthenticationCounter // 0")" -eq 2 ]]
+
     PASSWORD=xEhErW0ndafV4s homectl authenticate test-user
 
     PASSWORD=xEhErW0ndafV4s homectl activate test-user
@@ -253,6 +271,10 @@ testcase_basic() {
         inspect test-user
         inspect test-user2
 
+        # Resizing for rebalancing must not turn rebalancing off
+        homectl inspect test-user | grep -F 'Rebalance: weight 25' >/dev/null
+        homectl inspect test-user2 | grep -F 'Rebalance: weight 100' >/dev/null
+
         wait_for_state test-user2 active
         homectl deactivate test-user2
         wait_for_state test-user2 inactive
@@ -280,7 +302,11 @@ testcase_basic() {
     /usr/lib/systemd/tests/unit-tests/manual/test-homed-regression-31896 test-user
 
     wait_for_state test-user inactive
-    homectl remove test-user
+    # The reference FIFO created by the test above must be removed together with the home
+    test -p /run/systemd/home/test-user.please-suspend
+    /usr/lib/systemd/tests/unit-tests/manual/test-homed-regression-44837 test-user
+    test ! -e /run/systemd/home/test-user.please-suspend
+    test ! -e /run/systemd/home/test-user.dont-suspend
 }
 
 testcase_recovery_key_file() (
@@ -592,6 +618,14 @@ testcase_blob() {
     (! PASSWORD=EMJuc3zQaMibJo homectl update blob-user -b with=equals=/tmp/external-test3 )
     (! PASSWORD=EMJuc3zQaMibJo homectl update blob-user -b файл=/tmp/external-test3 )
     (! PASSWORD=EMJuc3zQaMibJo homectl update blob-user -b special@chars=/tmp/external-test3 )
+
+    # homectl refuses invalid filenames by itself, hence also check that homed does
+    local record
+    record="$(homectl inspect --json=short blob-user | jq -c 'del(.binding, .status)')"
+    (! busctl call org.freedesktop.home1 /org/freedesktop/home1 org.freedesktop.home1.Manager \
+            UpdateHomeEx 'sa{sh}t' "$record" 1 .hidden 3 0 3</tmp/external-test3 2>/tmp/blob-error)
+    grep -F 'Call failed: Invalid blob directory filename: .hidden' /tmp/blob-error >/dev/null
+    rm /tmp/blob-error
 
     # Make sure offline updates to blobs get propagated in
     homectl deactivate blob-user
@@ -920,6 +954,23 @@ testcase_alias() {
     homectl remove aliastest
 }
 
+testcase_password_change_min() {
+    NEWPASSWORD=foobar homectl create pwchangetest --storage=directory --password-change-min=1d --enforce-password-policy=no
+
+    # Syncing the record without a new password is no password change, hence it is allowed and keeps the
+    # password change time
+    local ts
+    ts="$(homectl inspect --json=short pwchangetest | jq '.lastPasswordChangeUSec')"
+    busctl call org.freedesktop.home1 /org/freedesktop/home1 org.freedesktop.home1.Manager \
+            ChangePasswordHome sss pwchangetest '{}' '{"password":["foobar"]}'
+    [[ "$(homectl inspect --json=short pwchangetest | jq '.lastPasswordChangeUSec')" == "$ts" ]]
+
+    # An actual password change is still refused
+    (! PASSWORD=foobar NEWPASSWORD=barfoo homectl passwd pwchangetest)
+
+    homectl remove pwchangetest
+}
+
 testcase_quota() {
     # 'run0 -u' requires systemd NSS module.
     if ! check_nss_module systemd; then
@@ -947,6 +998,30 @@ testcase_quota() {
     systemctl stop user@"$(id -u tmpfsquota)".service
     wait_for_state tmpfsquota inactive
     homectl remove tmpfsquota
+}
+
+testcase_quota_disk_status() {
+    local MNT
+    MNT="$(mktemp -d /tmp/quota-mnt.XXXXXX)"
+    # shellcheck disable=SC2064
+    trap "homectl remove quotatest 2>/dev/null || true; umount '$MNT' 2>/dev/null || true; rm -rf '$MNT'" RETURN ERR
+
+    if ! mount -t tmpfs -o usrquota tmpfs "$MNT"; then
+        echo "tmpfs doesn't support quota, skipping."
+        return 0
+    fi
+
+    # Without a disk size there's no quota hard limit, which must not be taken as a disk size of zero
+    NEWPASSWORD=quux homectl create quotatest -P --storage=directory --image-path="$MNT/quotatest"
+    homectl inspect quotatest
+    homectl inspect --json=short quotatest | jq -e '.status[].diskSize > 0' >/dev/null
+    homectl remove quotatest
+    umount "$MNT"
+
+    # Without UID quota the disk usage is unknown, which must not be reported as zero
+    mount -t tmpfs -o grpquota tmpfs "$MNT"
+    NEWPASSWORD=quux homectl create quotatest -P --storage=directory --image-path="$MNT/quotatest"
+    homectl inspect --json=short quotatest | jq -e '.status[] | has("diskUsage") | not' >/dev/null
 }
 
 testcase_subarea() {
@@ -1242,6 +1317,12 @@ testcase_fscrypt() {
     inspect fscrypttest | grep "Real Name: Fscrypt Test" >/dev/null
 
     PASSWORD=fsfsfs1234 NEWPASSWORD=newfsfs5678 homectl passwd fscrypttest
+
+    # The new password got a new slot above the old one, and the old slot is gone
+    (! getfattr --absolute-names --only-values -n trusted.fscrypt_slot0 "$MNT/fscrypttest")
+    SLOT="$(getfattr --absolute-names --only-values -n trusted.fscrypt_slot1 "$MNT/fscrypttest")"
+    [[ "${SLOT:0:4}" == "\$v2:" ]]
+
     PASSWORD=newfsfs5678 homectl authenticate fscrypttest
     (! PASSWORD=fsfsfs1234 timeout 10s homectl authenticate fscrypttest </dev/null)
 
@@ -1251,6 +1332,28 @@ testcase_fscrypt() {
     systemctl stop user@"$(id -u fscrypttest)".service 2>/dev/null || true
     homectl deactivate fscrypttest 2>/dev/null || true
     wait_for_state fscrypttest inactive
+
+    # Changing it again puts the new slot above the existing one, not at the number of passwords
+    PASSWORD=newfsfs5678 NEWPASSWORD=fsfsfs1234 homectl passwd fscrypttest
+    (! getfattr --absolute-names --only-values -n trusted.fscrypt_slot1 "$MNT/fscrypttest")
+    SLOT="$(getfattr --absolute-names --only-values -n trusted.fscrypt_slot2 "$MNT/fscrypttest")"
+    [[ "${SLOT:0:4}" == "\$v2:" ]]
+    PASSWORD=fsfsfs1234 homectl authenticate fscrypttest
+
+    # If the new slot can't be written, the old one stays and still works. Fill the xattr space of the
+    # directory for that.
+    local i j
+    i=0
+    while ((i < 1000)) && setfattr -n "trusted.filler$i" -v 0x00000000000000000000000000000000 "$MNT/fscrypttest" 2>/dev/null; do
+        i=$((i + 1))
+    done
+    (! PASSWORD=fsfsfs1234 NEWPASSWORD=newfsfs5678 timeout 60s homectl passwd fscrypttest </dev/null)
+    getfattr --absolute-names -n trusted.fscrypt_slot2 "$MNT/fscrypttest" >/dev/null
+    (! getfattr --absolute-names -n trusted.fscrypt_slot3 "$MNT/fscrypttest")
+    for ((j = 0; j < i; j++)); do
+        setfattr -x "trusted.filler$j" "$MNT/fscrypttest"
+    done
+    PASSWORD=fsfsfs1234 homectl authenticate fscrypttest
 
     homectl remove fscrypttest
 }
@@ -1354,7 +1457,8 @@ sync
 
 UPDATE_TS=$((TS + 1))
 UPDATE_RECORD="$(printf '%s' "$RECORD" | jq -c --argjson ts "$UPDATE_TS" --arg p foobar 'del(.binding, .status, .signature) | .lastChangeUSec = $ts | .secret = {password: [$p]}')"
-(! busctl call org.freedesktop.home1 /org/freedesktop/home1 org.freedesktop.home1.Manager UpdateHomeEx "sa{sh}t" "$UPDATE_RECORD" 0 0 )
+# The embedded record is newer than the update, hence homework refuses it
+[[ "$(busctl call org.freedesktop.home1 /org/freedesktop/home1 org.freedesktop.home1.Manager UpdateHomeEx "sa{sh}t" "$UPDATE_RECORD" 0 0 2>&1 || :)" == *"equally new or newer than the supplied record"* ]]
 EOF
     chmod +x /tmp/idgrouptest-add-group.sh
     machinectl shell idgrouptest2@ /tmp/idgrouptest-add-group.sh

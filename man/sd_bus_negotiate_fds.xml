@@ -127,7 +127,7 @@
 
           <listitem><para>An argument is invalid.</para>
 
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v221"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -135,7 +135,7 @@
 
           <listitem><para>The bus cannot be resolved.</para>
 
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v237"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -143,7 +143,7 @@
 
           <listitem><para>The bus was created in a different process, library or module instance.</para>
 
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v221"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -154,9 +154,9 @@
   <refsect1>
     <title>History</title>
     <para><function>sd_bus_negotiate_fds()</function>,
-    <function>sd_bus_negotiate_timestamp()</function>, and
-    <function>sd_bus_negotiate_creds()</function> were added in version 212.</para>
-    <para><function>sd_bus_get_creds_mask()</function> was added in version 246.</para>
+    <function>sd_bus_negotiate_timestamp()</function>,
+    <function>sd_bus_negotiate_creds()</function>, and
+    <function>sd_bus_get_creds_mask()</function> were added in version 221.</para>
   </refsect1>
 
   <refsect1>

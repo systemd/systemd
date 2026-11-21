@@ -1749,6 +1749,28 @@ testcase_dot_strict_per_link_verify() {
         --grep "Failed to invoke SSL_do_handshake.*(certificate verify failed|self[- ]signed certificate|unable to get local issuer)"
 }
 
+testcase_cd_bypass_not_cached() {
+    # shellcheck disable=SC2317,SC2329
+    cleanup() {
+        resolvectl revert dns0
+        resolvectl flush-caches
+    }
+    trap cleanup RETURN ERR
+
+    # Queries with DO=1 CD=1 are passed on upstream as they are, CD bit included, hence the upstream server
+    # may skip checks for them. Their answers must not be cached for other clients, even if we don't
+    # validate on our own.
+    resolvectl dnssec dns0 no
+    resolvectl flush-caches
+    run dig +nostats +do +cd signed.test
+    grep -qF "10.0.0.10" "$RUN_OUT"
+    (! resolvectl query --type=A --network=no signed.test)
+    # … while answers to the same queries without CD are
+    run dig +nostats +do signed.test
+    grep -qF "10.0.0.10" "$RUN_OUT"
+    resolvectl query --type=A --network=no signed.test
+}
+
 testcase_static_record() {
     mkdir -p /run/systemd/resolve/static.d/
     cat >/run/systemd/resolve/static.d/statictest.rr <<EOF
@@ -1923,7 +1945,7 @@ do_test_varlink_link_methods() {
     assert_eq "$(resolvectl --json=pretty status "$ifname")" "$orig_config"
 }
 
-do_test_varlink_link_error () {
+do_test_varlink_link_error() {
     local ifname ifindex socket error
 
     ifname="${1:?}"
@@ -1977,6 +1999,60 @@ do_test_varlink_link_error () {
             '{"ifindex":"'"$ifindex"'"}' 2>&1)"
 }
 
+do_test_varlink_link_invalid_parameters() {
+    local ifname ifindex socket
+
+    ifname="${1:?}"
+    ifindex="$(cat "/sys/class/net/$ifname/ifindex")"
+    socket="${2:?}"
+
+    # Address and family are inconsistent
+    assert_in "io.systemd.System" "$(varlinkctl call --graceful=io.systemd.System "$socket" \
+        io.systemd.Resolve.Link.SetDNS \
+        '{"ifindex":"'"$ifindex"'","servers":[{"family":2,"address":[10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2]}]}' 2>&1)"
+
+    # Unspecified address
+    assert_in "io.systemd.System" "$(varlinkctl call --graceful=io.systemd.System "$socket" \
+        io.systemd.Resolve.Link.SetDNS \
+        '{"ifindex":"'"$ifindex"'","servers":[{"family":2,"address":[0,0,0,0]}]}' 2>&1)"
+
+    # Interface index of a server does not match with the request
+    assert_in '"parameter":"servers"' "$(varlinkctl call --graceful=org.varlink.service.InvalidParameter \
+        "$socket" io.systemd.Resolve.Link.SetDNS \
+        '{"ifindex":"'"$ifindex"'","servers":[{"family":2,"address":[10,0,0,2],"ifindex":1}]}' 2>&1)"
+
+    # Root domain as search domain
+    assert_in "io.systemd.System" "$(varlinkctl call --graceful=io.systemd.System "$socket" \
+        io.systemd.Resolve.Link.SetDomains \
+        '{"ifindex":"'"$ifindex"'","searchDomains":[{"name":"."}]}' 2>&1)"
+
+    # Invalid search domain
+    assert_in "io.systemd.System" "$(varlinkctl call --graceful=io.systemd.System "$socket" \
+        io.systemd.Resolve.Link.SetDomains \
+        '{"ifindex":"'"$ifindex"'","searchDomains":[{"name":".."}]}' 2>&1)"
+
+    # routeOnly may be null
+    varlinkctl call "$socket" io.systemd.Resolve.Link.SetDomains \
+        '{"ifindex":"'"$ifindex"'","searchDomains":[{"name":"example.test","routeOnly":null}]}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'example.test' "$(resolvectl domain "$ifname")"
+    assert_not_in '~example.test' "$(resolvectl domain "$ifname")"
+
+    # Invalid DNSSEC mode
+    assert_in "org.varlink.service.InvalidParameter" "$(varlinkctl call --graceful=org.varlink.service.InvalidParameter \
+        "$socket" io.systemd.Resolve.Link.SetDNSSEC \
+        '{"ifindex":"'"$ifindex"'","dnssec":"bogus"}' 2>&1)"
+
+    # Invalid NTA domain
+    assert_in "io.systemd.System" "$(varlinkctl call --graceful=io.systemd.System "$socket" \
+        io.systemd.Resolve.Link.SetDNSSECNegativeTrustAnchors \
+        '{"ifindex":"'"$ifindex"'","negativeTrustAnchors":[".."]}' 2>&1)"
+
+    # Cleanup
+    varlinkctl call "$socket" io.systemd.Resolve.Link.RevertDNS '{"ifindex":"'"$ifindex"'"}'
+}
+
 testcase_16_varlink_link_methods() {
     # Cleanup
     # shellcheck disable=SC2317,SC2329
@@ -2003,6 +2079,9 @@ testcase_16_varlink_link_methods() {
 
     do_test_varlink_link_methods "hoge0" "/run/systemd/resolve/io.systemd.Resolve"
     do_test_varlink_link_methods "dns0" "/run/systemd/netif/io.systemd.Network"
+
+    do_test_varlink_link_invalid_parameters "hoge0" "/run/systemd/resolve/io.systemd.Resolve"
+    do_test_varlink_link_invalid_parameters "dns0" "/run/systemd/netif/io.systemd.Network"
 
     do_test_varlink_link_error "dns0" "/run/systemd/resolve/io.systemd.Resolve" "io.systemd.Resolve.Link.ManagedByNetworkd"
     do_test_varlink_link_error "hoge0" "/run/systemd/netif/io.systemd.Network" "io.systemd.Network.Link.InterfaceUnmanaged"

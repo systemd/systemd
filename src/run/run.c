@@ -155,7 +155,7 @@ COMMAND(
         "systemd-run\0",
         "Run the specified command in a transient scope or service.",
         .argspec = "COMMAND [ARGUMENTS…]\0",
-        .man_pages = "systemd-run(1)\0",
+        .man_page = "systemd-run(1)",
         .option_namespace = "systemd-run",
         .pager_flags = &arg_pager_flags,
 );
@@ -765,7 +765,7 @@ COMMAND(
         "run0\0",
         "Elevate privileges interactively.",
         .argspec = "COMMAND [ARGUMENTS…]\0",
-        .man_pages = "run0(1)\0",
+        .man_page = "run0(1)",
         .option_namespace = "run0",
         .pager_flags = &arg_pager_flags,
 );
@@ -1648,6 +1648,7 @@ typedef struct RunContext {
         char *unit;
         char *bus_path;
         char *start_job;
+        bool ptyfwd_pending;
         int pty_fd;
 
         /* Bus objects */
@@ -1770,6 +1771,25 @@ static int run_context_check_started(RunContext *c) {
         int r;
 
         assert(c);
+
+        if (c->ptyfwd_pending) {
+                c->ptyfwd_pending = false;
+
+                /* The ptybroker doesn't return the start job, so use the unit's current job as a proxy. */
+                if (c->job) {
+                        c->start_job = strdup(c->job);
+                        if (!c->start_job) {
+                                (void) sd_event_exit(c->event, EXIT_FAILURE);
+                                return log_oom();
+                        }
+                } else {
+                        r = run_context_setup_ptyfwd(c);
+                        if (r < 0) {
+                                (void) sd_event_exit(c->event, EXIT_FAILURE);
+                                return r;
+                        }
+                }
+        }
 
         if (!c->start_job)
                 return 0; /* Already started? */
@@ -2429,6 +2449,7 @@ static int start_via_ptybroker(void) {
         /* The broker's operations are gated by polkit, hence make sure an authentication agent is around in
          * case we need to authenticate interactively. */
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) ask_password_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         r = pty_broker_connect(arg_runtime_scope, &vl);
@@ -2463,7 +2484,7 @@ static int start_via_ptybroker(void) {
                         SD_JSON_BUILD_PAIR("frontendType", JSON_BUILD_CONST_STRING("null")),
                         SD_JSON_BUILD_PAIR("backendType", JSON_BUILD_CONST_STRING("shell")),
                         SD_JSON_BUILD_PAIR_BOOLEAN("monitor", true),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("osc2811", true), /* The PTY forwarder implements the emulator side */
+                        SD_JSON_BUILD_PAIR_BOOLEAN("inBandResize", true), /* The PTY forwarder implements the terminal side */
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("user", arg_exec_user),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("group", arg_exec_group),
                         SD_JSON_BUILD_PAIR_CONDITION(!!arg_working_directory, "workingDirectory",
@@ -2546,6 +2567,8 @@ static int start_via_ptybroker(void) {
         if (!c.unit)
                 /* Without a unit to wait for, exit immediately when our pty monitor dies */
                 arg_wait = false;
+        else if (arg_pty_late)
+                c.ptyfwd_pending = true;
 
         _cleanup_(osc_context_closep) sd_id128_t osc_context_id = SD_ID128_NULL;
         if (arg_exec_user && !terminal_is_dumb()) {
@@ -2556,9 +2579,11 @@ static int start_via_ptybroker(void) {
 
         (void) sd_event_set_signal_exit(c.event, true);
 
-        r = run_context_setup_ptyfwd(&c);
-        if (r < 0)
-                return r;
+        if (!c.ptyfwd_pending) {
+                r = run_context_setup_ptyfwd(&c);
+                if (r < 0)
+                        return r;
+        }
 
         if (bus) {
                 r = run_context_attach_bus(&c, bus);

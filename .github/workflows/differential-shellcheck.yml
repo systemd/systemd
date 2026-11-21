@@ -4,11 +4,33 @@
 name: Differential ShellCheck
 on:
   push:
+    paths:
+      - '**'
+      - "!docs/**"
+      - "!README*"
+      - "!LICENSE*"
+      - "!LICENSES/**"
+      - "!TODO.md"
+      - '!po/**'
     branches:
       - main
   pull_request:
+    paths:
+      - '**'
+      - "!docs/**"
+      - "!README*"
+      - "!LICENSE*"
+      - "!LICENSES/**"
+      - "!TODO.md"
+      - '!po/**'
     branches:
       - main
+  pull_request_target:
+    types: [closed]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number || github.run_id }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -16,6 +38,7 @@ permissions:
 jobs:
   lint:
     if: >
+      github.event_name != 'pull_request_target' &&
       github.event.repository.name != 'systemd-security' &&
       (github.event_name != 'push' || github.repository == 'systemd/systemd')
     runs-on: ubuntu-24.04

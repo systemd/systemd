@@ -39,7 +39,7 @@ COMMAND(
         "systemd-fsck\0",
         "Check a file system before it is mounted.",
         .argspec = "[DEVICE]\0",
-        .man_pages = "systemd-fsck@.service(8)\0",
+        .man_page = "systemd-fsck@.service(8)",
         .option_namespace = "common",
 );
 
@@ -94,10 +94,8 @@ static void start_target(const char *target, const char *mode) {
         assert(target);
 
         r = bus_connect_system_systemd(&bus);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get D-Bus connection: %m");
-                return;
-        }
+        if (r < 0)
+                return (void) log_error_errno(r, "Failed to get D-Bus connection: %m");
 
         log_info("Requesting %s/start/%s", target, mode);
 

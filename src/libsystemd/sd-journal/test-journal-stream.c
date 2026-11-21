@@ -94,11 +94,11 @@ static void run_test(void) {
                 previous_ts = ts;
 
                 ASSERT_OK_ERRNO(asprintf(&p, "NUMBER=%u", i));
-                iovec[0] = IOVEC_MAKE(p, strlen(p));
+                iovec[0] = IOVEC_MAKE_STRING(p);
 
                 ASSERT_OK_ERRNO(asprintf(&q, "MAGIC=%s", i % 5 == 0 ? "quux" : "waldo"));
 
-                iovec[1] = IOVEC_MAKE(q, strlen(q));
+                iovec[1] = IOVEC_MAKE_STRING(q);
 
                 if (i % 10 == 0)
                         ASSERT_OK_ZERO(journal_file_append_entry(three, &ts, /* boot_id= */ NULL, iovec, 2, /* seqnum= */ NULL, /* seqnum_id= */ NULL, /* ret_object= */ NULL, /* ret_offset= */ NULL));

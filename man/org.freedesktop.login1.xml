@@ -866,7 +866,12 @@ node /org/freedesktop/login1 {
       shutdown reason and wall message enablement switch which can be set with the
       <function>SetWallMessage()</function> method described above.</para>
 
-      <para><varname>Docked</varname> is true if the machine is connected to a dock.
+      <para><varname>Docked</varname> is true if the machine appears to be connected to a dock. Few machines
+      report a docking station in hardware, so this is mostly inferred from the external displays and
+      keyboards that are connected; see
+      <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> for the
+      exact conditions. It also determines which of <varname>HandleLidSwitchDocked</varname> and
+      <varname>HandleLidSwitch</varname> applies when the lid closes.
       <varname>LidClosed</varname> is true when the lid (of a laptop) is closed.
       <varname>OnExternalPower</varname> is true when the machine is connected to an external power supply.
       </para>
@@ -1667,6 +1672,7 @@ node /org/freedesktop/login1/session/1 {
 
   <refsect1>
     <title>History</title>
+    <para>The <interfacename>org.freedesktop.login1</interfacename> D-Bus API was added in version 30.</para>
     <refsect2>
       <title>The Manager Object</title>
       <para><varname>HandlePowerKeyLongPress</varname>,

@@ -28,7 +28,7 @@ COMMAND(
         "systemd-getty-generator\0",
         "Enable getty instances on the console and serial consoles.",
         .argspec = GENERATOR_ARGSPEC,
-        .man_pages = "systemd-getty-generator(8)\0",
+        .man_page = "systemd-getty-generator(8)",
         .option_namespace = "common",
 );
 

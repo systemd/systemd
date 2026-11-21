@@ -19,7 +19,7 @@ COMMAND(
         "systemd-system-update-generator\0",
         "Redirect the boot to offline update mode.",
         .argspec = GENERATOR_ARGSPEC,
-        .man_pages = "systemd-system-update-generator(8)\0",
+        .man_page = "systemd-system-update-generator(8)",
         .option_namespace = "common",
 );
 

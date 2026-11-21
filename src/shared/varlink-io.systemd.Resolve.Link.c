@@ -5,6 +5,7 @@
 #include "varlink-io.systemd.Resolve.Link.h"
 
 static SD_VARLINK_DEFINE_ERROR(IsLoopback);
+static SD_VARLINK_DEFINE_ERROR(InterfaceNotReady);
 static SD_VARLINK_DEFINE_ERROR(ManagedByNetworkd);
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
@@ -106,6 +107,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_error_ManagedByNetworkd,
                 SD_VARLINK_SYMBOL_COMMENT("The specified interface is a loopback interface, and cannot be configured."),
                 &vl_error_IsLoopback,
+                SD_VARLINK_SYMBOL_COMMENT("The specified interface is not ready yet, e.g. its name is not known. The request should be retried later."),
+                &vl_error_InterfaceNotReady,
                 SD_VARLINK_SYMBOL_COMMENT("DNS server configuration input."),
                 &vl_type_DNSServerContext,
                 SD_VARLINK_SYMBOL_COMMENT("Set the per-link DNS server list."),

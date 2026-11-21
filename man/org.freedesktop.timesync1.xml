@@ -154,6 +154,15 @@ $ gdbus introspect --system \
   <xi:include href="org.freedesktop.locale1.xml" xpointer="versioning"/>
 
   <refsect1>
+    <title>History</title>
+    <para>The <interfacename>org.freedesktop.timesync1</interfacename> D-Bus API was added in version 239.</para>
+    <refsect2>
+      <title>The Manager Object</title>
+      <para><function>SetRuntimeNTPServers()</function> was added in version 251.</para>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>

@@ -1,17 +1,22 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <netdb.h>
 #include <unistd.h>
 
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
+#include "in-addr-util.h"
 #include "io-util.h"
 #include "iovec-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "parse-util.h"
 #include "path-lookup.h"
 #include "path-util.h"
+#include "socket-netlink.h"
 #include "socket-util.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -21,9 +26,9 @@
 
 COMMAND(
         "systemd-ssh-proxy\0",
-        "Connect an SSH client to AF_VSOCK and AF_UNIX sockets.",
+        "Connect an SSH client to AF_VSOCK, AF_UNIX and MPTCP sockets.",
         .argspec = "HOST PORT\0",
-        .man_pages = "systemd-ssh-proxy(1)\0",
+        .man_page = "systemd-ssh-proxy(1)",
         .option_namespace = "common",
 );
 
@@ -75,6 +80,117 @@ static int process_vsock_string(const char *host, const char *port) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use VMADDR_CID_ANY to connect to a remote host.");
 
         return process_vsock_cid(cid, port);
+}
+
+static int connect_mptcp(const union sockaddr_union *sa, socklen_t salen) {
+        int r;
+
+        assert(sa);
+        assert(IN_SET(sa->sa.sa_family, AF_INET, AF_INET6));
+
+        _cleanup_free_ char *pretty = NULL;
+        r = sockaddr_pretty(&sa->sa, salen, /* translate_ipv6= */ true, /* include_port= */ true, &pretty);
+        if (r < 0)
+                return log_oom();
+
+        _cleanup_close_ int fd = socket(sa->sa.sa_family, SOCK_STREAM|SOCK_CLOEXEC, IPPROTO_MPTCP);
+        if (fd < 0) {
+                /* The kernel was built without MPTCP support (EPROTONOSUPPORT), it has been turned off for
+                 * the network namespace via net.mptcp.enabled=0 (ENOPROTOOPT), or it is blocked in some
+                 * other way (for example by a seccomp filter returning some other "not supported"
+                 * error). In that case, fall back to plain TCP. Note that if the peer doesn't support MPTCP
+                 * the kernel will transparently fall back to TCP on its own during connection setup. */
+                if (!ERRNO_IS_NOT_SUPPORTED(errno))
+                        return log_error_errno(errno, "Failed to allocate MPTCP socket: %m");
+
+                log_debug_errno(errno, "MPTCP not available, falling back to TCP: %m");
+
+                fd = socket(sa->sa.sa_family, SOCK_STREAM|SOCK_CLOEXEC, IPPROTO_TCP);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to allocate TCP socket: %m");
+        }
+
+        log_debug("Connecting to %s...", pretty);
+
+        if (connect(fd, &sa->sa, salen) < 0)
+                return log_error_errno(errno, "Failed to connect to %s: %m", pretty);
+
+        return TAKE_FD(fd);
+}
+
+static int process_mptcp(const char *host, const char *port) {
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        assert(host);
+        assert(port);
+
+        uint16_t port_number;
+        r = parse_ip_port(port, &port_number);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse IP port: %s", port);
+
+        union in_addr_union a;
+        int family, ifindex = 0;
+        if (in_addr_ifindex_from_string_auto(host, &family, &a, &ifindex) >= 0) {
+                /* A literal IP address (possibly with an interface suffix) was specified */
+                union sockaddr_union sa;
+                r = sockaddr_set_in_addr(&sa, family, &a, port_number);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to initialize socket address: %m");
+                if (family == AF_INET6)
+                        sa.in6.sin6_scope_id = ifindex;
+
+                fd = connect_mptcp(&sa, sockaddr_len(&sa));
+                if (fd < 0)
+                        return fd;
+        } else {
+                /* Otherwise, resolve the host name, and try all returned addresses in order */
+                struct addrinfo hints = {
+                        .ai_family = AF_UNSPEC,
+                        .ai_socktype = SOCK_STREAM,
+                        .ai_flags = AI_ADDRCONFIG|AI_NUMERICSERV,
+                };
+                struct addrinfo *result = NULL;
+
+                r = getaddrinfo(host, port, &hints, &result);
+                if (r == EAI_SYSTEM)
+                        return log_error_errno(errno, "Failed to resolve host '%s': %m", host);
+                if (r != 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL),
+                                               "Failed to resolve host '%s': %s", host, gai_strerror(r));
+
+                bool tried = false;
+                for (struct addrinfo *i = result; i; i = i->ai_next) {
+                        if (!IN_SET(i->ai_family, AF_INET, AF_INET6) ||
+                            i->ai_addrlen > sizeof(union sockaddr_union))
+                                continue;
+
+                        union sockaddr_union sa = {};
+                        memcpy(&sa, i->ai_addr, i->ai_addrlen);
+
+                        tried = true;
+                        r = connect_mptcp(&sa, i->ai_addrlen);
+                        if (r >= 0)
+                                break;
+                }
+
+                freeaddrinfo(result);
+
+                if (!tried)
+                        return log_error_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL), "Host '%s' resolved to no usable addresses.", host);
+                if (r < 0)
+                        return r;
+
+                fd = r;
+        }
+
+        r = send_one_fd_iov(STDOUT_FILENO, fd, &iovec_nul_byte, /* iovlen= */ 1, /* flags= */ 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to send socket via STDOUT: %m");
+
+        log_debug("Successfully sent IP socket via STDOUT.");
+        return 0;
 }
 
 static int process_unix(const char *path) {
@@ -423,6 +539,10 @@ static int run(int argc, char* argv[]) {
         p = startswith_sep(host, "machine");
         if (p)
                 return process_machine(p, port);
+
+        p = startswith_sep(host, "mptcp");
+        if (p)
+                return process_mptcp(p, port);
 
         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Don't know how to parse host name specification: %s", host);
 }

@@ -80,8 +80,8 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_INPUT(hangUpOnDisconnect, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("If true, a hangup of the backend side of the pty (e.g. because the last process having it open closed it, or called vhangup() on it) does not release the pty, since the backend might be reopened later. Only valid in combination with the monitor and hangUpOnDisconnect flags, as the monitor connection going away then defines the lifetime of the pty. If null defaults to false."),
                 SD_VARLINK_DEFINE_INPUT(ignoreHangup, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("If true, track the dimensions of the monitor's terminal via OSC 2811 sequences on the monitor stream, and propagate the minimum dimensions of all monitors to the pty. Only valid in combination with the monitor flag. If null defaults to false."),
-                SD_VARLINK_DEFINE_INPUT(osc2811, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If true, track the dimensions of the monitor's terminal via in-band window resize notifications (CSI 2048/48) on the monitor stream, and propagate the minimum dimensions of all monitors to the pty. Only valid in combination with the monitor flag. If null defaults to false."),
+                SD_VARLINK_DEFINE_INPUT(inBandResize, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Initial settings for the terminal"),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(terminalSettings, TerminalSettings, SD_VARLINK_NULLABLE),
                 VARLINK_DEFINE_POLKIT_INPUT,
@@ -129,8 +129,8 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_INPUT(hangUpOnDisconnect, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("If true, a hangup of the backend side of the pty (e.g. because the last process having it open closed it, or called vhangup() on it) does not release the pty, since the backend might be reopened later. Only valid in combination with the monitor and hangUpOnDisconnect flags, as the monitor connection going away then defines the lifetime of the pty. If null defaults to false."),
                 SD_VARLINK_DEFINE_INPUT(ignoreHangup, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("If true, track the dimensions of the monitor's terminal via OSC 2811 sequences on the monitor stream, and propagate the minimum dimensions of all monitors to the pty. Only valid in combination with the monitor flag. If null defaults to false."),
-                SD_VARLINK_DEFINE_INPUT(osc2811, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If true, track the dimensions of the monitor's terminal via in-band window resize notifications (CSI 2048/48) on the monitor stream, and propagate the minimum dimensions of all monitors to the pty. Only valid in combination with the monitor flag. If null defaults to false."),
+                SD_VARLINK_DEFINE_INPUT(inBandResize, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Initial settings for the terminal"),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(terminalSettings, TerminalSettings, SD_VARLINK_NULLABLE),
                 VARLINK_DEFINE_POLKIT_INPUT,
@@ -159,8 +159,8 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_INPUT(trackBufferLines, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("If true, hang up the pty once this monitor connection is disconnected. If null defaults to false."),
                 SD_VARLINK_DEFINE_INPUT(hangUpOnDisconnect, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("If true, track the dimensions of the monitor's terminal via OSC 2811 sequences on the monitor stream, and propagate the minimum dimensions of all monitors to the pty. If null defaults to false."),
-                SD_VARLINK_DEFINE_INPUT(osc2811, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If true, track the dimensions of the monitor's terminal via in-band window resize notifications (CSI 2048/48) on the monitor stream, and propagate the minimum dimensions of all monitors to the pty. If null defaults to false."),
+                SD_VARLINK_DEFINE_INPUT(inBandResize, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("New settings for the terminal (not that the environment based settings will not be propagated to the backend processes)"),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(terminalSettings, TerminalSettings, SD_VARLINK_NULLABLE),
                 VARLINK_DEFINE_POLKIT_INPUT,
@@ -236,9 +236,10 @@ static SD_VARLINK_DEFINE_ERROR(TrackingNotEnabled);
 static SD_VARLINK_DEFINE_ERROR(TooManyPtys);
 static SD_VARLINK_DEFINE_ERROR(TooManyMonitors);
 
-SD_VARLINK_DEFINE_INTERFACE(
+SD_VARLINK_DEFINE_INTERFACE_FULL(
                 io_systemd_PTYBroker,
                 "io.systemd.PTYBroker",
+                SD_VARLINK_EXPERIMENTAL,
                 SD_VARLINK_INTERFACE_COMMENT("An API for acquiring a pseudo-terminal"),
                 SD_VARLINK_SYMBOL_COMMENT("Allocates a PTY pair, and configures what to do with each side."),
                 &vl_method_AcquirePty,

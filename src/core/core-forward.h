@@ -49,6 +49,7 @@ typedef struct Socket Socket;
 typedef struct SocketPeer SocketPeer;
 typedef struct TemporaryFileSystem TemporaryFileSystem;
 typedef struct Unit Unit;
+typedef struct UnitPolkitDetails UnitPolkitDetails;
 typedef struct UnitRef UnitRef;
 
 struct restrict_fs_bpf;

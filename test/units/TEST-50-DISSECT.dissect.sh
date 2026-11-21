@@ -273,6 +273,11 @@ udevadm wait --timeout=60 --settle "$loop"
                                         root-hash-signature=auto,root-hash-signature-required=yes)
 /usr/lib/systemd/systemd-veritysetup attach test-50-auto "$loop" "$MINIMAL_IMAGE.verity" "$MINIMAL_IMAGE_ROOTHASH" \
                                      root-hash-signature=auto
+# systemd-veritysetup checks whether the volume is already active before it reads the udev properties of the
+# data device. The data device has no signature, but the second attach with root-hash-signature-required=yes
+# succeeds because the volume is active.
+/usr/lib/systemd/systemd-veritysetup attach test-50-auto "$loop" "$MINIMAL_IMAGE.verity" "$MINIMAL_IMAGE_ROOTHASH" \
+                                     root-hash-signature=auto,root-hash-signature-required=yes
 /usr/lib/systemd/systemd-veritysetup detach test-50-auto
 losetup -d "$loop"
 
@@ -280,6 +285,13 @@ losetup -d "$loop"
 systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" mountpoint /run/systemd/journal/socket
 (! systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" -p BindLogSockets=no ls /run/systemd/journal/socket)
 (! systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" -p MountAPIVFS=no ls /run/systemd/journal/socket)
+
+# Test that ProtectSystem=strict does not leak the host's /run/ into a service running off a RootImage=,
+# and keeps /run/ a private writable tmpfs.
+host_run_marker="$(mktemp /run/test-50-host-run.XXXXXX)"
+systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" -p ProtectSystem=strict \
+    bash -xec "test ! -e $host_run_marker && test -w /run && [[ \"\$(stat -fc %T /run)\" == tmpfs ]]"
+rm -f "$host_run_marker"
 
 # Test that the notify socket is bind mounted to /run/host/notify in sandboxed environments and
 # $NOTIFY_SOCKET is set correctly.
@@ -1524,6 +1536,42 @@ systemd-run --wait --pipe --root-directory=/tmp/img -- grep -q 'MARKER=1' /usr/l
 # Make sure the same root file descriptor can be reused multiple times.
 systemd-run --wait --pipe --same-root-dir -p ExecStartPre=true true
 
+# Test the precedence of the root settings:
+# RootDirectoryFileDescriptor= > RootImage= > RootDirectory=.
+# The unused RootDirectory= is nonexistent, and the unused RootImage= is not an image, so the
+# service would fail if the respective setting were used.
+systemd-run --wait --pipe --root-directory=/tmp/img -p RootDirectory=/nonexistent \
+    -- grep -q 'MARKER=1' /usr/lib/os-release
+systemd-run --wait --pipe --root-directory=/tmp/img -p RootImage=/dev/null \
+    -- grep -q 'MARKER=1' /usr/lib/os-release
+# RootImage= wins over RootDirectory=: the nonexistent RootDirectory= is ignored.
+systemd-run --wait --pipe -p RootDirectory=/nonexistent -p RootImage="$MINIMAL_IMAGE.raw" \
+    -- grep -q 'MARKER=1' /usr/lib/os-release
+
+# Test RootEphemeral= with RootDirectoryFileDescriptor= and with RootDirectory=: all spawns
+# of the activation run in the same ephemeral copy (ExecStartPre= creates the file,
+# ExecStart= sees it), and the copy is discarded when the service stops.
+systemd-run --wait --pipe --root-directory=/tmp/img -p RootEphemeral=yes \
+    -p "ExecStartPre=bash -c 'touch /pre'" \
+    bash -xec '[[ -e /pre ]]'
+systemd-run --wait --pipe -p RootDirectory=/tmp/img -p RootEphemeral=yes \
+    -p "ExecStartPre=bash -c 'touch /pre'" \
+    bash -xec '[[ -e /pre ]]'
+test ! -e /tmp/img/pre
+timeout 10 bash -c 'until test -z "$(ls -A /var/lib/systemd/ephemeral-trees)"; do sleep .5; done'
+
+# Plain paths in ReadWritePaths= and friends are relative to the host's root directory,
+# '+'-prefixed paths are relative to the root directory. Both select the same path inside
+# the root, a plain path outside the root directory is ignored.
+mkdir -p /tmp/img/hoge
+systemd-run --wait --pipe -p RootDirectory=/tmp/img \
+    -p ReadOnlyPaths=/tmp/img/hoge -- bash -xec '! test -w /hoge'
+systemd-run --wait --pipe -p RootDirectory=/tmp/img \
+    -p ReadOnlyPaths=+/hoge -- bash -xec '! test -w /hoge'
+systemd-run --wait --pipe -p RootDirectory=/tmp/img \
+    -p ReadOnlyPaths=/hoge -- bash -xec 'test -w /hoge'
+rm -rf /tmp/img/hoge
+
 systemd-dissect --mtree /tmp/img >/dev/null
 systemd-dissect --list /tmp/img >/dev/null
 
@@ -1581,11 +1629,10 @@ test "$(printf '%o' "$(jq -r '.mode' <<<"$ENTRY")")" = "644"
 # A non-hardlinked entry must not have an inodeToken
 test "$(jq 'has("inodeToken")' <<<"$ENTRY")" = "false"
 
-# Empty file: size 0, sha256 of the empty input
+# Empty file: size 0, and no sha256, as it is implied by the size
 ENTRY=$(get_entry empty.txt)
 test "$(jq -r '.size' <<<"$ENTRY")" = "0"
-test "$(jq -r '.sha256' <<<"$ENTRY")" = \
-    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+test "$(jq 'has("sha256")' <<<"$ENTRY")" = "false"
 
 # Directory
 ENTRY=$(get_entry subdir)

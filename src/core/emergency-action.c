@@ -96,17 +96,13 @@ void emergency_action(
                    EMERGENCY_ACTION_KEXEC,
                    EMERGENCY_ACTION_HALT)) {
                 u = manager_get_unit(m, SPECIAL_SHUTDOWN_TARGET);
-                if (u && unit_active_or_pending(u)) {
-                        log_notice("Shutdown is already active. Skipping emergency action request %s.",
-                                   emergency_action_table[action]);
-                        return;
-                }
+                if (u && unit_active_or_pending(u))
+                        return (void) log_notice("Shutdown is already active. Skipping emergency action request %s.",
+                                                 emergency_action_table[action]);
         }
 
-        if (FLAGS_SET(flags, EMERGENCY_ACTION_IS_WATCHDOG) && !m->service_watchdogs) {
-                log_warning("Watchdog disabled! Not acting on: %s", reason);
-                return;
-        }
+        if (FLAGS_SET(flags, EMERGENCY_ACTION_IS_WATCHDOG) && !m->service_watchdogs)
+                return (void) log_warning("Watchdog disabled! Not acting on: %s", reason);
 
         switch (action) {
 

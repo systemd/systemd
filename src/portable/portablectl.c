@@ -56,7 +56,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_extension_images, strv_freep);
 COMMAND(
         "portablectl\0",
         "Attach or detach portable services in the local system.",
-        .man_pages = "portablectl(1)\0",
+        .man_page = "portablectl(1)",
         .pager_flags = &arg_pager_flags,
 );
 
@@ -891,7 +891,7 @@ static int maybe_start_stop_restart_units(
 
         /* Prefer the new EnqueueUnitJobMany() method which submits all units in a single transaction.
          * Falls back to per-unit calls on older managers (UnknownMethod) or when the new method rejects
-         * something about the request (InvalidArgs). */
+         * something about the request (InvalidArgs), or a unit refuses manual start/stop (OnlyByDependency). */
         r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "EnqueueUnitJobMany");
         if (r < 0)
                 return bus_log_create_error(r);
@@ -938,11 +938,14 @@ static int maybe_start_stop_restart_units(
                 return 0;
         }
 
-        if (!sd_bus_error_has_names(&error, SD_BUS_ERROR_UNKNOWN_METHOD, SD_BUS_ERROR_INVALID_ARGS))
+        if (!sd_bus_error_has_names(&error,
+                                    SD_BUS_ERROR_UNKNOWN_METHOD,
+                                    SD_BUS_ERROR_INVALID_ARGS,
+                                    BUS_ERROR_ONLY_BY_DEPENDENCY))
                 return log_error_errno(r, "Failed to enqueue jobs for portable services: %s",
                                        bus_error_message(&error, r));
 
-        log_debug_errno(r, "EnqueueUnitJobMany() not supported (%s), falling back to per-unit calls.",
+        log_debug_errno(r, "EnqueueUnitJobMany() failed (%s), falling back to per-unit calls.",
                         bus_error_message(&error, r));
 
         STRV_FOREACH(unit, units)

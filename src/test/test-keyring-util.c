@@ -122,19 +122,17 @@ TEST(keyring_find_by_name) {
         int r;
 
         r = keyring_find_by_name(".this-keyring-does-not-exist", getuid(), &serial);
-        if (ERRNO_IS_NEG_PRIVILEGE(r) || IN_SET(r, -ERFKILL, -ENOENT)) {
-                log_tests_skipped_errno(r, "/proc/keys not available");
-                return;
-        }
+        if (ERRNO_IS_NEG_PRIVILEGE(r) || IN_SET(r, -ERFKILL, -ENOENT))
+                return (void) log_tests_skipped_errno(r, "/proc/keys not available");
+
         ASSERT_ERROR(r, ENOKEY);
 
         /* Keyrings the process possesses show up in /proc/keys. A leftover of a crashed run may linger. */
         xsprintf(name, "test-keyring-util-find-" PID_FMT, getpid());
         ring = add_key("keyring", name, /* payload= */ NULL, /* plen= */ 0, KEY_SPEC_THREAD_KEYRING);
-        if (ring < 0) {
-                log_tests_skipped_errno(errno, "Cannot create keyring");
-                return;
-        }
+        if (ring < 0)
+                return (void) log_tests_skipped_errno(errno, "Cannot create keyring");
+
         ASSERT_OK(keyring_find_by_name(name, getuid(), &serial));
         ASSERT_EQ(serial, ring);
         ASSERT_OK(keyring_find_by_name(name, UID_INVALID, &serial));
@@ -185,18 +183,16 @@ TEST(keyring_find_by_name_at) {
         /* The host root behaves like keyring_find_by_name() */
         ASSERT_OK(root_fd = xopenat(AT_FDCWD, "/", O_PATH|O_DIRECTORY));
         r = keyring_find_by_name_at(root_fd, ".this-keyring-does-not-exist", getuid(), &serial);
-        if (ERRNO_IS_NEG_PRIVILEGE(r) || IN_SET(r, -ERFKILL, -ENOENT)) {
-                log_tests_skipped_errno(r, "/proc/keys not available");
-                return;
-        }
+        if (ERRNO_IS_NEG_PRIVILEGE(r) || IN_SET(r, -ERFKILL, -ENOENT))
+                return (void) log_tests_skipped_errno(r, "/proc/keys not available");
+
         ASSERT_ERROR(r, ENOKEY);
 
         xsprintf(name, "test-keyring-util-find-at-" PID_FMT, getpid());
         ring = add_key("keyring", name, /* payload= */ NULL, /* plen= */ 0, KEY_SPEC_THREAD_KEYRING);
-        if (ring < 0) {
-                log_tests_skipped_errno(errno, "Cannot create keyring");
-                return;
-        }
+        if (ring < 0)
+                return (void) log_tests_skipped_errno(errno, "Cannot create keyring");
+
         ASSERT_OK(keyring_find_by_name_at(root_fd, name, getuid(), &serial));
         ASSERT_EQ(serial, ring);
         ASSERT_OK(keyring_find_by_name_at(XAT_FDROOT, name, getuid(), &serial));
@@ -243,10 +239,8 @@ TEST(keyring_ops) {
 
         /* A private keyring in the thread keyring suffices, no privileges needed */
         ring = add_key("keyring", "test-keyring-util", /* payload= */ NULL, /* plen= */ 0, KEY_SPEC_THREAD_KEYRING);
-        if (ring < 0) {
-                log_tests_skipped_errno(errno, "Cannot create keyring");
-                return;
-        }
+        if (ring < 0)
+                return (void) log_tests_skipped_errno(errno, "Cannot create keyring");
 
         ASSERT_OK(keyring_list(ring, /* ret= */ NULL, &n));
         ASSERT_EQ(n, 0u);
@@ -281,10 +275,9 @@ TEST(keyring_ops) {
         /* The restriction of systemd-keyring-setup admits asymmetric keys signed by a member only, and
          * cannot be replaced */
         r = keyring_restrict(ring, "asymmetric", "key_or_keyring:0:chain");
-        if (IN_SET(r, -ENOKEY, -ENOENT)) {
-                log_tests_skipped_errno(r, "Kernel lacks asymmetric keys");
-                return;
-        }
+        if (IN_SET(r, -ENOKEY, -ENOENT))
+                return (void) log_tests_skipped_errno(r, "Kernel lacks asymmetric keys");
+
         ASSERT_OK(r);
         ASSERT_ERROR(keyring_restrict(ring, "asymmetric", "key_or_keyring:0:chain"), EEXIST);
         ASSERT_ERROR_ERRNO(add_key("user", "test-key-2", "y", 1, ring), EOPNOTSUPP);

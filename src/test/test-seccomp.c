@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <sys/eventfd.h>
 #include <sys/mman.h>
+#include <sys/mount.h>
 #include <sys/personality.h>
 #include <sys/ptrace.h>
 #include <sys/shm.h>
@@ -376,6 +377,39 @@ TEST(restrict_namespace) {
                 ASSERT_ERROR_ERRNO(raw_clone(CLONE_NEWIPC), EPERM);
                 ASSERT_ERROR_ERRNO(raw_clone(CLONE_NEWNET|CLONE_NEWUTS), EPERM);
 
+                /* Mount namespaces are retained, hence the mount API is not restricted: the kernel refuses
+                 * the invalid file descriptors with EBADF, while the filter would refuse them with EPERM. */
+                ASSERT_ERROR_ERRNO(open_tree(-EBADF, "x", OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC), EBADF);
+                ASSERT_ERROR_ERRNO(fsmount(-EBADF, /* flags= */ 0, /* attr_flags= */ 0), EBADF);
+
+                /* Neither are empty mount namespaces (EINVAL on kernels not supporting them). This moves us
+                 * into a new mount namespace, hence do it last. */
+                ASSERT_OK_OR(RET_NERRNO(unshare(UNSHARE_EMPTY_MNTNS)), -EINVAL);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        r = ASSERT_OK(pidref_safe_fork("(restrict-namespace-mount-api)", FORK_LOG|FORK_WAIT, /* ret= */ NULL));
+        if (r == 0) {
+                ASSERT_OK(seccomp_restrict_namespaces(CLONE_NEWNET));
+
+                /* open_tree() without OPEN_TREE_CLONE does not create a mount namespace. */
+                safe_close(ASSERT_OK_ERRNO(open_tree(AT_FDCWD, "/", OPEN_TREE_CLOEXEC)));
+
+                /* Anonymous and regular mount namespaces are prohibited. Without the filter, the kernel
+                 * would refuse the invalid file descriptors with EBADF. */
+                ASSERT_ERROR_ERRNO(open_tree(-EBADF, "x", OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC), EPERM);
+                ASSERT_ERROR_ERRNO(open_tree(-EBADF, "x", OPEN_TREE_NAMESPACE|OPEN_TREE_CLOEXEC), EPERM);
+                ASSERT_ERROR_ERRNO(open_tree_attr(-EBADF, "x", OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC,
+                                                  /* attr= */ NULL, /* size= */ 0),
+                                   EPERM);
+                ASSERT_ERROR_ERRNO(open_tree_attr(-EBADF, "x", OPEN_TREE_NAMESPACE|OPEN_TREE_CLOEXEC,
+                                                  /* attr= */ NULL, /* size= */ 0),
+                                   EPERM);
+                ASSERT_ERROR_ERRNO(fsmount(-EBADF, /* flags= */ 0, /* attr_flags= */ 0), EPERM);
+                ASSERT_ERROR_ERRNO(fsmount(-EBADF, FSMOUNT_NAMESPACE, /* attr_flags= */ 0), EPERM);
+                ASSERT_ERROR_ERRNO(unshare(UNSHARE_EMPTY_MNTNS), EPERM);
+
                 _exit(EXIT_SUCCESS);
         }
 }
@@ -585,10 +619,8 @@ TEST(memory_deny_write_execute_mmap) {
         CHECK_SECCOMP(/* skip_container= */ false);
 
 #if HAVE_VALGRIND_VALGRIND_H
-        if (RUNNING_ON_VALGRIND) {
-                log_notice("Running on valgrind, skipping %s", __func__);
-                return;
-        }
+        if (RUNNING_ON_VALGRIND)
+                return (void) log_notice("Running on valgrind, skipping %s", __func__);
 #endif
 #if HAS_FEATURE_ADDRESS_SANITIZER
         log_notice("Running on address sanitizer, skipping %s", __func__);
@@ -645,10 +677,8 @@ TEST(memory_deny_write_execute_shmat) {
         CHECK_SECCOMP(/* skip_container= */ false);
 
 #if HAVE_VALGRIND_VALGRIND_H
-        if (RUNNING_ON_VALGRIND) {
-                log_notice("Running on valgrind, skipping %s", __func__);
-                return;
-        }
+        if (RUNNING_ON_VALGRIND)
+                return (void) log_notice("Running on valgrind, skipping %s", __func__);
 #endif
 #if HAS_FEATURE_ADDRESS_SANITIZER
         log_notice("Running on address sanitizer, skipping %s", __func__);

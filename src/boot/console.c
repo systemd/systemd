@@ -576,10 +576,8 @@ static const char16_t *serial_console_arg(uint32_t index) {
 void cmdline_append_console(char16_t **cmdline) {
         assert(cmdline);
 
-        if (*cmdline && (efi_fnmatch(u"console=*", *cmdline) || efi_fnmatch(u"* console=*", *cmdline))) {
-                log_debug("Kernel command line already contains console=, not adding one.");
-                return;
-        }
+        if (*cmdline && (efi_fnmatch(u"console=*", *cmdline) || efi_fnmatch(u"* console=*", *cmdline)))
+                return (void) log_debug("Kernel command line already contains console=, not adding one.");
 
         const char16_t *console_args[3];
         size_t n_console_args = 0;
@@ -600,10 +598,8 @@ void cmdline_append_console(char16_t **cmdline) {
                 console_args[n_console_args++] = u"console=hvc0";
         }
 
-        if (n_console_args == 0) {
-                log_debug("No serial or VirtIO console found, not adding console= to kernel command line.");
-                return;
-        }
+        if (n_console_args == 0)
+                return (void) log_debug("No serial or VirtIO console found, not adding console= to kernel command line.");
 
         /* Keep the graphical console enabled, as the main one, when adding other consoles. */
         if (has_graphics_output()) {

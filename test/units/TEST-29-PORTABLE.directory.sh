@@ -37,6 +37,28 @@ ln -s /tmp/portable-host-unit /tmp/symlink-unit/usr/lib/systemd/system/minimal-a
 (! portablectl inspect --cat /tmp/symlink-unit minimal-app0.service)
 rm -f /tmp/portable-host-unit
 
+# Refusing to start one unit must not prevent the other units from being started.
+rm -rf /tmp/refuse-manual-start
+cp -a /tmp/minimal_0 /tmp/refuse-manual-start
+cat >/tmp/refuse-manual-start/usr/lib/systemd/system/minimal-app0-refuse.service <<EOF
+[Unit]
+RefuseManualStart=yes
+
+[Service]
+ExecStart=sleep 120
+EOF
+
+for verb in attach reattach; do
+    portablectl "${ARGS[@]}" "$verb" --copy=symlink --now --runtime /tmp/refuse-manual-start minimal-app0
+    systemctl is-active minimal-app0.service
+    systemctl is-active minimal-app0-foo.service
+    assert_eq "$(systemctl show --property=ActiveState --value minimal-app0-refuse.service)" inactive
+    systemctl stop minimal-app0.service minimal-app0-foo.service
+done
+
+portablectl detach --now --runtime /tmp/refuse-manual-start minimal-app0
+rm -rf /tmp/refuse-manual-start
+
 portablectl "${ARGS[@]}" attach --copy=symlink --now --runtime /tmp/minimal_0 minimal-app0
 
 systemctl is-active minimal-app0.service

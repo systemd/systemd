@@ -14,7 +14,6 @@ Checks: '
     bugprone-suspicious-semicolon,
     bugprone-suspicious-string-compare,
     bugprone-swapped-arguments,
-    bugprone-tautological-type-limits,
     bugprone-unsafe-functions,
     bugprone-unused-return-value,
     misc-header-include-cycle,

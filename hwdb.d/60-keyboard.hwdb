@@ -707,6 +707,10 @@ evdev:atkbd:dmi:*:svnHP:pnHPOmniBookUltraFlipLaptop14-fh0xxx:*
  KEYBOARD_KEY_82=unknown                                # Mic mute, handled by hp-wmi
  KEYBOARD_KEY_ab=!unknown                               # Brightness Down and Up keys, handled by acpi-video
 
+# HP Laptop 15-fc0xxx (board 8DC7)
+evdev:atkbd:dmi:*:svnHP:pnHPLaptop15-fc0xxx:*:rn8DC7:*
+ KEYBOARD_KEY_ab=!unknown                               # Extra scancode from both brightness keys
+
 # Pavilion
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*[pP][aA][vV][iI][lL][iI][oO][nN]*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pn*[pP][aA][vV][iI][lL][iI][oO][nN]*:*

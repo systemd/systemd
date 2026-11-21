@@ -52,7 +52,7 @@ COMMAND(
                 "--machine-id\0"
                 "--product-id\0"
                 "--login=UID|USER\0",
-        .man_pages = "systemd-pcrextend(8)\0",
+        .man_page = "systemd-pcrextend(8)",
 );
 
 #define EXTENSION_STRING_SAFE_LIMIT 1024
@@ -592,9 +592,9 @@ static int run(int argc, char *argv[]) {
         }
 
         if (arg_nvpcr_name)
-                r = extend_nvpcr_now(arg_nvpcr_name, &IOVEC_MAKE(word, strlen(word)), /* secret= */ NULL, event);
+                r = extend_nvpcr_now(arg_nvpcr_name, &IOVEC_MAKE_STRING(word), /* secret= */ NULL, event);
         else
-                r = extend_pcr_now(arg_pcr_mask, &IOVEC_MAKE(word, strlen(word)), /* secret= */ NULL, event);
+                r = extend_pcr_now(arg_pcr_mask, &IOVEC_MAKE_STRING(word), /* secret= */ NULL, event);
         /* Both extend paths report "TPM cannot be used for this measurement" (no PCR bank, missing crypto,
          * no TPM device — see tpm2_context_new_for_measurement()) as -EOPNOTSUPP. Under --graceful we skip
          * those rather than fail and block boot. Genuine faults keep their own errno and are never

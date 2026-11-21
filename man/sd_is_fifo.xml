@@ -184,7 +184,12 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_is_special()</function> was added in version 209.</para>
+    <para><function>sd_is_fifo()</function>,
+    <function>sd_is_socket()</function>,
+    <function>sd_is_socket_inet()</function>, and
+    <function>sd_is_socket_unix()</function> were added in version 1.</para>
+    <para><function>sd_is_mq()</function> was added in version 27.</para>
+    <para><function>sd_is_special()</function> was added in version 30.</para>
     <para><function>sd_is_socket_sockaddr()</function> was added in version 233.</para>
   </refsect1>
 

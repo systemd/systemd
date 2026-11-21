@@ -4,6 +4,7 @@
 #include "sd-json.h"
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "hashmap.h"
 #include "home-util.h"
@@ -26,7 +27,9 @@ int bus_message_read_secret(sd_bus_message *m, UserRecord **ret, sd_bus_error *e
 
         r = sd_json_parse(json, SD_JSON_PARSE_SENSITIVE|SD_JSON_PARSE_MUST_BE_OBJECT, &v, &line, &column);
         if (r < 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Failed to parse JSON secret record at %u:%u: %m", line, column);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                         "Failed to parse JSON secret record at %u:%u: %s",
+                                         line, column, STRERROR(r));
 
         r = sd_json_buildo(&full, SD_JSON_BUILD_PAIR_VARIANT("secret", v));
         if (r < 0)
@@ -59,7 +62,9 @@ int bus_message_read_home_record(sd_bus_message *m, UserRecordLoadFlags flags, U
 
         r = sd_json_parse(json, SD_JSON_PARSE_SENSITIVE|SD_JSON_PARSE_MUST_BE_OBJECT, &v, &line, &column);
         if (r < 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Failed to parse JSON identity record at %u:%u: %m", line, column);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                         "Failed to parse JSON identity record at %u:%u: %s",
+                                         line, column, STRERROR(r));
 
         hr = user_record_new();
         if (!hr)
@@ -110,8 +115,7 @@ int bus_message_read_blobs(sd_bus_message *m, Hashmap **ret, sd_bus_error *error
                 if (fd < 0)
                         return -errno;
 
-                r = suitable_blob_filename(filename);
-                if (r < 0)
+                if (!suitable_blob_filename(filename))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid blob directory filename: %s", filename);
 
                 r = fd_verify_regular(fd);

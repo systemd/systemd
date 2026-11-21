@@ -32,10 +32,9 @@ void password_cache_load_keyring(UserRecord *h, PasswordCache *cache) {
 
         serial = request_key("user", name, /* callout_info= */ NULL, /* destringid= */ 0);
         if (serial == -1) {
-                if (errno == ENOKEY) {
-                        log_info("Home volume key is not available in kernel keyring.");
-                        return;
-                }
+                if (errno == ENOKEY)
+                        return (void) log_info("Home volume key is not available in kernel keyring.");
+
                 return (void) log_warning_errno(errno, "Failed to request key '%s', ignoring: %m", name);
         }
 

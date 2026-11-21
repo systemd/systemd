@@ -183,7 +183,11 @@
     <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     is responsible for processing the GPT partition table and making use of the included discoverable
     partitions. It accepts an image policy via the kernel command line option
-    <option>systemd.image_policy=</option>.</para>
+    <option>systemd.image_policy=</option>.
+    <citerefentry><refentrytitle>systemd-veritysetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    reads the same option. If the policy allows <option>signed</option> but not <option>verity</option>
+    for the root or <filename>/usr/</filename> partition, it requires a validated root hash signature for
+    the device of <varname>roothash=</varname> or <varname>usrhash=</varname>.</para>
 
     <para>Note that image policies do not dictate how the components will mount and use disk images — they
     only dictate which parts to avoid and which protection level and arrangement to require while
@@ -233,6 +237,7 @@
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-dissect</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-veritysetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
     </simplelist></para>

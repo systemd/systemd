@@ -816,8 +816,14 @@ units = [
           'file' : 'systemd-pstore.service.in',
           'conditions' : ['ENABLE_PSTORE'],
         },
-        { 'file' : 'systemd-ptybrokerd.service.in' },
-        { 'file' : 'systemd-ptybrokerd.socket' },
+        {
+          'file' : 'systemd-ptybrokerd.service.in',
+          'conditions' : ['ENABLE_PTYBROKER'],
+        },
+        {
+          'file' : 'systemd-ptybrokerd.socket',
+          'conditions' : ['ENABLE_PTYBROKER'],
+        },
         {
           'file' : 'systemd-quotacheck@.service.in',
           'conditions' : ['ENABLE_QUOTACHECK'],
@@ -901,6 +907,14 @@ units = [
         },
         {
           'file' : 'systemd-report-netstat@.service.in',
+          'conditions' : ['ENABLE_REPORT'],
+        },
+        {
+          'file' : 'systemd-report-power-source.socket',
+          'conditions' : ['ENABLE_REPORT'],
+        },
+        {
+          'file' : 'systemd-report-power-source@.service.in',
           'conditions' : ['ENABLE_REPORT'],
         },
         {

@@ -7,20 +7,20 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 # Steps to a Successful Release
 
-1. Add all items to NEWS
-2. Update the contributors list in NEWS (`ninja -C build git-contrib`)
-3. Update the time and place in NEWS
-4. Update hwdb (`ninja -C build update-hwdb`, `ninja -C build update-hwdb-autosuspend`, commit separately).
-5. Update syscall numbers (`ninja -C build update-syscall-tables update-syscall-header`).
-6. [RC1] Update library numbers in `meson.build`
-7. [RC1] Switch `versionrewrite-pattern` and `versionrewrite-replacement` to RC mode in https://build.opensuse.org/projects/system:systemd/packages/systemd/files/_service?expand=1
-8. Update version number in `meson.version` (e.g. from `256~devel` to `256~rc1` or from `256~rc3` to `256`). Note that this uses a tilde (\~) instead of a hyphen (-) because tildes sort lower in version comparisons according to the [UAPI.10 Version Format Specification](https://uapi-group.org/specifications/specs/version_format_specification/), and we want `255~rc1` to sort lower than `255`.
-9. Check dbus docs with `ninja -C build update-dbus-docs`
-10. Check manpages list with `ninja -C build update-man-rules`
-11. Update translation strings (`ninja -C build systemd-pot`, `ninja -C build systemd-update-po`) - drop the header comments from `systemd.pot` + re-add SPDX before committing. If the only change in a file is the 'POT-Creation-Date' field, then ignore that file.
-12. Tag the release: `version="v$(sed 's/~/-/g' meson.version)" && git tag -s "${version}" -m "systemd ${version}"` (tildes are replaced with hyphens, because git doesn't accept the former).
-13. Do `ninja -C build`
-14. Make sure that the version string and package string match: `build/systemctl --version`
+1. Update hwdb (`ninja -C build update-hwdb`, `ninja -C build update-hwdb-autosuspend`, commit separately).
+2. Update syscall numbers (`ninja -C build update-syscall-tables update-syscall-header`).
+3. Check dbus docs with `ninja -C build update-dbus-docs`
+4. Check manpages list with `ninja -C build update-man-rules`
+5. Update translation strings (`ninja -C build systemd-pot`, `ninja -C build systemd-update-po`) - drop the header comments from `systemd.pot` + re-add SPDX before committing. If the only change in a file is the 'POT-Creation-Date' field, then ignore that file.
+6. Add all items to NEWS
+7. Update the contributors list in NEWS (`ninja -C build git-contrib`)
+8. Update the time and place in NEWS
+9. [RC1] Update library numbers in `meson.build`
+10. Update version number in `meson.version` (e.g. from `256~devel` to `256~rc1` or from `256~rc3` to `256`). Note that this uses a tilde (\~) instead of a hyphen (-) because tildes sort lower in version comparisons according to the [UAPI.10 Version Format Specification](https://uapi-group.org/specifications/specs/version_format_specification/), and we want `255~rc1` to sort lower than `255`.
+11. Tag the release: `version="v$(sed 's/~/-/g' meson.version)" && git tag -s "${version}" -m "systemd ${version}"` (tildes are replaced with hyphens, because git doesn't accept the former).
+12. Do `ninja -C build`
+13. Make sure that the version string and package string match: `build/systemctl --version`
+14. Build and upload the documentation (on the main branch): `ninja -C build doc-sync`
 15. [FINAL] Close the github milestone and open a new one (https://github.com/systemd/systemd/milestones)
 16. "Draft" a new release on github (https://github.com/systemd/systemd/releases/new), mark "This is a pre-release" if appropriate.
 17. Check that announcement to systemd-devel, with a copy&paste from NEWS, was sent. This should happen automatically.
@@ -31,10 +31,9 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 22. [FINAL] Create a new `ci/v${version}-stable` branch for deb package builds on https://github.com/systemd/systemd-deb
 23. [FINAL] Switch `.semaphore/semaphore-runner.sh` and the `debian.branch` field in `tools/packaging.json`
     to the new `ci/v${version}-stable` branch on the -stable branch
-24. [FINAL] Switch `versionrewrite-pattern` and `versionrewrite-replacement` to release mode in https://build.opensuse.org/projects/system:systemd/packages/systemd/files/_service?expand=1
-25. [FINAL] Change the Github Pages branch to the newly created branch (https://github.com/systemd/systemd/settings/pages) and set the 'Custom domain' to 'systemd.io'
-26. [FINAL] Update version number in `meson.version` to the devel version of the next release (e.g. from `256` to `257~devel`)
-27. [FINAL] Build and upload the documentation (on the main branch): `ninja -C build doc-sync`
+24. [FINAL] Change the Github Pages branch to the newly created branch (https://github.com/systemd/systemd/settings/pages) and set the 'Custom domain' to 'systemd.io'
+25. [FINAL] Update version number in `meson.version` to the devel version of the next release (e.g. from `256` to `257~devel`)
+26. [FINAL] Build and upload the documentation (on the main branch): `ninja -C build doc-sync`
 
 # Steps to a Successful Stable Release
 

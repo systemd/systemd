@@ -8,9 +8,9 @@ set -o pipefail
 # Talks the Varlink protocol (and the upgraded raw monitor stream) directly, so
 # that every byte travelling monitor→broker is under the test's control. Covers
 # plain keystrokes, an ANSI sequence split across two reads (which the broker
-# must hold back and reinsert intact), OSC 2811 replies (which must be excised
-# from the stream and applied to the PTY), and back-pressure once the payload
-# stops reading.
+# must hold back and reinsert intact), CSI 2048/48 window size reports (which must
+# be excised from the stream and applied to the PTY), and back-pressure once the
+# payload stops reading.
 
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
@@ -67,10 +67,14 @@ BUFFER_MAX = 4 * 1024 * 1024
 
 OSC = b'\x1b]'
 ST = b'\x1b\\'
+CSI = b'\x1b['
+
+# CSI 2048/48 (in-band window resize notifications)
+ENABLE_REPORTS = CSI + b'?2048h'
 
 
-def osc2811(*fields):
-    return OSC + b';'.join((b'2811',) + fields) + ST
+def size_report(lines, columns, height_pixels=0, width_pixels=0):
+    return CSI + b'48;%d;%d;%d;%dt' % (lines, columns, height_pixels, width_pixels)
 
 
 def get_size(fd):
@@ -125,7 +129,7 @@ sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 sock.connect('/run/systemd/io.systemd.PTYBroker')
 sock.sendall(json.dumps({
     'method': 'io.systemd.PTYBroker.MonitorPty',
-    'parameters': {'name': NAME, 'osc2811': True},
+    'parameters': {'name': NAME, 'inBandResize': True},
     'upgrade': True,
 }).encode() + b'\0')
 
@@ -184,13 +188,12 @@ def send(data):
 bfd = os.open(BACKEND, os.O_RDONLY | os.O_NOCTTY | os.O_CLOEXEC)
 wait_for_raw_mode()
 
-# The broker must ask us for our dimensions right away, declaring that it doesn't know them yet…
-expect_sequence(osc2811(b'?', b'columns=0', b'lines=0'))
+# The broker must enable window size reports right away…
+expect_sequence(ENABLE_REPORTS)
 
-# … apply what we report, and then resubscribe declaring the dimensions it just learnt
-send(osc2811(b'columns=80', b'lines=24'))
+# … and apply what we report
+send(size_report(24, 80))
 wait_for_size(24, 80)
-expect_sequence(osc2811(b'?', b'columns=80', b'lines=24'))
 
 expected = b''  # Everything the payload should have received so far
 
@@ -200,8 +203,8 @@ send(marker)
 expected += marker
 assert wait_for_received(marker) == expected
 
-# An ANSI sequence other than OSC 2811 must reach the payload intact, even if it arrives at the broker in
-# two parts: the broker cannot know whether to excise a sequence before it has seen its end, hence must
+# An ANSI sequence other than a size report must reach the payload intact, even if it arrives at the broker
+# in two parts: the broker cannot know whether to excise a sequence before it has seen its end, hence must
 # hold the incomplete part back meanwhile, and reinsert it once the rest arrives.
 seq = OSC + b'52;c;cHR5OTU=' + ST
 send(seq[:8])
@@ -213,21 +216,21 @@ send(marker)
 expected += seq + marker
 assert wait_for_received(marker) == expected
 
-# An OSC 2811 report on the other hand must be excised from the stream (also if it arrives in two parts),
-# and its dimensions applied to the pty, after which the broker resubscribes
-seq = osc2811(b'columns=100', b'lines=40')
-send(seq[:10])
+# A size report on the other hand must be excised from the stream (also if it arrives in two parts, and
+# carries sub-parameters), and its dimensions applied to the pty
+seq = CSI + b'48;40:1;100;800;1000t'
+send(seq[:6])
 time.sleep(0.5)
-send(seq[10:])
+send(seq[6:])
 marker = b'hello-pty96-input-marker-3\n'
 send(marker)
 expected += marker
 assert wait_for_received(marker) == expected
 wait_for_size(40, 100)
-expect_sequence(osc2811(b'?', b'columns=100', b'lines=40'))
 
-# An OSC 2811 request (as opposed to a report) is not addressed to the broker, and must pass through
-seq = osc2811(b'?', b'columns=1', b'lines=1')
+# Other CSI sequences, including other XTWINOPS reports and the enable request itself, are not addressed to
+# the broker, and must pass through
+seq = CSI + b'8;1;1t' + ENABLE_REPORTS
 send(seq)
 marker = b'hello-pty96-input-marker-4\n'
 send(marker)

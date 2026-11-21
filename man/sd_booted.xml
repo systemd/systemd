@@ -58,6 +58,11 @@
   </refsect1>
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_booted()</function> was added in version 1.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
