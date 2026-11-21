@@ -2990,8 +2990,8 @@ testcase_varlink_subscribe_devices() {
     mark=$(expect_event "\"action\":\"add\".*\"node\":\"$loop\"" "$mark") || return 1
 
     # === Test 3: detaching the loopback produces a "remove" event ===
+    # Wait for the subscriber's event, not for /dev/loopN to disappear: the number can already be reused.
     systemd-dissect --detach "$loop"
-    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --removed --settle "$loop"
     mark=$(expect_event "\"action\":\"remove\".*\"node\":\"$loop\"" "$mark") || return 1
     loop=""
 
@@ -3002,7 +3002,6 @@ testcase_varlink_subscribe_devices() {
         mark=$(expect_event "\"action\":\"add\".*\"node\":\"$loop\"" "$mark") || return 1
 
         systemd-dissect --detach "$loop"
-        udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --removed --settle "$loop"
         mark=$(expect_event "\"action\":\"remove\".*\"node\":\"$loop\"" "$mark") || return 1
         loop=""
     done
@@ -3019,12 +3018,10 @@ testcase_varlink_subscribe_devices() {
     mark=$(expect_event "\"action\":\"add\".*\"node\":\"$loop2\"" "$mark") || return 1
 
     systemd-dissect --detach "$loop2"
-    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --removed --settle "$loop2"
     mark=$(expect_event "\"action\":\"remove\".*\"node\":\"$loop2\"" "$mark") || return 1
     loop2=""
 
     systemd-dissect --detach "$loop"
-    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --removed --settle "$loop"
     mark=$(expect_event "\"action\":\"remove\".*\"node\":\"$loop\"" "$mark") || return 1
     loop=""
 

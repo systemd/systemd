@@ -22,6 +22,7 @@ MEASURE=/usr/lib/systemd/systemd-measure
 SD_PCRLOCK=/usr/lib/systemd/systemd-pcrlock
 PCRLOCK_UKI=/var/lib/pcrlock.d/650-uki.pcrlock.d/multi-profile.pcrlock
 PCRLOCK_POLICY=/var/lib/systemd/pcrlock.json
+PCRLOCK_SHIM=/var/lib/pcrlock.d/625-shim.pcrlock.d/test86.pcrlock
 PCRLOCK_LOADER=/var/lib/pcrlock.d/630-boot-loader-code.pcrlock.d/test86.pcrlock
 PCRLOCK_ADDON=/var/lib/pcrlock.d/660-addon.pcrlock
 # This policy covers PCR 4 and PCR 7, but not PCR 11.
@@ -307,8 +308,15 @@ if [[ "$ID" == "main" ]]; then
 
         # The firmware measures the boot loader, the UKI and the global addon into PCR 4, and the result is
         # the same for every profile of the UKI.
-        "$SD_PCRLOCK" lock-pe --pcrlock="$PCRLOCK_LOADER" "$(bootctl --print-loader-path)"
-        "$SD_PCRLOCK" lock-pe --pcrlock="$PCRLOCK_ADDON" "$(bootctl --print-esp-path)/loader/addons/test.addon.efi"
+        esp=$(bootctl --print-esp-path)
+        loader=$(bootctl --print-loader-path)
+        # With shim, mkosi installs systemd-boot as grub*.efi and the firmware measures shim first.
+        if [[ "${loader,,}" == */efi/boot/grub*.efi ]]; then
+            arch=$(bootctl --print-efi-architecture)
+            "$SD_PCRLOCK" lock-pe --pcrlock="$PCRLOCK_SHIM" "$esp/EFI/BOOT/BOOT${arch^^}.EFI"
+        fi
+        "$SD_PCRLOCK" lock-pe --pcrlock="$PCRLOCK_LOADER" "$loader"
+        "$SD_PCRLOCK" lock-pe --pcrlock="$PCRLOCK_ADDON" "$esp/loader/addons/test.addon.efi"
         "$SD_PCRLOCK" lock-secureboot-policy
         "$SD_PCRLOCK" lock-secureboot-authority
         "$SD_PCRLOCK" log --pcr=4+7
@@ -379,6 +387,7 @@ elif [[ "$ID" == "Profile2" ]]; then
 
         rm "$PCRLOCK_IMAGE"
         "$SD_PCRLOCK" remove-policy --policy="$PCRLOCK_POLICY_PCR4"
+        "$SD_PCRLOCK" unlock-pe --pcrlock="$PCRLOCK_SHIM"
         "$SD_PCRLOCK" unlock-pe --pcrlock="$PCRLOCK_LOADER"
         "$SD_PCRLOCK" unlock-pe --pcrlock="$PCRLOCK_ADDON"
         "$SD_PCRLOCK" unlock-secureboot-policy
