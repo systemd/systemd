@@ -603,6 +603,36 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>MakeMountNode=</varname></term>
+
+        <listitem><para>Takes one or more absolute paths, separated by whitespace, each declaring a directory
+        to create within the new file system that is intended to be over-mounted by another file system.
+        Behaviour is similar to <varname>MakeDirectories=</varname>, but the specified directories are
+        created with an access mode of 0000 and the immutable file attribute (see
+        <citerefentry project='man-pages'><refentrytitle>chattr</refentrytitle><manvolnum>1</manvolnum></citerefentry>)
+        set on them, if the file system supports it. This makes the directories unusable unless they are
+        properly over-mounted, so that no files may accidentally be placed in them, for example if the file
+        system that shall be mounted on them is missing. Missing parent directories are created like with
+        <varname>MakeDirectories=</varname>, i.e. with an access mode of 0755. If a listed directory already
+        exists (for example because it has been created via <varname>CopyFiles=</varname> or
+        <varname>MakeDirectories=</varname>), it must be empty, and its access mode is adjusted. This option
+        may be used more than once.</para>
+
+        <para>For example, a root file system might use <literal>MakeMountNode=/usr /home /srv</literal> to
+        create the mount points for the respective partitions.</para>
+
+        <para>Note that the immutable attribute is only set if the file system is populated by mounting it
+        (i.e. with <option>--offline=no</option>), as it is not carried over by
+        <command>mkfs</command> when the file system is populated from a staging directory. Moreover, if the
+        file system is populated from a staging directory and <command>systemd-repart</command> runs without
+        the <constant>CAP_DAC_READ_SEARCH</constant> capability, the directories are created with an access
+        mode of 0500 instead of 0000, as <command>mkfs</command> would otherwise be unable to read
+        them.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>MakeSymlinks=</varname></term>
 
         <listitem><para>Takes one or more arguments, separated by whitespace, each declaring a symlink to
@@ -1001,7 +1031,7 @@
         the <option>--manifest</option> option of
         <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry> is
         used. The manifest describes the file system tree the partition was populated with (via
-        <varname>CopyFiles=</varname>, <varname>MakeDirectories=</varname>, <varname>MakeSymlinks=</varname>),
+        <varname>CopyFiles=</varname>, <varname>MakeDirectories=</varname>, <varname>MakeMountNode=</varname>, <varname>MakeSymlinks=</varname>),
         in the <ulink url="https://uapi-group.org/specifications/specs/file_manifest/">UAPI.16 File
         Manifest</ulink> format, i.e. what
         <citerefentry><refentrytitle>systemd-manifest</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -1323,7 +1353,7 @@
     <title>Specifiers</title>
 
     <para>Specifiers may be used in the <varname>Label=</varname>, <varname>CopyBlocks=</varname>,
-    <varname>CopyFiles=</varname>, <varname>MakeDirectories=</varname>, <varname>MakeSymlinks=</varname>,
+    <varname>CopyFiles=</varname>, <varname>MakeDirectories=</varname>, <varname>MakeMountNode=</varname>, <varname>MakeSymlinks=</varname>,
     <varname>SplitName=</varname>, <varname>ManifestName=</varname> settings. The following expansions are
     understood:</para>
       <table class='specifiers'>

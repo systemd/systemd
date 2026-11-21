@@ -2560,6 +2560,62 @@ EOF
     systemd-dissect -U "$imgs/mnt"
 }
 
+testcase_make_mount_node() {
+    local defs imgs epoch
+
+    if systemd-detect-virt --quiet --container; then
+        echo "Skipping MakeMountNode= test in container."
+        return
+    fi
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod 0755 "$defs"
+
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=root
+Format=ext4
+MakeDirectories=/existing
+MakeMountNode=/usr /home /existing /a/b/c
+EOF
+
+    epoch=1700000000
+
+    env SOURCE_DATE_EPOCH="$epoch" \
+        systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --empty=create \
+                   --size=1G \
+                   --dry-run=no \
+                   --json=pretty \
+                   "$imgs/zzz"
+
+    systemd-dissect "$imgs/zzz" -M "$imgs/mnt"
+
+    for d in usr home existing a/b/c; do
+        assert_eq "$(stat -c %F:%a "$imgs/mnt/$d")" "directory:0"
+        assert_eq "$(stat -c %Y "$imgs/mnt/$d")" "$epoch"
+        assert_eq "$(find "$imgs/mnt/$d" -mindepth 1 | wc -l)" "0"
+    done
+
+    # Parent directories are created with the usual MakeDirectories= mode
+    assert_eq "$(stat -c %a "$imgs/mnt/a/b")" "755"
+
+    # The immutable flag is only set when populating the mounted file system, mkfs does not carry it over
+    # from a staging directory.
+    if [[ "$OFFLINE" == "no" ]]; then
+        for d in usr home existing a/b/c; do
+            [[ "$(lsattr -d "$imgs/mnt/$d" | cut -d " " -f1)" == *i* ]]
+        done
+        (! mkdir "$imgs/mnt/usr/foo")
+    fi
+
+    systemd-dissect -U "$imgs/mnt"
+}
+
 testcase_fallback_partitions() {
     local workdir image defs
 
