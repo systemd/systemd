@@ -39,7 +39,8 @@ static int copy_one_blob(
         assert(name);
         assert(total_size);
         assert(uid_is_valid(uid));
-        assert(manifest);
+        /* Note that 'manifest' may be NULL here, if the record has no blob manifest, in which case all files
+         * are refused below. */
 
         if (!suitable_blob_filename(name)) {
                 log_warning("Blob %s has invalid filename. Skipping.", name);
@@ -178,7 +179,12 @@ static int replace_blob_at(
                 const char *name = de->entries[i]->d_name;
                 _cleanup_close_ int src_fd = -EBADF;
 
-                src_fd = xopenat(src_dfd, name, O_RDONLY|O_NOCTTY|O_NOFOLLOW);
+                /* Pin and verify the inode before opening it, so that we never open FIFOs or such */
+                src_fd = xopenat_full(src_dfd, name, O_RDONLY|O_NOCTTY|O_NOFOLLOW, XO_REGULAR, MODE_INVALID);
+                if (IN_SET(src_fd, -EISDIR, -ELOOP, -EBADFD)) {
+                        log_warning_errno(src_fd, "Blob %s is not a regular file. Skipping.", name);
+                        continue;
+                }
                 if (src_fd < 0) {
                         r = log_debug_errno(src_fd, "Failed to open %s in src blob dir: %m", name);
                         goto fail;

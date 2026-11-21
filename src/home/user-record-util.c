@@ -247,7 +247,7 @@ int user_record_reconcile(
 
                 /* The embedded version is newer */
 
-                if (mode == USER_RECONCILE_REQUIRE_NEWER_OR_EQUAL)
+                if (IN_SET(mode, USER_RECONCILE_REQUIRE_NEWER, USER_RECONCILE_REQUIRE_NEWER_OR_EQUAL))
                         return -ESTALE;
 
                 /* Copy in the binding data */
@@ -902,7 +902,7 @@ int user_record_set_password(UserRecord *h, char **password, bool prepend) {
         if (r < 0)
                 return r;
 
-        strv_free_and_replace(h->password, e);
+        free_and_replace_full(h->password, e, strv_free_erase);
 
         SET_FLAG(h->mask, USER_RECORD_SECRET, !sd_json_variant_is_blank_object(w));
         return 0;
@@ -964,7 +964,7 @@ int user_record_set_token_pin(UserRecord *h, char **pin, bool prepend) {
         if (r < 0)
                 return r;
 
-        strv_free_and_replace(h->token_pin, e);
+        free_and_replace_full(h->token_pin, e, strv_free_erase);
 
         SET_FLAG(h->mask, USER_RECORD_SECRET, !sd_json_variant_is_blank_object(w));
         return 0;

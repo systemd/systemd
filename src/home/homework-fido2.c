@@ -9,7 +9,6 @@
 #include "user-record.h"
 
 int fido2_use_token(
-                UserRecord *h,
                 UserRecord *secret,
                 const Fido2HmacSalt *salt,
                 char **ret) {
@@ -21,7 +20,6 @@ int fido2_use_token(
         ssize_t ss;
         int r;
 
-        assert(h);
         assert(secret);
         assert(salt);
         assert(ret);
@@ -31,7 +29,7 @@ int fido2_use_token(
          * allowed. */
 
         if (salt->up > 0) {
-                if (h->fido2_user_presence_permitted <= 0)
+                if (secret->fido2_user_presence_permitted <= 0)
                         return -EMEDIUMTYPE;
 
                 flags |= FIDO2ENROLL_UP;
@@ -39,7 +37,7 @@ int fido2_use_token(
                 flags |= FIDO2ENROLL_UP_IF_NEEDED; /* compat with pre-248 */
 
         if (salt->uv > 0) {
-                if (h->fido2_user_verification_permitted <= 0)
+                if (secret->fido2_user_verification_permitted <= 0)
                         return -ENOCSI;
 
                 flags |= FIDO2ENROLL_UV;
