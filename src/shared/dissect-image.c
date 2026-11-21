@@ -2526,9 +2526,12 @@ int partition_pick_mount_options(
                         return -ENOMEM;
         }
 
-        if (discard && fstype && fstype_can_discard(fstype))
-                if (!strextend_with_separator(&options, ",", "discard"))
+        if (discard && fstype) {
+                const char *option = fstype_discard_option(fstype);
+
+                if (option && !strextend_with_separator(&options, ",", option))
                         return -ENOMEM;
+        }
 
         if (!ret_ms_flags) /* Fold flags into option string if ret_flags specified as NULL */
                 if (!strextend_with_separator(&options, ",",
