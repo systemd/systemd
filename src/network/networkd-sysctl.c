@@ -320,6 +320,32 @@ int link_get_ip_forwarding(Link *link, int family) {
         return link->manager->ip_forwarding[family == AF_INET6];
 }
 
+static int link_set_ipv6_force_forwarding(Link *link) {
+        int r, t;
+
+        assert(link);
+        assert(link->manager);
+        assert(link->network);
+
+        /* The per-interface IPv6 "forwarding" sysctl only controls host/router behaviour. Since kernel v6.17,
+         * "force_forwarding" makes the kernel forward packets received on the interface, regardless of
+         * conf/all/forwarding, like the per-interface IPv4 "forwarding" sysctl does. Use the same value for
+         * both sysctls, so IPv6Forwarding= behaves like IPv4Forwarding=. */
+        t = link_get_ip_forwarding(link, AF_INET6);
+        r = sysctl_write_ip_property_tristate(
+                        AF_INET6, link->ifname, "force_forwarding", t,
+                        manager_get_sysctl_shadow(link->manager));
+        if (r == -ENOENT) {
+                log_link_debug_errno(link, r, "The kernel does not support force_forwarding sysctl, ignoring: %m");
+                return 0;
+        }
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to %s IPv6 force forwarding, ignoring: %m",
+                                              enable_disable(t));
+
+        return 0;
+}
+
 static int link_set_ip_forwarding_impl(Link *link, int family) {
         int r, t;
 
@@ -329,6 +355,9 @@ static int link_set_ip_forwarding_impl(Link *link, int family) {
 
         if (!link_is_configured_for_family(link, family))
                 return 0;
+
+        if (family == AF_INET6)
+                (void) link_set_ipv6_force_forwarding(link);
 
         t = link_get_ip_forwarding(link, family);
         r = sysctl_write_ip_property_tristate(
