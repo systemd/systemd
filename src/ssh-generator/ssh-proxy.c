@@ -88,10 +88,13 @@ static int connect_mptcp(const union sockaddr_union *sa, socklen_t salen) {
         assert(sa);
         assert(IN_SET(sa->sa.sa_family, AF_INET, AF_INET6));
 
+        /* Note that this logs only at debug level, since the caller might try multiple addresses in a
+         * row, and only the final failure should be reported to the user. */
+
         _cleanup_free_ char *pretty = NULL;
         r = sockaddr_pretty(&sa->sa, salen, /* translate_ipv6= */ true, /* include_port= */ true, &pretty);
         if (r < 0)
-                return log_oom();
+                return log_oom_debug();
 
         _cleanup_close_ int fd = socket(sa->sa.sa_family, SOCK_STREAM|SOCK_CLOEXEC, IPPROTO_MPTCP);
         if (fd < 0) {
@@ -101,19 +104,25 @@ static int connect_mptcp(const union sockaddr_union *sa, socklen_t salen) {
                  * error). In that case, fall back to plain TCP. Note that if the peer doesn't support MPTCP
                  * the kernel will transparently fall back to TCP on its own during connection setup. */
                 if (!ERRNO_IS_NOT_SUPPORTED(errno))
-                        return log_error_errno(errno, "Failed to allocate MPTCP socket: %m");
+                        return log_debug_errno(errno, "Failed to allocate MPTCP socket: %m");
 
                 log_debug_errno(errno, "MPTCP not available, falling back to TCP: %m");
 
                 fd = socket(sa->sa.sa_family, SOCK_STREAM|SOCK_CLOEXEC, IPPROTO_TCP);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to allocate TCP socket: %m");
+                        return log_debug_errno(errno, "Failed to allocate TCP socket: %m");
         }
+
+        /* ssh only enables SO_KEEPALIVE (as per TCPKeepAlive=yes) on sockets it connects itself, not on
+         * those it receives via ProxyUseFdpass, hence do it here. */
+        r = setsockopt_int(fd, SOL_SOCKET, SO_KEEPALIVE, true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to enable SO_KEEPALIVE: %m");
 
         log_debug("Connecting to %s...", pretty);
 
         if (connect(fd, &sa->sa, salen) < 0)
-                return log_error_errno(errno, "Failed to connect to %s: %m", pretty);
+                return log_debug_errno(errno, "Failed to connect to %s: %m", pretty);
 
         return TAKE_FD(fd);
 }
@@ -132,8 +141,19 @@ static int process_mptcp(const char *host, const char *port) {
 
         union in_addr_union a;
         int family, ifindex = 0;
-        if (in_addr_ifindex_from_string_auto(host, &family, &a, &ifindex) >= 0) {
-                /* A literal IP address (possibly with an interface suffix) was specified */
+        r = in_addr_ifindex_from_string_auto(host, &family, &a, &ifindex);
+        if (r == -ENODEV)
+                return log_error_errno(r, "Network interface of '%s' does not exist.", host);
+        if (r < 0 && r != -EINVAL)
+                return log_error_errno(r, "Failed to parse IP address '%s': %m", host);
+        if (r >= 0) {
+                /* A literal IP address (possibly with an interface suffix) was specified. The interface
+                 * suffix only has an effect on IPv6 link-local addresses (as sin6_scope_id), hence refuse
+                 * it otherwise, instead of silently ignoring it. */
+                if (ifindex > 0 && (family != AF_INET6 || !in6_addr_is_link_local(&a.in6)))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Interface suffix is only supported for IPv6 link-local addresses: %s", host);
+
                 union sockaddr_union sa;
                 r = sockaddr_set_in_addr(&sa, family, &a, port_number);
                 if (r < 0)
@@ -143,7 +163,7 @@ static int process_mptcp(const char *host, const char *port) {
 
                 fd = connect_mptcp(&sa, sockaddr_len(&sa));
                 if (fd < 0)
-                        return fd;
+                        return log_error_errno(fd, "Failed to connect to '%s': %m", host);
         } else {
                 /* Otherwise, resolve the host name, and try all returned addresses in order */
                 struct addrinfo hints = {
@@ -170,8 +190,8 @@ static int process_mptcp(const char *host, const char *port) {
                         memcpy(&sa, i->ai_addr, i->ai_addrlen);
 
                         tried = true;
-                        r = connect_mptcp(&sa, i->ai_addrlen);
-                        if (r >= 0)
+                        fd = connect_mptcp(&sa, i->ai_addrlen);
+                        if (fd >= 0)
                                 break;
                 }
 
@@ -179,10 +199,8 @@ static int process_mptcp(const char *host, const char *port) {
 
                 if (!tried)
                         return log_error_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL), "Host '%s' resolved to no usable addresses.", host);
-                if (r < 0)
-                        return r;
-
-                fd = r;
+                if (fd < 0)
+                        return log_error_errno(fd, "Failed to connect to any address of host '%s', last error: %m", host);
         }
 
         r = send_one_fd_iov(STDOUT_FILENO, fd, &iovec_nul_byte, /* iovlen= */ 1, /* flags= */ 0);
