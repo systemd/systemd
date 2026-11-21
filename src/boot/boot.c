@@ -61,15 +61,18 @@ DECLARE_SBAT(SBAT_BOOT_SECTION_TEXT);
 
 typedef enum LoaderType {
         LOADER_UNDEFINED,
-        LOADER_AUTO,
-        LOADER_EFI,           /* Boot loader spec type #1 entries with "efi" line */
-        LOADER_LINUX,         /* Boot loader spec type #1 entries with "linux" line */
-        LOADER_UKI,           /* Boot loader spec type #1 entries with "uki" line */
-        LOADER_UKI_URL,       /* Boot loader spec type #1 entries with "uki-url" line */
-        LOADER_TYPE2_UKI,     /* Boot loader spec type #2 entries */
+        LOADER_AUTO_EFI_SHELL,   /* Auto-detected EFI shell */
+        LOADER_AUTO_EFI_DEFAULT, /* Auto-detected EFI default loader (i.e. \EFI\BOOT\BOOT….EFI) */
+        LOADER_AUTO_WINDOWS,     /* Auto-detected Windows Boot Manager */
+        LOADER_AUTO_OSX,         /* Auto-detected macOS boot loader */
+        LOADER_EFI,              /* Boot loader spec type #1 entries with "efi" line */
+        LOADER_LINUX,            /* Boot loader spec type #1 entries with "linux" line */
+        LOADER_UKI,              /* Boot loader spec type #1 entries with "uki" line */
+        LOADER_UKI_URL,          /* Boot loader spec type #1 entries with "uki-url" line */
+        LOADER_TYPE2_UKI,        /* Boot loader spec type #2 entries */
         LOADER_SECURE_BOOT_KEYS,
-        LOADER_BAD,           /* Marker: this boot loader spec type #1 entry is invalid */
-        LOADER_IGNORE,        /* Marker: this boot loader spec type #1 entry does not match local host */
+        LOADER_BAD,              /* Marker: this boot loader spec type #1 entry is invalid */
+        LOADER_IGNORE,           /* Marker: this boot loader spec type #1 entry does not match local host */
         LOADER_REBOOT,
         LOADER_POWEROFF,
         LOADER_FWSETUP,
@@ -92,7 +95,12 @@ typedef enum LoaderType {
 #define LOADER_TYPE_PROCESS_RANDOM_SEED(t) IN_SET(t, LOADER_LINUX, LOADER_UKI, LOADER_TYPE2_UKI)
 
 /* Whether to persistently save the selected entry in an EFI variable, if that's requested. */
-#define LOADER_TYPE_SAVE_ENTRY(t) IN_SET(t, LOADER_AUTO, LOADER_EFI, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_TYPE2_UKI)
+#define LOADER_TYPE_SAVE_ENTRY(t) IN_SET(t, LOADER_AUTO_EFI_SHELL, LOADER_AUTO_EFI_DEFAULT, LOADER_AUTO_WINDOWS, LOADER_AUTO_OSX, LOADER_EFI, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_TYPE2_UKI)
+
+/* Whether this item is an actual operating system to boot into (as opposed to internal items, the EFI shell, …).
+ * Note that the EFI default loader is only added if it is not systemd-boot itself, hence it typically is
+ * another OS' boot loader or shim, and is hence considered an OS here. */
+#define LOADER_TYPE_IS_OS(t) IN_SET(t, LOADER_AUTO_EFI_DEFAULT, LOADER_AUTO_WINDOWS, LOADER_AUTO_OSX, LOADER_EFI, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_TYPE2_UKI)
 
 /* Whether this item is implemented fully inside of systemd-boot */
 #define LOADER_TYPE_IS_INTERNAL(t) IN_SET(t, LOADER_SECURE_BOOT_KEYS, LOADER_REBOOT, LOADER_POWEROFF, LOADER_FWSETUP)
@@ -496,6 +504,16 @@ static EFI_STATUS call_reboot_into_firmware(const BootEntry *entry, EFI_FILE *ro
         return call_reboot_system(entry, root_dir, parent_image);
 }
 
+static bool config_has_os_entries(const Config *config) {
+        assert(config);
+
+        for (size_t i = 0; i < config->n_entries; i++)
+                if (LOADER_TYPE_IS_OS(config->entries[i]->type))
+                        return true;
+
+        return false;
+}
+
 static bool menu_run(
                 Config *config,
                 BootEntry **chosen_entry,
@@ -517,6 +535,7 @@ static bool menu_run(
                 timeout_remain = config->timeout_sec == TIMEOUT_MENU_FORCE ? 0 : config->timeout_sec;
         int64_t console_mode_initial = ST->ConOut->Mode->Mode, console_mode_efivar_saved = config->console_mode_efivar;
         size_t default_efivar_saved = config->idx_default_efivar;
+        bool have_os = config_has_os_entries(config);
 
         enum {
                 ACTION_CONTINUE,        /* Continue with loop over user input */
@@ -541,6 +560,11 @@ static bool menu_run(
                 clear_screen(COLOR_NORMAL);
                 log_error_status(err, "Error switching console mode: %m");
         }
+
+        /* If there's nothing real to boot into, tell the user right away, instead of just showing a list
+         * of firmware setup, reboot, … entries. */
+        if (!have_os)
+                status = xstrdup16(u"No operating system boot entries found.");
 
         size_t line_width = 0, entry_padding = 3;
         while (IN_SET(action, ACTION_CONTINUE, ACTION_FIRMWARE_SETUP)) {
@@ -2092,6 +2116,7 @@ static BootEntry* config_add_entry_loader_auto(
                 EFI_HANDLE *device,
                 EFI_FILE *root_dir,
                 const char16_t *loaded_image_path,
+                LoaderType type,
                 const char16_t *id,
                 char16_t key,
                 const char16_t *title,
@@ -2100,6 +2125,7 @@ static BootEntry* config_add_entry_loader_auto(
         assert(config);
         assert(device);
         assert(root_dir);
+        assert(IN_SET(type, LOADER_AUTO_EFI_SHELL, LOADER_AUTO_EFI_DEFAULT, LOADER_AUTO_WINDOWS, LOADER_AUTO_OSX));
         assert(id);
         assert(title);
 
@@ -2129,7 +2155,7 @@ static BootEntry* config_add_entry_loader_auto(
         BootEntry *entry = xnew(BootEntry, 1);
         *entry = (BootEntry) {
                 .id = xstrdup16(id),
-                .type = LOADER_AUTO,
+                .type = type,
                 .title = xstrdup16(title),
                 .device = device,
                 .loader = xstrdup16(loader),
@@ -2169,6 +2195,7 @@ static void config_add_entry_osx(Config *config) {
                                 handles[i],
                                 root,
                                 /* loaded_image_path= */ NULL,
+                                LOADER_AUTO_OSX,
                                 u"auto-osx",
                                 'a',
                                 u"macOS",
@@ -2293,6 +2320,7 @@ static void config_add_entry_windows(Config *config, EFI_HANDLE *device, EFI_FIL
                         device,
                         root,
                         /* loaded_image_path= */ NULL,
+                        LOADER_AUTO_WINDOWS,
                         u"auto-windows",
                         'w',
                         title ?: u"Windows Boot Manager",
@@ -3460,6 +3488,7 @@ static void config_load_all_entries(
                         loaded_image->DeviceHandle,
                         root_dir,
                         /* loaded_image_path= */ NULL,
+                        LOADER_AUTO_EFI_SHELL,
                         u"auto-efi-shell",
                         's',
                         u"EFI Shell",
@@ -3469,6 +3498,7 @@ static void config_load_all_entries(
                         loaded_image->DeviceHandle,
                         root_dir,
                         loaded_image_path,
+                        LOADER_AUTO_EFI_DEFAULT,
                         u"auto-efi-default",
                         '\0',
                         u"EFI Default Loader",
@@ -3489,6 +3519,12 @@ static void config_load_all_entries(
 
         /* Select entry by configured pattern or EFI LoaderDefaultEntry= variable */
         config_select_default_entry(config);
+
+        /* If there's no operating system to boot into, never boot anything automatically (such as the EFI
+         * shell, or the firmware setup), but always show the menu, without a timeout. Unless the menu has
+         * been disabled explicitly, in which case we leave things as they are. */
+        if (!config_has_os_entries(config) && config->timeout_sec != TIMEOUT_MENU_DISABLED)
+                config->timeout_sec = TIMEOUT_MENU_FORCE;
 }
 
 static EFI_STATUS boot_entry_confirm(const BootEntry *entry, bool *ret) {
