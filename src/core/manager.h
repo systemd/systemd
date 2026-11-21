@@ -570,6 +570,14 @@ static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
         return m->defaults.timeout_abort_set ? m->defaults.timeout_abort_usec : m->defaults.timeout_stop_usec;
 }
 
+/* Whether a reload or reexecute request is still pending its reply or the reexecution, and hence a
+ * new reload or reexecute request must be refused. */
+static inline bool manager_reload_or_reexecute_request_pending(Manager *m) {
+        assert(m);
+        return m->pending_reload_message_dbus || m->pending_reload_message_vl ||
+               m->pending_reexecute_message_dbus || m->pending_reexecute_message_vl;
+}
+
 #define MANAGER_IS_SYSTEM(m) ((m)->runtime_scope == RUNTIME_SCOPE_SYSTEM)
 #define MANAGER_IS_USER(m) ((m)->runtime_scope == RUNTIME_SCOPE_USER)
 
