@@ -244,10 +244,7 @@ units = [
           'file' : 'sys-kernel-config.mount',
           'symlinks' : ['sysinit.target.wants/'],
         },
-        {
-          'file' : 'sys-kernel-debug.mount',
-          'symlinks' : ['sysinit.target.wants/'],
-        },
+        { 'file' : 'sys-kernel-debug.mount' },
         {
           'file' : 'sys-kernel-tracing.mount',
           'symlinks' : ['sysinit.target.wants/'],
