@@ -704,6 +704,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*[tT][aA][bB][lL][eE][tT]*:*
 
 # OmniBook Ultra Flip Laptop 14-fh0xxx
 evdev:atkbd:dmi:*:svnHP:pnHPOmniBookUltraFlipLaptop14-fh0xxx:*
+# OmniBook 7 Laptop 16-bh0xxx
+evdev:atkbd:dmi:*:svnHP:pnHPOmniBook7Laptop16-bh0xxx:*
  KEYBOARD_KEY_82=unknown                                # Mic mute, handled by hp-wmi
  KEYBOARD_KEY_ab=!unknown                               # Brightness Down and Up keys, handled by acpi-video
 
