@@ -306,8 +306,6 @@ EOF
     # '@', and the second will use SurviveFinalKillSignal=yes. Both should survive.
     # By writing to stdout, which is connected to the journal, we also ensure logging doesn't break across
     # soft reboots due to journald being temporarily stopped.
-    # Note, when coreutils is built with --enable-single-binary=symlinks, unfortunately we cannot freely rename
-    # sleep command, hence we cannot test the feature.
     systemd-run --service-type=notify --unit=TEST-82-SOFTREBOOT-survive-argv.service \
         --property SurviveFinalKillSignal=no \
         --property IgnoreOnIsolate=yes \
