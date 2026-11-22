@@ -1899,11 +1899,6 @@ EOF
 testcase_verity_encrypt() {
     local defs imgs output loop drh hrh part_size dm_devno verity_dep
 
-    if ( . /etc/os-release && [[ "${ID_LIKE:-}" == "alpine" ]] ); then
-        echo "Skipping verity+encrypt test on Alpine/Nura."
-        return
-    fi
-
     defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
     imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
     # shellcheck disable=SC2064
@@ -2045,7 +2040,7 @@ EOF
     dm_devno=$(findmnt --noheadings --output MAJ:MIN "$imgs/mnt" | tr -d ' ')
     [[ "$(dmsetup table -j "${dm_devno%%:*}" -m "${dm_devno##*:}" | cut -d' ' -f3)" == "crypt" ]]
     verity_dep=$(dmsetup deps -o devname -j "${dm_devno%%:*}" -m "${dm_devno##*:}" | sed 's/.*(\(.*\))/\1/')
-    [[ "$(dmsetup table "/dev/mapper/$verity_dep" | cut -d' ' -f3)" == "verity" ]]
+    [[ "$(dmsetup table "$verity_dep" | cut -d' ' -f3)" == "verity" ]]
 
     # The copied-in files must be intact
     cmp "$defs/verity-data.conf" "$imgs/mnt$defs/verity-data.conf"
