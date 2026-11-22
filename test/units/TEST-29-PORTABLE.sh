@@ -28,11 +28,20 @@ openssl smime -sign -nocerts -noattr -binary \
               -out /tmp/untrusted/minimal_9.roothash.p7s
 
 # Set longer timeout for slower machines, e.g. non-KVM vm.
+manager_env="SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC=30"
+# Nura uses Alpine's libdevmapper, which is built without udev support, so the device node of
+# a Verity device is deleted when deferred removal is armed. Reusing such a device while it is
+# still held open then times out waiting for the device node symlink. Let's disable sharing of
+# Verity devices there, so that each activation gets its own device.
+if ( . /etc/os-release && [[ "${ID_LIKE:-}" == "alpine" ]] ); then
+    manager_env+=" SYSTEMD_VERITY_SHARING=0"
+fi
+
 mkdir -p /run/systemd/system.conf.d
 cat >/run/systemd/system.conf.d/10-timeout.conf <<EOF
 [Manager]
-DefaultEnvironment=SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC=30
-ManagerEnvironment=SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC=30
+DefaultEnvironment=$manager_env
+ManagerEnvironment=$manager_env
 EOF
 
 mkdir -p /run/systemd/system/systemd-portabled.service.d/
