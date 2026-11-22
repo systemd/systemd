@@ -354,6 +354,20 @@ RULES = [
         ''',
     ),
     Rules.new(
+        'ignore SYMLINK assignments on remove event',
+        Device(
+            '/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1',
+            exp_links=['dropped', 'replaced', 'final'],
+        ),
+        rules=r'''
+        SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", SYMLINK+="dropped replaced final"
+        # The ENV assignment is necessary to make the lines below not skipped on remove events, see udev(7).
+        ACTION=="remove", SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ENV{REMOVE_TEST}="1", SYMLINK-="dropped"
+        ACTION=="remove", SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ENV{REMOVE_TEST}="1", SYMLINK="replaced"
+        ACTION=="remove", SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ENV{REMOVE_TEST}="1", SYMLINK:="final"
+        ''',
+    ),
+    Rules.new(
         'SYMLINK match against empty string',
         Device(
             '/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0',
