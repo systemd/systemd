@@ -2756,12 +2756,19 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
       <para><varname>LoadState</varname> contains a state value that reflects whether the configuration file
       of this unit has been loaded. The following states are currently defined: <literal>loaded</literal>,
-      <literal>error</literal>, and <literal>masked</literal>. <literal>loaded</literal> indicates that the
-      configuration was successfully loaded. <literal>error</literal> indicates that the configuration failed
-      to load. The <varname>LoadError</varname> field (see below) contains information about the cause of
-      this failure. <literal>masked</literal> indicates that the unit is currently masked out (i.e. symlinked
-      to <filename>/dev/null</filename> or empty). Note that the <varname>LoadState</varname> is fully
-      orthogonal to the <varname>ActiveState</varname> (see below) as units without valid loaded
+      <literal>not-found</literal>, <literal>bad-setting</literal>, <literal>error</literal>,
+      <literal>masked</literal>, <literal>stub</literal>, and <literal>merged</literal>.
+      <literal>loaded</literal> indicates that the configuration was successfully loaded.
+      <literal>not-found</literal> indicates that no unit file was found for this unit.
+      <literal>bad-setting</literal> indicates that an essential setting in the unit file is missing,
+      invalid, or inconsistent. <literal>error</literal> indicates that the configuration failed to load for
+      another reason. <literal>masked</literal> indicates that the unit is currently masked out (i.e.
+      symlinked to <filename>/dev/null</filename> or empty). <literal>stub</literal> and
+      <literal>merged</literal> are transitional states used internally, while the unit is being loaded or
+      after it was merged into another unit (e.g. because it is an alias of that unit), and are normally not
+      seen by clients. For all states other than <literal>loaded</literal>, the <varname>LoadError</varname>
+      field (see below) contains an error describing the cause. Note that the <varname>LoadState</varname> is
+      fully orthogonal to the <varname>ActiveState</varname> (see below) as units without valid loaded
       configuration might be active (because configuration might have been reloaded at a time where a unit
       was already active).</para>
 
