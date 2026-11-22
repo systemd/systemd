@@ -271,6 +271,12 @@ CHANGES WITH 263 in spe:
           name, value or path, may now be rejected or warned about. Check
           existing rules with "udevadm verify".
 
+        * The SYMLINK assignment in udev rules now requires a normalized path,
+          i.e. it may not contain "." or ".." as a path component or redundant
+          slashes, and an absolute path must be located below /dev/. Redundant
+          slashes and "." components, which were previously simplified away,
+          are now ignored.
+
         * The io.systemd.MountFileSystem.MakeDirectory() Varlink method has
           been removed. Clients can create directories owned by foreign UIDs
           in a user namespace allocated by systemd-nsresourced instead.

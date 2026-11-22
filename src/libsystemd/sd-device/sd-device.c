@@ -679,7 +679,7 @@ static int mangle_devname(const char *p, char **ret) {
         assert(p);
         assert(ret);
 
-        if (!path_is_safe(p))
+        if (!path_is_normalized(p))
                 return -EINVAL;
 
         /* When the path is absolute, it must start with "/dev/", but ignore "/dev/" itself. */

@@ -897,6 +897,35 @@ TEST(sd_device_new_from_nulstr_invalid_typed_property) {
         ASSERT_ERROR(device_new_from_nulstr(&device, nulstr, sizeof(nulstr) - 1), EINVAL);
 }
 
+TEST(device_add_devlink) {
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+
+        ASSERT_OK(sd_device_new_from_syspath(&device, "/sys/class/net/lo"));
+
+        /* Dots inside a path component are allowed. */
+        ASSERT_OK(device_add_devlink(device, "foo./.bar"));
+        ASSERT_TRUE(set_contains(device->devlinks, "/dev/foo./.bar"));
+
+        /* The path must be normalized, as path_simplify() would silently change the
+         * referred path otherwise. */
+        ASSERT_ERROR(device_add_devlink(device, "."), EINVAL);
+        ASSERT_ERROR(device_add_devlink(device, ".."), EINVAL);
+        ASSERT_ERROR(device_add_devlink(device, "./foo"), EINVAL);
+        ASSERT_ERROR(device_add_devlink(device, "foo/."), EINVAL);
+        ASSERT_ERROR(device_add_devlink(device, "foo/./bar"), EINVAL);
+        ASSERT_ERROR(device_add_devlink(device, "foo//bar"), EINVAL);
+        ASSERT_ERROR(device_add_devlink(device, "foo/../bar"), EINVAL);
+        ASSERT_ERROR(device_add_devlink(device, "/dev/./foo"), EINVAL);
+        ASSERT_ERROR(device_add_devlink(device, "/dev/foo/."), EINVAL);
+
+        /* When the path is absolute, it must start with "/dev/", but ignore "/dev/" itself. */
+        ASSERT_OK(device_add_devlink(device, "/dev/abs"));
+        ASSERT_TRUE(set_contains(device->devlinks, "/dev/abs"));
+        ASSERT_ERROR(device_add_devlink(device, "/foo/bar"), EINVAL);
+        ASSERT_ERROR(device_add_devlink(device, "/dev"), EINVAL);
+        ASSERT_ERROR(device_add_devlink(device, "/dev/"), EINVAL);
+}
+
 TEST(sd_device_new_from_path) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
