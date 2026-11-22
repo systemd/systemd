@@ -20,6 +20,11 @@ typedef enum PTYForwardFlags {
 
         /* Don't interpret escape sequences (^] exit, hotkeys), just forward everything as-is */
         PTY_FORWARD_TRANSPARENT            = 1 << 4,
+
+        /* Answer terminal queries (CSI 18 t, DA1, XTGETTCAP, DSR) ourselves, instead of forwarding them.
+         * Useful if the output does not go to a terminal that could answer them, or if its answers could
+         * not reach the pty, as in read-only mode. Ignored if PTY_FORWARD_TRANSPARENT is set. */
+        PTY_FORWARD_ANSWER_QUERIES         = 1 << 5,
 } PTYForwardFlags;
 
 typedef int (*PTYForwardHangupHandler)(PTYForward *f, int rcode, void *userdata);
