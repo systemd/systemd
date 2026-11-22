@@ -166,14 +166,14 @@ static bool check_long_truncation(int64_t t) {
         return t <= LONG_MAX && t >= LONG_MIN;
 }
 
-static const char* socket_protocol_to_string(int32_t i) {
+static const char* socket_protocol_to_string_checked(int32_t i) {
         if (i == IPPROTO_IP)
                 return "";
 
-        if (!IN_SET(i, IPPROTO_UDPLITE, IPPROTO_SCTP, IPPROTO_MPTCP))
+        if (!IN_SET(i, IPPROTO_UDPLITE, IPPROTO_SCTP, IPPROTO_MPTCP, IPPROTO_MPTCP | SOCKET_PROTOCOL_AUTO))
                 return NULL;
 
-        return ip_protocol_to_name(i);
+        return socket_protocol_to_string(i);
 }
 
 static BUS_DEFINE_SET_TRANSIENT(int, "i", int32_t, int, "%" PRIi32);
@@ -183,7 +183,7 @@ static BUS_DEFINE_SET_TRANSIENT_PARSE(bind_ipv6_only, SocketAddressBindIPv6Only,
 static BUS_DEFINE_SET_TRANSIENT_STRING_WITH_CHECK(fdname, fdname_is_valid);
 static BUS_DEFINE_SET_TRANSIENT_STRING_WITH_CHECK(ifname, ifname_valid);
 static BUS_DEFINE_SET_TRANSIENT_TO_STRING_ALLOC(ip_tos, "i", int32_t, int, "%" PRIi32, ip_tos_to_string_alloc);
-static BUS_DEFINE_SET_TRANSIENT_TO_STRING(socket_protocol, "i", int32_t, int, "%" PRIi32, socket_protocol_to_string);
+static BUS_DEFINE_SET_TRANSIENT_TO_STRING(socket_protocol, "i", int32_t, int, "%" PRIi32, socket_protocol_to_string_checked);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(socket_timestamping, SocketTimestamping, socket_timestamping_from_string_harder);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(socket_defer_trigger, SocketDeferTrigger, socket_defer_trigger_from_string);
 
