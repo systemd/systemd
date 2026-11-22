@@ -167,7 +167,10 @@ node /org/freedesktop/timedate1 {
       <para>The polkit action for <function>SetTimezone()</function> is
       <interfacename>org.freedesktop.timedate1.set-timezone</interfacename>. For
       <function>SetLocalRTC()</function> it is
-      <interfacename>org.freedesktop.timedate1.set-local-rtc</interfacename>, for
+      <interfacename>org.freedesktop.timedate1.set-local-rtc</interfacename>, plus
+      <interfacename>org.freedesktop.timedate1.set-time</interfacename> if <varname>fix_system</varname>
+      is <literal>true</literal> (which implies the former, so that authentication is requested only once),
+      for
       <function>SetTime()</function> it is <interfacename>org.freedesktop.timedate1.set-time</interfacename>
       and for <function>SetNTP()</function> it is
       <interfacename>org.freedesktop.timedate1.set-ntp</interfacename>.

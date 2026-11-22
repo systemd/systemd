@@ -3,4 +3,4 @@
 
 #include "logind-forward.h"
 
-int check_polkit_chvt(sd_bus_message *message, Manager *manager, sd_bus_error *error);
+int check_polkit_chvt(sd_bus_message *message, Manager *manager, Seat *seat, sd_bus_error *error);

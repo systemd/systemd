@@ -1018,6 +1018,25 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
         if (lrtc == c->local_rtc && !adjust_system_clock)
                 return sd_bus_reply_method_return(m, /* types= */ NULL);
 
+        if (adjust_system_clock) {
+                /* Setting the system clock from the RTC changes the system time, hence require the same
+                 * authorization as SetTime(). Check this first: set-time implies set-local-rtc, so that
+                 * the user is asked to authenticate only once. */
+                r = bus_verify_polkit_async_full(
+                                m,
+                                "org.freedesktop.timedate1.set-time",
+                                /* details= */ NULL,
+                                /* good_user= */ UID_INVALID,
+                                interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
+                                &c->polkit_registry,
+                                /* ret_admin= */ NULL,
+                                error);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 1;
+        }
+
         r = bus_verify_polkit_async_full(
                         m,
                         "org.freedesktop.timedate1.set-local-rtc",
@@ -1064,6 +1083,20 @@ static int vl_method_set_local_rtc(sd_varlink *link, sd_json_variant *parameters
 
         if (p.local_rtc == c->local_rtc && !p.adjust_system_clock)
                 return sd_varlink_reply(link, /* parameters= */ NULL);
+
+        if (p.adjust_system_clock) {
+                /* Setting the system clock from the RTC changes the system time, hence require the same
+                 * authorization as SetTime(). Check this first: set-time implies set-local-rtc, so that
+                 * the user is asked to authenticate only once. */
+                r = varlink_verify_polkit_async(
+                                link,
+                                c->bus,
+                                "org.freedesktop.timedate1.set-time",
+                                /* details= */ NULL,
+                                &c->polkit_registry);
+                if (r <= 0)
+                        return r;
+        }
 
         r = varlink_verify_polkit_async(
                         link,

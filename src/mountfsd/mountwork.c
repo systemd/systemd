@@ -472,11 +472,25 @@ static int vl_method_mount_image(
         if (r < 0)
                 return r;
 
-        const char *polkit_details[] = {
-                "read_only", one_zero(p.read_only > 0),
-                !isempty(mount_options_concat) ? "mount_options" : NULL, mount_options_concat,
-                NULL,
-        };
+        _cleanup_free_ char *image_path = NULL;
+        (void) fd_get_path(image_fd, &image_path);
+
+        /* Only pass the image path and the mount options if we have them */
+        const char *polkit_details[7];
+        size_t n_polkit_details = 0;
+
+        polkit_details[n_polkit_details++] = "read_only";
+        polkit_details[n_polkit_details++] = one_zero(p.read_only > 0);
+        if (image_path) {
+                polkit_details[n_polkit_details++] = "image_path";
+                polkit_details[n_polkit_details++] = image_path;
+        }
+        if (!isempty(mount_options_concat)) {
+                polkit_details[n_polkit_details++] = "mount_options";
+                polkit_details[n_polkit_details++] = mount_options_concat;
+        }
+        assert(n_polkit_details < ELEMENTSOF(polkit_details));
+        polkit_details[n_polkit_details] = NULL;
 
         const char *polkit_action, *polkit_untrusted_action;
         PolkitFlags polkit_flags;

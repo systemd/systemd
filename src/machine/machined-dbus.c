@@ -280,7 +280,8 @@ static int machine_add_from_params(
 
         case RUNTIME_SCOPE_SYSTEM: {
                 const char *details[] = {
-                        "name",  name,
+                        "machine", name,
+                        "owner_uid", FORMAT_UID(uid),
                         "class", machine_class_to_string(c),
                         NULL
                 };
@@ -1004,6 +1005,7 @@ static int method_clean_pool(sd_bus_message *message, void *userdata, sd_bus_err
 
         if (m->runtime_scope != RUNTIME_SCOPE_USER) {
                 const char *details[] = {
+                        "class", image_class_to_string(IMAGE_MACHINE),
                         "verb", "clean_pool",
                         "mode", mm,
                         NULL
@@ -1011,7 +1013,7 @@ static int method_clean_pool(sd_bus_message *message, void *userdata, sd_bus_err
 
                 r = bus_verify_polkit_async(
                                 message,
-                                "org.freedesktop.machine1.manage-machines",
+                                "org.freedesktop.machine1.manage-images",
                                 details,
                                 &m->polkit_registry,
                                 error);
@@ -1045,13 +1047,14 @@ static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus
 
         if (m->runtime_scope != RUNTIME_SCOPE_USER) {
                 const char *details[] = {
+                        "class", image_class_to_string(IMAGE_MACHINE),
                         "verb", "set_pool_limit",
                         NULL
                 };
 
                 r = bus_verify_polkit_async(
                                 message,
-                                "org.freedesktop.machine1.manage-machines",
+                                "org.freedesktop.machine1.manage-images",
                                 details,
                                 &m->polkit_registry,
                                 error);

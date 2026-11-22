@@ -2013,18 +2013,18 @@ static int vl_method_run(
         sd_varlink_server *varlink_server = sd_varlink_get_server(link);
         Hashmap **polkit_registry = ASSERT_PTR(sd_varlink_server_get_userdata(varlink_server));
 
+        _cleanup_(run_parameters_done) RunParameters p = {};
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
         r = varlink_verify_polkit_async(
                         link,
                         /* bus= */ NULL,
                         "io.systemd.sysinstall.Run",
-                        /* details= */ NULL,
+                        (const char**) STRV_MAKE("device", p.node),
                         polkit_registry);
         if (r <= 0)
-                return r;
-
-        _cleanup_(run_parameters_done) RunParameters p = {};
-        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
-        if (r != 0)
                 return r;
 
         _cleanup_(sysinstall_context_done) SysInstallContext context = (SysInstallContext) {
