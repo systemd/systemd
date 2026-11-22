@@ -33,9 +33,10 @@ RULE
 systemctl reload-or-restart polkit.service
 systemctl start systemd-hostnamed.service systemd-hostnamed.socket
 
-# Verify that ordinary asynchronous authorization succeeds and the delay rule is active.
+# Verify that a call with an explicit null reaches the delayed polkit rule before Describe replies.
 start=$SECONDS
-runas testuser timeout 15 varlinkctl --json=short call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}' |
+runas testuser timeout 15 varlinkctl --json=short call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe \
+    '{"allowInteractiveAuthentication":null}' |
     grep '"Hostname":' >/dev/null
 (( SECONDS - start >= 3 ))
 
