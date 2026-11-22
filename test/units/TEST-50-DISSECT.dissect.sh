@@ -9,14 +9,6 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-. /etc/os-release
-if [[ "${ID_LIKE:-}" == alpine ]]; then
-    # Alpine/Nura builds libdevmapper and so on without systemd support, and seems to not wait for
-    # uevents for dm-X devices being processed by systemd-udevd. That causes a significant issue in
-    # dissect-image.c especially when multiple dm-X devices are activated/deactivated in parallel.
-    exit 0
-fi
-
 systemd-dissect --json=short "$MINIMAL_IMAGE.raw" | \
     grep -F '{"rw":"ro","designator":"root","partition_uuid":null,"partition_label":null,"fstype":"squashfs","architecture":null,"verity":"external"' >/dev/null
 systemd-dissect --json=short "$MINIMAL_IMAGE.raw" | grep -F '"size":' >/dev/null
@@ -64,6 +56,16 @@ systemd-dissect "$MINIMAL_IMAGE.raw" \
                 grep -F -f <(sed 's/"//g' "$OS_RELEASE") >/dev/null
 mv "$MINIMAL_IMAGE.fooverity" "$MINIMAL_IMAGE.verity"
 mv "$MINIMAL_IMAGE.foohash" "$MINIMAL_IMAGE.roothash"
+
+# Nura uses Alpine's libdevmapper, which is built without udev support, so the device node of
+# a Verity device is deleted when deferred removal is armed. Mounting an image whose shared
+# Verity device is still held by another mount then times out waiting for the device node
+# symlink, and falls back to a Verity device with a unique name. Hence, the tests below that
+# verify that a shared Verity device is reused do not work there.
+if ( . /etc/os-release && [[ "${ID_LIKE:-}" == "alpine" ]] ); then
+    echo "Skipping the Verity sharing tests on Alpine/Nura"
+    exit 0
+fi
 
 mkdir -p "$IMAGE_DIR/mount" "$IMAGE_DIR/mount2"
 # systemd-dissect --umount of one mount of a shared verity device leaves the loop devices under the verity device
