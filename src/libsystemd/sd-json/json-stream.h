@@ -58,6 +58,8 @@ typedef struct JsonStreamParams {
         size_t buffer_max;      /* maximum bytes buffered before -ENOBUFS; 0 = 16 MiB default */
         size_t read_chunk;      /* per-read chunk size; 0 = 64 KiB default */
         size_t queue_max;       /* maximum number of queued output items; 0 = 64 Ki default */
+        usec_t partial_message_timeout; /* max time a message may stay partially received or sent;
+                                         * 0 = 2 min default, USEC_INFINITY = no limit */
 
         /* Consumer hooks (see typedefs above). */
         json_stream_phase_t phase;
@@ -79,6 +81,16 @@ typedef struct JsonStream {
 
         usec_t timeout;          /* relative; USEC_INFINITY = no timeout */
         usec_t last_activity;    /* CLOCK_MONOTONIC */
+
+        /* Bounds the time a message may take to arrive or depart once its first bytes have been
+         * received/written. The *_partial_since timestamps (CLOCK_MONOTONIC) are USEC_INFINITY
+         * while the stream sits at a message boundary in the respective direction. */
+        usec_t partial_message_timeout;
+        usec_t input_partial_since;
+        usec_t output_partial_since;
+        /* The last strlen(delimiter) - 1 bytes written out (allocated at init), so that a delimiter that
+         * is split between two writes is recognized as a message boundary. */
+        struct iovec output_delimiter_tail;
 
         /* Cached peer credentials */
         struct ucred ucred;
@@ -255,13 +267,26 @@ void json_stream_set_peer_ucred(JsonStream *s, const struct ucred *ucred, bool o
  *
  * When the deadline elapses the time event source attached via json_stream_attach_event()
  * fires and the consumer's dispatch callback is invoked. The consumer detects the timeout
- * by comparing now(CLOCK_MONOTONIC) against json_stream_get_timeout(). */
+ * by comparing now(CLOCK_MONOTONIC) against json_stream_get_idle_deadline(). */
 void json_stream_set_timeout(JsonStream *s, usec_t timeout);
 void json_stream_mark_activity(JsonStream *s);
 
-/* Returns the absolute deadline (in CLOCK_MONOTONIC microseconds) currently in force for
+/* Returns the absolute idle deadline (in CLOCK_MONOTONIC microseconds) currently in force for
  * the consumer's phase, or USEC_INFINITY if no timeout applies (no timeout configured, no
  * activity yet, or the current phase isn't AWAITING_REPLY). */
+usec_t json_stream_get_idle_deadline(const JsonStream *s);
+
+/* Partial message timeout. Unbounded time may pass between two messages, but once the first bytes of a
+ * message have been received (and we are waiting for more), or a message has been partially written out
+ * (and the peer stopped reading), the rest of it has to follow within this time. Otherwise
+ * json_stream_read() or json_stream_write() fail with -ETIMEDOUT. Defaults to 2 minutes, USEC_INFINITY
+ * turns the logic off. */
+void json_stream_set_partial_message_timeout(JsonStream *s, usec_t timeout);
+
+/* Returns the earliest absolute deadline (in CLOCK_MONOTONIC microseconds) the consumer has to wake up at:
+ * the idle deadline (see above) or the deadline of a partially received or sent message. Use this for
+ * arming timers and for poll() timeouts, and json_stream_get_idle_deadline() to decide whether the
+ * operation as a whole timed out. */
 usec_t json_stream_get_timeout(const JsonStream *s);
 
 /* sd-event integration. JsonStream owns the input/output io event sources and the time
@@ -274,12 +299,12 @@ sd_event* json_stream_get_event(const JsonStream *s);
 
 /* Serialization of the transport state, for passing a stream across execve(). Only state that cannot be
  * reconstructed by the consumer is covered: the connection fds, buffered unparsed input, buffered unwritten
- * output, the output queue, the fds attached to these, runtime transport flags, the last activity
- * timestamp, the peer credentials if they were overridden, and the peer pidfd if it was acquired. Settings
- * the consumer configures itself (fd passing, input sensitivity, bounded reads, timeout, description,
- * delimiter, …) are not included. Note that buffered output cannot be flushed out before serialization,
- * since there's no guarantee the peer reads it in a timely fashion (it would have been written out already
- * otherwise), hence it is serialized too.
+ * output, the output queue, the fds attached to these, runtime transport flags, the last activity and
+ * partial message timestamps, the peer credentials if they were overridden, and the peer pidfd if it was
+ * acquired. Settings the consumer configures itself (fd passing, input sensitivity, bounded reads,
+ * timeouts, description, delimiter, …) are not included. Note that buffered output cannot be flushed out
+ * before serialization, since there's no guarantee the peer reads it in a timely fashion (it would have been
+ * written out already otherwise), hence it is serialized too.
  *
  * json_stream_serialize() duplicates all fds it needs and appends them to the fds array, referencing them by
  * index in the returned JSON object. On failure fds might have been appended already, which the caller has
