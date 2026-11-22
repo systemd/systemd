@@ -89,6 +89,7 @@ static pid_t arg_pid = 0;
 static char *arg_socket_path = NULL;
 static bool arg_socket_path_anonymous = false;
 static char *arg_polkit_action = NULL;
+static const char *arg_introspect_format = NULL;
 
 static void push_fds_done(PushFds *p) {
         assert(p);
@@ -199,6 +200,16 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("exec", NULL, "Invoke method and pass response and fds to command"):
                         arg_exec = true;
+                        break;
+
+                OPTION_LONG("format", "FORMAT",
+                            "Rendering of the interface description for the 'introspect' verb: "
+                            "'idl' (the default) or 'json'"):
+                        if (!STR_IN_SET(opts.arg, "idl", "json"))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unsupported interface description format '%s', expected 'idl' or 'json'.",
+                                                       opts.arg);
+                        arg_introspect_format = opts.arg;
                         break;
 
                 OPTION_LONG("push-fd", "FD", "Pass the specified fd along with method call"): {
@@ -447,6 +458,72 @@ typedef struct GetInterfaceDescriptionData {
         const char *description;
 } GetInterfaceDescriptionData;
 
+static int call_get_interface_description(
+                sd_varlink *vl,
+                const char *interface,
+                bool want_json,
+                bool *ret_fell_back,
+                sd_json_variant **ret) {
+
+        sd_json_variant *reply = NULL;
+        const char *error_id = NULL;
+        int r;
+
+        assert(vl);
+        assert(interface);
+        assert(ret);
+
+        if (want_json)
+                r = sd_varlink_callbo(
+                                vl,
+                                "org.varlink.service.GetInterfaceDescription",
+                                &reply,
+                                &error_id,
+                                SD_JSON_BUILD_PAIR_STRING("interface", interface),
+                                SD_JSON_BUILD_PAIR_STRING("format", "json"));
+        else
+                r = sd_varlink_callbo(
+                                vl,
+                                "org.varlink.service.GetInterfaceDescription",
+                                &reply,
+                                &error_id,
+                                SD_JSON_BUILD_PAIR_STRING("interface", interface));
+        if (r < 0)
+                return log_error_errno(r, "Failed to issue GetInterfaceDescription() Varlink call: %m");
+
+        if (error_id) {
+                /* A service that predates the 'format' parameter rejects it as an unknown field.
+                 * Fall back to the default rendering, so that the call still shows the interface,
+                 * and let the caller report that the request could not be honoured. */
+                if (want_json && sd_varlink_error_is_invalid_parameter(error_id, reply, "format")) {
+                        error_id = NULL;
+                        r = sd_varlink_callbo(
+                                        vl,
+                                        "org.varlink.service.GetInterfaceDescription",
+                                        &reply,
+                                        &error_id,
+                                        SD_JSON_BUILD_PAIR_STRING("interface", interface));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to issue GetInterfaceDescription() Varlink call: %m");
+
+                        if (!error_id) {
+                                *ret = reply;
+                                *ret_fell_back = true;
+                                return 0;
+                        }
+                }
+
+                r = sd_varlink_error_to_errno(error_id, reply);
+                if (r != -EBADR)
+                        return log_error_errno(r, "Failed to issue GetInterfaceDescription() Varlink call: %m");
+
+                return log_error_errno(r, "Failed to issue GetInterfaceDescription() Varlink call: %s", error_id);
+        }
+
+        *ret = reply;
+        return 0;
+}
+
 VERB(verb_introspect, "introspect", "ADDRESS [INTERFACE…]\0", 2, VERB_ANY, 0, "Show interface definition");
 VERB(verb_introspect, "list-methods", "ADDRESS [INTERFACE…]\0", 2, VERB_ANY, 0,
      "List methods implemented by services or specific interfaces");
@@ -500,27 +577,69 @@ static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userda
                 arg_json_format_flags |= SD_JSON_FORMAT_SEQ;
 
         _cleanup_strv_free_ char **methods = NULL, **experimental_methods = NULL;
+        bool want_json = streq_ptr(arg_introspect_format, "json"), fell_back = false, json_invalid = false;
+        bool no_json_support = false;
 
         STRV_FOREACH(i, interfaces) {
+                bool render_json = want_json, json_fell_back = false;
+                static const sd_json_dispatch_field description_table[] = {
+                        { "description", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, SD_JSON_MANDATORY },
+                        {}
+                };
                 sd_json_variant *reply = NULL;
-                r = varlink_callbo_and_log(
-                                vl,
-                                "org.varlink.service.GetInterfaceDescription",
-                                &reply,
-                                SD_JSON_BUILD_PAIR_STRING("interface", *i));
+                const char *description = NULL;
+
+                r = call_get_interface_description(vl, *i, want_json && !no_json_support, &json_fell_back, &reply);
                 if (r < 0)
                         return r;
 
-                if (!sd_json_format_enabled(arg_json_format_flags) || list_methods) {
-                        static const sd_json_dispatch_field dispatch_table[] = {
-                                { "description", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, SD_JSON_MANDATORY },
-                                {}
-                        };
-                        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *vi = NULL;
-                        const char *description = NULL;
+                if (json_fell_back) {
+                        log_warning("Service does not support the 'format' parameter of "
+                                    "GetInterfaceDescription(), showing the textual IDL instead.");
+                        render_json = false;
+                        fell_back = true;
+                        no_json_support = true;
+                }
+
+                if (render_json) {
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
                         unsigned line = 0, column = 0;
 
-                        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &description);
+                        r = sd_json_dispatch(reply, description_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &description);
+                        if (r < 0)
+                                return r;
+
+                        if (i > interfaces)
+                                print_separator();
+
+                        pager_open(arg_pager_flags);
+
+                        r = sd_json_parse(description, /* flags= */ 0, &v, &line, &column);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to parse returned JSON interface description at %u:%u, showing it raw: %m",
+                                                  line, column);
+                                fputs_with_newline(stdout, description);
+                                json_invalid = true;
+                                continue;
+                        }
+
+                        if (!sd_json_format_enabled(arg_json_format_flags)) {
+                                fputs_with_newline(stdout, description);
+                                continue;
+                        }
+
+                        r = sd_json_variant_dump(v, arg_json_format_flags, stdout, /* prefix= */ NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to print JSON interface description: %m");
+
+                        continue;
+                }
+
+                if (!sd_json_format_enabled(arg_json_format_flags) || list_methods) {
+                        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *vi = NULL;
+                        unsigned line = 0, column = 0;
+
+                        r = sd_json_dispatch(reply, description_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &description);
                         if (r < 0)
                                 return r;
 
@@ -564,6 +683,18 @@ static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userda
                         sd_json_variant_dump(reply, arg_json_format_flags, stdout, /* prefix= */ NULL);
                 }
         }
+
+        if (fell_back)
+                return log_error_errno(
+                                SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                "The service does not support JSON interface descriptions, "
+                                "the textual IDL was shown instead.");
+
+        if (json_invalid)
+                return log_error_errno(
+                                SYNTHETIC_ERRNO(EBADMSG),
+                                "The service returned interface descriptions that are not valid JSON, "
+                                "they were shown raw.");
 
         if (list_methods) {
                 /* Only mark experimental methods if connected to a TTY, so that the output stays parsable,
@@ -2057,6 +2188,9 @@ static int run(int argc, char *argv[]) {
 
         if (arg_polkit_action && !streq_ptr(args[0], "serve"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--polkit-action= is only supported with the 'serve' verb.");
+
+        if (arg_introspect_format && !streq_ptr(args[0], "introspect"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--format= is only supported with the 'introspect' verb.");
 
         return dispatch_verb(args, NULL);
 }

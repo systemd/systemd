@@ -9,6 +9,7 @@
 #include "sd-event.h"
 #include "sd-future.h"
 #include "sd-varlink.h"
+#include "sd-varlink-idl.h"
 
 #include "alloc-util.h"
 #include "devnum-util.h"
@@ -1054,31 +1055,55 @@ static int generic_method_get_interface_description(
                 sd_varlink_method_flags_t flags,
                 void *userdata) {
 
+        typedef struct GetInterfaceDescriptionParameters {
+                const char *interface;
+                const char *format;
+        } GetInterfaceDescriptionParameters; /* A named type, since voffsetof() needs one */
+
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "interface",  SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, SD_JSON_MANDATORY },
+                { "interface", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(GetInterfaceDescriptionParameters, interface), SD_JSON_MANDATORY },
+                { "format",    SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(GetInterfaceDescriptionParameters, format),    0                  },
                 {}
         };
         _cleanup_free_ char *text = NULL;
         const sd_varlink_interface *interface;
-        const char *name = NULL;
+        GetInterfaceDescriptionParameters p = {};
         int r;
 
         assert(link);
 
-        r = sd_json_dispatch(parameters, dispatch_table, /* flags= */ 0, &name);
+        r = sd_json_dispatch(parameters, dispatch_table, /* flags= */ 0, &p);
         if (r < 0)
                 return r;
 
-        interface = hashmap_get(ASSERT_PTR(link->server)->interfaces, name);
+        if (!isempty(p.format) && !STR_IN_SET(p.format, "idl", "json"))
+                return sd_varlink_errorbo(
+                                link,
+                                SD_VARLINK_ERROR_INVALID_PARAMETER,
+                                SD_JSON_BUILD_PAIR_STRING("parameter", "format"));
+
+        interface = hashmap_get(ASSERT_PTR(link->server)->interfaces, p.interface);
         if (!interface)
                 return sd_varlink_errorbo(
                                 link,
                                 SD_VARLINK_ERROR_INTERFACE_NOT_FOUND,
-                                SD_JSON_BUILD_PAIR_STRING("interface", name));
+                                SD_JSON_BUILD_PAIR_STRING("interface", p.interface));
 
-        r = sd_varlink_idl_format(interface, &text);
-        if (r < 0)
-                return r;
+        if (streq_ptr(p.format, "json")) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                r = sd_varlink_idl_format_json(interface, &v);
+                if (r < 0)
+                        return r;
+
+                r = sd_json_variant_format(v, SD_JSON_FORMAT_PRETTY, &text);
+                if (r < 0)
+                        return r;
+        } else {
+                r = sd_varlink_idl_format(interface, &text);
+                if (r < 0)
+                        return r;
+        }
 
         return sd_varlink_replybo(
                         link,

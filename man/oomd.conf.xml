@@ -53,7 +53,7 @@
 
     <para><command>systemd-oomd</command> supports notifying external components before killing a control
     group.
-    This is done by sending a notification over varlink to all sockets found in
+    This is done by sending a notification over Varlink to all sockets found in
     <filename>/run/systemd/oomd.prekill.hook/</filename> folder. Each socket should implement the
     <constant>io.systemd.oom.Prekill</constant> interface. The notification contains the control group path
     to allow the hook to identify which control group is being killed. This allows external components to
@@ -209,7 +209,7 @@
 
         <listitem><para>Sets the amount of time <command>systemd-oomd</command> will wait for pre-kill hooks
         to complete, before proceeding with the control group termination. Pre-kill hooks work by placing
-        varlink socket to <filename>/run/systemd/oomd.prekill.hook/</filename> folder. Each socket should
+        Varlink socket to <filename>/run/systemd/oomd.prekill.hook/</filename> folder. Each socket should
         implement interface for notification to work. <command>systemd-oomd</command> sends a notification
         before killing a control group for each discovered socket. The timeout is intended to be global and
         not per hook. If all hooks return earlier, the kill is performed as soon as possible. The timeout

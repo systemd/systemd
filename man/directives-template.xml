@@ -217,6 +217,39 @@
   </refsect1>
 
   <refsect1>
+    <title>Varlink interfaces</title>
+
+    <para>Varlink interfaces defined by systemd, see
+    <citerefentry><refentrytitle>systemd.varlink</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+
+    <variablelist id='varlink-interface' />
+  </refsect1>
+
+  <refsect1>
+    <title>Varlink methods</title>
+
+    <para>Methods exposed in the Varlink interfaces.</para>
+
+    <variablelist id='varlink-method' />
+  </refsect1>
+
+  <refsect1>
+    <title>Varlink types</title>
+
+    <para>Named types used in the Varlink interfaces.</para>
+
+    <variablelist id='varlink-type' />
+  </refsect1>
+
+  <refsect1>
+    <title>Varlink errors</title>
+
+    <para>Errors returned by the Varlink interfaces.</para>
+
+    <variablelist id='varlink-error' />
+  </refsect1>
+
+  <refsect1>
     <title>Colophon</title>
     <para id='colophon' />
   </refsect1>

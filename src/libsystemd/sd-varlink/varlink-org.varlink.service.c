@@ -19,7 +19,10 @@ static SD_VARLINK_DEFINE_METHOD(
                 GetInterfaceDescription,
                 SD_VARLINK_FIELD_COMMENT("Name of interface to query interface description of"),
                 SD_VARLINK_DEFINE_INPUT(interface, SD_VARLINK_STRING, 0),
-                SD_VARLINK_FIELD_COMMENT("Interface description in Varlink IDL format"),
+                SD_VARLINK_FIELD_COMMENT("Rendering of the interface description, either \"idl\" (the default) or "
+                                         "\"json\", as defined by UAPI.20"),
+                SD_VARLINK_DEFINE_INPUT(format, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Interface description in the requested rendering"),
                 SD_VARLINK_DEFINE_OUTPUT(description, SD_VARLINK_STRING, 0));
 
 static SD_VARLINK_DEFINE_ERROR(

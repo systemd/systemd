@@ -42,6 +42,15 @@
   </a>
 </xsl:template>
 
+<!-- Varlink IDL syntax highlighting (see tools/update-varlink-docs.py). -->
+<xsl:template match="emphasis[@role='varlink-comment']">
+  <span class="varlink-comment"><xsl:apply-templates/></span>
+</xsl:template>
+
+<xsl:template match="emphasis[@role='varlink-keyword']">
+  <span class="varlink-keyword"><xsl:apply-templates/></span>
+</xsl:template>
+
 <xsl:template match="citerefentry[@project='die-net']">
   <a>
     <xsl:attribute name="href">
@@ -287,6 +296,27 @@
 
     h1:hover > a.headerlink, h2:hover > a.headerlink, h3:hover > a.headerlink, dt:hover > a.headerlink {
       visibility: visible;
+    }
+
+    /* Varlink IDL syntax highlighting, see custom-html.xsl's emphasis templates. */
+    .varlink-comment {
+      font-style: italic;
+      color: #77767c;
+    }
+
+    .varlink-keyword {
+      font-weight: bold;
+      color: #1c71d8;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .varlink-comment {
+        color: #9a9996;
+      }
+
+      .varlink-keyword {
+        color: #78aeed;
+      }
     }
   </style>
 
