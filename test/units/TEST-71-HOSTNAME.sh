@@ -286,6 +286,48 @@ test_varlink() {
     cmp "$A" "$B"
 }
 
+testcase_file_system_id() {
+    local fsid bus_fsid findmnt_uuid
+    local -a bus_bytes
+
+    # FileSystemID is the UUID of the file system backing /var/, or null if it does not report one
+    fsid="$(hostnamectl --json=short | jq -r .FileSystemID)"
+    assert_eq "$(varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}' | jq -r .FileSystemID)" "$fsid"
+
+    # The D-Bus property is a byte array, which is empty if there's no UUID. Query it directly, since
+    # hostnamectl falls back to reading the UUID from /var/ itself if the property is empty.
+    read -r -a bus_bytes < <(busctl get-property org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 FileSystemID)
+    assert_eq "${bus_bytes[0]}" ay
+    if [[ "${bus_bytes[1]}" -eq 0 ]]; then
+        bus_fsid=null
+    else
+        assert_eq "${bus_bytes[1]}" 16
+        bus_fsid="$(printf '%02x' "${bus_bytes[@]:2}")"
+    fi
+    assert_eq "$bus_fsid" "$fsid"
+
+    # In containers the file system is typically owned by the host, hence the UUID must not be exposed
+    if systemd-detect-virt --container --quiet; then
+        assert_eq "$fsid" null
+    fi
+
+    # Compare with an independent source, if it reports a 128-bit UUID for the file system. (Note that
+    # this might report a UUID for file systems that don't expose it via FS_IOC_GETFSUUID, hence only
+    # compare if we got one.)
+    findmnt_uuid="$(findmnt -no UUID --target /var/ || :)"
+    if [[ "$fsid" != null && "$findmnt_uuid" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
+        findmnt_uuid="${findmnt_uuid//-/}"
+        assert_eq "${findmnt_uuid,,}" "$fsid"
+    fi
+
+    if [[ "$fsid" == null ]]; then
+        assert_not_in "File System ID:" "$(hostnamectl)"
+    else
+        # JSON carries the plain hex form, hostnamectl shows it formatted as UUID
+        assert_in "File System ID: ${fsid:0:8}-${fsid:8:4}-${fsid:12:4}-${fsid:16:4}-${fsid:20:12}" "$(hostnamectl)"
+    fi
+}
+
 testcase_wildcard() {
     SAVED=""
     [[ -f /etc/hostname ]] && SAVED="$(cat /etc/hostname)"
