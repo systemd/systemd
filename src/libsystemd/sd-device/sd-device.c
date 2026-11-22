@@ -679,7 +679,9 @@ static int mangle_devname(const char *p, char **ret) {
         assert(p);
         assert(ret);
 
-        if (!path_is_safe(p))
+        /* path_is_normalized() allows a trailing slash, but path_simplify() below strips it,
+         * which would silently change the referred path. */
+        if (!path_is_normalized(p) || endswith(p, "/"))
                 return -EINVAL;
 
         /* When the path is absolute, it must start with "/dev/", but ignore "/dev/" itself. */
@@ -692,8 +694,6 @@ static int mangle_devname(const char *p, char **ret) {
                 q = path_join("/dev/", p);
         if (!q)
                 return -ENOMEM;
-
-        path_simplify(q);
 
         *ret = q;
         return 0;
