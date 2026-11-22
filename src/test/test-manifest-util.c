@@ -1249,7 +1249,7 @@ static int read_records(const char *root_fields, char * const *names) {
         ASSERT_NOT_NULL(strextend(&buf, "\x1e{\"mediaType\":\"" UAPI16_TRAILER_MEDIA_TYPE "\"}\n"));
 
         ASSERT_NOT_NULL(f = fmemopen_unlocked(buf, strlen(buf), "r"));
-        return uapi16_manifest_read(f, /* certificates= */ NULL, /* n_certificates= */ 0, ignore_object, /* userdata= */ NULL);
+        return uapi16_manifest_read(f, /* certificates= */ NULL, /* n_certificates= */ 0, LOG_ERR, ignore_object, /* userdata= */ NULL);
 }
 
 TEST(uapi16_manifest_read_placement) {
@@ -1353,6 +1353,64 @@ TEST(manifest_uapi16_timestamp_accuracy) {
         context_init(&c, MANIFEST_FORMAT_UAPI16);
         c.timestamp_accuracy_nsec = 0;
         ASSERT_OK(verify_buffer(&c, tfd, buf, size));
+}
+
+TEST(uapi16_object_done_many) {
+        Uapi16Object objects[2] = { UAPI16_OBJECT_NULL, UAPI16_OBJECT_NULL };
+
+        uapi16_object_done_many(/* objects= */ NULL, /* n= */ 0);
+
+        ASSERT_OK(dispatch_one("{\"name\":\"a\",\"contents\":[{\"file\":\"b\"}]}", 1, objects + 0));
+        ASSERT_OK(dispatch_one("{\"name\":\"c\"}", 1, objects + 1));
+        uapi16_object_done_many(objects, ELEMENTSOF(objects));
+
+        FOREACH_ELEMENT(o, objects) {
+                ASSERT_NULL(o->name);
+                ASSERT_NULL(o->contents);
+                ASSERT_EQ(o->n_contents, 0U);
+        }
+}
+
+TEST(uapi16_object_plain_file_source) {
+        _cleanup_(uapi16_object_done) Uapi16Object o = UAPI16_OBJECT_NULL;
+
+        /* No object, no name */
+        ASSERT_NULL(uapi16_object_plain_file_source(NULL));
+
+        /* No sources listed: the object's own name */
+        ASSERT_OK(dispatch_one("{\"name\":\"a\"}", 1, &o));
+        ASSERT_STREQ(uapi16_object_plain_file_source(&o), "a");
+        uapi16_object_done(&o);
+
+        ASSERT_OK(dispatch_one("{\"name\":\"sub/a\"}", 1, &o));
+        ASSERT_STREQ(uapi16_object_plain_file_source(&o), "sub/a");
+        uapi16_object_done(&o);
+
+        /* An empty contents entry refers to the object's own name too */
+        ASSERT_OK(dispatch_one("{\"name\":\"a\",\"contents\":[{\"url\":\"https://example.com/a\"},{}]}", 1, &o));
+        ASSERT_STREQ(uapi16_object_plain_file_source(&o), "a");
+        uapi16_object_done(&o);
+
+        /* The first usable source wins, unusable ones are skipped */
+        ASSERT_OK(dispatch_one("{\"name\":\"a\",\"contents\":["
+                               "{\"url\":\"https://example.com/a\"},"
+                               "{\"literal\":\"YQo=\"},"
+                               "{\"file\":\"b\",\"encoding\":\"zstd\"},"
+                               "{\"file\":\"c\",\"offset\":1},"
+                               "{\"file\":\"sub/d\"},"
+                               "{\"file\":\"e\"},"
+                               "{\"file\":\"f\"}]}", 1, &o));
+        ASSERT_STREQ(uapi16_object_plain_file_source(&o), "sub/d");
+        uapi16_object_done(&o);
+
+        /* Sources larger than the object are only sections of it */
+        ASSERT_OK(dispatch_one("{\"name\":\"a\",\"size\":1,\"contents\":[{\"file\":\"b\",\"originalSize\":2},{\"file\":\"c\",\"originalSize\":1}]}", 1, &o));
+        ASSERT_STREQ(uapi16_object_plain_file_source(&o), "c");
+        uapi16_object_done(&o);
+
+        /* Nothing usable */
+        ASSERT_OK(dispatch_one("{\"name\":\"a\",\"contents\":[{\"url\":\"https://example.com/a\"}]}", 1, &o));
+        ASSERT_NULL(uapi16_object_plain_file_source(&o));
 }
 
 TEST(manifest_uapi16_xattr) {
@@ -1806,7 +1864,7 @@ static int read_buffer(const char *buf, size_t size, X509 *const *certificates, 
         ASSERT_NOT_NULL(f = fmemopen_unlocked((void*) buf, size, "r"));
 
         *ret_n_objects = 0;
-        return uapi16_manifest_read(f, certificates, n_certificates, count_objects, ret_n_objects);
+        return uapi16_manifest_read(f, certificates, n_certificates, LOG_ERR, count_objects, ret_n_objects);
 }
 
 static void test_signed_one(

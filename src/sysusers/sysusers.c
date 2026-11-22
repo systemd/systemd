@@ -1741,16 +1741,16 @@ static int item_equivalent(Item *a, Item *b) {
                 r = chase(a_shell, arg_root, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &pa, /* ret_fd= */ NULL);
                 if (r < 0) {
                         log_full_errno(ERRNO_IS_RESOURCE(r) ? LOG_ERR : LOG_DEBUG,
-                                       r, "Failed to look up path '%s%s%s': %m",
-                                       strempty(arg_root), arg_root ? "/" : "", a_shell);
+                                       r, "Failed to look up path '%s%s': %m",
+                                       empty_or_root_to_empty(arg_root), a_shell);
                         return ERRNO_IS_RESOURCE(r) ? r : false;
                 }
 
                 r = chase(b_shell, arg_root, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &pb, /* ret_fd= */ NULL);
                 if (r < 0) {
                         log_full_errno(ERRNO_IS_RESOURCE(r) ? LOG_ERR : LOG_DEBUG,
-                                       r, "Failed to look up path '%s%s%s': %m",
-                                       strempty(arg_root), arg_root ? "/" : "", b_shell);
+                                       r, "Failed to look up path '%s%s': %m",
+                                       empty_or_root_to_empty(arg_root), b_shell);
                         return ERRNO_IS_RESOURCE(r) ? r : false;
                 }
 
@@ -2367,7 +2367,7 @@ static int run(int argc, char *argv[]) {
                 r = read_login_defs(&c.login_defs, /* path= */ NULL, arg_root);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read %s%s: %m",
-                                               strempty(arg_root), "/etc/login.defs");
+                                               empty_or_root_to_empty(arg_root), "/etc/login.defs");
 
                 c.login_defs_need_warning = true;
 

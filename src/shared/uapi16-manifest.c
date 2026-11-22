@@ -85,6 +85,15 @@ void uapi16_object_done(Uapi16Object *o) {
         uapi16_object_xattrs_done(o);
 }
 
+void uapi16_object_done_many(Uapi16Object *objects, size_t n) {
+        assert(objects || n == 0);
+
+        /* Releases the fields of all objects in the array, but not the array itself */
+
+        FOREACH_ARRAY(o, objects, n)
+                uapi16_object_done(o);
+}
+
 int uapi16_object_check_validity(Uapi16Object *o) {
         assert(o);
 
@@ -101,6 +110,40 @@ int uapi16_object_check_validity(Uapi16Object *o) {
                 return -EHWPOISON;
 
         return 0;
+}
+
+const char* uapi16_object_plain_file_source(const Uapi16Object *o) {
+        /* Returns the name of a file (relative to the location of the manifest) that carries the complete
+         * contents of the object as they are, i.e. without having to decode them, and without having to
+         * extract a section of the file. If no sources are listed, this is the file named after the object
+         * itself. Otherwise it is the first "contents" entry that refers to a file (or to none of a file, a
+         * URL or literal data, which according to the specification refers to the object's name too), is
+         * not encoded, starts at offset zero, and is not larger than the object. Returns NULL if there's no
+         * such source, or if no object is specified (a NULL object has no name, hence no file either). */
+
+        if (!o)
+                return NULL;
+
+        if (o->n_contents == 0)
+                return o->name;
+
+        FOREACH_ARRAY(c, o->contents, o->n_contents) {
+                const char *f = c->file;
+                if (!f && !c->url && !uapi16_contents_has_literal(c))
+                        f = o->name;
+                if (!f)
+                        continue;
+
+                if (c->encoding || c->offset != 0)
+                        continue;
+
+                if (c->original_size != UINT64_MAX && o->size != UINT64_MAX && c->original_size != o->size)
+                        continue;
+
+                return f;
+        }
+
+        return NULL;
 }
 
 bool uapi16_name_is_valid(const char *s) {
@@ -1723,6 +1766,7 @@ static int uapi16_signature_verifier_finish(Uapi16SignatureVerifier *v, const Ua
 static int uapi16_manifest_next_record(
                 FILE *f,
                 struct iovec *buffer,
+                int log_level,
                 sd_json_variant **ret,
                 size_t *ret_bytes) {
 
@@ -1748,7 +1792,7 @@ static int uapi16_manifest_next_record(
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
                         r = json_seq_extract(&p, &l, SD_JSON_PARSE_MUST_BE_OBJECT, eof, &v);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse JSON-SEQ record: %m");
+                                return log_full_errno(log_level, r, "Failed to parse JSON-SEQ record: %m");
                         if (r > 0) {
                                 *ret = TAKE_PTR(v);
                                 *ret_bytes = buffer->iov_len - l;
@@ -1763,7 +1807,7 @@ static int uapi16_manifest_next_record(
                 }
 
                 if (buffer->iov_len >= UAPI16_RECORD_SIZE_MAX)
-                        return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "JSON-SEQ record too large, refusing.");
+                        return log_full_errno(log_level, SYNTHETIC_ERRNO(E2BIG), "JSON-SEQ record too large, refusing.");
 
                 if (!GREEDY_REALLOC(*(uint8_t**) &buffer->iov_base, buffer->iov_len + UAPI16_RECORD_READ_CHUNK))
                         return log_oom();
@@ -1772,7 +1816,7 @@ static int uapi16_manifest_next_record(
                 size_t k = fread((uint8_t*) buffer->iov_base + buffer->iov_len, 1, UAPI16_RECORD_READ_CHUNK, f);
                 if (k == 0) {
                         if (ferror(f))
-                                return log_error_errno(errno_or_else(EIO), "Failed to read from manifest: %m");
+                                return log_full_errno(log_level, errno_or_else(EIO), "Failed to read from manifest: %m");
 
                         eof = true;
                         continue;
@@ -1796,7 +1840,7 @@ static void uapi16_placement_done(Uapi16Placement *p) {
         p->previous_name = mfree(p->previous_name);
 }
 
-static int uapi16_placement_check(Uapi16Placement *p, const Uapi16Object *root, const Uapi16Object *o) {
+static int uapi16_placement_check(Uapi16Placement *p, const Uapi16Object *root, const Uapi16Object *o, int log_level) {
         int r;
 
         assert(p);
@@ -1813,9 +1857,9 @@ static int uapi16_placement_check(Uapi16Placement *p, const Uapi16Object *root, 
 
         if (root->order == UAPI16_ORDER_CODEPOINT) {
                 if (p->previous_name && path_compare(p->previous_name, o->name) >= 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                               "Manifest declares code point ordering, but file object '%s' does not sort after '%s', refusing.",
-                                               o->name, p->previous_name);
+                        return log_full_errno(log_level, SYNTHETIC_ERRNO(EBADMSG),
+                                              "Manifest declares code point ordering, but file object '%s' does not sort after '%s', refusing.",
+                                              o->name, p->previous_name);
 
                 r = free_and_strdup(&p->previous_name, o->name);
                 if (r < 0)
@@ -1825,7 +1869,7 @@ static int uapi16_placement_check(Uapi16Placement *p, const Uapi16Object *root, 
         _cleanup_free_ char *parent = NULL;
         r = path_extract_directory(o->name, &parent);
         if (r < 0 && r != -EDESTADDRREQ) /* EDESTADDRREQ → in the root directory */
-                return log_error_errno(r, "Failed to extract directory of '%s': %m", o->name);
+                return log_full_errno(log_level, r, "Failed to extract directory of '%s': %m", o->name);
 
         /* Close all directories the object is not located in */
         while (p->n_dirs > 0 && !streq_ptr(p->dirs[p->n_dirs - 1], parent)) {
@@ -1834,9 +1878,9 @@ static int uapi16_placement_check(Uapi16Placement *p, const Uapi16Object *root, 
         }
 
         if (parent && p->n_dirs == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "File object '%s' is not listed right after the directory it is located in, refusing.",
-                                       o->name);
+                return log_full_errno(log_level, SYNTHETIC_ERRNO(EBADMSG),
+                                      "File object '%s' is not listed right after the directory it is located in, refusing.",
+                                      o->name);
 
         if (o->type == S_IFDIR && strv_extend_with_size(&p->dirs, &p->n_dirs, o->name) < 0)
                 return log_oom();
@@ -1848,6 +1892,7 @@ int uapi16_manifest_read(
                 FILE *f,
                 X509 *const *certificates,
                 size_t n_certificates,
+                int log_level,
                 uapi16_object_handler_t handler,
                 void *userdata) {
 
@@ -1856,6 +1901,9 @@ int uapi16_manifest_read(
         assert(f);
         assert(certificates || n_certificates == 0);
         assert(handler);
+
+        /* JSON dispatching can only log at LOG_DEBUG or LOG_ERR, hence pick whichever is closer */
+        sd_json_dispatch_flags_t json_flags = SD_JSON_ALLOW_EXTENSIONS|SD_JSON_LOG|(log_level >= LOG_DEBUG ? SD_JSON_DEBUG : 0);
 
         _cleanup_(uapi16_signature_verifier_freep) Uapi16SignatureVerifier *verifier = NULL;
         if (n_certificates > 0) {
@@ -1873,24 +1921,24 @@ int uapi16_manifest_read(
         for (;; n_objects++) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
                 size_t bytes = 0;
-                r = uapi16_manifest_next_record(f, &buffer, &v, &bytes);
+                r = uapi16_manifest_next_record(f, &buffer, log_level, &v, &bytes);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         break;
 
                 if (trailer_seen)
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Manifest contains data after trailer object, refusing.");
+                        return log_full_errno(log_level, SYNTHETIC_ERRNO(EBADMSG), "Manifest contains data after trailer object, refusing.");
 
                 const char *mt = NULL;
                 r = uapi16_object_media_type(v, &mt);
                 if (r < 0)
-                        return log_error_errno(r, "Manifest object %zu has a 'mediaType' field that is not a string, refusing.", n_objects);
+                        return log_full_errno(log_level, r, "Manifest object %zu has a 'mediaType' field that is not a string, refusing.", n_objects);
 
                 if (n_objects == 0) {
                         /* First object must be of manifest media type */
                         if (!streq_ptr(mt, UAPI16_MANIFEST_MEDIA_TYPE))
-                                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "First object of manifest is not a file object of the manifest media type, refusing.");
+                                return log_full_errno(log_level, SYNTHETIC_ERRNO(EBADMSG), "First object of manifest is not a file object of the manifest media type, refusing.");
                 } else if (mt && !streq(mt, UAPI16_MANIFEST_MEDIA_TYPE)) {
                         /* File objects usually carry no media type at all. Signature objects end the list of
                          * file objects: file objects after them are not covered by the signature, and hence
@@ -1901,7 +1949,7 @@ int uapi16_manifest_read(
                                 trailer_seen = true;
                         else if (streq(mt, UAPI16_SIGNATURE_MEDIA_TYPE)) {
                                 _cleanup_(uapi16_signature_done) Uapi16Signature sig = UAPI16_SIGNATURE_NULL;
-                                r = dispatch_uapi16_signature_object(v, SD_JSON_ALLOW_EXTENSIONS|SD_JSON_LOG, &sig);
+                                r = dispatch_uapi16_signature_object(v, json_flags, &sig);
                                 if (r < 0)
                                         return r;
 
@@ -1954,7 +2002,7 @@ int uapi16_manifest_read(
                 }
 
                 if (signature_seen)
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Manifest contains file object after signature object, refusing.");
+                        return log_full_errno(log_level, SYNTHETIC_ERRNO(EBADMSG), "Manifest contains file object after signature object, refusing.");
 
                 if (verifier) {
                         r = uapi16_signature_verifier_feed(verifier, buffer.iov_base, bytes);
@@ -1968,12 +2016,12 @@ int uapi16_manifest_read(
                  * properties that govern the other objects */
                 _cleanup_(uapi16_object_done) Uapi16Object object = UAPI16_OBJECT_NULL;
                 Uapi16Object *o = n_objects == 0 ? &root : &object;
-                r = dispatch_uapi16_object(v, n_objects == 0 ? NULL : &root, SD_JSON_ALLOW_EXTENSIONS|SD_JSON_LOG, o);
+                r = dispatch_uapi16_object(v, n_objects == 0 ? NULL : &root, json_flags, o);
                 if (r < 0)
                         return r;
 
                 if (n_objects > 0) {
-                        r = uapi16_placement_check(&placement, &root, o);
+                        r = uapi16_placement_check(&placement, &root, o, log_level);
                         if (r < 0)
                                 return r;
                 }
@@ -1984,21 +2032,21 @@ int uapi16_manifest_read(
         }
 
         if (n_objects == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Manifest contains no objects, refusing.");
+                return log_full_errno(log_level, SYNTHETIC_ERRNO(EBADMSG), "Manifest contains no objects, refusing.");
         if (!trailer_seen)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Manifest lacks trailer object, file is incomplete, refusing.");
+                return log_full_errno(log_level, SYNTHETIC_ERRNO(EBADMSG), "Manifest lacks trailer object, file is incomplete, refusing.");
 
         if (verifier && !signature_verified) {
                 if (signature_supported_seen)
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                               "No signature in manifest verified against the specified certificates, refusing.");
+                        return log_full_errno(log_level, SYNTHETIC_ERRNO(EBADMSG),
+                                              "No signature in manifest verified against the specified certificates, refusing.");
                 if (unsupported_mechanism)
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                               "Manifest only carries signatures of unsupported mechanisms (e.g. '%s'), but PKCS#7 signature verification requested, refusing.",
-                                               unsupported_mechanism);
+                        return log_full_errno(log_level, SYNTHETIC_ERRNO(EBADMSG),
+                                              "Manifest only carries signatures of unsupported mechanisms (e.g. '%s'), but PKCS#7 signature verification requested, refusing.",
+                                              unsupported_mechanism);
 
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Manifest carries no signature, but signature verification requested, refusing.");
+                return log_full_errno(log_level, SYNTHETIC_ERRNO(EBADMSG),
+                                      "Manifest carries no signature, but signature verification requested, refusing.");
         }
 
         return 0;
