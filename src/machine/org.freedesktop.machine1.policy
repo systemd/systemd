@@ -137,8 +137,8 @@
                 <description gettext-domain="systemd">Inspect local virtual machine and container images</description>
                 <message gettext-domain="systemd">Authentication is required to inspect local virtual machine and container images.</message>
                 <defaults>
-                        <allow_any>auth_admin</allow_any>
-                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
                         <allow_active>auth_admin_keep</allow_active>
                 </defaults>
         </action>
