@@ -69,6 +69,29 @@ TEST(strip_tab_ansi) {
         ASSERT_STREQ(p, "\ny\r");
         free(p);
 
+        /* An ESC within a string sequence that doesn't introduce ST aborts it, and begins a new sequence,
+         * which is dropped too */
+        ASSERT_NOT_NULL(p = strdup("\x1BPfoo\x1B[?2048lbar"));
+        ASSERT_NOT_NULL(strip_tab_ansi(&p, /* _isz= */ NULL, /* highlight= */ NULL));
+        ASSERT_STREQ(p, "bar");
+        free(p);
+
+        ASSERT_NOT_NULL(p = strdup("\x1BP\x1B" "cbar"));
+        ASSERT_NOT_NULL(strip_tab_ansi(&p, /* _isz= */ NULL, /* highlight= */ NULL));
+        ASSERT_STREQ(p, "bar");
+        free(p);
+
+        ASSERT_NOT_NULL(p = strdup("\x1B]8;;foo\x1B\x1B]0;bar\x07waldo"));
+        ASSERT_NOT_NULL(strip_tab_ansi(&p, /* _isz= */ NULL, /* highlight= */ NULL));
+        ASSERT_STREQ(p, "waldo");
+        free(p);
+
+        /* … and the ESC is still subject to the usual rules, i.e. may abort the new sequence again */
+        ASSERT_NOT_NULL(p = strdup("\x1BP\x1B\nbar"));
+        ASSERT_NOT_NULL(strip_tab_ansi(&p, /* _isz= */ NULL, /* highlight= */ NULL));
+        ASSERT_STREQ(p, "\nbar");
+        free(p);
+
         ASSERT_NOT_NULL(p = strdup("\r\rwaldo"));
         ASSERT_NOT_NULL(strip_tab_ansi(&p, /* _isz= */ NULL, /* highlight= */ NULL));
         ASSERT_STREQ(p, "\r\rwaldo");
@@ -199,6 +222,18 @@ TEST(strip_tab_ansi_highlight) {
         ASSERT_STREQ(p, "ab");
         ASSERT_EQ(highlight[0], 1U);
         ASSERT_EQ(highlight[1], 2U);
+
+        /* A string sequence aborted by an ESC that begins a new sequence is dropped entirely, and so is the
+         * new sequence */
+        p = mfree(p);
+        p = ASSERT_PTR(strdup("ab\x1BPx\x1B[1mcd"));
+        highlight[0] = 9; /* "cd" */
+        highlight[1] = 11;
+        ASSERT_NOT_NULL(strip_tab_ansi(&p, /* _isz= */ NULL, highlight));
+        ASSERT_STREQ(p, "abcd");
+        ASSERT_EQ(highlight[0], 2U);
+        ASSERT_EQ(highlight[1], 4U);
+        ASSERT_MEMEQ(p + highlight[0], "cd", 2);
 
         /* Carriage returns dropped before a newline are accounted for, too: a range following them moves
          * back */
