@@ -302,6 +302,9 @@ libsystemd_tests += [
                 'dependencies' : libm,
         },
         {
+                'sources' : files('sd-json/test-json-stream.c'),
+        },
+        {
                 'sources' : files('sd-resolve/test-resolve.c'),
                 'timeout' : 120,
         },
