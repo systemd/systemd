@@ -371,11 +371,13 @@ test_stop_job_preserved() {
 [Service]
 Type=simple
 ExecStart=/bin/sleep infinity
+StateDirectory=test-alias-shared
 EOF
     cat >/run/systemd/system/hung-stop.service <<'EOF'
 [Service]
 Type=notify
 NotifyAccess=all
+StateDirectory=test-alias-shared
 ExecStart=/bin/bash -c 'trap "" TERM; systemd-notify --ready; while :; do sleep infinity & wait $!; done'
 TimeoutStopSec=infinity
 SendSIGKILL=no
@@ -414,6 +416,11 @@ EOF
     fi
     echo "Synthesized orphan unit: $orphan"
 
+    # The orphan adopts the old process, not the right to delete the canonical unit's live state.
+    test -d /var/lib/test-alias-shared
+    test "$(systemctl show -P CanClean legit.service)" = state
+    test "$(systemctl show --all -p CanClean "$orphan")" = 'CanClean='
+
     # The pending stop job from the original unit must have been carried over
     # to the synthesized orphan, otherwise the orphan (and its tracked
     # process) is leaked across the reload. Check if:
@@ -439,6 +446,8 @@ EOF
         kill -KILL "$hung_pid" 2>/dev/null || true
     fi
 
+    systemctl stop legit.service
+    systemctl clean --what=state legit.service
     rm -f /run/systemd/system/hung-stop.service /run/systemd/system/legit.service
     systemctl daemon-reload
 

@@ -449,6 +449,10 @@ EOF
         for scope in system user; do
             mkdir -p "$initdir/usr/lib/systemd/$scope"
             cat >"$initdir/usr/lib/systemd/$scope/app1.service" <<EOF
+[Unit]
+# StateDirectory= keeps the unit and its start counter across the portable tests' rapid reattachments.
+StartLimitIntervalSec=0
+
 [Service]
 Type=oneshot
 RemainAfterExit=yes
