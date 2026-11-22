@@ -488,7 +488,8 @@ static int add_partition_mount(
                 DissectedPartition *p,
                 const char *id,
                 const char *where,
-                const char *description) {
+                const char *description,
+                bool discard) {
 
         _cleanup_free_ char *options = NULL;
         int r;
@@ -503,7 +504,7 @@ static int add_partition_mount(
                         d,
                         dissected_partition_fstype(p),
                         p->rw,
-                        /* discard= */ true,
+                        discard,
                         &options,
                         /* ret_ms_flags= */ NULL);
         if (r < 0)
@@ -927,7 +928,7 @@ static int add_root_mount(void) {
                         PARTITION_ROOT,
                         arg_root_fstype,
                         arg_root_rw > 0,
-                        /* discard= */ true,
+                        /* discard= */ false,
                         &options,
                         /* ret_ms_flags= */ NULL);
         if (r < 0)
@@ -1008,7 +1009,7 @@ static int add_usr_mount(void) {
                         PARTITION_USR,
                         arg_usr_fstype,
                         /* rw= */ false,
-                        /* discard= */ true,
+                        /* discard= */ false,
                         &options,
                         /* ret_ms_flags= */ NULL);
         if (r < 0)
@@ -1205,21 +1206,25 @@ static int enumerate_partitions(dev_t devnum) {
 
         RET_GATHER(r, process_loader_partitions(m->partitions + PARTITION_ESP, m->partitions + PARTITION_XBOOTLDR));
 
+        /* On a loop device, discard returns freed blocks to the backing file. Without discard, blocks that
+         * the file system frees stay allocated in the backing file. */
+        bool discard = loop->nr >= 0;
+
         if (m->partitions[PARTITION_HOME].found)
                 RET_GATHER(r, add_partition_mount(PARTITION_HOME, m->partitions + PARTITION_HOME,
-                                                  "home", "/home", "Home Partition"));
+                                                  "home", "/home", "Home Partition", discard));
 
         if (m->partitions[PARTITION_SRV].found)
                 RET_GATHER(r, add_partition_mount(PARTITION_SRV, m->partitions + PARTITION_SRV,
-                                                  "srv", "/srv", "Server Data Partition"));
+                                                  "srv", "/srv", "Server Data Partition", discard));
 
         if (m->partitions[PARTITION_VAR].found)
                 RET_GATHER(r, add_partition_mount(PARTITION_VAR, m->partitions + PARTITION_VAR,
-                                                  "var", "/var", "Variable Data Partition"));
+                                                  "var", "/var", "Variable Data Partition", discard));
 
         if (m->partitions[PARTITION_TMP].found)
                 RET_GATHER(r, add_partition_mount(PARTITION_TMP, m->partitions + PARTITION_TMP,
-                                                  "var-tmp", "/var/tmp", "Temporary Data Partition"));
+                                                  "var-tmp", "/var/tmp", "Temporary Data Partition", discard));
 
         if (m->partitions[PARTITION_ROOT].found)
                 RET_GATHER(r, add_partition_root_flags(m->partitions + PARTITION_ROOT));
