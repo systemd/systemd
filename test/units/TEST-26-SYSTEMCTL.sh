@@ -23,7 +23,7 @@ export UNIT_NAME="systemctl-test-$RANDOM.service"
 export UNIT_NAME2="systemctl-test-$RANDOM.service"
 export UNIT_NAME_TEMPLATE="systemctl-test-${RANDOM}@.service"
 
-cat >"/usr/lib/systemd/system/$UNIT_NAME" <<\EOF
+cat >"/usr/lib/systemd/system/$UNIT_NAME" <<EOF
 [Unit]
 Description=systemctl test
 
