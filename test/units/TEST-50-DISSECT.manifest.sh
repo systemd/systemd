@@ -389,8 +389,13 @@ sed 's/"fatSerial" *: *"12AB-CD34"/"fsUUID":"12abcd34-5678-4ef0-9abc-def01234567
 jq --seq -s -e '(.[0] | has("fsUUID")) and (.[0] | has("fatSerial") | not)' "$WORK/fat-uuid-only.manifest" >/dev/null
 systemd-manifest verify --verify-signature=no --field=+fs-uuid,+fat-serial "$FSMNT" "$WORK/fat-uuid-only.manifest"
 umount "$FSMNT"
-mattrib -i "$WORK/fat.img" -h ::/hidden.txt
-mount -o loop "$WORK/fat.img" "$FSMNT"
+# Modify a copy of the image, rather than the image itself: the loop device of the previous mount might
+# still be attached (e.g. because udev still has it open when it is auto-cleared), in which case
+# "mount -o loop" would reuse it for the same backing file, and its block device cache would not reflect
+# the changes mattrib made to the backing file behind its back.
+cp "$WORK/fat.img" "$WORK/fat-unhidden.img"
+mattrib -i "$WORK/fat-unhidden.img" -h ::/hidden.txt
+mount -o loop "$WORK/fat-unhidden.img" "$FSMNT"
 (! systemd-manifest verify --verify-signature=no --field="$FATFIELDS" "$FSMNT" "$WORK/fat.manifest")
 (! systemd-manifest verify --verify-signature=no --field=+flag-hidden "$FSMNT" "$WORK/fat.manifest")
 systemd-manifest verify --verify-signature=no --field=+flag-system,+read-only,+flag-archive,+fat-serial "$FSMNT" "$WORK/fat.manifest"
