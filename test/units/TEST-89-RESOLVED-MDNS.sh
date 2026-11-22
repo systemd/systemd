@@ -176,11 +176,16 @@ testcase_all_sequential() {
 
 testcase_all_parallel() {
     : "Test each service type (in parallel)"
+    local pid pids=() rc=0
     resolvectl flush-caches
     for id in $(seq 0 $((SERVICE_TYPE_COUNT - 1))); do
         run_and_check_services "$id" check_both &
+        pids+=("$!")
     done
-    wait
+    for pid in "${pids[@]}"; do
+        wait "$pid" || rc=1
+    done
+    return "$rc"
 }
 
 testcase_single_service_multiple_times() {
