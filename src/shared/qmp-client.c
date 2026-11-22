@@ -401,6 +401,10 @@ static bool qmp_client_handle_disconnect(QmpClient *c) {
 
         c->state = QMP_CLIENT_DISCONNECTED;
 
+        /* The stream stays attached after a disconnect, hence make sure it does no further I/O and
+         * doesn't keep waking us up for a partial message deadline that already elapsed. */
+        json_stream_mark_disconnected(&c->stream);
+
         /* Disable defer event source so we don't busy-loop on the EOF condition. */
         if (c->defer_event_source)
                 (void) sd_event_source_set_enabled(c->defer_event_source, SD_EVENT_OFF);
