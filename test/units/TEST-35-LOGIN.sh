@@ -1304,6 +1304,83 @@ testcase_inhibit_default() {
     (! systemd-inhibit --mode=delay --what=idle true)
 }
 
+teardown_polkit_details() (
+    set +ex
+
+    rm -f /etc/polkit-1/rules.d/00-logind-test-details.rules
+    systemctl try-reload-or-restart polkit.service
+    cleanup_session
+
+    return 0
+)
+
+testcase_polkit_details() {
+    local uid session
+
+    if ! command -v pkcheck >/dev/null; then
+        echo "polkit is not available, skipping"
+        return 0
+    fi
+
+    trap teardown_polkit_details RETURN
+
+    create_session
+
+    uid=$(id -u logind-test-user)
+    session=$(loginctl --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $1 }')
+
+    # testuser neither owns the session nor has a session of its own, so without the rules below all
+    # of the operations below would be denied. Only allow them if the right details are passed.
+    mkdir -p /etc/polkit-1/rules.d
+    cat >/etc/polkit-1/rules.d/00-logind-test-details.rules <<EOF
+polkit.addRule(function(action, subject) {
+    if (subject.user != "testuser" || action.id.indexOf("org.freedesktop.login1.") != 0)
+        return polkit.Result.NOT_HANDLED;
+
+    var target_user = action.lookup("uid") == "$uid" && action.lookup("username") == "logind-test-user";
+    var target_session = target_user && action.lookup("session") == "$session";
+
+    if (action.id == "org.freedesktop.login1.set-user-linger" &&
+        target_user && action.lookup("verb") == "enable")
+        return polkit.Result.YES;
+    if (action.id == "org.freedesktop.login1.lock-sessions" &&
+        target_session && action.lookup("verb") == "lock")
+        return polkit.Result.YES;
+    if (action.id == "org.freedesktop.login1.chvt" &&
+        action.lookup("seat") == "seat0")
+        return polkit.Result.YES;
+    if (action.id == "org.freedesktop.login1.manage" &&
+        action.lookup("verb") == "terminate" &&
+        (target_session || (target_user && action.lookup("session") == undefined)))
+        return polkit.Result.YES;
+
+    return polkit.Result.NO;
+});
+EOF
+    systemctl try-reload-or-restart polkit.service
+
+    # lock-sessions: session, uid, username, verb
+    runas testuser loginctl lock-session "$session"
+    (! runas testuser loginctl unlock-session "$session")
+
+    # chvt: seat
+    runas testuser loginctl activate "$session"
+
+    # set-user-linger: uid, username, verb
+    (! runas testuser loginctl enable-linger root)
+    runas testuser loginctl enable-linger logind-test-user
+    assert_eq "$(loginctl show-user logind-test-user -P Linger)" yes
+    (! runas testuser loginctl disable-linger logind-test-user)
+    assert_eq "$(loginctl show-user logind-test-user -P Linger)" yes
+
+    # manage: session, uid, username, verb
+    (! runas testuser loginctl kill-session "$session")
+    (! runas testuser loginctl kill-user logind-test-user)
+    runas testuser loginctl terminate-session "$session"
+    # The user is kept around by lingering, so it can be terminated separately.
+    runas testuser loginctl terminate-user logind-test-user
+}
+
 setup_test_user
 test_write_dropin
 run_testcases
