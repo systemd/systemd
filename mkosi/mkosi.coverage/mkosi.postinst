@@ -36,12 +36,14 @@ EOF
 # Similarly, set ReadWritePaths= to the coverage directory in the test image to make the coverage work with
 # units using DynamicUser=yes. Do this only for services with test- prefix and a couple of known-to-use
 # DynamicUser=yes services, as setting this system-wide has many undesirable side-effects, as it creates its
-# own namespace.
+# own namespace. The path is prefixed with '-', as with a different root (e.g. RootImage= on transient
+# test-*.service units) plain paths are relative to the unit's root directory, where /coverage does not
+# exist, and a non-optional path makes the whole unit fail to start.
 for service in capsule@ test- systemd-journal-{gatewayd,upload}; do
     mkdir -p "$BUILDROOT/usr/lib/systemd/system/$service.service.d/"
     cat >"$BUILDROOT/usr/lib/systemd/system/$service.service.d/99-gcov-rwpaths-override.conf" <<EOF
 [Service]
-ReadWritePaths=/coverage
+ReadWritePaths=-/coverage
 EOF
 done
 
@@ -49,7 +51,7 @@ done
 mkdir -p "$BUILDROOT/usr/lib/systemd/user/test-.service.d/"
 cat >"$BUILDROOT/usr/lib/systemd/user/test-.service.d/99-gcov-rwpaths-override.conf" <<EOF
 [Service]
-ReadWritePaths=/coverage
+ReadWritePaths=-/coverage
 EOF
 
 # Bind the coverage directory into nspawn containers that are executed using machinectl. Unfortunately, the
