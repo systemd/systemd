@@ -82,3 +82,7 @@ disable rtkit-daemon.service
 # Disable Nura specific zram swap service.
 # Maybe better to replace it with zram-generator?
 disable zram_swap.service
+
+# nftables.service is enabled by default on Nura, with a default-drop firewall
+# that drops e.g. mDNS and DHCP packets, and breaks many integration tests.
+disable nftables.service
