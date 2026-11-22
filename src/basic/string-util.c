@@ -760,18 +760,37 @@ char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
                 int e;
 
                 for (;;) {
+                        AnsiSeqState previous_state = parser.state;
+
                         e = ansi_seq_parser_feed(&parser, *i);
                         if (e < 0)
                                 return NULL;
                         if (e != ANSI_SEQ_EVENT_ABORT)
                                 break;
 
+                        /* If a string sequence (OSC, DCS, …) was aborted because the ESC within it did not
+                         * introduce ST, then that ESC begins a new sequence, as terminals see it. Hence
+                         * parse it again, so that e.g. "ESC P ESC [ 1 m" doesn't leave "[1m" behind. */
+                        size_t restart = previous_state == ANSI_SEQ_STATE_STRING_ESC ? 1 : 0;
+                        assert(restart == 0 || (i > *ibuf && i[-1] == 0x1B));
+
                         /* Eat up bogus sequences. The aborted sequence is over (and dropped, up to but
-                         * excluding the current character, which is fed again), hence forget about it, so
-                         * that the next sequence flushes pending carriage returns again. */
+                         * excluding the current character, which is fed again, and the ESC to restart
+                         * from), hence forget about it, so that the next sequence flushes pending carriage
+                         * returns again. */
                         if (begin) {
-                                retract_offsets(begin - *ibuf, i - *ibuf, highlight, shift);
+                                retract_offsets(begin - *ibuf, i - restart - *ibuf, highlight, shift);
                                 begin = NULL;
+                        }
+
+                        if (restart > 0) {
+                                /* In the ground state an ESC always begins a sequence */
+                                e = ansi_seq_parser_feed(&parser, 0x1B);
+                                if (e < 0)
+                                        return NULL;
+                                assert(e == ANSI_SEQ_EVENT_SEQUENCE);
+
+                                begin = i - 1;
                         }
                 }
 
