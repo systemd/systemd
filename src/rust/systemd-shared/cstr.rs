@@ -10,7 +10,8 @@ use crate::errno::{Errno, Result};
 use crate::sys;
 
 /// A NUL-terminated string that was `malloc()`ed by C and is `free()`d on drop, the `_cleanup_free_ char *`
-/// of Rust.
+/// of Rust. `Option<OwnedCStr>` has the layout of a nullable `char *`.
+#[repr(transparent)]
 pub struct OwnedCStr(NonNull<c_char>);
 
 impl OwnedCStr {
