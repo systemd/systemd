@@ -34,10 +34,11 @@ systemctl start systemd-ptybrokerd.socket
 # echoed back to the monitor, and then copies everything it reads to a file for
 # us to inspect. Being the service's main process it can be stopped and
 # continued via systemctl below. pid1 picks the pty's name, and sets its
-# description to the unit name, hence look it up via the latter.
+# description to the unit name, hence look it up via the latter. Open the output file before setting
+# raw mode: the monitor treats raw mode as its signal that the file is ready to read.
 systemd-run -u pty96-input.service \
     -p StandardInput=broker -p StandardOutput=broker \
-    bash -c 'stty raw -echo; exec cat >/tmp/pty96-input-received'
+    bash -ec 'exec >/tmp/pty96-input-received; stty raw -echo; exec cat'
 timeout 10 bash -c 'until ptyctl list | grep pty96-input.service >/dev/null; do sleep .5; done'
 
 PTY_NAME=$(varlinkctl --collect call /run/systemd/io.systemd.PTYBroker io.systemd.PTYBroker.ListPty '{}' | jq -r '.[] | select(.description == "pty96-input.service") | .name')
