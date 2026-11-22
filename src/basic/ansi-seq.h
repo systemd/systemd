@@ -26,9 +26,16 @@ typedef enum AnsiSeqEvent {
         ANSI_SEQ_EVENT_SEQUENCE,   /* a character belonging to a sequence that is not complete yet */
         ANSI_SEQ_EVENT_END,        /* the character completes a sequence, its payload may be queried */
         ANSI_SEQ_EVENT_ABORT,      /* the character aborted a sequence and was not consumed: feed it again! */
+        ANSI_SEQ_EVENT_RESTART,    /* the character aborted a string sequence, because the ESC preceding it did
+                                    * not introduce ST. That ESC begins a new sequence (as terminals see it),
+                                    * hence the aborted sequence ends before it, and the parser is now within
+                                    * the new one. The character was not consumed: feed it again! */
         _ANSI_SEQ_EVENT_MAX,
         _ANSI_SEQ_EVENT_INVALID = -EINVAL,
 } AnsiSeqEvent;
+
+/* Returns true for events after which the character must be fed again */
+#define ANSI_SEQ_EVENT_NEEDS_REFEED(e) IN_SET(e, ANSI_SEQ_EVENT_ABORT, ANSI_SEQ_EVENT_RESTART)
 
 /* Maximum length of a sequence payload we are willing to process. A sequence that grows beyond this is
  * considered invalid and aborted. */
@@ -48,7 +55,7 @@ void ansi_seq_parser_done(AnsiSeqParser *p);
 /* Feeds a single character, returns an AnsiSeqEvent, or a negative errno on capture allocation failure */
 int ansi_seq_parser_feed(AnsiSeqParser *p, char c);
 
-/* Just like this, but eat up errors, and immediately submit character again */
+/* Just like this, but eat up abort and restart events, and immediately submit character again */
 int ansi_seq_parser_feed_harder(AnsiSeqParser *p, char c);
 
 /* After ANSI_SEQ_EVENT_END: the captured payload as NUL terminated string, or NULL if capturing is

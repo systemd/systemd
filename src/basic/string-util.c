@@ -763,16 +763,21 @@ char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
                         e = ansi_seq_parser_feed(&parser, *i);
                         if (e < 0)
                                 return NULL;
-                        if (e != ANSI_SEQ_EVENT_ABORT)
+                        if (!ANSI_SEQ_EVENT_NEEDS_REFEED(e))
                                 break;
 
                         /* Eat up bogus sequences. The aborted sequence is over (and dropped, up to but
                          * excluding the current character, which is fed again), hence forget about it, so
-                         * that the next sequence flushes pending carriage returns again. */
-                        if (begin) {
-                                retract_offsets(begin - *ibuf, i - *ibuf, highlight, shift);
-                                begin = NULL;
-                        }
+                         * that the next sequence flushes pending carriage returns again. On restart the ESC
+                         * preceding the current character is not part of the aborted sequence anymore, but
+                         * begins a new one. */
+                        const char *end = e == ANSI_SEQ_EVENT_RESTART ? i - 1 : i;
+                        assert(end == i || (i > *ibuf && *end == 0x1B));
+
+                        if (begin)
+                                retract_offsets(begin - *ibuf, end - *ibuf, highlight, shift);
+
+                        begin = e == ANSI_SEQ_EVENT_RESTART ? end : NULL;
                 }
 
                 switch (e) {
