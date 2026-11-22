@@ -14,9 +14,28 @@ at_exit() {
     rm -fr /{etc,run,var/lib,var/cache,var/log}/private/test-service
     rm -fr /{etc,run,var/lib,var/cache,var/log}/hoge
     rm -fr /{etc,run,var/lib,var/cache,var/log}/test-socket
+    systemctl stop test-clean-connection.socket test-clean-runtime.service
+    rm -f /run/systemd/system/test-clean-connection{.socket,@.service} \
+          /run/systemd/system/test-clean-runtime.service /run/systemd/system/test-clean-template@.service
+    rm -fr /var/lib/test-clean-connection
 }
 
 trap at_exit EXIT
+
+unit_in_memory() {
+    # GetUnit, unlike LoadUnit or systemctl show, never loads the unit.
+    busctl --quiet call org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager GetUnit s "$1"
+}
+
+wait_for_gc() {
+    for _ in {1..50}; do
+        if ! unit_in_memory "$1"; then
+            return 0
+        fi
+        sleep .1
+    done
+    return 1
+}
 
 cat >/run/systemd/system/test-service.service <<EOF
 [Service]
@@ -31,6 +50,10 @@ Type=exec
 EOF
 
 systemctl daemon-reload
+
+# Merely having directory settings must not pin the unit.
+systemctl clean test-service --what=cache
+wait_for_gc test-service.service
 
 test ! -e /etc/test-service
 test ! -e /run/test-service
@@ -50,6 +73,9 @@ test -d /var/log/test-service
 
 systemctl stop test-service
 
+unit_in_memory test-service.service
+rm /run/systemd/system/test-service.service
+
 test -d /etc/test-service
 test -d /run/test-service
 test -d /var/lib/test-service
@@ -57,6 +83,11 @@ test -d /var/cache/test-service
 test -d /var/log/test-service
 
 systemctl clean test-service --what=configuration
+
+systemctl daemon-reload
+unit_in_memory test-service.service
+test "$(systemctl show -P LoadState test-service)" = not-found
+(! systemctl start test-service)
 
 test ! -e /etc/test-service
 test -d /run/test-service
@@ -66,6 +97,7 @@ test -d /var/log/test-service
 
 systemctl clean test-service
 
+test "$(systemctl show -P Slice test-service)" = system.slice
 test ! -e /etc/test-service
 test ! -e /run/test-service
 test -d /var/lib/test-service
@@ -80,7 +112,12 @@ test -d /var/lib/test-service
 test ! -e /var/cache/test-service
 test ! -e /var/log/test-service
 
+test "$(systemctl show -P CanClean test-service)" = state
+# A new directory at a path already cleaned no longer belongs to the removed unit.
+mkdir /var/cache/test-service
 systemctl clean test-service --what=all
+wait_for_gc test-service.service
+rmdir /var/cache/test-service
 
 test ! -e /etc/test-service
 test ! -e /run/test-service
@@ -171,7 +208,14 @@ test -L /var/lib/test-service
 test ! -L /var/cache/test-service
 test ! -L /var/log/test-service
 
+# A dangling symlink is itself a resource to clean, even if its private target is already gone.
+rmdir /var/lib/private/test-service
+test -L /var/lib/test-service
+test ! -e /var/lib/test-service
+systemctl daemon-reload
+unit_in_memory test-service.service
 systemctl clean test-service --what=all
+wait_for_gc test-service.service
 
 test ! -d /etc/test-service
 test ! -d /run/private/test-service
@@ -219,6 +263,21 @@ test -d /var/cache/hoge
 test -d /var/log/hoge
 
 systemctl stop tmp-hoge.mount
+test ! -e /run/hoge
+
+# Reload while the mount is still in mountinfo: it stays loaded, but without a fragment.
+systemctl start tmp-hoge.mount
+rm /run/systemd/system/tmp-hoge.mount
+systemctl daemon-reload
+systemctl is-active --quiet tmp-hoge.mount
+test "$(systemctl show -P LoadState tmp-hoge.mount)" = loaded
+test -z "$(systemctl show -P FragmentPath tmp-hoge.mount)"
+systemctl stop tmp-hoge.mount
+systemctl clean --what=runtime tmp-hoge.mount
+
+# The remaining directories must survive another reload, now without a kernel mount either.
+systemctl daemon-reload
+test "$(systemctl show -P LoadState tmp-hoge.mount)" = not-found
 
 test -d /etc/hoge
 test ! -d /run/hoge
@@ -327,3 +386,74 @@ test ! -e /run/test-socket
 test ! -e /var/lib/test-socket
 test ! -e /var/cache/test-socket
 test ! -e /var/log/test-socket
+
+# Use a regular unit so the directory and both symlinks can pin it until the final stop.
+cat >/run/systemd/system/test-clean-runtime.service <<EOF
+[Service]
+Type=exec
+DynamicUser=yes
+RuntimeDirectory=test-clean-runtime:test-clean-runtime-alias
+RuntimeDirectoryPreserve=restart
+ExecStart=sleep infinity
+EOF
+systemctl daemon-reload
+systemctl start test-clean-runtime.service
+test -L /run/test-clean-runtime
+test -L /run/test-clean-runtime-alias
+touch /run/test-clean-runtime-alias/marker
+systemctl restart test-clean-runtime.service
+test -f /run/test-clean-runtime-alias/marker
+systemctl stop test-clean-runtime.service
+wait_for_gc test-clean-runtime.service
+test ! -L /run/test-clean-runtime
+test ! -L /run/test-clean-runtime-alias
+test ! -e /run/private/test-clean-runtime
+rm /run/systemd/system/test-clean-runtime.service
+
+# Reuse the name for a transient unit. If its fragment disappears while it is still running, a replacement on
+# disk must be read as a regular unit file, not treated as another transient fragment.
+systemd-run -u test-clean-runtime -p Type=exec -p StateDirectory=test-clean-connection sleep infinity
+rm /run/systemd/transient/test-clean-runtime.service
+systemctl daemon-reload
+cat >/run/systemd/system/test-clean-runtime.service <<EOF
+[Service]
+ExecStart=true
+EOF
+test "$(systemctl show -P FragmentPath test-clean-runtime.service)" = /run/systemd/system/test-clean-runtime.service
+systemctl stop test-clean-runtime.service
+rm /run/systemd/system/test-clean-runtime.service
+
+# Each connection uses a fresh service name but the same state directory. Reload while the instance
+# is running to check that it remains collectible even after its socket reference is dropped.
+cat >/run/systemd/system/test-clean-connection.socket <<EOF
+[Socket]
+ListenStream=/run/test-clean-connection.sock
+Accept=yes
+RemoveOnStop=yes
+EOF
+cat >/run/systemd/system/test-clean-connection@.service <<'EOF'
+[Service]
+StandardOutput=socket
+StateDirectory=test-clean-connection
+ExecStart=sh -ec 'systemctl daemon-reload; echo %n'
+EOF
+cat >/run/systemd/system/test-clean-template@.service <<EOF
+[Service]
+Type=oneshot
+StateDirectory=test-clean-connection/%i
+ExecStart=true
+EOF
+systemctl daemon-reload
+systemctl start test-clean-connection.socket
+instance=$(socat -u UNIX-CONNECT:/run/test-clean-connection.sock -)
+[[ "$instance" == test-clean-connection@*.service ]]
+wait_for_gc "$instance"
+test -d /var/lib/test-clean-connection
+
+# A manually started instance is collectible even if it has its own state directory. Its template
+# is still on disk, so clean can load it again on demand.
+systemctl start test-clean-template@manual.service
+wait_for_gc test-clean-template@manual.service
+test -d /var/lib/test-clean-connection/manual
+systemctl clean --what=state test-clean-template@manual.service
+test ! -e /var/lib/test-clean-connection/manual
