@@ -14,7 +14,7 @@ static void feed_string(AnsiSeqParser *p, const char *s, const char *expected_ev
         log_info("looking at: %s", escaped);
 
         /* NB: an aborted character is fed twice and hence produces two events, i.e. the expected event
-         * string may be longer than the input string */
+         * string may be longer than the input string. 'a' denotes an abort, 'r' a restart. */
 
         for (size_t i = 0; s[i]; i++)
                 for (;;) {
@@ -36,13 +36,16 @@ static void feed_string(AnsiSeqParser *p, const char *s, const char *expected_ev
                         case 'a':
                                 expected = ANSI_SEQ_EVENT_ABORT;
                                 break;
+                        case 'r':
+                                expected = ANSI_SEQ_EVENT_RESTART;
+                                break;
                         default:
                                 assert_not_reached();
                         }
 
                         ASSERT_EQ(r, (int) expected);
 
-                        if (r != ANSI_SEQ_EVENT_ABORT) /* aborted characters must be fed again */
+                        if (!ANSI_SEQ_EVENT_NEEDS_REFEED(r)) /* aborted characters must be fed again */
                                 break;
                 }
 
@@ -161,9 +164,23 @@ TEST(ansi_seq_parser) {
         ASSERT_EQ(p.state, ANSI_SEQ_STATE_GROUND);
         ASSERT_NULL(ansi_seq_parser_string(&p));
 
-        /* An ESC inside a string sequence that is not followed by '\' (i.e. not ST): aborted, the
-         * character following the ESC is replayed */
-        feed_string(&p, "\x1B]foo\x1B" "x", "ssssssat");
+        /* An ESC inside a string sequence that is not followed by '\' (i.e. not ST): the string sequence is
+         * aborted, but the ESC begins a new sequence, which the character following the ESC is replayed
+         * into */
+        feed_string(&p, "\x1B]foo\x1B" "x", "ssssssre");
+        ASSERT_EQ(p.state, ANSI_SEQ_STATE_GROUND);
+        ASSERT_EQ(p.introducer, 'x');
+
+        feed_string(&p, "\x1BPfoo\x1B[?2048l", "ssssssrsssssse");
+        ASSERT_STREQ(ansi_seq_parser_string(&p), "?2048l");
+        ASSERT_EQ(p.state, ANSI_SEQ_STATE_GROUND);
+
+        feed_string(&p, "\x1B]8;;foo\x1B]0;bar\a", "sssssssssrsssssse");
+        ASSERT_EQ(p.introducer, ']');
+        ASSERT_STREQ(ansi_seq_parser_string(&p), "0;bar");
+
+        /* … and the new sequence may be aborted right away again */
+        feed_string(&p, "\x1BP\x1B\n", "sssrat");
         ASSERT_EQ(p.state, ANSI_SEQ_STATE_GROUND);
         ASSERT_NULL(ansi_seq_parser_string(&p));
 
@@ -201,13 +218,13 @@ static void feed_string_harder(AnsiSeqParser *p, const char *s, const char *expe
 
         log_info("looking at (harder): %s", escaped);
 
-        /* Unlike feed_string() this never sees abort events, as ansi_seq_parser_feed_harder() swallows
-         * them, hence the expected event string has exactly one event per input character */
+        /* Unlike feed_string() this never sees abort or restart events, as ansi_seq_parser_feed_harder()
+         * swallows them, hence the expected event string has exactly one event per input character */
 
         for (size_t i = 0; s[i]; i++) {
                 int r = ansi_seq_parser_feed_harder(p, s[i]);
                 ASSERT_OK(r);
-                ASSERT_NE(r, (int) ANSI_SEQ_EVENT_ABORT);
+                ASSERT_FALSE(ANSI_SEQ_EVENT_NEEDS_REFEED(r));
 
                 switch (expected_events[e++]) {
                 case 't':
@@ -242,6 +259,15 @@ TEST(ansi_seq_parser_feed_harder) {
         /* An aborted CSI sequence whose aborting character (ESC) starts a new sequence */
         feed_string_harder(&p, "\x1B[1\x1B[m", "ssssse");
         ASSERT_STREQ(ansi_seq_parser_string(&p), "m");
+        ASSERT_EQ(p.state, ANSI_SEQ_STATE_GROUND);
+
+        /* An aborted string sequence whose ESC starts a new sequence */
+        feed_string_harder(&p, "\x1BPfoo\x1B[?2048l", "sssssssssssse");
+        ASSERT_STREQ(ansi_seq_parser_string(&p), "?2048l");
+        ASSERT_EQ(p.state, ANSI_SEQ_STATE_GROUND);
+
+        feed_string_harder(&p, "\x1BP\x1B" "cx", "ssset");
+        ASSERT_EQ(p.introducer, 'c');
         ASSERT_EQ(p.state, ANSI_SEQ_STATE_GROUND);
 
         /* ESC ESC: the first ESC is dropped, the second one starts a sequence */

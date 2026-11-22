@@ -9,8 +9,8 @@ set -o pipefail
 # that every byte travelling monitor→broker is under the test's control. Covers
 # plain keystrokes, an ANSI sequence split across two reads (which the broker
 # must hold back and reinsert intact), CSI 2048/48 window size reports (which must
-# be excised from the stream and applied to the PTY), and back-pressure once the
-# payload stops reading.
+# be excised from the stream and applied to the PTY, also right after an aborted
+# string sequence), and back-pressure once the payload stops reading.
 
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
@@ -239,6 +239,22 @@ expected += seq + marker
 assert wait_for_received(marker) == expected
 assert get_size(bfd) == (40, 100), get_size(bfd)
 
+# An ESC within a string sequence (here DCS) that does not introduce ST aborts it, and begins a new sequence.
+# A size report following such an ESC must hence be excised too, while the aborted sequence before it passes
+# through. Split right after that ESC, so that the broker has to hold back the aborted sequence including the
+# ESC, and pick up the new sequence at the reinserted ESC once the rest arrives.
+aborted = b'\x1bPfoo'
+seq = aborted + size_report(30, 90)
+send(seq[:len(aborted) + 1])
+time.sleep(0.5)
+assert received() == expected, f'Incomplete sequence leaked to the payload: {received()!r}'
+send(seq[len(aborted) + 1:])
+marker = b'hello-pty96-input-marker-5\n'
+send(marker)
+expected += aborted + marker
+assert wait_for_received(marker) == expected
+wait_for_size(30, 90)
+
 # Back-pressure: if the payload stops reading, the broker must buffer a bounded amount of input and then
 # stop accepting more, rather than growing its buffers without bounds or dropping data. Once the payload
 # resumes reading, everything must arrive, in order.
@@ -267,7 +283,7 @@ assert sent >= BUFFER_MAX, f'Broker stalled prematurely, after {sent} bytes'
 
 kill_payload('SIGCONT')
 send(view)
-marker = b'hello-pty96-input-marker-5\n'
+marker = b'hello-pty96-input-marker-6\n'
 send(marker)
 expected += bulk + marker
 assert wait_for_received(marker, timeout=60) == expected
