@@ -108,6 +108,9 @@ int pam_prompt_graceful(pam_handle_t *pamh, int style, char **ret_response, cons
 /* Equivalent of pam_misc_setenv(pamh, name, value, 0), without the libpam_misc dep — builds "name=value"
  * and hands it to sym_pam_putenv(), then erases the buffer before freeing in case it carried a secret. */
 int pam_putenv_assign(pam_handle_t *pamh, const char *name, const char *value);
+#else
+/* Opaque, so that PAM handles may be passed around even if PAM support is disabled */
+typedef struct pam_handle pam_handle_t;
 #endif
 
 int dlopen_libpam(int log_level) _dlopen_loader_;
