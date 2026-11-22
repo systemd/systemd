@@ -23,7 +23,9 @@ for PACKAGE in "${PACKAGES[@]}"; do
     )"
 done
 
+EXCLUDE=("${PACKAGES[@]}" qemu)
+
 echo -e "$DEPS" |
-    grep --extended-regexp --invert-match --regexp "$(IFS=\| ; echo "${PACKAGES[*]}")" --regexp qemu |
+    grep --fixed-strings --invert-match "${EXCLUDE[@]/#/--regexp=}" |
     sort --unique |
     xargs --delimiter '\n' --no-run-if-empty mkosi-install

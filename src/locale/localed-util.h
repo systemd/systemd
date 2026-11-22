@@ -44,5 +44,8 @@ int vconsole_write_data(Context *c);
 int x11_write_data(Context *c);
 
 bool locale_gen_check_available(void);
+const char* locale_utf8_codeset_end(const char *dot);
+int locale_strip_utf8_codeset(const char *name, char **ret);
+int locale_gen_locale_supported(const char *locale, const char *supported_file, char **ret_entry);
 int locale_gen_enable_locale(const char *locale);
 int locale_gen_run(void);

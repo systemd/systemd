@@ -117,7 +117,11 @@ static void parse_object(const char *json, Uapi16Object *ret) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
         ASSERT_OK(sd_json_parse(json, /* flags= */ 0, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
-        ASSERT_OK(dispatch_uapi16_object(v, /* n= */ 1, /* flags= */ 0, ret));
+
+        /* Parse below a root object that permits extended attributes */
+        Uapi16Object root = UAPI16_OBJECT_NULL;
+        root.features = MANIFEST_FIELD_USER_XATTR;
+        ASSERT_OK(dispatch_uapi16_object(v, &root, /* flags= */ 0, ret));
 }
 
 TEST(xattr_match_filter_test_uapi16_object) {

@@ -29,6 +29,7 @@
 #include "hmac.h"
 #include "initrd-util.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "json-util.h"
 #include "limits-util.h"
 #include "log.h"
@@ -295,8 +296,10 @@ static int dlopen_tpm2_mu(int log_level) {
                         DLSYM_ARG(Tss2_MU_UINT32_Marshal));
 }
 
-_dlopen_loader_
-static int dlopen_tpm2_tcti_device(int log_level) {
+#endif
+
+int dlopen_tpm2_tcti_device(int log_level) {
+#if HAVE_TPM2
         static void *libtss2_tcti_device_dl = NULL;
 
         /* The "device" TCTI is the most relevant one, let's also load it explicitly on dlopen_tpm2(), even
@@ -308,9 +311,11 @@ static int dlopen_tpm2_tcti_device(int log_level) {
                         &libtss2_tcti_device_dl,
                         "libtss2-tcti-device.so.0",
                         log_level);
-}
-
+#else
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                              "TPM2 support is not compiled in.");
 #endif
+}
 
 int dlopen_tpm2(int log_level) {
 #if HAVE_TPM2
@@ -328,9 +333,11 @@ int dlopen_tpm2(int log_level) {
         if (r < 0)
                 return r;
 
-        r = dlopen_tpm2_tcti_device(log_level);
-        if (r < 0)
-                return r;
+        /* The device TCTI is only needed to talk to a TPM, not for offline calculations (for example
+         * systemd-measure or ukify --policy-digest, often used in build environments without a TPM). Load
+         * it if available, so that tpm2_context_new() still finds it once dlopen() is blocked, but don't
+         * fail without it: tpm2_context_new() returns -ENOPKG if a TPM is actually accessed. */
+        (void) dlopen_tpm2_tcti_device(LOG_DEBUG);
 
         return 0;
 #else
@@ -6011,6 +6018,95 @@ static void tpm2_make_policy_ref(const char *policy_ref, TPM2B_NONCE *ret_policy
         ret_policy_ref->size = SHA256_DIGEST_SIZE;
 }
 
+static int signature_to_tpm2_tpmt(
+                const TPM2B_PUBLIC *public,
+                const void *signature_raw,
+                size_t signature_size,
+                TPMT_SIGNATURE *ret_signature) {
+        if (signature_size == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature is empty.");
+        assert(public);
+        assert(signature_raw);
+        assert(ret_signature);
+
+        int r;
+        switch (public->publicArea.type) {
+#if HAVE_OPENSSL
+        case TPM2_ALG_ECC: {
+                r = dlopen_libcrypto(LOG_DEBUG);
+                if (r < 0)
+                        return r;
+
+                /* d2i_ECDSA_SIG updates the pointer to right after the parsed structure. Make a copy that
+                 * can be modified without side effects. */
+                const unsigned char *sigp = signature_raw;
+                _cleanup_(ECDSA_SIG_freep) ECDSA_SIG *esig = NULL;
+                esig = sym_d2i_ECDSA_SIG(/* a= */ NULL, &sigp, signature_size);
+                if (!esig)
+                        return log_openssl_errors(LOG_DEBUG,
+                                                  "Failed to parse ECC signature (should be DER).");
+
+                const BIGNUM *bn_r = sym_ECDSA_SIG_get0_r(esig);
+                if (!bn_r)
+                        return log_openssl_errors(LOG_DEBUG, "Failed to get R.");
+                _cleanup_(iovec_done) struct iovec iov_r = {};
+                if (iovec_alloc(sym_BN_num_bytes(bn_r), &iov_r))
+                        return log_oom_debug();
+                r = sym_BN_bn2bin(bn_r, iov_r.iov_base);
+                if (r != (int) iov_r.iov_len)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to format R.");
+
+                const BIGNUM *bn_s = sym_ECDSA_SIG_get0_s(esig);
+                if (!bn_s)
+                        return log_openssl_errors(LOG_DEBUG, "Failed to get S.");
+                _cleanup_(iovec_done) struct iovec iov_s = {};
+                if (iovec_alloc(sym_BN_num_bytes(bn_s), &iov_s))
+                        return log_oom_debug();
+                r = sym_BN_bn2bin(bn_s, iov_s.iov_base);
+                if (r != (int) iov_s.iov_len)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to format S.");
+
+                r = TPM2B_ECC_PARAMETER_CHECK_SIZE(iov_r.iov_len);
+                if (r < 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "R is larger than buffer.");
+                r = TPM2B_ECC_PARAMETER_CHECK_SIZE(iov_s.iov_len);
+                if (r < 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "S is larger than buffer.");
+
+                *ret_signature = (TPMT_SIGNATURE) {
+                        .sigAlg = TPM2_ALG_ECDSA,
+                        .signature.ecdsa = {
+                                .hash = TPM2_ALG_SHA256,
+                                .signatureR = TPM2B_ECC_PARAMETER_MAKE(iov_r.iov_base, iov_r.iov_len),
+                                .signatureS = TPM2B_ECC_PARAMETER_MAKE(iov_s.iov_base, iov_s.iov_len),
+                        },
+                };
+                return 0;
+        }
+#endif /* HAVE_OPENSSL */
+        case TPM2_ALG_RSA: {
+                r = TPM2B_PUBLIC_KEY_RSA_CHECK_SIZE(signature_size);
+                if (r < 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Signature larger than buffer.");
+
+                *ret_signature = (TPMT_SIGNATURE) {
+                        .sigAlg = TPM2_ALG_RSASSA,
+                        .signature.rsassa = {
+                                .hash = TPM2_ALG_SHA256,
+                                .sig = TPM2B_PUBLIC_KEY_RSA_MAKE(signature_raw, signature_size),
+                        },
+                };
+                return 0;
+        }
+        default:
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Unsupported signing key type 0x%" PRIx16, public->publicArea.type);
+        }
+}
+
 static int tpm2_policy_authorize(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
@@ -6072,8 +6168,8 @@ static int tpm2_policy_authorize(
                 if (r < 0)
                         return r;
 
-                /* TPM2_VerifySignature() will only verify the RSA part of the RSA+SHA256 signature,
-                 * hence we need to do the SHA256 part ourselves, first */
+                /* TPM2_VerifySignature() will only verify asymmetric crypto part of the signature, hence we
+                 * need to do the SHA256 part ourselves, first */
                 _cleanup_(iovec_done) struct iovec tbs_data = {};
                 r = tpm2_make_policy_authorize_tbs_data(approved_policy, policy_ref, &tbs_data);
                 if (r < 0)
@@ -6084,17 +6180,10 @@ static int tpm2_policy_authorize(
                 if (r < 0)
                         return r;
 
-                r = TPM2B_PUBLIC_KEY_RSA_CHECK_SIZE(signature_size);
-                if (r < 0)
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Signature larger than buffer.");
-
-                TPMT_SIGNATURE policy_signature = {
-                        .sigAlg = TPM2_ALG_RSASSA,
-                        .signature.rsassa = {
-                                .hash = TPM2_ALG_SHA256,
-                                .sig = TPM2B_PUBLIC_KEY_RSA_MAKE(signature_raw, signature_size),
-                        },
-                };
+                TPMT_SIGNATURE policy_signature;
+                r = signature_to_tpm2_tpmt(public, signature_raw, signature_size, &policy_signature);
+                if (r != 0)
+                        return r;
 
                 rc = sym_Esys_VerifySignature(
                                 c->esys_context,
@@ -6690,13 +6779,9 @@ int tpm2_serialize(
 
         /* Make a copy since we don't want the caller to understand that ESYS allocated the pointer.
          * It would make tracking what deallocator to use for the result in which context a PITA. */
-        struct iovec v;
-        v.iov_base = memdup(serialized, size);
-        if (!v.iov_base)
+        if (!iovec_memdup(&IOVEC_MAKE(serialized, size), ret))
                 return log_oom_debug();
-        v.iov_len = size;
 
-        *ret = v;
         return 0;
 }
 
@@ -8722,14 +8807,9 @@ int tpm2_unseal_data(
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to unseal data: %s", sym_Tss2_RC_Decode(rc));
 
-        _cleanup_(iovec_done) struct iovec d = {
-                .iov_base = memdup(unsealed->buffer, unsealed->size),
-                .iov_len = unsealed->size,
-        };
-        if (!d.iov_base)
+        if (!iovec_memdup(&IOVEC_MAKE(unsealed->buffer, unsealed->size), ret_data))
                 return log_oom_debug();
 
-        *ret_data = TAKE_STRUCT(d);
         return 0;
 }
 #endif /* HAVE_TPM2 */
@@ -12037,7 +12117,7 @@ int tpm2_argon2id_derive_split(
         assert(ret_b64_pin);
 
         r = kdf_argon2id_derive(
-                        &IOVEC_MAKE(pin, strlen(pin)),
+                        &IOVEC_MAKE_STRING(pin),
                         salt,
                         argon2id_params,
                         /* derive_size= */ 64, &derived);
@@ -12048,10 +12128,8 @@ int tpm2_argon2id_derive_split(
 
         const uint8_t *derived_bytes = derived.iov_base;
 
-        ret_key1->iov_base = memdup(derived_bytes, 32);
-        if (!ret_key1->iov_base)
+        if (!iovec_memdup(&IOVEC_MAKE(derived_bytes, 32), ret_key1))
                 return log_oom();
-        ret_key1->iov_len = 32;
 
         ssize_t n = base64mem(derived_bytes + 32, 32, ret_b64_pin);
         if (n < 0)

@@ -189,6 +189,32 @@ TEST(image_policy_get_verity_sig) {
         ASSERT_EQ(image_policy_get(p, PARTITION_ROOT_VERITY_SIG), _PARTITION_POLICY_FLAGS_INVALID);
 }
 
+TEST(image_policy_requires_signature) {
+        /* A policy requires a signature for a partition if it allows "signed" but not "verity" for the
+         * partition. Check policies with and without "verity", a policy for another partition, and the host
+         * policy, which allows "verity" for root and /usr/. */
+        _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
+
+        ASSERT_OK(image_policy_from_string("usr=signed", /* graceful= */ false, &p));
+        ASSERT_TRUE(image_policy_requires_signature(p, PARTITION_USR));
+        ASSERT_FALSE(image_policy_requires_signature(p, PARTITION_ROOT));
+        p = image_policy_free(p);
+
+        ASSERT_OK(image_policy_from_string("usr=signed+absent", /* graceful= */ false, &p));
+        ASSERT_TRUE(image_policy_requires_signature(p, PARTITION_USR));
+        p = image_policy_free(p);
+
+        ASSERT_OK(image_policy_from_string("usr=verity+signed", /* graceful= */ false, &p));
+        ASSERT_FALSE(image_policy_requires_signature(p, PARTITION_USR));
+        p = image_policy_free(p);
+
+        ASSERT_OK(image_policy_from_string("usr=verity", /* graceful= */ false, &p));
+        ASSERT_FALSE(image_policy_requires_signature(p, PARTITION_USR));
+
+        ASSERT_FALSE(image_policy_requires_signature(&image_policy_host, PARTITION_ROOT));
+        ASSERT_FALSE(image_policy_requires_signature(&image_policy_host, PARTITION_USR));
+}
+
 TEST(image_policy_intersect) {
         test_policy_intersect_one("", "", "", /* intersect= */ true);
         test_policy_intersect_one("-", "-", "-", /* intersect= */ true);
@@ -336,7 +362,7 @@ TEST(image_policy_new_from_dissected) {
 
         policy = image_policy_new_from_dissected(&image, /* verity= */ NULL);
         ASSERT_NOT_NULL(policy);
-        ASSERT_EQ(policy->policies[PARTITION_ROOT].flags, (PartitionPolicyFlags) (PARTITION_POLICY_EXT4 | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
+        ASSERT_EQ(policy->policies[PARTITION_ROOT].flags, (PartitionPolicyFlags) (PARTITION_POLICY_EXT4 | PARTITION_POLICY_UNPROTECTED | PARTITION_POLICY_VERITY | PARTITION_POLICY_SIGNED | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
         ASSERT_EQ(policy->policies[PARTITION_USR].flags, (PartitionPolicyFlags) PARTITION_POLICY_ABSENT);
 
         policy = image_policy_free(policy);
@@ -404,7 +430,7 @@ TEST(image_policy_new_from_dissected) {
 
         policy = image_policy_new_from_dissected(&image, /* verity= */ NULL);
         ASSERT_NOT_NULL(policy);
-        ASSERT_EQ(policy->policies[PARTITION_ROOT].flags, (PartitionPolicyFlags) (PARTITION_POLICY_BTRFS | PARTITION_POLICY_GROWFS_ON | PARTITION_POLICY_READ_ONLY_ON));
+        ASSERT_EQ(policy->policies[PARTITION_ROOT].flags, (PartitionPolicyFlags) (PARTITION_POLICY_BTRFS | PARTITION_POLICY_UNPROTECTED | PARTITION_POLICY_VERITY | PARTITION_POLICY_SIGNED | PARTITION_POLICY_GROWFS_ON | PARTITION_POLICY_READ_ONLY_ON));
 
         policy = image_policy_free(policy);
 
@@ -433,10 +459,10 @@ TEST(image_policy_new_from_dissected) {
 
         policy = image_policy_new_from_dissected(&image, /* verity= */ NULL);
         ASSERT_NOT_NULL(policy);
-        ASSERT_EQ(policy->policies[PARTITION_ROOT].flags, (PartitionPolicyFlags) (PARTITION_POLICY_EXT4 | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
-        ASSERT_EQ(policy->policies[PARTITION_USR].flags, (PartitionPolicyFlags) (PARTITION_POLICY_XFS | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
-        ASSERT_EQ(policy->policies[PARTITION_HOME].flags, (PartitionPolicyFlags) (PARTITION_POLICY_BTRFS | PARTITION_POLICY_GROWFS_ON | PARTITION_POLICY_READ_ONLY_ON));
-        ASSERT_EQ(policy->policies[PARTITION_ESP].flags, (PartitionPolicyFlags) (PARTITION_POLICY_VFAT | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
+        ASSERT_EQ(policy->policies[PARTITION_ROOT].flags, (PartitionPolicyFlags) (PARTITION_POLICY_EXT4 | PARTITION_POLICY_UNPROTECTED | PARTITION_POLICY_VERITY | PARTITION_POLICY_SIGNED | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
+        ASSERT_EQ(policy->policies[PARTITION_USR].flags, (PartitionPolicyFlags) (PARTITION_POLICY_XFS | PARTITION_POLICY_UNPROTECTED | PARTITION_POLICY_VERITY | PARTITION_POLICY_SIGNED | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
+        ASSERT_EQ(policy->policies[PARTITION_HOME].flags, (PartitionPolicyFlags) (PARTITION_POLICY_BTRFS | PARTITION_POLICY_UNPROTECTED | PARTITION_POLICY_VERITY | PARTITION_POLICY_SIGNED | PARTITION_POLICY_GROWFS_ON | PARTITION_POLICY_READ_ONLY_ON));
+        ASSERT_EQ(policy->policies[PARTITION_ESP].flags, (PartitionPolicyFlags) (PARTITION_POLICY_VFAT | PARTITION_POLICY_UNPROTECTED | PARTITION_POLICY_VERITY | PARTITION_POLICY_SIGNED | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
         ASSERT_EQ(policy->policies[PARTITION_SWAP].flags, (PartitionPolicyFlags) PARTITION_POLICY_ABSENT);
 
         policy = image_policy_free(policy);
@@ -505,7 +531,7 @@ TEST(image_policy_new_from_dissected) {
         policy = image_policy_new_from_dissected(&image, &verity);
         ASSERT_NOT_NULL(policy);
         /* Root should NOT have verity since verity targets USR */
-        ASSERT_EQ(policy->policies[PARTITION_ROOT].flags, (PartitionPolicyFlags) (PARTITION_POLICY_EXT4 | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
+        ASSERT_EQ(policy->policies[PARTITION_ROOT].flags, (PartitionPolicyFlags) (PARTITION_POLICY_EXT4 | PARTITION_POLICY_UNPROTECTED | PARTITION_POLICY_VERITY | PARTITION_POLICY_SIGNED | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
         /* USR should have verity */
         ASSERT_EQ(policy->policies[PARTITION_USR].flags, (PartitionPolicyFlags) (PARTITION_POLICY_SQUASHFS | PARTITION_POLICY_VERITY | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
 
@@ -524,7 +550,7 @@ TEST(image_policy_new_from_dissected) {
         policy = image_policy_new_from_dissected(&image, /* verity= */ NULL);
         ASSERT_NOT_NULL(policy);
         /* Should only have GROWFS_OFF and READ_ONLY_ON for unknown filesystem */
-        ASSERT_EQ(policy->policies[PARTITION_ROOT].flags, (PartitionPolicyFlags) (PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
+        ASSERT_EQ(policy->policies[PARTITION_ROOT].flags, (PartitionPolicyFlags) (PARTITION_POLICY_UNPROTECTED | PARTITION_POLICY_VERITY | PARTITION_POLICY_SIGNED | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
 
         policy = image_policy_free(policy);
 
@@ -541,7 +567,7 @@ TEST(image_policy_new_from_dissected) {
         policy = image_policy_new_from_dissected(&image, /* verity= */ NULL);
         ASSERT_NOT_NULL(policy);
         /* Should only have GROWFS_OFF and READ_ONLY_ON for NULL fstype */
-        ASSERT_EQ(policy->policies[PARTITION_ROOT].flags, (PartitionPolicyFlags) (PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
+        ASSERT_EQ(policy->policies[PARTITION_ROOT].flags, (PartitionPolicyFlags) (PARTITION_POLICY_UNPROTECTED | PARTITION_POLICY_VERITY | PARTITION_POLICY_SIGNED | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
 
         policy = image_policy_free(policy);
 
@@ -583,13 +609,13 @@ TEST(image_policy_new_from_dissected) {
 
         policy = image_policy_new_from_dissected(&image, /* verity= */ NULL);
         ASSERT_NOT_NULL(policy);
-        ASSERT_EQ(policy->policies[PARTITION_ROOT].flags, (PartitionPolicyFlags) (PARTITION_POLICY_EXT4 | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
-        ASSERT_EQ(policy->policies[PARTITION_USR].flags, (PartitionPolicyFlags) (PARTITION_POLICY_BTRFS | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
-        ASSERT_EQ(policy->policies[PARTITION_HOME].flags, (PartitionPolicyFlags) (PARTITION_POLICY_XFS | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
-        ASSERT_EQ(policy->policies[PARTITION_SRV].flags, (PartitionPolicyFlags) (PARTITION_POLICY_F2FS | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
-        ASSERT_EQ(policy->policies[PARTITION_VAR].flags, (PartitionPolicyFlags) (PARTITION_POLICY_EROFS | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
-        ASSERT_EQ(policy->policies[PARTITION_TMP].flags, (PartitionPolicyFlags) (PARTITION_POLICY_SQUASHFS | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
-        ASSERT_EQ(policy->policies[PARTITION_ESP].flags, (PartitionPolicyFlags) (PARTITION_POLICY_VFAT | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
+        ASSERT_EQ(policy->policies[PARTITION_ROOT].flags, (PartitionPolicyFlags) (PARTITION_POLICY_EXT4 | PARTITION_POLICY_UNPROTECTED | PARTITION_POLICY_VERITY | PARTITION_POLICY_SIGNED | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
+        ASSERT_EQ(policy->policies[PARTITION_USR].flags, (PartitionPolicyFlags) (PARTITION_POLICY_BTRFS | PARTITION_POLICY_UNPROTECTED | PARTITION_POLICY_VERITY | PARTITION_POLICY_SIGNED | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
+        ASSERT_EQ(policy->policies[PARTITION_HOME].flags, (PartitionPolicyFlags) (PARTITION_POLICY_XFS | PARTITION_POLICY_UNPROTECTED | PARTITION_POLICY_VERITY | PARTITION_POLICY_SIGNED | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
+        ASSERT_EQ(policy->policies[PARTITION_SRV].flags, (PartitionPolicyFlags) (PARTITION_POLICY_F2FS | PARTITION_POLICY_UNPROTECTED | PARTITION_POLICY_VERITY | PARTITION_POLICY_SIGNED | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
+        ASSERT_EQ(policy->policies[PARTITION_VAR].flags, (PartitionPolicyFlags) (PARTITION_POLICY_EROFS | PARTITION_POLICY_UNPROTECTED | PARTITION_POLICY_VERITY | PARTITION_POLICY_SIGNED | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
+        ASSERT_EQ(policy->policies[PARTITION_TMP].flags, (PartitionPolicyFlags) (PARTITION_POLICY_SQUASHFS | PARTITION_POLICY_UNPROTECTED | PARTITION_POLICY_VERITY | PARTITION_POLICY_SIGNED | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
+        ASSERT_EQ(policy->policies[PARTITION_ESP].flags, (PartitionPolicyFlags) (PARTITION_POLICY_VFAT | PARTITION_POLICY_UNPROTECTED | PARTITION_POLICY_VERITY | PARTITION_POLICY_SIGNED | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
 
         policy = image_policy_free(policy);
 
@@ -644,7 +670,7 @@ TEST(image_policy_new_from_dissected) {
         policy = image_policy_new_from_dissected(&image, /* verity= */ NULL);
         ASSERT_NOT_NULL(policy);
         /* bare file system images have no growfs/read-only flags */
-        ASSERT_EQ(policy->policies[PARTITION_ROOT].flags, (PartitionPolicyFlags) PARTITION_POLICY_EXT4);
+        ASSERT_EQ(policy->policies[PARTITION_ROOT].flags, (PartitionPolicyFlags) (PARTITION_POLICY_EXT4 | PARTITION_POLICY_UNPROTECTED | PARTITION_POLICY_VERITY | PARTITION_POLICY_SIGNED));
 
         policy = image_policy_free(policy);
 
@@ -661,7 +687,7 @@ TEST(image_policy_new_from_dissected) {
 
         policy = image_policy_new_from_dissected(&image, /* verity= */ NULL);
         ASSERT_NOT_NULL(policy);
-        ASSERT_EQ(policy->policies[PARTITION_ROOT].flags, (PartitionPolicyFlags) (PARTITION_POLICY_EXT4 | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_OFF));
+        ASSERT_EQ(policy->policies[PARTITION_ROOT].flags, (PartitionPolicyFlags) (PARTITION_POLICY_EXT4 | PARTITION_POLICY_UNPROTECTED | PARTITION_POLICY_VERITY | PARTITION_POLICY_SIGNED | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_OFF));
 
         policy = image_policy_free(policy);
 
@@ -679,7 +705,74 @@ TEST(image_policy_new_from_dissected) {
 
         policy = image_policy_new_from_dissected(&image, /* verity= */ NULL);
         ASSERT_NOT_NULL(policy);
-        ASSERT_EQ(policy->policies[PARTITION_ROOT].flags, (PartitionPolicyFlags) (PARTITION_POLICY_BTRFS | PARTITION_POLICY_GROWFS_ON | PARTITION_POLICY_READ_ONLY_OFF));
+        ASSERT_EQ(policy->policies[PARTITION_ROOT].flags, (PartitionPolicyFlags) (PARTITION_POLICY_BTRFS | PARTITION_POLICY_UNPROTECTED | PARTITION_POLICY_VERITY | PARTITION_POLICY_SIGNED | PARTITION_POLICY_GROWFS_ON | PARTITION_POLICY_READ_ONLY_OFF));
+
+        policy = image_policy_free(policy);
+
+        /* Test 20: a data partition with a verity partition that the Verity settings don't cover must be
+         * present with any protection, and the verity partition gets no use flags. */
+        verity = (VeritySettings) {
+                .designator = PARTITION_USR,
+                .root_hash = IOVEC_MAKE(dummy_data, sizeof(dummy_data)),
+        };
+        image = (DissectedImage) {
+                .partitions = {
+                        [PARTITION_ROOT] = {
+                                .found = true,
+                                .fstype = (char*) "squashfs",
+                        },
+                        [PARTITION_ROOT_VERITY] = {
+                                .found = true,
+                        },
+                        [PARTITION_USR] = {
+                                .found = true,
+                                .fstype = (char*) "squashfs",
+                        },
+                },
+        };
+
+        policy = image_policy_new_from_dissected(&image, &verity);
+        ASSERT_NOT_NULL(policy);
+        ASSERT_EQ(policy->policies[PARTITION_ROOT].flags, (PartitionPolicyFlags) (PARTITION_POLICY_SQUASHFS | PARTITION_POLICY_UNPROTECTED | PARTITION_POLICY_VERITY | PARTITION_POLICY_SIGNED | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
+        ASSERT_EQ(policy->policies[PARTITION_ROOT_VERITY].flags, (PartitionPolicyFlags) (PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
+        ASSERT_EQ(policy->policies[PARTITION_USR].flags, (PartitionPolicyFlags) (PARTITION_POLICY_SQUASHFS | PARTITION_POLICY_VERITY | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
+}
+
+TEST(image_policy_relax_protection) {
+        _cleanup_(image_policy_freep) ImagePolicy *policy = NULL;
+
+        /* image_policy_relax_protection() must allow any Verity protection and signature for a partition
+         * that is pinned as signed, keep its other flags, and open up the verity and signature partitions.
+         * Partitions pinned as absent stay absent. */
+        DissectedImage image = {
+                .verity_sig_ready = true,
+                .partitions = {
+                        [PARTITION_ROOT] = {
+                                .found = true,
+                                .fstype = (char*) "erofs",
+                        },
+                        [PARTITION_ROOT_VERITY] = {
+                                .found = true,
+                        },
+                        [PARTITION_ROOT_VERITY_SIG] = {
+                                .found = true,
+                        },
+                },
+        };
+        VeritySettings verity = {
+                .designator = PARTITION_ROOT,
+        };
+
+        policy = image_policy_new_from_dissected(&image, &verity);
+        ASSERT_NOT_NULL(policy);
+        ASSERT_EQ(policy->policies[PARTITION_ROOT].flags, (PartitionPolicyFlags) (PARTITION_POLICY_EROFS | PARTITION_POLICY_SIGNED | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
+        ASSERT_EQ(policy->policies[PARTITION_ROOT_VERITY].flags, (PartitionPolicyFlags) (PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
+
+        image_policy_relax_protection(policy);
+        ASSERT_EQ(policy->policies[PARTITION_ROOT].flags, (PartitionPolicyFlags) (PARTITION_POLICY_EROFS | PARTITION_POLICY_VERITY | PARTITION_POLICY_SIGNED | PARTITION_POLICY_UNPROTECTED | PARTITION_POLICY_GROWFS_OFF | PARTITION_POLICY_READ_ONLY_ON));
+        ASSERT_EQ(policy->policies[PARTITION_ROOT_VERITY].flags, (PartitionPolicyFlags) PARTITION_POLICY_OPEN);
+        ASSERT_EQ(policy->policies[PARTITION_ROOT_VERITY_SIG].flags, (PartitionPolicyFlags) PARTITION_POLICY_OPEN);
+        ASSERT_EQ(policy->policies[PARTITION_USR].flags, (PartitionPolicyFlags) PARTITION_POLICY_ABSENT);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

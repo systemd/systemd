@@ -70,6 +70,10 @@ int home_mount_node(
         }
 
         r = mount_nofollow_verbose(LOG_ERR, node, HOME_RUNTIME_WORK_DIR, fstype, flags|MS_RELATIME, joined);
+        /* EUCLEAN is EFSCORRUPTED here. Report it as EIO like run_fsck() does, since homed interprets
+         * EUCLEAN as a security token PIN error. */
+        if (r == -EUCLEAN)
+                return -EIO;
         if (r < 0)
                 return r;
 
@@ -208,7 +212,7 @@ static int make_home_userns(uid_t stored_uid, uid_t exposed_uid) {
 
         /* Map everything above the homed UID range to itself (again, excluding the UID we actually care
          * about if it is in that range). Also we leave "nobody" itself excluded) */
-        r = append_identity_range(&text, HOME_UID_MAX, UID_NOBODY, stored_uid);
+        r = append_identity_range(&text, HOME_UID_MAX + 1, UID_NOBODY, stored_uid);
         if (r < 0)
                 return log_oom();
 

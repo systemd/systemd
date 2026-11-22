@@ -19,7 +19,7 @@ COMMAND(
         "systemd-makefs\0",
         "Create a file system on an empty device.",
         .argspec = "TYPE DEVICE\0",
-        .man_pages = "systemd-makefs@.service(8)\0",
+        .man_page = "systemd-makefs@.service(8)",
         .option_namespace = "common",
 );
 

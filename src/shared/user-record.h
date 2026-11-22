@@ -507,7 +507,7 @@ int per_machine_match(sd_json_variant *entry, sd_json_dispatch_flags_t flags);
 int user_group_record_mangle(sd_json_variant *v, UserRecordLoadFlags load_flags, sd_json_variant **ret_variant, UserRecordMask *ret_mask);
 
 #define BLOB_DIR_MAX_SIZE (UINT64_C(64) * U64_MB)
-int suitable_blob_filename(const char *name);
+bool suitable_blob_filename(const char *name);
 
 typedef struct UserDBMatch {
         char **fuzzy_names;

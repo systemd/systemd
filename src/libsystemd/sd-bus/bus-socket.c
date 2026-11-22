@@ -45,8 +45,7 @@ static void iovec_advance(struct iovec iov[], unsigned *idx, size_t size) {
                 struct iovec *i = iov + *idx;
 
                 if (i->iov_len > size) {
-                        i->iov_base = (uint8_t*) i->iov_base + size;
-                        i->iov_len -= size;
+                        iovec_inc(i, size);
                         return;
                 }
 

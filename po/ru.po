@@ -13,7 +13,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-26 10:57+0100\n"
+"POT-Creation-Date: 2026-11-19 10:41+0000\n"
 "PO-Revision-Date: 2026-08-02 00:09+0000\n"
 "Last-Translator: Olga Smirnova <mistresssilvara@hotmail.com>\n"
 "Language-Team: Russian <https://translate.fedoraproject.org/projects/systemd/"
@@ -230,11 +230,11 @@ msgstr "Извините, ещё раз введите ключ восстано
 msgid "Security token of user %s not inserted."
 msgstr "Не вставлен токен безопасности пользователя %s."
 
-#: src/home/pam_systemd_home.c:394 src/home/pam_systemd_home.c:397
+#: src/home/pam_systemd_home.c:394 src/home/pam_systemd_home.c:402
 msgid "Try again with password: "
 msgstr "Повторите попытку с паролем: "
 
-#: src/home/pam_systemd_home.c:396
+#: src/home/pam_systemd_home.c:400
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
@@ -243,28 +243,28 @@ msgstr ""
 "Пароль неверен или его недостаточно, а настроенный токен безопасности "
 "пользователя %s не вставлен."
 
-#: src/home/pam_systemd_home.c:416
+#: src/home/pam_systemd_home.c:421
 msgid "Security token PIN: "
 msgstr "PIN-код токена безопасности: "
 
-#: src/home/pam_systemd_home.c:433
+#: src/home/pam_systemd_home.c:438
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr ""
 "Пожалуйста, пройдите физическую аутентификацию по токену безопасности "
 "пользователя %s."
 
-#: src/home/pam_systemd_home.c:444
+#: src/home/pam_systemd_home.c:449
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr "Пожалуйста, подтвердите наличие токена безопасности пользователя %s."
 
-#: src/home/pam_systemd_home.c:455
+#: src/home/pam_systemd_home.c:460
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr "Пожалуйста, подтвердите пользователя на токене безопасности %s."
 
-#: src/home/pam_systemd_home.c:464
+#: src/home/pam_systemd_home.c:469
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
@@ -272,87 +272,87 @@ msgstr ""
 "PIN-код токена безопасности заблокирован. Пожалуйста, сначала разблокируйте "
 "его. (Подсказка: иногда достаточно извлечь и снова вставить токен.)"
 
-#: src/home/pam_systemd_home.c:472
+#: src/home/pam_systemd_home.c:477
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "Неверный PIN-код токена безопасности для пользователя %s."
 
-#: src/home/pam_systemd_home.c:473 src/home/pam_systemd_home.c:492
-#: src/home/pam_systemd_home.c:511
+#: src/home/pam_systemd_home.c:478 src/home/pam_systemd_home.c:497
+#: src/home/pam_systemd_home.c:516
 msgid "Sorry, retry security token PIN: "
 msgstr "Извините, повторите попытку введения PIN-кода токена безопасности: "
 
-#: src/home/pam_systemd_home.c:491
+#: src/home/pam_systemd_home.c:496
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
 "Неверный PIN-код токена безопасности пользователя %s (осталось всего "
 "несколько попыток!)"
 
-#: src/home/pam_systemd_home.c:510
+#: src/home/pam_systemd_home.c:515
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
 "Неверный PIN-код токена безопасности пользователя %s (осталась всего одна "
 "попытка!)"
 
-#: src/home/pam_systemd_home.c:677
+#: src/home/pam_systemd_home.c:686
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
 "Домашняя папка пользователя %s в настоящее время неактивна, пожалуйста, "
 "сначала войдите в систему локально."
 
-#: src/home/pam_systemd_home.c:679
+#: src/home/pam_systemd_home.c:693
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
 "Домашняя папка пользователя %s в настоящее время заблокирована, сначала "
 "разблокируйте её локально."
 
-#: src/home/pam_systemd_home.c:713
+#: src/home/pam_systemd_home.c:728
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr ""
 "Слишком много неудачных попыток входа в систему для пользователя %s. В "
 "доступе отказано."
 
-#: src/home/pam_systemd_home.c:1015
+#: src/home/pam_systemd_home.c:1030
 msgid "User record is blocked, prohibiting access."
 msgstr "Запись пользователя заблокирована. Доступ запрещён."
 
-#: src/home/pam_systemd_home.c:1019
+#: src/home/pam_systemd_home.c:1034
 msgid "User record is not valid yet, prohibiting access."
 msgstr "Запись пользователя ещё не вступила в силу. Доступ запрещён."
 
-#: src/home/pam_systemd_home.c:1023
+#: src/home/pam_systemd_home.c:1038
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "Запись пользователя больше не действительна. Доступ запрещён."
 
-#: src/home/pam_systemd_home.c:1028 src/home/pam_systemd_home.c:1077
+#: src/home/pam_systemd_home.c:1043 src/home/pam_systemd_home.c:1092
 msgid "User record not valid, prohibiting access."
 msgstr "Запись пользователя недействительна. Доступ запрещён."
 
-#: src/home/pam_systemd_home.c:1038
+#: src/home/pam_systemd_home.c:1053
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "Слишком много попыток войти. Повторите попытку через %s."
 
-#: src/home/pam_systemd_home.c:1049
+#: src/home/pam_systemd_home.c:1064
 msgid "Password change required."
 msgstr "Требуется смена пароля."
 
-#: src/home/pam_systemd_home.c:1053
+#: src/home/pam_systemd_home.c:1068
 msgid "Password expired, change required."
 msgstr "Срок действия пароля истёк, требуется его замена."
 
-#: src/home/pam_systemd_home.c:1059
+#: src/home/pam_systemd_home.c:1074
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
 "Срок действия пароля истёк, но его невозможно изменить. Вход в систему "
 "запрещён."
 
-#: src/home/pam_systemd_home.c:1063
+#: src/home/pam_systemd_home.c:1078
 msgid "Password will expire soon, please change."
 msgstr "Срок действия пароля скоро истечёт, пожалуйста, измените его."
 

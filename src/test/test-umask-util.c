@@ -4,11 +4,9 @@
 #include "tests.h"
 #include "umask-util.h"
 
-int main(int argc, char *argv[]) {
+TEST(with_umask) {
         size_t n;
         mode_t u, t;
-
-        test_setup_logging(LOG_DEBUG);
 
         u = umask(0111);
 
@@ -52,6 +50,6 @@ int main(int argc, char *argv[]) {
 
         ASSERT_OK_ZERO(get_process_umask(/* pid= */ 0, &t));
         ASSERT_EQ(t, u);
-
-        return EXIT_SUCCESS;
 }
+
+DEFINE_TEST_MAIN(LOG_DEBUG);

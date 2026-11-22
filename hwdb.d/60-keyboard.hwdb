@@ -707,6 +707,10 @@ evdev:atkbd:dmi:*:svnHP:pnHPOmniBookUltraFlipLaptop14-fh0xxx:*
  KEYBOARD_KEY_82=unknown                                # Mic mute, handled by hp-wmi
  KEYBOARD_KEY_ab=!unknown                               # Brightness Down and Up keys, handled by acpi-video
 
+# HP Laptop 15-fc0xxx (board 8DC7)
+evdev:atkbd:dmi:*:svnHP:pnHPLaptop15-fc0xxx:*:rn8DC7:*
+ KEYBOARD_KEY_ab=!unknown                               # Extra scancode from both brightness keys
+
 # Pavilion
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*[pP][aA][vV][iI][lL][iI][oO][nN]*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pn*[pP][aA][vV][iI][lL][iI][oO][nN]*:*
@@ -995,6 +999,13 @@ evdev:name:Huawei WMI hotkeys:dmi:bvn*:bvr*:bd*:svnHUAWEI*:pnMACH-WX9:*
 evdev:name:Huawei WMI hotkeys:dmi:bvn*:bvr*:bd*:svnHUAWEI*:pnEUL-WX9:*
  KEYBOARD_KEY_281=unknown                               # Brightness Down, also emitted by acpi-video, ignore
  KEYBOARD_KEY_282=unknown                               # Brightness Up, also emitted by acpi-video, ignore
+
+# Huawei MateBook X (MRGFG-XX)
+evdev:atkbd:dmi:bvn*:bvr*:svnHUAWEI*:pnMRGFG-XX:*
+ KEYBOARD_KEY_a0=!mute                                  # Mute, no release event sent
+
+evdev:name:Huawei WMI hotkeys:dmi:bvn*:bvr*:bd*:svnHUAWEI*:pnMRGFG-XX:*
+ KEYBOARD_KEY_284=reserved                              # Mute, also emitted by the AT keyboard, ignore
 
 ###########################################################
 # Infinix
@@ -1623,6 +1634,12 @@ evdev:atkbd:dmi:bvn*:bvr*:svnMEDION*:pnP15645MD61587*:*
  KEYBOARD_KEY_b0=!volumeup
  KEYBOARD_KEY_19=!p
  KEYBOARD_KEY_df=sleep
+
+# Akoya E6246
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMEDION*:pnE6246*:*
+ KEYBOARD_KEY_a0=!mute
+ KEYBOARD_KEY_ae=!volumedown
+ KEYBOARD_KEY_b0=!volumeup
 
 # FID2060
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMEDION*:pn*FID2060*:*

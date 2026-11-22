@@ -439,6 +439,16 @@ All tools:
   `/usr/share/musl/locale`, `/share/musl/locale` and for compatibility reasons
   `/usr/share/i18n/locales/musl` will be searched.
 
+`systemd-creds`, `systemd-firstboot`:
+
+* `$SYSTEMD_ADDON_STUB=` — path to the systemd-stub addon stub to build addons
+  from, with `systemd-creds make-addon` or `systemd-firstboot --addon=`. If
+  unset, the stub for the architecture of the local system,
+  `/usr/lib/systemd/boot/efi/addon<ARCH>.efi.stub`, is used. Set this to build
+  addons for a different architecture. Not honoured by the
+  `io.systemd.Credentials.MakeAddon` Varlink method, which always uses the
+  default stub.
+
 `systemd-resolved`:
 
 * `$SYSTEMD_RESOLVED_SYNTHESIZE_HOSTNAME` — if set to "0", `systemd-resolved`

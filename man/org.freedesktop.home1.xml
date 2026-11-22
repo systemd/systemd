@@ -639,6 +639,7 @@ node /org/freedesktop/home1/home {
 
   <refsect1>
     <title>History</title>
+    <para>The <interfacename>org.freedesktop.home1</interfacename> D-Bus API was added in version 245.</para>
     <refsect2>
       <title>The Manager Object</title>
       <para><function>ActivateHomeIfReferenced()</function>, <function>RefHomeUnrestricted()</function>,

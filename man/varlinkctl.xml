@@ -190,6 +190,16 @@
         Varlink interface names. If no interface names are specified, shows all provided interfaces by the
         service.</para>
 
+        <para>By default the interface definitions are shown in the Varlink interface definition
+        language. With <option>--json=</option> the tool parses them and prints the JSON
+        representation described in
+        <citerefentry><refentrytitle>sd_varlink_idl_format_json</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        instead. The conversion happens locally, so any service that serves textual IDL works.</para>
+
+        <para>Before version 263, <option>--json=</option> printed the reply of
+        <function>GetInterfaceDescription()</function> as it arrived, an object whose
+        <literal>description</literal> key held the textual IDL.</para>
+
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
 

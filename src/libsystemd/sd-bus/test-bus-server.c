@@ -134,9 +134,7 @@ static int test_one(bool client_negotiate_unix_fds, bool server_negotiate_unix_f
         return r;
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_DEBUG);
-
+TEST(server) {
         ASSERT_OK(test_one(/* client_negotiate_unix_fds= */ true, /* server_negotiate_unix_fds= */ true, /* client_anonymous_auth= */ false, /* server_anonymous_auth= */ false));
         ASSERT_OK(test_one(/* client_negotiate_unix_fds= */ true, /* server_negotiate_unix_fds= */ false, /* client_anonymous_auth= */ false, /* server_anonymous_auth= */ false));
         ASSERT_OK(test_one(/* client_negotiate_unix_fds= */ false, /* server_negotiate_unix_fds= */ true, /* client_anonymous_auth= */ false, /* server_anonymous_auth= */ false));
@@ -144,6 +142,6 @@ int main(int argc, char *argv[]) {
         ASSERT_OK(test_one(/* client_negotiate_unix_fds= */ true, /* server_negotiate_unix_fds= */ true, /* client_anonymous_auth= */ true, /* server_anonymous_auth= */ true));
         ASSERT_OK(test_one(/* client_negotiate_unix_fds= */ true, /* server_negotiate_unix_fds= */ true, /* client_anonymous_auth= */ false, /* server_anonymous_auth= */ true));
         ASSERT_ERROR(test_one(/* client_negotiate_unix_fds= */ true, /* server_negotiate_unix_fds= */ true, /* client_anonymous_auth= */ true, /* server_anonymous_auth= */ false), EACCES);
-
-        return EXIT_SUCCESS;
 }
+
+DEFINE_TEST_MAIN(LOG_DEBUG);

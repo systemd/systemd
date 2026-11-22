@@ -4,9 +4,13 @@
 #include "sd-json.h"
 
 #include "forward.h"
-#include "uapi16-manifest.h"
+#include "time-util.h"
 
 /* Generic helpers for generating (and verifying) file manifests of directory trees, in various formats. */
+
+/* By default, accept timestamps that deviate by up to 2s when verifying, since that's the granularity FAT
+ * stores modification times in */
+#define MANIFEST_TIMESTAMP_ACCURACY_DEFAULT_NSEC (2 * NSEC_PER_SEC)
 
 typedef enum ManifestFormat {
         MANIFEST_FORMAT_LIST,       /* A simple list of file names, one per line */
@@ -20,23 +24,54 @@ typedef enum ManifestFormat {
 /* Optional per-inode fields to include in a manifest, as bitmask. Note that the inode type is not
  * covered by this: it is always included if the format can express it. */
 typedef enum ManifestField {
-        MANIFEST_FIELD_MODE       = 1 << 0, /* Access mode bits */
-        MANIFEST_FIELD_UID        = 1 << 1, /* Owning UID */
-        MANIFEST_FIELD_GID        = 1 << 2, /* Owning GID */
-        MANIFEST_FIELD_SIZE       = 1 << 3, /* File size (regular files, symlinks) */
-        MANIFEST_FIELD_HASH       = 1 << 4, /* Hash of file contents, see ManifestHash for the algorithm */
-        MANIFEST_FIELD_SYMLINK    = 1 << 5, /* Symlink target */
-        MANIFEST_FIELD_DEVICE     = 1 << 6, /* Major/minor of device nodes */
-        MANIFEST_FIELD_HARDLINK   = 1 << 7, /* Hardlink grouping information (only UAPI.16 supports this) */
-        MANIFEST_FIELD_MTIME      = 1 << 8, /* Modification time (not in the default set, opt-in) */
-        MANIFEST_FIELD_USER_XATTR = 1 << 9, /* Extended attributes in the "user." namespace (only UAPI.16) */
-        MANIFEST_FIELD_USER_NAME  = 1 << 10, /* Owning user name, resolved via the host's user database (opt-in) */
-        MANIFEST_FIELD_GROUP_NAME = 1 << 11, /* Owning group name, resolved via the host's user database (opt-in) */
-        _MANIFEST_FIELD_ALL       = (1 << 12) - 1,
-        _MANIFEST_FIELD_DEFAULT   = MANIFEST_FIELD_MODE|MANIFEST_FIELD_UID|MANIFEST_FIELD_GID|MANIFEST_FIELD_SIZE|
-                                    MANIFEST_FIELD_HASH|MANIFEST_FIELD_SYMLINK|MANIFEST_FIELD_DEVICE|MANIFEST_FIELD_HARDLINK|
-                                    MANIFEST_FIELD_USER_XATTR,
-        _MANIFEST_FIELD_INVALID   = -EINVAL,
+        MANIFEST_FIELD_MODE             = 1 << 0, /* Access mode bits */
+        MANIFEST_FIELD_UID              = 1 << 1, /* Owning UID */
+        MANIFEST_FIELD_GID              = 1 << 2, /* Owning GID */
+        MANIFEST_FIELD_SIZE             = 1 << 3, /* File size (regular files, symlinks) */
+        MANIFEST_FIELD_HASH             = 1 << 4, /* Hash of file contents, see ManifestHash for the algorithm */
+        MANIFEST_FIELD_SYMLINK          = 1 << 5, /* Symlink target */
+        MANIFEST_FIELD_DEVICE           = 1 << 6, /* Major/minor of device nodes */
+        MANIFEST_FIELD_HARDLINK         = 1 << 7, /* Hardlink grouping information (only UAPI.16 supports this) */
+        MANIFEST_FIELD_MTIME            = 1 << 8, /* Modification time (not in the default set, opt-in) */
+        MANIFEST_FIELD_USER_XATTR       = 1 << 9, /* Extended attributes in the "user." namespace (only UAPI.16, opt-in) */
+        MANIFEST_FIELD_USER_NAME        = 1 << 10, /* Owning user name, resolved via the host's user database (opt-in) */
+        MANIFEST_FIELD_GROUP_NAME       = 1 << 11, /* Owning group name, resolved via the host's user database (opt-in) */
+        /* Linux inode flags, see chattr(1) (only UAPI.16, opt-in) */
+        MANIFEST_FIELD_FLAG_APPEND_ONLY = 1 << 12, /* FS_APPEND_FL */
+        MANIFEST_FIELD_FLAG_IMMUTABLE   = 1 << 13, /* FS_IMMUTABLE_FL */
+        MANIFEST_FIELD_FLAG_NO_ATIME    = 1 << 14, /* FS_NOATIME_FL */
+        MANIFEST_FIELD_FLAG_NO_COW      = 1 << 15, /* FS_NOCOW_FL */
+        MANIFEST_FIELD_FLAG_NO_DUMP     = 1 << 16, /* FS_NODUMP_FL */
+        /* FAT directory entry attributes (only UAPI.16, opt-in) */
+        MANIFEST_FIELD_READ_ONLY        = 1 << 17, /* ATTR_RO, encoded in the generic "readOnly" field */
+        MANIFEST_FIELD_FLAG_HIDDEN      = 1 << 18, /* ATTR_HIDDEN */
+        MANIFEST_FIELD_FLAG_SYSTEM      = 1 << 19, /* ATTR_SYS */
+        MANIFEST_FIELD_FLAG_ARCHIVE     = 1 << 20, /* ATTR_ARCH */
+        /* File system identity, on the top-level object (only UAPI.16, opt-in) */
+        MANIFEST_FIELD_FS_UUID          = 1 << 21, /* File system UUID, see FS_IOC_GETFSUUID */
+        MANIFEST_FIELD_FS_LABEL         = 1 << 22, /* File system label, see FS_IOC_GETFSLABEL */
+        MANIFEST_FIELD_FAT_SERIAL       = 1 << 23, /* FAT volume serial number, see FAT_IOCTL_GET_VOLUME_ID */
+        /* The fields that may be generated from a directory tree */
+        _MANIFEST_FIELD_FSTREE_ALL      = (1 << 24) - 1,
+        /* GPT partition table entry fields (only UAPI.16). Only systemd-repart generates these, for the
+         * partition table it creates, hence they cannot be selected via manifest_fields_from_string() */
+        MANIFEST_FIELD_GPT_LABEL        = 1 << 24, /* Partition label */
+        MANIFEST_FIELD_GPT_UUID         = 1 << 25, /* Partition UUID */
+        MANIFEST_FIELD_GPT_TYPE_UUID    = 1 << 26, /* Partition type UUID */
+        MANIFEST_FIELD_GPT_DISK_UUID    = 1 << 27, /* Disk UUID, on the top-level object */
+        MANIFEST_FIELD_GPT_FLAGS        = 1 << 28, /* Raw partition attribute flags */
+        MANIFEST_FIELD_GPT_FLAG_NO_AUTO = 1 << 29, /* SD_GPT_FLAG_NO_AUTO */
+        MANIFEST_FIELD_GPT_FLAG_GROWFS  = 1 << 30, /* SD_GPT_FLAG_GROWFS */
+        /* The fields that may be generated from a GPT partition table. Note that the read-only flag is
+         * encoded in the generic "readOnly" field, which is hence part of both sets. */
+        _MANIFEST_FIELD_GPT_ALL         = MANIFEST_FIELD_GPT_LABEL|MANIFEST_FIELD_GPT_UUID|MANIFEST_FIELD_GPT_TYPE_UUID|
+                                          MANIFEST_FIELD_GPT_DISK_UUID|MANIFEST_FIELD_GPT_FLAGS|
+                                          MANIFEST_FIELD_GPT_FLAG_NO_AUTO|MANIFEST_FIELD_GPT_FLAG_GROWFS|
+                                          MANIFEST_FIELD_READ_ONLY,
+        _MANIFEST_FIELD_ALL             = _MANIFEST_FIELD_FSTREE_ALL|_MANIFEST_FIELD_GPT_ALL,
+        _MANIFEST_FIELD_DEFAULT         = MANIFEST_FIELD_MODE|MANIFEST_FIELD_UID|MANIFEST_FIELD_GID|MANIFEST_FIELD_SIZE|
+                                          MANIFEST_FIELD_HASH|MANIFEST_FIELD_SYMLINK|MANIFEST_FIELD_DEVICE|MANIFEST_FIELD_HARDLINK,
+        _MANIFEST_FIELD_INVALID         = -EINVAL,
 } ManifestField;
 
 /* The hash algorithm to use for MANIFEST_FIELD_HASH. Only the mtree format supports anything but SHA256. */
@@ -83,6 +118,10 @@ typedef struct ManifestContext {
 
         sd_json_format_flags_t json_format_flags;
 
+        /* When verifying, the maximum deviation of timestamps (currently only the modification time) from
+         * the manifest we accept */
+        nsec_t timestamp_accuracy_nsec;
+
         /* Signing (generation) and signature verification (verification), UAPI.16 only */
         X509 *certificate;                        /* Not owned. Used for signing */
         X509 *const *certificates;                /* Not owned. If set a signature by one of these is required */
@@ -91,15 +130,19 @@ typedef struct ManifestContext {
         Uapi16Signer *signer;                     /* Allocated on demand by manifest_make() */
 
         uint64_t n_errors;                        /* Number of mismatches found so far */
+        uint64_t n_not_applicable;                /* Number of fields listed in the manifest we did not verify,
+                                                   * as they do not apply to the file system (e.g. FAT
+                                                   * attributes on a non-FAT file system) */
 } ManifestContext;
 
-#define MANIFEST_CONTEXT_NULL                              \
-        (const ManifestContext) {                          \
-                .format = _MANIFEST_FORMAT_INVALID,        \
-                .fields = _MANIFEST_FIELD_DEFAULT,         \
-                .hash = MANIFEST_HASH_SHA256,              \
-                .db_fd = -EBADF,                           \
-                .json_format_flags = SD_JSON_FORMAT_OFF,   \
+#define MANIFEST_CONTEXT_NULL                                                            \
+        (const ManifestContext) {                                                        \
+                .format = _MANIFEST_FORMAT_INVALID,                                      \
+                .fields = _MANIFEST_FIELD_DEFAULT,                                       \
+                .hash = MANIFEST_HASH_SHA256,                                            \
+                .db_fd = -EBADF,                                                         \
+                .json_format_flags = SD_JSON_FORMAT_OFF,                                 \
+                .timestamp_accuracy_nsec = MANIFEST_TIMESTAMP_ACCURACY_DEFAULT_NSEC,     \
         }
 
 void manifest_context_done(ManifestContext *c);
@@ -109,6 +152,11 @@ DECLARE_STRING_TABLE_LOOKUP(manifest_format, ManifestFormat);
 /* Only for single bits */
 const char* manifest_field_to_string(ManifestField f) _const_;
 ManifestField manifest_field_from_string(const char *s) _pure_;
+
+/* Same, but for the names of the values of the "features" field of UAPI.16 manifests, which differ for some
+ * fields. Unlike the above, these cover the GPT fields too. */
+const char* manifest_field_to_uapi16_feature(ManifestField f) _const_;
+ManifestField manifest_field_from_uapi16_feature(const char *s) _pure_;
 
 /* Parses a comma separated list of field names. Each item may be prefixed with "+" or "-" to add or remove
  * the field from the mask passed in in *fields, otherwise the mask is reset with the first item. "all",

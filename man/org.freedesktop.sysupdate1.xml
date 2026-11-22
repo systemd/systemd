@@ -586,6 +586,8 @@ node /org/freedesktop/sysupdate1/job/_1 {
   <xi:include href="org.freedesktop.locale1.xml" xpointer="versioning"/>
   <refsect1>
     <title>History</title>
+    <para>The <interfacename>org.freedesktop.sysupdate1</interfacename> D-Bus API was added in version 257 as
+    an experimental interface, and is not considered stable yet.</para>
     <refsect2>
       <title>The Manager Object</title>
       <para><function>ListTargets()</function>,

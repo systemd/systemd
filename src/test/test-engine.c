@@ -70,7 +70,7 @@ static void verify_dependency_atoms(void) {
         }
 }
 
-int main(int argc, char *argv[]) {
+TEST(engine) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error err = SD_BUS_ERROR_NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
@@ -80,12 +80,6 @@ int main(int argc, char *argv[]) {
         Job *j;
         int r;
 
-        test_setup_logging(LOG_DEBUG);
-
-        r = enter_cgroup_subroot(/* ret_cgroup= */ NULL);
-        if (r == -ENOMEDIUM)
-                return log_tests_skipped("cgroupfs not available");
-
         /* prepare the test */
         _cleanup_free_ char *unit_dir = NULL;
         ASSERT_OK(get_testdata_dir("test-engine", &unit_dir));
@@ -94,7 +88,7 @@ int main(int argc, char *argv[]) {
 
         r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &m);
         if (manager_errno_skip_test(r))
-                return log_tests_skipped_errno(r, "manager_new");
+                return (void) log_tests_skipped_errno(r, "manager_new");
         ASSERT_OK(r);
         ASSERT_OK(manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL));
 
@@ -294,6 +288,18 @@ int main(int argc, char *argv[]) {
         ASSERT_NULL(unit_has_dependency(sauce, UNIT_ATOM_REFERENCED_BY, tomato));
         ASSERT_NULL(unit_has_dependency(fruit, UNIT_ATOM_REFERENCED_BY, tomato));
         ASSERT_NOT_NULL(unit_has_dependency(zupa, UNIT_ATOM_REFERENCED_BY, tomato));
-
-        return 0;
 }
+
+static int intro(void) {
+        int r;
+
+        r = enter_cgroup_subroot(/* ret_cgroup= */ NULL);
+        if (r == -ENOMEDIUM)
+                return log_tests_skipped("cgroupfs not available");
+        if (r < 0)
+                log_debug_errno(r, "Failed to enter cgroup subroot, ignoring: %m");
+
+        return EXIT_SUCCESS;
+}
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);

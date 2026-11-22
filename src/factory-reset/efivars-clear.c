@@ -17,7 +17,7 @@ static bool arg_graceful = false;
 COMMAND(
         "systemd-efivars-clear\0",
         "Request erasing of the boot loader's EFI variables from systemd-boot.",
-        .man_pages = "systemd-efivars-clear.service(8)\0",
+        .man_page = "systemd-efivars-clear.service(8)",
 );
 
 static int parse_argv(int argc, char *argv[]) {

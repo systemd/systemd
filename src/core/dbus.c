@@ -39,6 +39,7 @@
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
+#include "scope.h"
 #include "selinux-access.h"     /* IWYU pragma: keep */
 #include "serialize.h"
 #include "set.h"
@@ -69,6 +70,21 @@ void bus_send_pending_reload_message(Manager *m) {
         m->pending_reload_message_dbus = sd_bus_message_unref(m->pending_reload_message_dbus);
 
         return;
+}
+
+void bus_send_pending_reexecute_error(Manager *m, int error) {
+        int r;
+
+        assert(m);
+
+        if (!m->pending_reexecute_message_dbus)
+                return;
+
+        r = sd_bus_reply_method_errno(m->pending_reexecute_message_dbus, error, /* e= */ NULL);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send queued reexecute error reply, ignoring: %m");
+
+        m->pending_reexecute_message_dbus = sd_bus_message_unref(m->pending_reexecute_message_dbus);
 }
 
 static int signal_disconnected(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
@@ -821,6 +837,27 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
         return 0;
 }
 
+static void bus_coldplug_deferred_tracks(Manager *m) {
+        Unit *u;
+        Job *j;
+        int r;
+
+        assert(m);
+
+        HASHMAP_FOREACH(u, m->units) {
+                r = bus_unit_coldplug_bus_track(u);
+                if (r < 0)
+                        log_unit_debug_errno(u, r, "Failed to track deserialized bus clients, ignoring: %m");
+
+                Scope *s = SCOPE(u);
+                if (s && !UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(u)))
+                        (void) bus_scope_track_controller(s);
+        }
+
+        HASHMAP_FOREACH(j, m->jobs)
+                (void) bus_job_coldplug_bus_track(j);
+}
+
 static int api_bus_instance_id_reply(sd_bus_message *reply, void *userdata, sd_bus_error *reterr_error) {
         Manager *m = ASSERT_PTR(userdata);
         const sd_bus_error *e;
@@ -886,8 +923,11 @@ setup_api:
                         bus_done_system(m);
                 if (m->api_bus == bus)
                         bus_done_api(m);
+
+                return 0;
         }
 
+        bus_coldplug_deferred_tracks(m);
         return 0;
 }
 
@@ -1104,6 +1144,8 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
         /* Get rid of queued message on this bus */
         if (m->pending_reload_message_dbus && sd_bus_message_get_bus(m->pending_reload_message_dbus) == *bus)
                 m->pending_reload_message_dbus = sd_bus_message_unref(m->pending_reload_message_dbus);
+        if (m->pending_reexecute_message_dbus && sd_bus_message_get_bus(m->pending_reexecute_message_dbus) == *bus)
+                m->pending_reexecute_message_dbus = sd_bus_message_unref(m->pending_reexecute_message_dbus);
 
         /* Possibly flush unwritten data, but only if we are unprivileged, since we don't want to sync
          * here, and only if the connection is currently RUNNING: sd_bus_flush() first drives the
@@ -1120,9 +1162,28 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
 }
 
 void bus_done_api(Manager *m) {
+        Unit *u;
+        Job *j;
+
+        /* This is called on every unit state change while D-Bus isn't running, see manager_recheck_dbus(). */
+        if (!m->api_bus)
+                return;
+
         destroy_bus(m, &m->api_bus);
 
         m->api_bus_ready = false;
+
+        /* Clients that we didn't get to track yet were on this bus too. */
+        HASHMAP_FOREACH(u, m->units)
+                if (u->deserialized_refs) {
+                        u->deserialized_refs = strv_free(u->deserialized_refs);
+                        unit_add_to_gc_queue(u);
+                }
+        HASHMAP_FOREACH(j, m->jobs)
+                if (j->deserialized_clients) {
+                        j->deserialized_clients = strv_free(j->deserialized_clients);
+                        job_add_to_gc_queue(j);
+                }
 }
 
 void bus_done_system(Manager *m) {

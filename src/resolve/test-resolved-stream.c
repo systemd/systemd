@@ -326,6 +326,21 @@ static void test_dns_stream(bool tls) {
         log_info("test-resolved-stream: Finished %s test", tls ? "TLS" : "TCP");
 }
 
+TEST(dns_stream_without_tls) {
+        test_dns_stream(/* tls= */ false);
+}
+
+TEST(dns_stream_with_tls) {
+#if ENABLE_DNS_OVER_TLS
+        if (system("openssl version >/dev/null 2>&1") != 0)
+                return (void) log_tests_skipped("openssl command does not seem to be available");
+
+        test_dns_stream(/* tls= */ true);
+#else
+        return (void) log_tests_skipped("DNS over TLS is disabled");
+#endif
+}
+
 static int try_isolate_network(void) {
         _cleanup_close_ int socket_fd = -EBADF;
         int r;
@@ -374,27 +389,21 @@ static int try_isolate_network(void) {
         return 0;
 }
 
-int main(int argc, char **argv) {
+static int intro(void) {
+        int r;
+
         server_address = (union sockaddr_union) {
                 .in.sin_family = AF_INET,
                 .in.sin_port = htobe16(random_u64_range(UINT16_MAX - 1024) + 1024),
                 .in.sin_addr.s_addr = htobe32(INADDR_LOOPBACK)
         };
-        int r;
-
-        test_setup_logging(LOG_DEBUG);
 
         r = try_isolate_network();
         if (ERRNO_IS_NEG_PRIVILEGE(r))
                 return log_tests_skipped("lacking privileges");
         ASSERT_OK(r);
 
-        test_dns_stream(/* tls= */ false);
-#if ENABLE_DNS_OVER_TLS
-        if (system("openssl version >/dev/null 2>&1") != 0)
-                return log_tests_skipped("Skipping TLS test since the 'openssl' command does not seem to be available");
-        test_dns_stream(/* tls= */ true);
-#endif
-
-        return 0;
+        return EXIT_SUCCESS;
 }
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);

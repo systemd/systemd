@@ -28,11 +28,22 @@ test -t 0; test -t 1; test -t 2
 # logind), but via the broker's own PAM stack, rather than systemd-run0's
 [[ "$(loginctl show-session "$XDG_SESSION_ID" -P Service)" == systemd-ptybroker-shell ]]
 systemctl list-units --no-legend 'shell-*.service' | grep . >/dev/null
+echo pty96-forwarded
 touch /tmp/pty96-run0-ok
 exit 7
 SHELLEOF
 chmod +x /tmp/pty96-run0-shell
 
-script -qec 'run0 --setenv=SHELL=/tmp/pty96-run0-shell' /dev/null </dev/null || RC=$?
-[[ "${RC:-0}" == 7 ]]
-test -e /tmp/pty96-run0-ok
+run0_test() {
+    local option=$1 output rc=0
+
+    output=$(script -qec "run0 ${option} --setenv=SHELL=/tmp/pty96-run0-shell" /dev/null </dev/null) || rc=$?
+    [[ "$rc" == 7 ]]
+    [[ "$output" == *pty96-forwarded* ]]
+    test -e /tmp/pty96-run0-ok
+    rm -f /tmp/pty96-run0-ok
+}
+
+# run0 defaults to --pty-late unless --no-ask-password is specified.
+run0_test ""
+run0_test --pty

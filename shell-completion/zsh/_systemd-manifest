@@ -4,7 +4,7 @@
 (( $+functions[_systemd-manifest_fields] )) ||
 _systemd-manifest_fields() {
     local -a _fields _all
-    _fields=(mode uid gid size hash symlink device hardlink mtime user-xattr user-name group-name)
+    _fields=(mode uid gid size hash symlink device hardlink mtime user-xattr user-name group-name flag-append-only flag-immutable flag-no-atime flag-no-cow flag-no-dump read-only flag-hidden flag-system flag-archive fs-uuid fs-label fat-serial)
     _all=( $_fields ${_fields/#/+} ${_fields/#/-} all default none )
     _values -s , 'field' $_all
 }
@@ -39,6 +39,7 @@ _arguments \
     '--format=[Manifest format]:format:(list sha256sums mtree uapi16)' \
     '--field=[Fields to include]:fields:_systemd-manifest_fields' \
     '--hash=[Hash algorithm to use for mtree manifests]:algorithm:(sha256 sha512)' \
+    '--timestamp-accuracy-sec=[Maximum deviation of timestamps to accept when verifying]:timespan' \
     "--graceful[Don't fail if inodes had to be skipped or metadata omitted]" \
     '--private-key=[Private key to sign the manifest with]:private key:_files' \
     '--private-key-source=[How to use the private key]:source:(file provider: engine:)' \

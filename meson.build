@@ -1796,6 +1796,9 @@ conf.set10('ENABLE_VMSPAWN', feature.allowed())
 feature = get_option('nspawn')
 conf.set10('ENABLE_NSPAWN', feature.allowed())
 
+feature = get_option('ptybroker').disable_auto_if(conf.get('BUILD_MODE_DEVELOPER') == 0)
+conf.set10('ENABLE_PTYBROKER', feature.allowed())
+
 conf.set10('DEFAULT_MOUNTFSD_TRUSTED_DIRECTORIES', get_option('default-mountfsd-trusted-directories'))
 
 conf.set10('ENABLE_BATTERY_CHECK', get_option('battery-check').allowed())
@@ -3549,6 +3552,7 @@ foreach tuple : [
         ['oomd'],
         ['portabled'],
         ['pstore'],
+        ['ptybroker'],
         ['quotacheck'],
         ['randomseed'],
         ['repart'],

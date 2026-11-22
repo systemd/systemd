@@ -17,6 +17,7 @@ systemd_machined_export_sources = files(
         'machined-core.c',
         'machined-dbus.c',
         'machined-resolve-hook.c',
+        'machined-ssh-agent.c',
         'machined-varlink.c',
         'operation.c',
 )
@@ -36,6 +37,10 @@ executables += [
                         libxz_cflags,
                         libzstd_cflags,
                 ],
+        },
+        test_template + {
+                'sources' : files('test-machine.c'),
+                'import' : ['systemd-machined'],
         },
         test_template + {
                 'sources' : files('test-machine-tables.c'),

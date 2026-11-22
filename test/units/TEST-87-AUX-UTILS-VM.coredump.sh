@@ -101,6 +101,8 @@ maybe_reload_coredumpd
 "$MAKE_DUMP_SCRIPT" "$CORE_TEST_BIN" "SIGABRT"
 # Wait a bit for the coredumps to get processed
 timeout 30 bash -c "while [[ \$(coredumpctl list -q --no-legend $CORE_TEST_BIN | wc -l) -lt 4 ]]; do sleep 1; done"
+OUT="$(coredumpctl list --field=COREDUMP_PID 'MESSAGE_ID=00000000000000000000000000000000')"
+[[ -z "$OUT" ]]
 rm -fv /run/systemd/coredump.conf.d/99-external.conf
 maybe_reload_coredumpd
 
@@ -156,6 +158,16 @@ coredumpctl --directory=/var/log/journal
 coredumpctl --file="/var/log/journal/$(</etc/machine-id)"/*.journal
 coredumpctl --since=@0
 coredumpctl --since=yesterday --until=tomorrow
+(! coredumpctl --since=tomorrow -1)
+(! coredumpctl info --since=tomorrow)
+(! coredumpctl dump --since=tomorrow -o /dev/null)
+(! coredumpctl debug --debugger=/bin/true --since=tomorrow)
+(! coredumpctl --until=@0 -1)
+(! coredumpctl info --until=@0)
+(! coredumpctl dump --until=@0 -o /dev/null)
+(! coredumpctl debug --debugger=/bin/true --until=@0)
+# Date bounds must preserve the implicit -1 for info without matches.
+coredumpctl info --since=@0 --until=tomorrow --json=short | jq -se 'length == 1'
 # We should have a couple of externally stored coredumps
 coredumpctl --field=COREDUMP_FILENAME | tee /tmp/coredumpctl.out
 grep "/var/lib/systemd/coredump/core" /tmp/coredumpctl.out
@@ -292,6 +304,8 @@ journalctl -b -n 1 --output=export --output-fields=MESSAGE,COREDUMP COREDUMP_EXE
     /usr/lib/systemd/systemd-coredump --backtrace $$ 0 0 6 1679509902 12345 youmachine 1
 # Wait a bit for the coredumps to get processed
 timeout 30 bash -c "while [[ \$(coredumpctl list -q --no-legend $$ | wc -l) -lt 3 ]]; do sleep 1; done"
+OUT="$(coredumpctl list --field=MESSAGE_ID 'MESSAGE_ID=1f4e0a44a88649939aaea34fc6da8c95' | sort -u)"
+[[ "$OUT" == "1f4e0a44a88649939aaea34fc6da8c95" ]]
 coredumpctl info $$
 coredumpctl info COREDUMP_TIMESTAMP=1679509900000000
 coredumpctl info COREDUMP_TIMESTAMP=1679509901000000

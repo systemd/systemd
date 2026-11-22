@@ -9,7 +9,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-26 10:57+0100\n"
+"POT-Creation-Date: 2026-11-19 10:41+0000\n"
 "PO-Revision-Date: 2026-08-02 00:15+0000\n"
 "Last-Translator: Cheng-Chia Tseng <pswo10680@gmail.com>\n"
 "Language-Team: Chinese (Traditional) <https://translate.fedoraproject.org/"
@@ -193,111 +193,111 @@ msgstr "抱歉，重新輸入恢復金鑰： "
 msgid "Security token of user %s not inserted."
 msgstr "用戶 %s 的安全權杖未插入。"
 
-#: src/home/pam_systemd_home.c:394 src/home/pam_systemd_home.c:397
+#: src/home/pam_systemd_home.c:394 src/home/pam_systemd_home.c:402
 msgid "Try again with password: "
 msgstr "使用密碼重試： "
 
-#: src/home/pam_systemd_home.c:396
+#: src/home/pam_systemd_home.c:400
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
 "%s not inserted."
 msgstr "密碼不正確或不足，並且未插入用戶 %s 的配寘安全權杖。"
 
-#: src/home/pam_systemd_home.c:416
+#: src/home/pam_systemd_home.c:421
 msgid "Security token PIN: "
 msgstr "安全權杖 PIN: "
 
-#: src/home/pam_systemd_home.c:433
+#: src/home/pam_systemd_home.c:438
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr "請在用戶 %s 的安全權杖上進行物理身份驗證。"
 
-#: src/home/pam_systemd_home.c:444
+#: src/home/pam_systemd_home.c:449
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr "請確認用戶 %s 的安全權杖是否存在。"
 
-#: src/home/pam_systemd_home.c:455
+#: src/home/pam_systemd_home.c:460
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr "請在用戶 %s 的安全權杖上驗證用戶。"
 
-#: src/home/pam_systemd_home.c:464
+#: src/home/pam_systemd_home.c:469
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
 msgstr "安全權杖 PIN 已鎖定，請先解鎖。 （提示：移除和重新插入可能就足够了。）"
 
-#: src/home/pam_systemd_home.c:472
+#: src/home/pam_systemd_home.c:477
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "用戶 %s 的安全權杖 PIN 不正確。"
 
-#: src/home/pam_systemd_home.c:473 src/home/pam_systemd_home.c:492
-#: src/home/pam_systemd_home.c:511
+#: src/home/pam_systemd_home.c:478 src/home/pam_systemd_home.c:497
+#: src/home/pam_systemd_home.c:516
 msgid "Sorry, retry security token PIN: "
 msgstr "抱歉，請重試安全權杖 PIN: "
 
-#: src/home/pam_systemd_home.c:491
+#: src/home/pam_systemd_home.c:496
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr "用戶 %s 的安全權杖 PIN 不正確（只剩下幾次嘗試！）"
 
-#: src/home/pam_systemd_home.c:510
+#: src/home/pam_systemd_home.c:515
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr "用戶 %s 的安全權杖 PIN 不正確（只剩下一次嘗試！）"
 
-#: src/home/pam_systemd_home.c:677
+#: src/home/pam_systemd_home.c:686
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr "用戶 %s 的家區域當前未處於活動狀態，請先在本地登入。"
 
-#: src/home/pam_systemd_home.c:679
+#: src/home/pam_systemd_home.c:693
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr "用戶 %s 的家區域當前已鎖定，請先在本地解鎖。"
 
-#: src/home/pam_systemd_home.c:713
+#: src/home/pam_systemd_home.c:728
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr "用戶 %s 的登入嘗試失敗次數過多，正在拒絕。"
 
-#: src/home/pam_systemd_home.c:1015
+#: src/home/pam_systemd_home.c:1030
 msgid "User record is blocked, prohibiting access."
 msgstr "用戶記錄被封锁，禁止訪問。"
 
-#: src/home/pam_systemd_home.c:1019
+#: src/home/pam_systemd_home.c:1034
 msgid "User record is not valid yet, prohibiting access."
 msgstr "用戶記錄尚未生效，禁止訪問。"
 
-#: src/home/pam_systemd_home.c:1023
+#: src/home/pam_systemd_home.c:1038
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "用戶記錄不再有效，禁止訪問。"
 
-#: src/home/pam_systemd_home.c:1028 src/home/pam_systemd_home.c:1077
+#: src/home/pam_systemd_home.c:1043 src/home/pam_systemd_home.c:1092
 msgid "User record not valid, prohibiting access."
 msgstr "用戶記錄無效，禁止訪問。"
 
-#: src/home/pam_systemd_home.c:1038
+#: src/home/pam_systemd_home.c:1053
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "登錄次數太多，請在 %s 後重試。"
 
-#: src/home/pam_systemd_home.c:1049
+#: src/home/pam_systemd_home.c:1064
 msgid "Password change required."
 msgstr "需要更改密碼。"
 
-#: src/home/pam_systemd_home.c:1053
+#: src/home/pam_systemd_home.c:1068
 msgid "Password expired, change required."
 msgstr "密碼已過期，需要更改。"
 
-#: src/home/pam_systemd_home.c:1059
+#: src/home/pam_systemd_home.c:1074
 msgid "Password is expired, but can't change, refusing login."
 msgstr "密碼已過期，但無法更改，拒絕登入。"
 
-#: src/home/pam_systemd_home.c:1063
+#: src/home/pam_systemd_home.c:1078
 msgid "Password will expire soon, please change."
 msgstr "密碼即將過期，請更改。"
 

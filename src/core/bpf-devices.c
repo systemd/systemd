@@ -247,7 +247,7 @@ int bpf_devices_apply_policy(
                                        empty_to_root(cgroup_path));
 
  finish:
-        /* Unref the old BPF program (which will implicitly detach it) right before attaching the new program. */
+        /* Unref the old BPF program (which will implicitly detach it) right after attaching the new program. */
         if (prog_installed) {
                 bpf_program_free(*prog_installed);
                 *prog_installed = TAKE_PTR(*prog);

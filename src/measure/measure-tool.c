@@ -70,7 +70,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_sections, free_sections);
 COMMAND(
         "systemd-measure\0",
         "Pre-calculate and sign PCR hash for a unified kernel image (UKI).",
-        .man_pages = "systemd-measure(1)\0",
+        .man_page = "systemd-measure(1)",
         .pager_flags = &arg_pager_flags,
         .flags = COMMAND_EXPERIMENTAL,
 );
@@ -487,6 +487,7 @@ static int measure_kernel(PcrState *pcr_states, size_t n) {
                         close_many(section_fds, c);
                         return r;
                 }
+                log_debug("Opened for UKI section %s: %s", unified_sections[c], arg_sections[c]);
         }
 
         r = pcr_states_measure_uki(pcr_states, n, section_fds);

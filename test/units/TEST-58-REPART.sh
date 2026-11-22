@@ -1436,7 +1436,7 @@ EOF
 }
 
 testcase_verity() {
-    local defs imgs output
+    local defs imgs output join_defs join_output join_roothash join_signature join_sig_split join_data_split
 
     defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
     imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
@@ -1522,7 +1522,7 @@ EOF
                             --split=yes \
                             --manifest=yes \
                             --manifest-gpt=yes \
-                            --manifest-fields=size,hash \
+                            --manifest-fields=size,hash,fs-uuid,fs-label,fat-serial \
                             --manifest-private-key="$defs/manifest.key" \
                             --manifest-certificate="$defs/manifest.crt" \
                             "${match_args[@]}" \
@@ -1554,6 +1554,16 @@ EOF
     jq --seq -s -e ".[] | select(.name == \"${defs#/}/verity-data.conf\")" <"$root_manifest" >/dev/null
     # Only the requested fields are included
     jq --seq -s -e ".[] | select(.name == \"${defs#/}/verity-data.conf\") | has(\"size\") and has(\"sha256\") and (has(\"mode\") | not)" <"$root_manifest" >/dev/null
+    # In offline mode the tree is populated from a staging directory, whose file system identity has nothing
+    # to do with the one of the partition, hence it must not be recorded
+    # The root object declares the requested fields as features, minus the ones that do not apply
+    if [[ "$OFFLINE" == "yes" ]]; then
+        jq --seq -s -e '.[0] | (has("fsUUID") or has("fsLabel") or has("fatSerial")) | not' <"$root_manifest" >/dev/null
+        jq --seq -s -e '.[0].features == ["sha256","size"]' <"$root_manifest" >/dev/null
+    else
+        # FS_IOC_GETFSUUID requires kernel 6.9, fs-uuid is not declared if the UUID cannot be queried
+        jq --seq -s -e '.[0] | .features == (["fat-serial","fs-label"] + (if has("fsUUID") then ["fs-uuid"] else [] end) + ["sha256","size"])' <"$root_manifest" >/dev/null
+    fi
     # The manifest is signed with the manifest key, not the verity key
     systemd-manifest verify --certificate="$defs/manifest.crt" / "$root_manifest"
     (! systemd-manifest verify --certificate="$defs/verity.crt" / "$root_manifest")
@@ -1561,6 +1571,14 @@ EOF
 
     gpt_manifest="$imgs/verity.Uapi16Manifest"
     jq --seq -s -e '.[] | select(.mediaType == "application/vnd.uapi.16.signature") | .mechanism == "pkcs7"' <"$gpt_manifest" >/dev/null
+    # The root object declares the recorded features, which include extended attributes only if configured.
+    # The individual partition attribute flags are only included if set, as their features are listed.
+    if [[ ${#match_args[@]} -gt 0 ]]; then
+        jq --seq -s -e '.[0].features == ["gpt-disk-uuid","gpt-flag-grow-file-system","gpt-flag-no-auto","gpt-flags","gpt-label","gpt-type-uuid","gpt-uuid","read-only","sha256","size","user-xattr"]' <"$gpt_manifest" >/dev/null
+    else
+        jq --seq -s -e '.[0].features == ["gpt-disk-uuid","gpt-flag-grow-file-system","gpt-flag-no-auto","gpt-flags","gpt-label","gpt-type-uuid","gpt-uuid","read-only","sha256","size"]' <"$gpt_manifest" >/dev/null
+    fi
+    jq --seq -s -e 'all(.[]; .gptFlagNoAuto != false and .gptFlagGrowFileSystem != false and .readOnly != false)' <"$gpt_manifest" >/dev/null
     # The image as a whole is covered too
     jq --seq -s -e ".[] | select(.name == \"verity\") | .size == $(stat -c %s "$imgs/verity") and .sha256 == \"$(sha256sum "$imgs/verity" | cut -d' ' -f1)\"" <"$gpt_manifest" >/dev/null
     root_split=$(jq -r ".[] | select(.type == \"root-${architecture}\") | .split_path" <<<"$output")
@@ -1653,6 +1671,77 @@ EOF
                    --join-signature "$offline_drh:$imgs/offline.roothash.p7s" \
                    --certificate "$defs/verity.crt" \
                    "$imgs/offline"
+
+    # Exercise joining a signature while all verity partitions are created in one run. Explicit
+    # partition UUIDs ensure the signature lookup uses the actual roothash instead of assuming it
+    # is derived from the data and hash partition UUIDs.
+    join_defs="$imgs/join-defs"
+    mkdir "$join_defs"
+
+    tee "$join_defs/verity-data.conf" <<EOF
+[Partition]
+Type=root-${architecture}
+CopyFiles=${defs}
+Verity=data
+VerityMatchKey=root
+Minimize=guess
+UUID=aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+EOF
+
+    tee "$join_defs/verity-hash.conf" <<EOF
+[Partition]
+Type=root-${architecture}-verity
+Verity=hash
+VerityMatchKey=root
+Minimize=yes
+UUID=bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb
+EOF
+
+    tee "$join_defs/verity-sig.conf" <<EOF
+[Partition]
+Type=root-${architecture}-verity-sig
+Verity=signature
+VerityMatchKey=root
+EOF
+
+    output=$(systemd-repart --offline="$OFFLINE" \
+                            --definitions="$join_defs" \
+                            --seed="$seed" \
+                            --dry-run=no \
+                            --empty=create \
+                            --size=auto \
+                            --split=yes \
+                            --json=pretty \
+                            --private-key="$defs/verity.key" \
+                            --certificate="$defs/verity.crt" \
+                            "$imgs/join-source")
+
+    join_roothash=$(jq -r ".[] | select(.type == \"root-${architecture}\") | .roothash" <<<"$output")
+    join_data_split=$(jq -r ".[] | select(.type == \"root-${architecture}\") | .split_path" <<<"$output")
+    join_sig_split=$(jq -r ".[] | select(.type == \"root-${architecture}-verity-sig\") | .split_path" <<<"$output")
+    assert_neq "$join_data_split" ""
+    assert_neq "$join_data_split" "null"
+    join_signature=$(jq -r '.signature' "$join_sig_split")
+
+    # Reuse the exact data partition contents so that the root hash remains the same across both runs.
+    sed -i \
+        -e "s|^CopyFiles=.*|CopyBlocks=$join_data_split|" \
+        -e '/^Minimize=/d' \
+        "$join_defs/verity-data.conf"
+
+    join_output=$(systemd-repart --offline="$OFFLINE" \
+                                  --definitions="$join_defs" \
+                                  --seed="$seed" \
+                                  --dry-run=no \
+                                  --empty=create \
+                                  --size=auto \
+                                  --split=yes \
+                                  --json=pretty \
+                                  --join-signature="$join_roothash:base64:$join_signature" \
+                                  --certificate="$defs/verity.crt" \
+                                  "$imgs/join-target")
+
+    assert_eq "$join_roothash" "$(jq -r ".[] | select(.type == \"root-${architecture}-verity-sig\") | .roothash" <<<"$join_output")"
 
     # Check that we can dissect, mount and unmount a repart verity image. (and that the image UUID is deterministic)
 
@@ -2547,6 +2636,135 @@ EOF
     assert_in "${image}2 : start=      286680, size=      532480, type=${esp_guid}" "$output"
 }
 
+testcase_fallback_partitions_copy_files() {
+    local workdir defs image root output
+
+    if ! command -v mtype >/dev/null; then
+        echo "Skipping fallback partition copy test, mtools is not installed."
+        return 0
+    fi
+
+    workdir="$(mktemp --directory /var/tmp/test-repart.fallback-copy.XXXXXXXXXX)"
+    # shellcheck disable=SC2064
+    trap "rm -rf '${workdir:?}'" RETURN
+
+    defs="$workdir/defs"
+    image="$workdir/image.raw"
+    root="$workdir/root"
+    mkdir -p "$defs" "$root/efi/EFI/BOOT" "$root/boot/EFI/Linux"
+    echo bootloader >"$root/efi/EFI/BOOT/loader.efi"
+    echo kernel >"$root/boot/EFI/Linux/kernel.efi"
+
+    tee "$defs/10-esp.conf" <<EOF
+[Partition]
+Type=esp
+Format=vfat
+CopyFiles=/efi:/
+SizeMinBytes=10M
+SplitName=esp
+EOF
+
+    tee "$defs/20-xbootldr.conf" <<EOF
+[Partition]
+Type=xbootldr
+Format=vfat
+CopyFiles=/boot:/
+SizeMinBytes=100M
+SupplementFor=10-esp
+EOF
+
+    # Neither definition has subvolumes, but both CopyFiles= entries must survive the merge.
+    systemd-repart --offline="$OFFLINE" \
+                   --root="$root" \
+                   --definitions="$defs" \
+                   --empty=create \
+                   --size=auto \
+                   --dry-run=no \
+                   --split=yes \
+                   "$image"
+
+    output="$(sfdisk --json "$image")"
+    assert_eq "$(jq '.partitiontable.partitions | length' <<<"$output")" 1
+    assert_eq "$(jq -r '.partitiontable.partitions[0].type' <<<"$output")" "$esp_guid"
+    assert_eq "$(env MTOOLS_SKIP_CHECK=1 mtype -i "$workdir/image.esp.raw" ::/EFI/BOOT/loader.efi)" \
+        bootloader
+    assert_eq "$(env MTOOLS_SKIP_CHECK=1 mtype -i "$workdir/image.esp.raw" ::/EFI/Linux/kernel.efi)" \
+        kernel
+}
+
+testcase_fallback_partitions_subvolumes() {
+    local workdir defs image root output version
+
+    if ! command -v btrfs >/dev/null || ! command -v mkfs.btrfs >/dev/null; then
+        echo "Skipping fallback partition subvolume test, btrfs-progs is not installed."
+        return 0
+    fi
+
+    version="$(btrfs --version)"
+    version="${version%%$'\n'*}"
+    if [[ "$OFFLINE" == "yes" ]] && \
+        ! systemd-analyze compare-versions "${version#btrfs-progs }" ge v6.12; then
+        echo "Skipping offline fallback partition subvolume test, btrfs-progs is older than v6.12."
+        return 0
+    fi
+
+    if systemd-detect-virt --quiet --container; then
+        echo "Skipping fallback partition subvolume test, mounting images requires loop devices."
+        return 0
+    fi
+
+    workdir="$(mktemp --directory /var/tmp/test-repart.fallback-subvolumes.XXXXXXXXXX)"
+    # shellcheck disable=SC2064
+    trap "rm -rf '${workdir:?}'" RETURN
+
+    defs="$workdir/defs"
+    image="$workdir/image.raw"
+    root="$workdir/root"
+    mkdir -p "$defs" "$root/source/from-target" "$root/source/from-supplement" "$root/extra"
+    echo target >"$root/source/from-target/file"
+    echo supplement >"$root/source/from-supplement/file"
+    echo extra >"$root/extra/extra-file"
+
+    tee "$defs/10-root.conf" <<EOF
+[Partition]
+Type=root
+Format=btrfs
+CopyFiles=/source:/
+Subvolumes=/from-target
+SizeMinBytes=256M
+EOF
+
+    tee "$defs/20-supplement.conf" <<EOF
+[Partition]
+Type=linux-generic
+Format=btrfs
+CopyFiles=/extra:/
+Subvolumes=/from-supplement
+SupplementFor=10-root
+EOF
+
+    # Both path and source-inode maps have entries from each definition when copying /source.
+    systemd-repart --offline="$OFFLINE" \
+                   --root="$root" \
+                   --definitions="$defs" \
+                   --empty=create \
+                   --size=auto \
+                   --dry-run=no \
+                   "$image"
+
+    output="$(sfdisk --json "$image")"
+    assert_eq "$(jq '.partitiontable.partitions | length' <<<"$output")" 1
+    assert_eq "$(jq -r '.partitiontable.partitions[0].type' <<<"$output")" "$root_guid"
+    # shellcheck disable=SC2016
+    systemd-dissect --read-only --with "$image" bash -eux -c '
+        btrfs subvolume show from-target
+        btrfs subvolume show from-supplement
+        cmp "$1/source/from-target/file" from-target/file
+        cmp "$1/source/from-supplement/file" from-supplement/file
+        cmp "$1/extra/extra-file" extra-file
+    ' bash "$root"
+}
+
 testcase_btrfs() {
     local defs imgs output root
 
@@ -2772,8 +2990,8 @@ testcase_varlink_subscribe_devices() {
     mark=$(expect_event "\"action\":\"add\".*\"node\":\"$loop\"" "$mark") || return 1
 
     # === Test 3: detaching the loopback produces a "remove" event ===
+    # Wait for the subscriber's event, not for /dev/loopN to disappear: the number can already be reused.
     systemd-dissect --detach "$loop"
-    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --removed --settle "$loop"
     mark=$(expect_event "\"action\":\"remove\".*\"node\":\"$loop\"" "$mark") || return 1
     loop=""
 
@@ -2784,7 +3002,6 @@ testcase_varlink_subscribe_devices() {
         mark=$(expect_event "\"action\":\"add\".*\"node\":\"$loop\"" "$mark") || return 1
 
         systemd-dissect --detach "$loop"
-        udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --removed --settle "$loop"
         mark=$(expect_event "\"action\":\"remove\".*\"node\":\"$loop\"" "$mark") || return 1
         loop=""
     done
@@ -2801,12 +3018,10 @@ testcase_varlink_subscribe_devices() {
     mark=$(expect_event "\"action\":\"add\".*\"node\":\"$loop2\"" "$mark") || return 1
 
     systemd-dissect --detach "$loop2"
-    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --removed --settle "$loop2"
     mark=$(expect_event "\"action\":\"remove\".*\"node\":\"$loop2\"" "$mark") || return 1
     loop2=""
 
     systemd-dissect --detach "$loop"
-    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --removed --settle "$loop"
     mark=$(expect_event "\"action\":\"remove\".*\"node\":\"$loop\"" "$mark") || return 1
     loop=""
 

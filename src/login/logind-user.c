@@ -1001,10 +1001,8 @@ void user_update_last_session_timer(User *u) {
         if (!timestamp_is_set(user_stop_delay))
                 return;
 
-        if (sd_event_get_state(u->manager->event) == SD_EVENT_FINISHED) {
-                log_debug("Not allocating user stop timeout, since we are already exiting.");
-                return;
-        }
+        if (sd_event_get_state(u->manager->event) == SD_EVENT_FINISHED)
+                return (void) log_debug("Not allocating user stop timeout, since we are already exiting.");
 
         r = sd_event_add_time(u->manager->event,
                               &u->timer_event_source,

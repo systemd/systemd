@@ -229,6 +229,7 @@
 
   <refsect1>
     <title>History</title>
+    <para><function>sd_listen_fds()</function> was added in version 1.</para>
     <para><function>sd_listen_fds_with_names()</function> was added in version 227.</para>
   </refsect1>
 

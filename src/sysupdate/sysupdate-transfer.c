@@ -50,6 +50,7 @@
 #include "sysupdate-resource.h"
 #include "sysupdate-transfer.h"
 #include "time-util.h"
+#include "uapi16-manifest.h"
 #include "web-util.h"
 #include "xattr-util.h"
 
@@ -1770,7 +1771,7 @@ static int transfer_acquire_source(
                         if (s->offset > data.iov_len)
                                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Inline data of '%s' is shorter than the offset of the file in it, refusing.", i->path);
 
-                        data = IOVEC_MAKE((uint8_t*) data.iov_base + s->offset, data.iov_len - s->offset);
+                        iovec_inc(&data, s->offset);
 
                         if (i->metadata.size != UINT64_MAX) {
                                 if (data.iov_len < i->metadata.size)

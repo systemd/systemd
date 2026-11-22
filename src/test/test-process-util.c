@@ -267,24 +267,18 @@ TEST(pid_get_cmdline_harder) {
         _cleanup_strv_free_ char **args = NULL;
         int r;
 
-        if (geteuid() != 0) {
-                log_info("Skipping %s: not root", __func__);
-                return;
-        }
+        if (geteuid() != 0)
+                return (void) log_info("Skipping %s: not root", __func__);
 
-        if (!have_namespaces()) {
-                log_notice("Testing without namespaces, skipping %s", __func__);
-                return;
-        }
+        if (!have_namespaces())
+                return (void) log_notice("Testing without namespaces, skipping %s", __func__);
 
 #if HAVE_VALGRIND_VALGRIND_H
         /* valgrind patches open(/proc//cmdline)
          * so, test_pid_get_cmdline_harder fails always
          * See https://github.com/systemd/systemd/pull/3555#issuecomment-226564908 */
-        if (RUNNING_ON_VALGRIND) {
-                log_info("Skipping %s: running on valgrind", __func__);
-                return;
-        }
+        if (RUNNING_ON_VALGRIND)
+                return (void) log_info("Skipping %s: running on valgrind", __func__);
 #endif
 
         r = ASSERT_OK(pidref_safe_fork("(cmdline)", FORK_WAIT|FORK_LOG|FORK_DEATHSIG_SIGKILL, /* ret= */ NULL));

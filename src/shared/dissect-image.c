@@ -2025,6 +2025,33 @@ static bool verity_use_signature(const VeritySettings *verity, PartitionPolicyFl
 }
 #endif
 
+#if HAVE_BLKID
+static int verity_device_signed(int fd, const char *root_hash) {
+        _cleanup_free_ char *target_type = NULL, *params = NULL;
+        struct stat st;
+        int r;
+
+        assert(fd >= 0);
+        assert(root_hash);
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        r = stat_verify_block(&st);
+        if (r < 0)
+                return r;
+
+        r = dm_table_status(st.st_rdev, &target_type, &params);
+        if (r < 0)
+                return r;
+
+        if (!streq(target_type, "verity"))
+                return -EMEDIUMTYPE;
+
+        return dm_verity_table_signed(params, root_hash);
+}
+#endif
+
 int dissected_image_new_from_existing_verity(
                 const char *src,
                 const VeritySettings *verity,
@@ -2070,17 +2097,17 @@ int dissected_image_new_from_existing_verity(
         if (!root_fstype_string)
                 return -ENOPKG;
 
-        /* We don't query the existing device, so we don't know whether the kernel validated a signature for
-         * it. We only know that the device is protected by verity. If the image policy requires a signature,
-         * we dissect the image the full way, which checks the device before it reuses it. */
+        /* If the image policy requires a signature, we only reuse the existing device if the kernel validated
+         * a signature for it, which we check below. */
         PartitionPolicyFlags root_flags = image_policy_get_exhaustively(image_policy, PARTITION_ROOT);
         if (root_flags < 0)
                 return root_flags;
-        if (!FLAGS_SET(root_flags, PARTITION_POLICY_VERITY))
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOPKG), "Image policy requires a signature, skipping verity shortcut.");
+        bool need_signature = !FLAGS_SET(root_flags, PARTITION_POLICY_VERITY);
+        if (need_signature && !FLAGS_SET(root_flags, PARTITION_POLICY_SIGNED))
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOPKG), "Image policy doesn't allow verity, skipping verity shortcut.");
 
         if (verity_settings_data_covers(verity, PARTITION_ROOT))
-                found_flags = PARTITION_POLICY_VERITY;
+                found_flags = need_signature ? PARTITION_POLICY_SIGNED : PARTITION_POLICY_VERITY;
         else
                 found_flags = encrypted ? PARTITION_POLICY_ENCRYPTED : PARTITION_POLICY_UNPROTECTED;
 
@@ -2099,6 +2126,16 @@ int dissected_image_new_from_existing_verity(
         mount_node_fd = open_partition(node, /* is_partition= */ false, /* loop= */ NULL);
         if (mount_node_fd < 0)
                 return mount_node_fd;
+
+        if (need_signature) {
+                r = verity_device_signed(mount_node_fd, root_hash_encoded);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to check the signature of verity device %s, skipping verity shortcut: %m", node);
+                else if (r == 0)
+                        log_debug("Verity device %s has no validated signature, skipping verity shortcut.", node);
+                if (r <= 0)
+                        return -ENOPKG;
+        }
 
         r = dissect_image_from_unpartitioned(
                         node,
@@ -5598,6 +5635,7 @@ typedef struct MountImageReplyParameters {
         sd_json_variant *partitions;
         bool single_file_system;
         char *image_policy;
+        char *pinned_image_policy;
         uint64_t image_size;
         uint32_t sector_size;
         sd_id128_t image_uuid;
@@ -5607,6 +5645,7 @@ static void mount_image_reply_parameters_done(MountImageReplyParameters *p) {
         assert(p);
 
         p->image_policy = mfree(p->image_policy);
+        p->pinned_image_policy = mfree(p->pinned_image_policy);
         p->partitions = sd_json_variant_unref(p->partitions);
 }
 
@@ -5634,7 +5673,7 @@ int mountfsd_connect(sd_varlink **ret) {
         return 0;
 }
 
-int mountfsd_mount_image_fd(
+int mountfsd_mount_image_fd_full(
                 sd_varlink *vl,
                 int image_fd,
                 int userns_fd,
@@ -5642,18 +5681,21 @@ int mountfsd_mount_image_fd(
                 const ImagePolicy *image_policy,
                 const VeritySettings *verity,
                 DissectImageFlags flags,
-                DissectedImage **ret) {
+                bool pin_image_policy,
+                DissectedImage **ret,
+                ImagePolicy **ret_pinned_image_policy) {
 
 #if HAVE_BLKID
         _cleanup_(mount_image_reply_parameters_done) MountImageReplyParameters p = {};
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "partitions",         SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant, offsetof(struct MountImageReplyParameters, partitions),         SD_JSON_MANDATORY },
-                { "singleFileSystem",   SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool, offsetof(struct MountImageReplyParameters, single_file_system), 0                 },
-                { "imagePolicy",        SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,  offsetof(struct MountImageReplyParameters, image_policy),       0                 },
-                { "imageSize",          _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,  offsetof(struct MountImageReplyParameters, image_size),         SD_JSON_MANDATORY },
-                { "sectorSize",         _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32,  offsetof(struct MountImageReplyParameters, sector_size),        SD_JSON_MANDATORY },
-                { "imageUuid",          SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,   offsetof(struct MountImageReplyParameters, image_uuid),         0                 },
+                { "partitions",        SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant, offsetof(struct MountImageReplyParameters, partitions),          SD_JSON_MANDATORY },
+                { "singleFileSystem",  SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool, offsetof(struct MountImageReplyParameters, single_file_system),  0                 },
+                { "imagePolicy",       SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,  offsetof(struct MountImageReplyParameters, image_policy),        0                 },
+                { "pinnedImagePolicy", SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,  offsetof(struct MountImageReplyParameters, pinned_image_policy), 0                 },
+                { "imageSize",         _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,  offsetof(struct MountImageReplyParameters, image_size),          SD_JSON_MANDATORY },
+                { "sectorSize",        _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32,  offsetof(struct MountImageReplyParameters, sector_size),         SD_JSON_MANDATORY },
+                { "imageUuid",         SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,   offsetof(struct MountImageReplyParameters, image_uuid),          0                 },
                 {}
         };
 
@@ -5756,6 +5798,7 @@ int mountfsd_mount_image_fd(
                         SD_JSON_BUILD_PAIR_CONDITION(verity_data_fd >= 0, "verityDataFileDescriptor", SD_JSON_BUILD_UNSIGNED(userns_fd >= 0 ? 2 : 1)),
                         SD_JSON_BUILD_PAIR_CONDITION(verity && iovec_is_set(&verity->root_hash), "verityRootHash", JSON_BUILD_IOVEC_HEX(&verity->root_hash)),
                         SD_JSON_BUILD_PAIR_CONDITION(verity && iovec_is_set(&verity->root_hash_sig), "verityRootHashSignature", JSON_BUILD_IOVEC_BASE64(&verity->root_hash_sig)),
+                        SD_JSON_BUILD_PAIR_CONDITION(pin_image_policy, "pinImagePolicy", SD_JSON_BUILD_BOOLEAN(true)),
                         SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", FLAGS_SET(flags, DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH)));
         if (r < 0)
                 return log_error_errno(r, "Failed to issue MountImage() varlink call: %m");
@@ -5853,6 +5896,25 @@ int mountfsd_mount_image_fd(
         di->image_size = p.image_size;
         di->sector_size = p.sector_size;
         di->image_uuid = p.image_uuid;
+
+        if (ret_pinned_image_policy) {
+                _cleanup_(image_policy_freep) ImagePolicy *pinned = NULL;
+
+                if (p.pinned_image_policy) {
+                        r = image_policy_from_string(p.pinned_image_policy, /* graceful= */ false, &pinned);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to parse pinned image policy '%s': %m", p.pinned_image_policy);
+                } else {
+                        /* Older versions of mountfsd don't return the pinned image policy. The reply only
+                         * lists the partitions that mountfsd mounted. The policy that we derive from the reply
+                         * therefore lacks the verity and signature partitions. */
+                        pinned = image_policy_new_from_dissected(di, verity);
+                        if (!pinned)
+                                return -ENOMEM;
+                }
+
+                *ret_pinned_image_policy = TAKE_PTR(pinned);
+        }
 
         *ret = TAKE_PTR(di);
         return 0;

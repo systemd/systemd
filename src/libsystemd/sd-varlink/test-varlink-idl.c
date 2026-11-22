@@ -4,6 +4,7 @@
 #include <sys/socket.h>
 
 #include "sd-event.h"
+#include "sd-json.h"
 #include "sd-varlink.h"
 #include "sd-varlink-idl.h"
 
@@ -51,6 +52,7 @@
 #include "varlink-io.systemd.Report.Uploader.h"
 #include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.Resolve.Hook.h"
+#include "varlink-io.systemd.Resolve.Link.h"
 #include "varlink-io.systemd.Resolve.Monitor.h"
 #include "varlink-io.systemd.ResourceProvider.h"
 #include "varlink-io.systemd.Shutdown.h"
@@ -205,7 +207,8 @@ static SD_VARLINK_DEFINE_INTERFACE_FULL(
 
 static void test_parse_format_one(const sd_varlink_interface *iface) {
         _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *parsed = NULL;
-        _cleanup_free_ char *text = NULL, *text2 = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL, *json2 = NULL;
+        _cleanup_free_ char *text = NULL, *text2 = NULL, *json_text = NULL, *json_text2 = NULL;
 
         ASSERT_NOT_NULL(iface);
 
@@ -218,8 +221,21 @@ static void test_parse_format_one(const sd_varlink_interface *iface) {
 
         ASSERT_STREQ(text, text2);
 
+        /* Every interface goes through the JSON renderer too. The result must not depend on the
+         * path: a definition built with the C macros and the same definition parsed back from
+         * text have to render identically. */
+        ASSERT_OK(sd_varlink_idl_format_json(iface, &json));
+        ASSERT_OK(sd_varlink_idl_format_json(parsed, &json2));
+        ASSERT_OK(sd_json_variant_format(json, /* flags= */ 0, &json_text));
+        ASSERT_OK(sd_json_variant_format(json2, /* flags= */ 0, &json_text2));
+        ASSERT_STREQ(json_text, json_text2);
+
         text = mfree(text);
         text2 = mfree(text2);
+        json_text = mfree(json_text);
+        json_text2 = mfree(json_text2);
+        json = sd_json_variant_unref(json);
+        json2 = sd_json_variant_unref(json2);
         parsed = sd_varlink_interface_free(parsed);
 
         /* Do the same thing, but aggressively line break, and make sure this is roundtrippable as well */
@@ -269,6 +285,7 @@ TEST(parse_format) {
                 &vl_interface_io_systemd_Report_Uploader,
                 &vl_interface_io_systemd_Resolve,
                 &vl_interface_io_systemd_Resolve_Hook,
+                &vl_interface_io_systemd_Resolve_Link,
                 &vl_interface_io_systemd_Resolve_Monitor,
                 &vl_interface_io_systemd_ResourceProvider,
                 &vl_interface_io_systemd_Shutdown,
@@ -301,6 +318,54 @@ TEST(parse_format) {
         }
 }
 
+TEST(format_json) {
+        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *iface = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_free_ char *text = NULL;
+
+        ASSERT_OK(sd_varlink_idl_parse(
+                                "# A comment on the interface\n"
+                                "# [Experimental]\n"
+                                "interface org.example.Format\n"
+                                "# A comment on the method\n"
+                                "# [Supports 'more' flag]\n"
+                                "method Ping(in: ?string) -> (out: ?Reply)\n"
+                                "method Reset() -> ()\n"
+                                "# A comment on the error\n"
+                                "error Failed(reason: string)\n"
+                                "type Reply(\n"
+                                "        count: int,\n"
+                                "        names: []string,\n"
+                                "        flag: ?bool,\n"
+                                "        inner: (x: int, y: ?(a, b)),\n"
+                                "        # [Experimental]\n"
+                                "        # A comment on the field\n"
+                                "        extra: ?string\n"
+                                ")\n"
+                                "type Color (red, green)\n",
+                                /* reterr_line= */ NULL, /* reterr_column= */ NULL, &iface));
+
+        ASSERT_OK(sd_varlink_idl_format_json(iface, &v));
+        ASSERT_OK(sd_json_variant_format(v, /* flags= */ 0, &text));
+        static const char expected[] =
+                "{\"name\":\"org.example.Format\",\"experimental\":true,"
+                "\"comment\":\"A comment on the interface\",\"symbols\":[{\"kind\":\"type\",\"name\":\"Color\","
+                "\"typeKind\":\"enum\",\"values\":[{\"name\":\"red\"},{\"name\":\"green\"}]},{\"kind\":\"type\","
+                "\"name\":\"Reply\",\"typeKind\":\"struct\",\"fields\":[{\"name\":\"count\",\"type\":\"int\"},"
+                "{\"name\":\"names\",\"type\":\"string\",\"array\":true},{\"name\":\"flag\",\"type\":\"bool\","
+                "\"nullable\":true},{\"name\":\"inner\",\"struct\":[{\"name\":\"x\",\"type\":\"int\"},"
+                "{\"name\":\"y\",\"enum\":[{\"name\":\"a\"},{\"name\":\"b\"}],\"nullable\":true}]},"
+                "{\"name\":\"extra\",\"experimental\":true,\"type\":\"string\",\"nullable\":true,"
+                "\"comment\":\"A comment on the field\"}]},{\"kind\":\"method\",\"name\":\"Ping\","
+                "\"comment\":\"A comment on the method\",\"flags\":[\"supports-more\"],"
+                "\"input\":[{\"name\":\"in\",\"type\":\"string\",\"nullable\":true}],"
+                "\"output\":[{\"name\":\"out\",\"namedType\":\"Reply\",\"nullable\":true}]},{\"kind\":\"method\","
+                "\"name\":\"Reset\",\"input\":[],\"output\":[]},{\"kind\":\"error\",\"name\":\"Failed\","
+                "\"comment\":\"A comment on the error\",\"fields\":[{\"name\":\"reason\",\"type\":\"string\"}]}]}";
+
+        ASSERT_STREQ(text, expected);
+}
+
 TEST(experimental) {
         ASSERT_TRUE(FLAGS_SET(vl_interface_xyz_experimental.interface_flags, SD_VARLINK_EXPERIMENTAL));
         ASSERT_TRUE(FLAGS_SET(vl_type_ExperimentalEnumTest.symbol_flags, SD_VARLINK_EXPERIMENTAL));
@@ -311,6 +376,50 @@ TEST(experimental) {
         ASSERT_TRUE(FLAGS_SET(vl_type_ExperimentalEnumTest.fields[1].field_flags, SD_VARLINK_EXPERIMENTAL));
 
         ASSERT_OK(varlink_idl_consistent(&vl_interface_xyz_experimental, LOG_ERR));
+}
+
+TEST(method_flags_roundtrip) {
+        static SD_VARLINK_DEFINE_METHOD_FULL(SupportsMore, SD_VARLINK_SUPPORTS_MORE|SD_VARLINK_EXPERIMENTAL);
+        static SD_VARLINK_DEFINE_METHOD_FULL(RequiresMore, SD_VARLINK_REQUIRES_MORE);
+        static SD_VARLINK_DEFINE_METHOD_FULL(SupportsUpgrade, SD_VARLINK_SUPPORTS_UPGRADE);
+        static SD_VARLINK_DEFINE_METHOD_FULL(RequiresUpgrade, SD_VARLINK_REQUIRES_UPGRADE);
+        static SD_VARLINK_DEFINE_METHOD(Plain);
+        static SD_VARLINK_DEFINE_INTERFACE(
+                        xyz_flags, "xyz.flags",
+                        &vl_method_SupportsMore,
+                        &vl_method_RequiresMore,
+                        &vl_method_SupportsUpgrade,
+                        &vl_method_RequiresUpgrade,
+                        &vl_method_Plain);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        ASSERT_OK(sd_json_build(&parameters, SD_JSON_BUILD_EMPTY_OBJECT));
+
+        FOREACH_ELEMENT(cols, ((const size_t[]) { SIZE_MAX, 23 })) {
+                _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *parsed = NULL;
+                _cleanup_free_ char *text = NULL, *formatted = NULL;
+                const sd_varlink_symbol *method;
+
+                ASSERT_OK(sd_varlink_idl_format_full(&vl_interface_xyz_flags, /* flags= */ 0, *cols, &text));
+                ASSERT_OK(sd_varlink_idl_parse(text, /* reterr_line= */ NULL, /* reterr_column= */ NULL, &parsed));
+                ASSERT_OK(sd_varlink_idl_format_full(parsed, /* flags= */ 0, *cols, &formatted));
+                ASSERT_STREQ(text, formatted);
+
+                for (const sd_varlink_symbol *const *s = vl_interface_xyz_flags.symbols; *s; s++) {
+                        method = ASSERT_PTR(varlink_idl_find_symbol(parsed, SD_VARLINK_METHOD, (*s)->name));
+                        ASSERT_EQ((uint64_t) method->symbol_flags, (uint64_t) (*s)->symbol_flags);
+                }
+
+                method = ASSERT_PTR(varlink_idl_find_symbol(parsed, SD_VARLINK_METHOD, "SupportsUpgrade"));
+                ASSERT_OK(varlink_idl_validate_method_call(method, parameters, SD_VARLINK_METHOD_UPGRADE, /* reterr_bad_field= */ NULL));
+
+                method = ASSERT_PTR(varlink_idl_find_symbol(parsed, SD_VARLINK_METHOD, "RequiresUpgrade"));
+                ASSERT_OK(varlink_idl_validate_method_call(method, parameters, SD_VARLINK_METHOD_UPGRADE, /* reterr_bad_field= */ NULL));
+                ASSERT_ERROR(varlink_idl_validate_method_call(method, parameters, /* flags= */ 0, /* reterr_bad_field= */ NULL), EBADE);
+
+                method = ASSERT_PTR(varlink_idl_find_symbol(parsed, SD_VARLINK_METHOD, "Plain"));
+                ASSERT_ERROR(varlink_idl_validate_method_call(method, parameters, SD_VARLINK_METHOD_UPGRADE, /* reterr_bad_field= */ NULL), EOPNOTSUPP);
+        }
 }
 
 static bool symbol_is_experimental(const sd_varlink_interface *iface, const char *name) {

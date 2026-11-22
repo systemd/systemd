@@ -273,6 +273,11 @@ udevadm wait --timeout=60 --settle "$loop"
                                         root-hash-signature=auto,root-hash-signature-required=yes)
 /usr/lib/systemd/systemd-veritysetup attach test-50-auto "$loop" "$MINIMAL_IMAGE.verity" "$MINIMAL_IMAGE_ROOTHASH" \
                                      root-hash-signature=auto
+# systemd-veritysetup checks whether the volume is already active before it reads the udev properties of the
+# data device. The data device has no signature, but the second attach with root-hash-signature-required=yes
+# succeeds because the volume is active.
+/usr/lib/systemd/systemd-veritysetup attach test-50-auto "$loop" "$MINIMAL_IMAGE.verity" "$MINIMAL_IMAGE_ROOTHASH" \
+                                     root-hash-signature=auto,root-hash-signature-required=yes
 /usr/lib/systemd/systemd-veritysetup detach test-50-auto
 losetup -d "$loop"
 
@@ -280,6 +285,13 @@ losetup -d "$loop"
 systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" mountpoint /run/systemd/journal/socket
 (! systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" -p BindLogSockets=no ls /run/systemd/journal/socket)
 (! systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" -p MountAPIVFS=no ls /run/systemd/journal/socket)
+
+# Test that ProtectSystem=strict does not leak the host's /run/ into a service running off a RootImage=,
+# and keeps /run/ a private writable tmpfs.
+host_run_marker="$(mktemp /run/test-50-host-run.XXXXXX)"
+systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" -p ProtectSystem=strict \
+    bash -xec "test ! -e $host_run_marker && test -w /run && [[ \"\$(stat -fc %T /run)\" == tmpfs ]]"
+rm -f "$host_run_marker"
 
 # Test that the notify socket is bind mounted to /run/host/notify in sandboxed environments and
 # $NOTIFY_SOCKET is set correctly.
@@ -1136,9 +1148,9 @@ umount /tmp/img
 umount /tmp/ext
 veritysetup close "$(cat "$MINIMAL_IMAGE.roothash")-verity" ||:
 veritysetup close "$(cat /tmp/app0.roothash)-verity" ||:
-# The shortcut doesn't check whether the kernel validated a signature for an existing device. A unit whose image
-# policy requires a signature doesn't take the shortcut, while a unit whose image policy allows "verity" does.
-# veritysetup sets up the devices without a signature. The process of the unit logs the messages before it
+# A unit whose image policy requires a signature only takes the shortcut if the kernel validated a signature for
+# the existing device, while a unit whose image policy allows "verity" always does. veritysetup sets up the
+# devices without a signature here. The process of the unit logs the messages before it
 # executes the command, and the unit exits right after. journald attributes the messages to the wrong unit if
 # the process is gone when journald looks up its cgroup. So we don't filter the journal by unit. Each message
 # starts with the name of the unit, and each line of the trace of this script starts with a "+". We match the
@@ -1165,7 +1177,7 @@ if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
                 cat /opt/script0.sh
     journalctl --sync
     journalctl --after-cursor="$cursor" -o cat >/tmp/test-50-shortcut.log
-    test "$(grep -cxF 'test-50-shortcut-signed.service: Image policy requires a signature, skipping verity shortcut.' /tmp/test-50-shortcut.log)" -ge 3
+    test "$(grep -cE '^test-50-shortcut-signed.service: Verity device /dev/mapper/[0-9a-f]+-verity has no validated signature, skipping verity shortcut\.$' /tmp/test-50-shortcut.log)" -ge 3
     (! grep -E '^test-50-shortcut-signed.service: Reusing pre-existing verity-protected' /tmp/test-50-shortcut.log)
 fi
 journalctl --sync
@@ -1191,6 +1203,39 @@ umount /tmp/ext
 # gone already.
 veritysetup close "$(cat "$MINIMAL_IMAGE.roothash")-verity" ||:
 veritysetup close "$(cat /tmp/app0.roothash)-verity" ||:
+# With devices for which the kernel validated a signature, a unit whose image policy requires a signature takes
+# the shortcut too.
+if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
+    for image in "$MINIMAL_IMAGE" /tmp/app0; do
+        name="$(cat "$image.roothash")-verity"
+        timeout 60 bash -c 'while dmsetup info "$1" &>/dev/null; do sleep 0.1; done' bash "$name"
+        veritysetup open "$image.raw" "$name" "$image.verity" --root-hash-file "$image.roothash" \
+                    --root-hash-signature "$image.roothash.p7s"
+    done
+    mount -o ro "/dev/mapper/$(cat "$MINIMAL_IMAGE.roothash")-verity" /tmp/img
+    mount -o ro "/dev/mapper/$(cat /tmp/app0.roothash)-verity" /tmp/ext
+    journalctl --sync
+    cursor="$(journalctl -n 1 --show-cursor | sed -n 's/^-- cursor: //p')"
+    test -n "$cursor"
+    systemd-run --wait -P --unit=test-50-shortcut-signed2.service \
+                -p RootImage="$MINIMAL_IMAGE.raw" \
+                -p RootImagePolicy=root=signed+squashfs \
+                -p ExtensionImages=/tmp/app0.raw \
+                -p ExtensionImagePolicy=root=signed+squashfs \
+                -p TemporaryFileSystem=/var/lib \
+                -p MountImages=/tmp/app0.raw:/var/lib/app \
+                -p MountImagePolicy=root=signed+squashfs \
+                cat /opt/script0.sh
+    journalctl --sync
+    journalctl --after-cursor="$cursor" -o cat >/tmp/test-50-shortcut.log
+    grep -E '^test-50-shortcut-signed2.service: Reusing pre-existing verity-protected root image ' /tmp/test-50-shortcut.log >/dev/null
+    test "$(grep -cE '^test-50-shortcut-signed2.service: Reusing pre-existing verity-protected image ' /tmp/test-50-shortcut.log)" -ge 2
+    rm /tmp/test-50-shortcut.log
+    umount /tmp/img
+    umount /tmp/ext
+    veritysetup close "$(cat "$MINIMAL_IMAGE.roothash")-verity" ||:
+    veritysetup close "$(cat /tmp/app0.roothash)-verity" ||:
+fi
 
 # Test that an extension consisting of an empty directory under /etc/extensions/ takes precedence
 mkdir -p /var/lib/extensions/
@@ -1491,6 +1536,42 @@ systemd-run --wait --pipe --root-directory=/tmp/img -- grep -q 'MARKER=1' /usr/l
 # Make sure the same root file descriptor can be reused multiple times.
 systemd-run --wait --pipe --same-root-dir -p ExecStartPre=true true
 
+# Test the precedence of the root settings:
+# RootDirectoryFileDescriptor= > RootImage= > RootDirectory=.
+# The unused RootDirectory= is nonexistent, and the unused RootImage= is not an image, so the
+# service would fail if the respective setting were used.
+systemd-run --wait --pipe --root-directory=/tmp/img -p RootDirectory=/nonexistent \
+    -- grep -q 'MARKER=1' /usr/lib/os-release
+systemd-run --wait --pipe --root-directory=/tmp/img -p RootImage=/dev/null \
+    -- grep -q 'MARKER=1' /usr/lib/os-release
+# RootImage= wins over RootDirectory=: the nonexistent RootDirectory= is ignored.
+systemd-run --wait --pipe -p RootDirectory=/nonexistent -p RootImage="$MINIMAL_IMAGE.raw" \
+    -- grep -q 'MARKER=1' /usr/lib/os-release
+
+# Test RootEphemeral= with RootDirectoryFileDescriptor= and with RootDirectory=: all spawns
+# of the activation run in the same ephemeral copy (ExecStartPre= creates the file,
+# ExecStart= sees it), and the copy is discarded when the service stops.
+systemd-run --wait --pipe --root-directory=/tmp/img -p RootEphemeral=yes \
+    -p "ExecStartPre=bash -c 'touch /pre'" \
+    bash -xec '[[ -e /pre ]]'
+systemd-run --wait --pipe -p RootDirectory=/tmp/img -p RootEphemeral=yes \
+    -p "ExecStartPre=bash -c 'touch /pre'" \
+    bash -xec '[[ -e /pre ]]'
+test ! -e /tmp/img/pre
+timeout 10 bash -c 'until test -z "$(ls -A /var/lib/systemd/ephemeral-trees)"; do sleep .5; done'
+
+# Plain paths in ReadWritePaths= and friends are relative to the host's root directory,
+# '+'-prefixed paths are relative to the root directory. Both select the same path inside
+# the root, a plain path outside the root directory is ignored.
+mkdir -p /tmp/img/hoge
+systemd-run --wait --pipe -p RootDirectory=/tmp/img \
+    -p ReadOnlyPaths=/tmp/img/hoge -- bash -xec '! test -w /hoge'
+systemd-run --wait --pipe -p RootDirectory=/tmp/img \
+    -p ReadOnlyPaths=+/hoge -- bash -xec '! test -w /hoge'
+systemd-run --wait --pipe -p RootDirectory=/tmp/img \
+    -p ReadOnlyPaths=/hoge -- bash -xec 'test -w /hoge'
+rm -rf /tmp/img/hoge
+
 systemd-dissect --mtree /tmp/img >/dev/null
 systemd-dissect --list /tmp/img >/dev/null
 
@@ -1548,11 +1629,10 @@ test "$(printf '%o' "$(jq -r '.mode' <<<"$ENTRY")")" = "644"
 # A non-hardlinked entry must not have an inodeToken
 test "$(jq 'has("inodeToken")' <<<"$ENTRY")" = "false"
 
-# Empty file: size 0, sha256 of the empty input
+# Empty file: size 0, and no sha256, as it is implied by the size
 ENTRY=$(get_entry empty.txt)
 test "$(jq -r '.size' <<<"$ENTRY")" = "0"
-test "$(jq -r '.sha256' <<<"$ENTRY")" = \
-    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+test "$(jq 'has("sha256")' <<<"$ENTRY")" = "false"
 
 # Directory
 ENTRY=$(get_entry subdir)

@@ -71,7 +71,6 @@ static EFI_STATUS load_via_boot_services(
                                         .device_path = &kernel_file_path->memmap_path.Header,
                                 });
 
-
         err = BS->LoadImage(/* BootPolicy= */ false,
                             parent,
                             &kernel_file_path->memmap_path.Header,
@@ -82,13 +81,21 @@ static EFI_STATUS load_via_boot_services(
         if (!shim_loader_available())
                 uninstall_security_override();
 
-        if (err != EFI_SUCCESS)
-                return log_error_status(EFI_LOAD_ERROR, "Error loading inner kernel with shim: %m");
+        if (err != EFI_SUCCESS) {
+                /* For LOADER_LINUX entries older sd-boot would attempt to fall back to the kernel compat
+                 * entry point on EFI_UNSUPPORTED. But the image will be unmapped after the StartImage call
+                 * returns, so that would access freed memory. Map EFI_UNSUPPORTED to EFI_LOAD_ERROR to avoid
+                 * triggering this issue. */
+                log_error_status(err, "Error loading inner kernel with shim: %m");
+                return err == EFI_UNSUPPORTED ? EFI_LOAD_ERROR : err;
+        }
 
         err = BS->HandleProtocol(
                         kernel_image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
-        if (err != EFI_SUCCESS)
-                return log_error_status(EFI_LOAD_ERROR, "Error getting kernel image from protocol from shim: %m");
+        if (err != EFI_SUCCESS) {
+                log_error_status(err, "Error getting kernel image from protocol from shim: %m");
+                return err == EFI_UNSUPPORTED ? EFI_LOAD_ERROR : err;
+        }
 
         if (cmdline) {
                 loaded_image->LoadOptions = (void *) cmdline;
@@ -374,7 +381,10 @@ EFI_STATUS linux_exec(
                 EFI_IMAGE_ENTRY_POINT compat_entry =
                                 (EFI_IMAGE_ENTRY_POINT) ((const uint8_t *) parent_loaded_image->ImageBase + compat_entry_point);
                 err = compat_entry(parent_image, ST);
-        }
+        } else
+                /* pe_kernel_info() guarantees that one of the entry points is set, but let's not fall
+                 * through with err == EFI_SUCCESS if that ever changes. */
+                err = EFI_LOAD_ERROR;
 
         /* Restore */
         *parent_loaded_image = original_parent_loaded_image;

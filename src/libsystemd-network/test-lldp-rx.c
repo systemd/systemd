@@ -77,8 +77,7 @@ static int stop_lldp_rx(sd_lldp_rx *lldp_rx) {
         return 0;
 }
 
-static void test_receive_basic_packet(sd_event *e) {
-
+TEST(receive_basic_packet) {
         static const uint8_t frame[] = {
                 /* Ethernet header */
                 0x01, 0x80, 0xc2, 0x00, 0x00, 0x03,     /* Destination MAC */
@@ -103,6 +102,9 @@ static void test_receive_basic_packet(sd_event *e) {
         uint16_t ttl;
         size_t length;
         const char *str;
+
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK_ZERO(sd_event_new(&e));
 
         lldp_rx_handler_calls = 0;
         ASSERT_OK_ZERO(start_lldp_rx(&lldp_rx, e, lldp_rx_handler, /* cb_data= */ NULL));
@@ -138,7 +140,7 @@ static void test_receive_basic_packet(sd_event *e) {
         ASSERT_OK_ZERO(stop_lldp_rx(lldp_rx));
 }
 
-static void test_receive_incomplete_packet(sd_event *e) {
+TEST(receive_incomplete_packet) {
         sd_lldp_rx *lldp_rx;
         sd_lldp_neighbor **neighbors;
         static const uint8_t frame[] = {
@@ -154,6 +156,9 @@ static void test_receive_incomplete_packet(sd_event *e) {
                 0x00, 0x00                              /* End Of LLDPDU */
         };
 
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK_ZERO(sd_event_new(&e));
+
         lldp_rx_handler_calls = 0;
         ASSERT_OK_ZERO(start_lldp_rx(&lldp_rx, e, lldp_rx_handler, /* cb_data= */ NULL));
 
@@ -165,7 +170,7 @@ static void test_receive_incomplete_packet(sd_event *e) {
         ASSERT_OK_ZERO(stop_lldp_rx(lldp_rx));
 }
 
-static void test_receive_oui_packet(sd_event *e) {
+TEST(receive_oui_packet) {
         sd_lldp_rx *lldp_rx;
         sd_lldp_neighbor **neighbors;
         static const uint8_t frame[] = {
@@ -194,6 +199,9 @@ static void test_receive_oui_packet(sd_event *e) {
                 0x07, 0x01, 0x00,
                 0x00, 0x00                              /* End of LLDPDU */
         };
+
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK_ZERO(sd_event_new(&e));
 
         lldp_rx_handler_calls = 0;
         ASSERT_OK_ZERO(start_lldp_rx(&lldp_rx, e, lldp_rx_handler, /* cb_data= */ NULL));
@@ -231,8 +239,7 @@ static void test_receive_oui_packet(sd_event *e) {
         ASSERT_OK_ZERO(stop_lldp_rx(lldp_rx));
 }
 
-static void test_multiple_neighbors_sorted(sd_event *e) {
-
+TEST(multiple_neighbors_sorted) {
         static const uint8_t frame1[] = {
                 /* Ethernet header */
                 0x01, 0x80, 0xc2, 0x00, 0x00, 0x03,     /* Destination MAC */
@@ -317,6 +324,9 @@ static void test_multiple_neighbors_sorted(sd_event *e) {
         size_t length, expected_length;
         uint16_t ttl;
 
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK_ZERO(sd_event_new(&e));
+
         lldp_rx_handler_calls = 0;
         ASSERT_OK_ZERO(start_lldp_rx(&lldp_rx, e, lldp_rx_handler, /* cb_data= */ NULL));
 
@@ -358,7 +368,7 @@ static void test_multiple_neighbors_sorted(sd_event *e) {
         ASSERT_OK_ZERO(stop_lldp_rx(lldp_rx));
 }
 
-static void test_receive_oui_vlanid_packet(sd_event *e) {
+TEST(receive_oui_vlanid_packet) {
         sd_lldp_rx *lldp_rx;
         sd_lldp_neighbor **neighbors;
         sd_json_variant *v;
@@ -391,6 +401,9 @@ static void test_receive_oui_vlanid_packet(sd_event *e) {
         };
         uint16_t vlanid;
 
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK_ZERO(sd_event_new(&e));
+
         lldp_rx_handler_calls = 0;
         ASSERT_OK(start_lldp_rx(&lldp_rx, e, lldp_rx_handler, /* cb_data= */ NULL));
 
@@ -422,7 +435,7 @@ static void lldp_rx_reentrant_unref_handler(sd_lldp_rx *lldp_rx, sd_lldp_rx_even
         sd_lldp_rx_unref(lldp_rx);
 }
 
-static void test_receive_reentrant_unref(sd_event *e) {
+TEST(receive_reentrant_unref) {
         /* Regression: a user callback dropping the last lldp_rx reference used to free the object while
          * inner library frames still dereferenced it (use-after-free). The event-source callbacks now take
          * a transient self-ref, so teardown is deferred until the dispatch stack unwinds. */
@@ -440,6 +453,9 @@ static void test_receive_reentrant_unref(sd_event *e) {
         };
         sd_lldp_rx *lldp_rx;
 
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK_ZERO(sd_event_new(&e));
+
         reentrant_unref_calls = 0;
         ASSERT_OK_ZERO(start_lldp_rx(&lldp_rx, e, lldp_rx_reentrant_unref_handler, /* cb_data= */ NULL));
 
@@ -451,19 +467,4 @@ static void test_receive_reentrant_unref(sd_event *e) {
         safe_close(test_fd[1]);
 }
 
-int main(int argc, char *argv[]) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-
-        test_setup_logging(LOG_DEBUG);
-
-        /* LLDP reception tests */
-        ASSERT_OK_ZERO(sd_event_new(&e));
-        test_receive_basic_packet(e);
-        test_receive_incomplete_packet(e);
-        test_receive_oui_packet(e);
-        test_multiple_neighbors_sorted(e);
-        test_receive_oui_vlanid_packet(e);
-        test_receive_reentrant_unref(e);
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);

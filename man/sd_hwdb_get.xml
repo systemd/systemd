@@ -110,7 +110,7 @@
 
           <listitem><para>A parameter is <constant>NULL</constant>.</para>
 
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v240"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -119,7 +119,7 @@
           <listitem><para>An entry for the specified <parameter>modalias</parameter> was not found.
           </para>
 
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v240"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -128,7 +128,7 @@
           <listitem><para><function>sd_hwdb_seek()</function> was not called before
           <function>sd_hwdb_enumerate()</function>.</para>
 
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v240"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -154,7 +154,7 @@
     <para><function>sd_hwdb_get()</function>,
     <function>sd_hwdb_seek()</function>,
     <function>sd_hwdb_enumerate()</function>, and
-    <function>SD_HWDB_FOREACH_PROPERTY()</function> were added in version 246.</para>
+    <function>SD_HWDB_FOREACH_PROPERTY()</function> were added in version 240.</para>
   </refsect1>
 
   <refsect1>

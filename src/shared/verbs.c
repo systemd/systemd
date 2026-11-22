@@ -504,19 +504,18 @@ static int print_verb_option_help(
         return 0;
 }
 
-static int print_man_links(const char *pages) {
+static int print_man_link(const char *page) {
+        _cleanup_free_ char *link = NULL;
         int r;
 
-        NULSTR_FOREACH(page, pages) {
-                _cleanup_free_ char *link = NULL;
+        if (!page)
+                return 0;
 
-                r = terminal_urlify_man(page, /* section= */ NULL, &link);
-                if (r < 0)
-                        return r;
+        r = terminal_urlify_man(page, /* section= */ NULL, &link);
+        if (r < 0)
+                return r;
 
-                printf("\nSee the %s for details.\n", link);
-        }
-
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
@@ -654,9 +653,9 @@ int _command_print_help_full(
         if (r < 0)
                 return r;
 
-        r = print_man_links(cmd->man_pages);
+        r = print_man_link(cmd->man_page);
         if (r < 0)
-                return log_error_errno(r, "Failed to print man page links: %m");
+                return log_error_errno(r, "Failed to print man page link: %m");
 
         return 0;
 }
@@ -739,9 +738,9 @@ int _command_print_verb_help(
         if (r < 0)
                 return r;
 
-        r = print_man_links(cmd->man_pages);
+        r = print_man_link(cmd->man_page);
         if (r < 0)
-                return log_error_errno(r, "Failed to print man page links: %m");
+                return log_error_errno(r, "Failed to print man page link: %m");
 
         return 0;
 }
@@ -849,8 +848,8 @@ static int command_build_json(
                 const Option options_end[],
                 sd_json_variant **ret) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *names = NULL, *docs = NULL,
-                *opts = NULL, *args = NULL, *synopsis = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *names = NULL, *opts = NULL,
+                *args = NULL, *synopsis = NULL;
         int r;
 
         assert(cmdverb);
@@ -867,14 +866,6 @@ static int command_build_json(
                         return log_error_errno(r, "Failed to append JSON string to array: %m");
         }
         assert(names);  /* At least the primary name must be defined */
-
-        NULSTR_FOREACH(page, cmd->man_pages) {
-                const char *uri = strjoina("man:", page);
-
-                r = sd_json_variant_append_arrayb(&docs, SD_JSON_BUILD_STRING(uri));
-                if (r < 0)
-                        return log_error_errno(r, "Failed to append JSON string to array: %m");
-        }
 
         /* "arguments" lists the option objects first, followed by the verbs as nested command objects. */
         r = options_build_json(options, options_end, cmd->option_namespace, cmd->option_groups, &opts);
@@ -923,6 +914,8 @@ static int command_build_json(
         if (!features)
                 return log_oom();
 
+        const char *man_page = cmd->man_page ? strjoina("man:", cmd->man_page) : NULL;
+
         /* The "id" is the primary name, as recommended by the specification. */
         r = sd_json_buildo(
                         ret,
@@ -933,8 +926,8 @@ static int command_build_json(
                         SD_JSON_BUILD_PAIR_STRV("versions", versions),
                         SD_JSON_BUILD_PAIR_STRV("features", features),
                         SD_JSON_BUILD_PAIR_CONDITION(
-                                        !!docs,
-                                        "documentation", SD_JSON_BUILD_VARIANT(docs)),
+                                        !!man_page,
+                                        "documentation", SD_JSON_BUILD_STRV(STRV_MAKE(man_page))),
                         SD_JSON_BUILD_PAIR_CONDITION(
                                         !!cmd->abstract,
                                         "abstract", SD_JSON_BUILD_STRV(STRV_MAKE(cmd->abstract))),

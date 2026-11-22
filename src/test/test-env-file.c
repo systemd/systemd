@@ -448,6 +448,27 @@ TEST(merge_env_file_invalid) {
         ASSERT_TRUE(strv_isempty(a));
 }
 
+TEST(merge_env_file_invalid_utf8) {
+        _cleanup_(unlink_tempfilep) char t[] = "/tmp/test-fileio-XXXXXX";
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_strv_free_ char **a = NULL;
+
+        ASSERT_OK(fmkostemp_safe(t, "w", &f));
+
+        /* Assignments with invalid UTF-8 in the value shall be skipped,
+         * without affecting the assignments before and after. */
+        ASSERT_OK(write_string_stream(f,
+                                      "one=1\n"
+                                      "two=\xff\n"
+                                      "three=${one}\xff\n"
+                                      "four=4\n",
+                                      WRITE_STRING_FILE_AVOID_NEWLINE));
+
+        ASSERT_OK(merge_env_file(&a, NULL, t));
+
+        ASSERT_TRUE(strv_equal(a, STRV_MAKE("one=1", "four=4")));
+}
+
 static void check_file_pairs_one(char **l) {
         ASSERT_EQ(strv_length(l), 14U);
 

@@ -102,10 +102,8 @@ static void test_shareable_ns(unsigned long nsflag) {
         int r, n = 0;
         siginfo_t si;
 
-        if (geteuid() > 0) {
-                (void) log_tests_skipped("not root");
-                return;
-        }
+        if (geteuid() > 0)
+                return (void) log_tests_skipped("not root");
 
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, s));
 
@@ -181,10 +179,9 @@ TEST(fd_is_namespace) {
         ASSERT_OK_ZERO(fd_is_namespace(STDERR_FILENO, NAMESPACE_NET));
 
         fd = namespace_open_by_type(NAMESPACE_MOUNT);
-        if (IN_SET(fd, -ENOSYS, -ENOPKG)) {
-                log_notice("Path %s not found, skipping test", "/proc/self/ns/mnt");
-                return;
-        }
+        if (IN_SET(fd, -ENOSYS, -ENOPKG))
+                return (void) log_notice("Path %s not found, skipping test", "/proc/self/ns/mnt");
+
         ASSERT_OK(fd);
         ASSERT_OK_POSITIVE(fd_is_namespace(fd, NAMESPACE_MOUNT));
         ASSERT_OK_ZERO(fd_is_namespace(fd, NAMESPACE_NET));
@@ -205,22 +202,17 @@ TEST(protect_kernel_logs) {
         };
         int r;
 
-        if (geteuid() > 0) {
-                (void) log_tests_skipped("not root");
-                return;
-        }
+        if (geteuid() > 0)
+                return (void) log_tests_skipped("not root");
 
         /* In a container we likely don't have access to /dev/kmsg */
-        if (detect_container() > 0) {
-                (void) log_tests_skipped("in container");
-                return;
-        }
+        if (detect_container() > 0)
+                return (void) log_tests_skipped("in container");
 
         r = dlopen_libmount(LOG_DEBUG);
-        if (ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
-                (void) log_tests_skipped("libmount support not compiled in");
-                return;
-        }
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return (void) log_tests_skipped("libmount support not compiled in");
+
         ASSERT_OK(r);
 
         r = ASSERT_OK(pidref_safe_fork("(protect)", FORK_WAIT|FORK_LOG|FORK_DEATHSIG_SIGKILL, /* ret= */ NULL));

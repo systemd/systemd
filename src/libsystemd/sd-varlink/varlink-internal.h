@@ -102,6 +102,8 @@ typedef struct sd_varlink {
          * delegated. */
         JsonStream stream;
 
+        /* Number of method calls we issued as client that have not been fully replied to yet. Must be zero
+         * in VARLINK_IDLE_CLIENT state, and is reset to zero when the connection is closed. */
         unsigned n_pending;
 
         sd_varlink_reply_t reply_callback;
@@ -111,6 +113,10 @@ typedef struct sd_varlink {
         sd_json_variant *current_collected;
         sd_varlink_reply_flags_t current_reply_flags;
         sd_varlink_symbol *current_method;
+
+        /* The fiber that runs the method call pending on this (server side) connection. We don't take a
+         * reference on the fiber. The fiber clears this field when it is freed. */
+        sd_future *fiber;
 
         int *pushed_fds;
         size_t n_pushed_fds;
@@ -161,6 +167,7 @@ typedef struct sd_varlink_server {
         LIST_HEAD(sd_varlink, connections);
         Hashmap *unclaimed;            /* Connection id → sd_varlink*, for deserialized connections with
                                         * pending method calls not claimed yet */
+        Hashmap *claimed;              /* Same, for connections already claimed */
 
         Hashmap *methods;              /* Fully qualified symbol name of a method → sd_varlink_method_t */
         Hashmap *fiber_methods;        /* Fully qualified symbol name of a fiber method → sd_varlink_method_t */

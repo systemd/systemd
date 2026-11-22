@@ -10,18 +10,12 @@
 #include "rm-rf.h"
 #include "tests.h"
 
-int main(int argc, char *argv[]) {
+TEST(sched_prio) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *idle_ok, *idle_bad, *rr_ok, *rr_bad, *rr_sched, *ext_ok;
         Service *ser;
         int r;
-
-        test_setup_logging(LOG_INFO);
-
-        r = enter_cgroup_subroot(/* ret_cgroup= */ NULL);
-        if (r == -ENOMEDIUM)
-                return log_tests_skipped("cgroupfs not available");
 
         /* prepare the test */
         _cleanup_free_ char *unit_dir = NULL;
@@ -31,7 +25,7 @@ int main(int argc, char *argv[]) {
 
         r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &m);
         if (manager_errno_skip_test(r))
-                return log_tests_skipped_errno(r, "manager_new");
+                return (void) log_tests_skipped_errno(r, "manager_new");
         ASSERT_OK(r);
         ASSERT_OK(manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL));
 
@@ -81,6 +75,18 @@ int main(int argc, char *argv[]) {
         ser = SERVICE(ext_ok);
         ASSERT_EQ(ser->exec_context.cpu_sched_policy, SCHED_EXT);
         ASSERT_EQ(ser->exec_context.cpu_sched_priority, 0);
+}
+
+static int intro(void) {
+        int r;
+
+        r = enter_cgroup_subroot(/* ret_cgroup= */ NULL);
+        if (r == -ENOMEDIUM)
+                return log_tests_skipped("cgroupfs not available");
+        if (r < 0)
+                log_debug_errno(r, "Failed to enter cgroup subroot, ignoring: %m");
 
         return EXIT_SUCCESS;
 }
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_INFO, intro);

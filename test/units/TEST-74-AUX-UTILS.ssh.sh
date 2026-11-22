@@ -81,3 +81,64 @@ if test -e /dev/vsock -a -d /sys/module/vsock_loopback ; then
         rm -f "$OUT_FILE"
     fi
 fi
+
+# Test mptcp/ via a loopback sshd socket. If MPTCP is not available in the kernel, listen via plain TCP
+# instead, which also covers systemd-ssh-proxy's fallback to TCP.
+SOCKET_PROTOCOL=
+if [[ "$(cat /proc/sys/net/mptcp/enabled 2>/dev/null)" == 1 ]]; then
+    SOCKET_PROTOCOL="SocketProtocol=mptcp"
+fi
+
+# "localhost" might resolve to 127.0.0.1 or ::1 (or both), hence listen on both, if IPv6 is available
+LISTEN_IPV6=
+if [[ -e /proc/net/if_inet6 ]]; then
+    LISTEN_IPV6="ListenStream=[::1]:2222"
+fi
+
+cat >/run/systemd/system/sshd-mptcp-test.socket <<EOF
+[Socket]
+ListenStream=127.0.0.1:2222
+$LISTEN_IPV6
+$SOCKET_PROTOCOL
+FreeBind=yes
+Accept=yes
+EOF
+
+cat >/run/systemd/system/sshd-mptcp-test@.service <<EOF
+[Service]
+ExecStart=-$(command -v sshd) -i
+StandardInput=socket
+EOF
+
+rm_mptcp_units() {
+    systemctl stop sshd-mptcp-test.socket
+    rm -f /run/systemd/system/sshd-mptcp-test.socket /run/systemd/system/sshd-mptcp-test@.service
+    systemctl daemon-reload
+    rm_sshd_conf
+}
+trap rm_mptcp_units EXIT
+
+systemctl daemon-reload
+systemctl start sshd-mptcp-test.socket
+
+SSH_OPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i "$ROOTID" -p 2222)
+
+ssh "${SSH_OPTS[@]}" -v mptcp/127.0.0.1 cat /etc/machine-id | cmp - /etc/machine-id
+# "localhost" goes through getaddrinfo()
+ssh "${SSH_OPTS[@]}" -v mptcp/localhost cat /etc/machine-id | cmp - /etc/machine-id
+
+# Interface suffixes are only valid for IPv6 link-local addresses, and required for them. Check for the
+# specific error messages, since the commands would fail anyway, as nothing listens there.
+(! /usr/lib/systemd/systemd-ssh-proxy mptcp/127.0.0.1%lo 2222 2>&1 >/dev/null </dev/null) | grep "Interface suffix is only supported for IPv6 link-local addresses" >/dev/null
+(! /usr/lib/systemd/systemd-ssh-proxy mptcp/::1%lo 2222 2>&1 >/dev/null </dev/null) | grep "Interface suffix is only supported for IPv6 link-local addresses" >/dev/null
+(! /usr/lib/systemd/systemd-ssh-proxy mptcp/fe80::1 2222 2>&1 >/dev/null </dev/null) | grep "IPv6 link-local addresses require an interface suffix" >/dev/null
+(! /usr/lib/systemd/systemd-ssh-proxy mptcp/fe80::1%nosuchif0 2222 2>&1 >/dev/null </dev/null) | grep "Network interface of 'fe80::1%nosuchif0' does not exist" >/dev/null
+
+if ! command -v scp >/dev/null ; then
+    echo "scp not found, skipping subtest" >&2
+else
+    OUT_FILE=$(mktemp -u)
+    scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i "$ROOTID" -P 2222 -v mptcp%127.0.0.1:/etc/machine-id "$OUT_FILE"
+    cmp "$OUT_FILE" /etc/machine-id
+    rm -f "$OUT_FILE"
+fi

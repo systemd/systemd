@@ -69,10 +69,8 @@ static void test_getpwnam_r(void *handle, const char *module, const char *name) 
         fname = strjoina("_nss_", module, "_getpwnam_r");
         f = dlsym(handle, fname);
         log_debug("dlsym(0x%p, %s) → 0x%p", handle, fname, f);
-        if (!f) {
-                log_info("%s not defined", fname);
-                return;
-        }
+        if (!f)
+                return (void) log_info("%s not defined", fname);
 
         status = f(name, &pwd, buffer, sizeof buffer, &errno1);
         log_info("%s(\"%s\") → status=%s%-20serrno=%d/%s",
@@ -95,10 +93,8 @@ static void test_getgrnam_r(void *handle, const char *module, const char *name) 
         fname = strjoina("_nss_", module, "_getgrnam_r");
         f = dlsym(handle, fname);
         log_debug("dlsym(0x%p, %s) → 0x%p", handle, fname, f);
-        if (!f) {
-                log_info("%s not defined", fname);
-                return;
-        }
+        if (!f)
+                return (void) log_info("%s not defined", fname);
 
         status = f(name, &gr, buffer, sizeof buffer, &errno1);
         log_info("%s(\"%s\") → status=%s%-20serrno=%d/%s",
@@ -121,10 +117,8 @@ static void test_getsgnam_r(void *handle, const char *module, const char *name) 
         fname = strjoina("_nss_", module, "_getsgnam_r");
         f = dlsym(handle, fname);
         log_debug("dlsym(0x%p, %s) → 0x%p", handle, fname, f);
-        if (!f) {
-                log_info("%s not defined", fname);
-                return;
-        }
+        if (!f)
+                return (void) log_info("%s not defined", fname);
 
         status = f(name, &sg, buffer, sizeof buffer, &errno1);
         log_info("%s(\"%s\") → status=%s%-20serrno=%d/%s",
@@ -147,10 +141,8 @@ static void test_getpwuid_r(void *handle, const char *module, uid_t uid) {
         fname = strjoina("_nss_", module, "_getpwuid_r");
         f = dlsym(handle, fname);
         log_debug("dlsym(0x%p, %s) → 0x%p", handle, fname, f);
-        if (!f) {
-                log_info("%s not defined", fname);
-                return;
-        }
+        if (!f)
+                return (void) log_info("%s not defined", fname);
 
         status = f(uid, &pwd, buffer, sizeof buffer, &errno1);
         log_info("%s("UID_FMT") → status=%s%-20serrno=%d/%s",
@@ -173,10 +165,8 @@ static void test_getgrgid_r(void *handle, const char *module, gid_t gid) {
         fname = strjoina("_nss_", module, "_getgrgid_r");
         f = dlsym(handle, fname);
         log_debug("dlsym(0x%p, %s) → 0x%p", handle, fname, f);
-        if (!f) {
-                log_info("%s not defined", fname);
-                return;
-        }
+        if (!f)
+                return (void) log_info("%s not defined", fname);
 
         status = f(gid, &gr, buffer, sizeof buffer, &errno1);
         log_info("%s("GID_FMT") → status=%s%-20serrno=%d/%s",

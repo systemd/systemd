@@ -3,7 +3,6 @@
 #include <locale.h>
 #include <net/if.h>
 
-#include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-event.h"
 #include "sd-json.h"
@@ -15,9 +14,6 @@
 #include "ansi-color.h"
 #include "argv-util.h"
 #include "build.h"
-#include "bus-common-errors.h"
-#include "bus-error.h"
-#include "bus-locator.h"
 #include "bus-util.h"
 #include "crypto-util.h"
 #include "dlopen-note.h"
@@ -99,7 +95,7 @@ COMMAND(
         "resolvectl\0",
         "Send control commands to the network name resolution manager, or "
         "resolve domain names, IPv4 and IPv6 addresses, DNS records, and services.",
-        .man_pages = "resolvectl(1)\0",
+        .man_page = "resolvectl(1)",
         .option_namespace = "resolvectl",
         .pager_flags = &arg_pager_flags,
 );
@@ -142,22 +138,6 @@ static int strv_extend_extended_bool(char ***strv, const char *name, const char 
         }
 
         return strv_extendf(strv, "%s=%s", name, value ?: "???");
-}
-
-static int acquire_bus(sd_bus **ret) {
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
-        int r;
-
-        assert(ret);
-
-        r = sd_bus_open_system(&bus);
-        if (r < 0)
-                return log_error_errno(r, "sd_bus_open_system: %m");
-
-        (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
-
-        *ret = TAKE_PTR(bus);
-        return 0;
 }
 
 int ifname_mangle_full(const char *s, bool drop_protocol_specifier) {
@@ -326,6 +306,9 @@ static int varlink_log_resolve_error(const char *name, const char *error_id, sd_
 
         if (error.rcode == DNS_RCODE_NXDOMAIN && !warn_missing)
                 return -ENXIO;
+
+        if (streq(error_id, "io.systemd.Resolve.NoSuchResourceRecord") && !warn_missing)
+                return -ESRCH;
 
         if (sd_json_format_enabled(arg_json_format_flags))
                 return dump_resolve_error_json(
@@ -649,10 +632,22 @@ static bool single_label_nonsynthetic(const char *name) {
         return !streq(name, first_label);
 }
 
-static int resolve_record(const char *name, uint16_t class, uint16_t type, bool warn_missing) {
+static int call_resolve_record(
+                const char *name,
+                uint16_t class,
+                uint16_t type,
+                sd_varlink **ret_vl,
+                const char **ret_error_id,
+                sd_json_variant **ret_reply,
+                usec_t *ret_ts) {
+
         int r;
 
         assert(name);
+        assert(ret_vl);
+        assert(ret_error_id);
+        assert(ret_reply);
+        assert(ret_ts);
 
         log_debug("Resolving %s %s %s (interface %s).", name, dns_class_to_string(class), dns_type_to_string(type), isempty(arg_ifname) ? "*" : arg_ifname);
 
@@ -692,6 +687,26 @@ static int resolve_record(const char *name, uint16_t class, uint16_t type, bool 
                 return log_error_errno(r, "Failed to issue varlink call: %m");
 
         ts = now(CLOCK_MONOTONIC) - ts;
+
+        *ret_vl = TAKE_PTR(vl);
+        *ret_error_id = error_id;
+        *ret_reply = v;
+        *ret_ts = ts;
+
+        return 0;
+}
+
+static int process_resolve_record(
+                const char *name,
+                uint16_t type,
+                const char *error_id,
+                sd_json_variant *v,
+                usec_t ts,
+                bool warn_missing) {
+
+        int r;
+
+        assert(name);
 
         if (!isempty(error_id)) {
                 if (streq(error_id, "io.systemd.Resolve.ResourceRecordTypeInvalidForQuery"))
@@ -769,6 +784,20 @@ static int resolve_record(const char *name, uint16_t class, uint16_t type, bool 
         }
 
         return 0;
+}
+
+static int resolve_record(const char *name, uint16_t class, uint16_t type, bool warn_missing) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        const char *error_id = NULL;
+        sd_json_variant *v = NULL;
+        usec_t ts = 0;
+        int r;
+
+        r = call_resolve_record(name, class, type, &vl, &error_id, &v, &ts);
+        if (r < 0)
+                return r;
+
+        return process_resolve_record(name, type, error_id, v, ts, warn_missing);
 }
 
 static int resolve_rfc4501(const char *name) {
@@ -1070,35 +1099,67 @@ static int resolve_openpgp(const char *address) {
         if (r < 0)
                 return log_error_errno(r, "Failed to join DNS suffix: %m");
 
-        _cleanup_free_ char *full = NULL;
-        r = dns_name_concat(hashed, suffix, /* flags= */ 0, &full);
+        _cleanup_free_ char *full_sha256 = NULL;
+        r = dns_name_concat(hashed, suffix, /* flags= */ 0, &full_sha256);
         if (r < 0)
                 return log_error_errno(r, "Failed to join OPENPGPKEY name: %m");
-        log_debug("Looking up \"%s\".", full);
+        log_debug("Looking up \"%s\".", full_sha256);
 
-        r = resolve_record(
-                        full,
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl_sha256 = NULL;
+        const char *error_id_sha256 = NULL;
+        sd_json_variant *v_sha256 = NULL;
+        usec_t ts_sha256 = 0;
+
+        r = call_resolve_record(
+                        full_sha256,
                         arg_class ?: DNS_CLASS_IN,
                         arg_type ?: DNS_TYPE_OPENPGPKEY,
+                        &vl_sha256,
+                        &error_id_sha256,
+                        &v_sha256,
+                        &ts_sha256);
+        if (r < 0)
+                return r;
+
+        r = process_resolve_record(
+                        full_sha256,
+                        arg_type ?: DNS_TYPE_OPENPGPKEY,
+                        error_id_sha256,
+                        v_sha256,
+                        ts_sha256,
                         /* warn_missing= */ false);
         if (!IN_SET(r, -ENXIO, -ESRCH)) /* Not NXDOMAIN or NODATA? Then fail immediately. */
                 return r;
 
+        /* Fall back to older draft-03 SHA-224 hashsum for compatibility */
         hashed = mfree(hashed);
         r = string_hashsum_sha224(address, domain - 1 - address, &hashed);
         if (r < 0)
                 return log_error_errno(r, "Hashing failed: %m");
 
-        full = mfree(full);
-        r = dns_name_concat(hashed, suffix, /* flags= */ 0, &full);
+        _cleanup_free_ char *full_sha224 = NULL;
+        r = dns_name_concat(hashed, suffix, /* flags= */ 0, &full_sha224);
         if (r < 0)
                 return log_error_errno(r, "Failed to join OPENPGPKEY name: %m");
-        log_debug("Looking up \"%s\".", full);
+        log_debug("Looking up \"%s\".", full_sha224);
 
-        return resolve_record(
-                        full,
+        r = resolve_record(
+                        full_sha224,
                         arg_class ?: DNS_CLASS_IN,
                         arg_type ?: DNS_TYPE_OPENPGPKEY,
+                        /* warn_missing= */ false);
+        if (!IN_SET(r, -ENXIO, -ESRCH))
+                return r;
+
+        /* Neither the standard RFC 7929 SHA-256 nor the draft-03 SHA-224 record exists.
+         * Report the missing record using the canonical RFC 7929 SHA-256 name and the
+         * saved reply from the first query. */
+        return process_resolve_record(
+                        full_sha256,
+                        arg_type ?: DNS_TYPE_OPENPGPKEY,
+                        error_id_sha256,
+                        v_sha256,
+                        ts_sha256,
                         /* warn_missing= */ true);
 }
 #endif
@@ -2285,12 +2346,21 @@ static int varlink_call_link_method(const char *method, sd_json_variant *paramet
         if (streq_ptr(error_id, "io.systemd.Resolve.Link.IsLoopback"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Link %s is loopback device", FORMAT_IFNAME(arg_ifindex));
 
+        if (streq_ptr(error_id, "io.systemd.Resolve.Link.InterfaceNotReady"))
+                return log_error_errno(SYNTHETIC_ERRNO(EAGAIN), "Link %s is not ready yet, please retry", FORMAT_IFNAME(arg_ifindex));
+
         if (sd_varlink_error_is_invalid_parameter(error_id, reply, "ifindex")) {
                 if (arg_ifindex_permissive)
                         return 0;
 
                 return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "No such link %s", arg_ifname);
         }
+
+        if (streq_ptr(error_id, SD_VARLINK_ERROR_PERMISSION_DENIED))
+                return log_error_errno(SYNTHETIC_ERRNO(EACCES), "%s call failed: Access denied", method);
+
+        if (streq_ptr(error_id, SD_VARLINK_ERROR_INTERACTIVE_AUTHENTICATION_REQUIRED))
+                return log_error_errno(SYNTHETIC_ERRNO(EACCES), "%s call failed: Interactive authentication required", method);
 
         if (!isempty(error_id))
                 return log_error_errno(sd_varlink_error_to_errno(error_id, reply), "%s call failed: %s", method, error_id);
@@ -2310,7 +2380,7 @@ static int call_set_dns(char **dns) {
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON parameters: %m");
 
-        /* If only argument is the empty string, then call io.systemd.Network.Link.SetDNS
+        /* If only argument is the empty string, then call io.systemd.Resolve.Link.SetDNS
          * with an empty list, which will clear the list of DNS for an interface. */
         if (!strv_equal(dns, STRV_MAKE(""))) {
                 STRV_FOREACH(p, dns) {
@@ -2726,7 +2796,7 @@ static int call_set_domains(char **domain) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add domains to JSON parameters: %m");
 
-        /* If only argument is the empty string, then call io.systemd.Network.Link.SetDomains
+        /* If only argument is the empty string, then call io.systemd.Resolve.Link.SetDomains
          * with an empty list, which will clear the list of domains for an interface. */
         if (!strv_equal(domain, STRV_MAKE(""))) {
                 STRV_FOREACH(p, domain) {
@@ -2781,13 +2851,7 @@ static int verb_domain(int argc, char *argv[], uintptr_t _data, void *userdata) 
 VERB(verb_default_route, "default-route", "[LINK [BOOL]]\0", VERB_ANY, 3, 0,
      "Get/set per-interface default route flag");
 static int verb_default_route(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r, b;
-
-        r = acquire_bus(&bus);
-        if (r < 0)
-                return r;
+        int r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2801,41 +2865,75 @@ static int verb_default_route(int argc, char *argv[], uintptr_t _data, void *use
         if (argc < 3)
                 return status_ifindex(arg_ifindex, STATUS_DEFAULT_ROUTE);
 
-        b = parse_boolean(argv[2]);
+        int b = parse_boolean(argv[2]);
         if (b < 0)
                 return log_error_errno(b, "Failed to parse boolean argument: %s", argv[2]);
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
-        r = bus_call_method(bus, bus_resolve_mgr, "SetLinkDefaultRoute", &error, /* ret_reply= */ NULL, "ib", arg_ifindex, b);
-        if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
-                sd_bus_error_free(&error);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        r = sd_json_buildo(
+                        &parameters,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("defaultRoute", b));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON parameters: %m");
 
-                r = bus_call_method(bus, bus_network_mgr, "SetLinkDefaultRoute", &error, /* ret_reply= */ NULL, "ib", arg_ifindex, b);
+        return varlink_call_link_method("io.systemd.Resolve.Link.SetDNSDefaultRoute", parameters);
+}
+
+static int call_set_llmnr(const char *mode_str) {
+        int r;
+
+        assert(mode_str);
+
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
+        ResolveSupport mode = resolve_support_from_string(mode_str);
+        if (mode < 0)
+                return log_error_errno(mode, "Invalid LLMNR setting: %s", mode_str);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = varlink_dump_dns_configuration(&v);
+        if (r < 0)
+                return r;
+
+        ResolveSupport global_mode = _RESOLVE_SUPPORT_INVALID;
+        sd_json_variant *w;
+        JSON_VARIANT_ARRAY_FOREACH(w, v) {
+                _cleanup_(dns_configuration_freep) DNSConfiguration *c = NULL;
+                r = dns_configuration_from_json(w, &c);
+                if (r < 0)
+                        return r;
+
+                if (c->ifindex <= 0 && !c->delegate) {
+                        global_mode = resolve_support_from_string(c->llmnr_mode_str);
+                        if (global_mode < 0)
+                                return log_error_errno(global_mode, "Received invalid global LLMNR setting: %s", c->llmnr_mode_str);
+
+                        if (global_mode < mode)
+                                log_warning("Setting LLMNR support level \"%s\" for \"%s\", but the global support level is \"%s\".",
+                                            mode_str, arg_ifname, c->llmnr_mode_str);
+
+                        break;
+                }
         }
-        if (r < 0) {
-                if (arg_ifindex_permissive &&
-                    sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
-                        return 0;
+        if (global_mode == _RESOLVE_SUPPORT_INVALID)
+                return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "Failed to get global DNS configuration");
 
-                return log_error_errno(r, "Failed to set default route configuration: %s", bus_error_message(&error, r));
-        }
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        r = sd_json_buildo(
+                        &parameters,
+                        JSON_BUILD_PAIR_ENUM("llmnr", resolve_support_to_string(mode)));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON parameters: %m");
 
-        return 0;
+        return varlink_call_link_method("io.systemd.Resolve.Link.SetLLMNR", parameters);
 }
 
 VERB(verb_llmnr, "llmnr", "[LINK [MODE]]\0", VERB_ANY, 3, 0,
      "Get/set per-interface LLMNR mode");
 static int verb_llmnr(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_free_ char *global_llmnr_support_str = NULL;
-        ResolveSupport global_llmnr_support, llmnr_support;
         int r;
-
-        r = acquire_bus(&bus);
-        if (r < 0)
-                return r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2849,53 +2947,62 @@ static int verb_llmnr(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (argc < 3)
                 return status_ifindex(arg_ifindex, STATUS_LLMNR);
 
-        llmnr_support = resolve_support_from_string(argv[2]);
-        if (llmnr_support < 0)
-                return log_error_errno(llmnr_support, "Invalid LLMNR setting: %s", argv[2]);
+        return call_set_llmnr(argv[2]);
+}
 
-        r = bus_get_property_string(bus, bus_resolve_mgr, "LLMNR", &error, &global_llmnr_support_str);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get the global LLMNR support state: %s", bus_error_message(&error, r));
+static int call_set_mdns(const char *mode_str) {
+        int r;
 
-        global_llmnr_support = resolve_support_from_string(global_llmnr_support_str);
-        if (global_llmnr_support < 0)
-                return log_error_errno(global_llmnr_support, "Received invalid global LLMNR setting: %s", global_llmnr_support_str);
-
-        if (global_llmnr_support < llmnr_support)
-                log_warning("Setting LLMNR support level \"%s\" for \"%s\", but the global support level is \"%s\".",
-                            argv[2], arg_ifname, global_llmnr_support_str);
+        assert(mode_str);
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
-        r = bus_call_method(bus, bus_resolve_mgr, "SetLinkLLMNR", &error, /* ret_reply= */ NULL, "is", arg_ifindex, argv[2]);
-        if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
-                sd_bus_error_free(&error);
+        ResolveSupport mode = resolve_support_from_string(mode_str);
+        if (mode < 0)
+                return log_error_errno(mode, "Invalid mDNS setting: %s", mode_str);
 
-                r = bus_call_method(bus, bus_network_mgr, "SetLinkLLMNR", &error, /* ret_reply= */ NULL, "is", arg_ifindex, argv[2]);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = varlink_dump_dns_configuration(&v);
+        if (r < 0)
+                return r;
+
+        ResolveSupport global_mode = _RESOLVE_SUPPORT_INVALID;
+        sd_json_variant *w;
+        JSON_VARIANT_ARRAY_FOREACH(w, v) {
+                _cleanup_(dns_configuration_freep) DNSConfiguration *c = NULL;
+                r = dns_configuration_from_json(w, &c);
+                if (r < 0)
+                        return r;
+
+                if (c->ifindex <= 0 && !c->delegate) {
+                        global_mode = resolve_support_from_string(c->mdns_mode_str);
+                        if (global_mode < 0)
+                                return log_error_errno(global_mode, "Received invalid global mDNS setting: %s", c->mdns_mode_str);
+
+                        if (global_mode < mode)
+                                log_warning("Setting mDNS support level \"%s\" for \"%s\", but the global support level is \"%s\".",
+                                            mode_str, arg_ifname, c->mdns_mode_str);
+
+                        break;
+                }
         }
-        if (r < 0) {
-                if (arg_ifindex_permissive &&
-                    sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
-                        return 0;
+        if (global_mode == _RESOLVE_SUPPORT_INVALID)
+                return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "Failed to get global DNS configuration");
 
-                return log_error_errno(r, "Failed to set LLMNR configuration: %s", bus_error_message(&error, r));
-        }
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        r = sd_json_buildo(
+                        &parameters,
+                        JSON_BUILD_PAIR_ENUM("mDNS", resolve_support_to_string(mode)));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON parameters: %m");
 
-        return 0;
+        return varlink_call_link_method("io.systemd.Resolve.Link.SetMulticastDNS", parameters);
 }
 
 VERB(verb_mdns, "mdns", "[LINK [MODE]]\0", VERB_ANY, 3, 0,
      "Get/set per-interface MulticastDNS mode");
 static int verb_mdns(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_free_ char *global_mdns_support_str = NULL;
-        ResolveSupport global_mdns_support, mdns_support;
         int r;
-
-        r = acquire_bus(&bus);
-        if (r < 0)
-                return r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2909,57 +3016,13 @@ static int verb_mdns(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (argc < 3)
                 return status_ifindex(arg_ifindex, STATUS_MDNS);
 
-        mdns_support = resolve_support_from_string(argv[2]);
-        if (mdns_support < 0)
-                return log_error_errno(mdns_support, "Invalid mDNS setting: %s", argv[2]);
-
-        r = bus_get_property_string(bus, bus_resolve_mgr, "MulticastDNS", &error, &global_mdns_support_str);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get the global mDNS support state: %s", bus_error_message(&error, r));
-
-        global_mdns_support = resolve_support_from_string(global_mdns_support_str);
-        if (global_mdns_support < 0)
-                return log_error_errno(global_mdns_support, "Received invalid global mDNS setting: %s", global_mdns_support_str);
-
-        if (global_mdns_support < mdns_support)
-                log_warning("Setting mDNS support level \"%s\" for \"%s\", but the global support level is \"%s\".",
-                            argv[2], arg_ifname, global_mdns_support_str);
-
-        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
-
-        r = bus_call_method(bus, bus_resolve_mgr, "SetLinkMulticastDNS", &error, /* ret_reply= */ NULL, "is", arg_ifindex, argv[2]);
-        if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
-                sd_bus_error_free(&error);
-
-                r = bus_call_method(
-                                bus,
-                                bus_network_mgr,
-                                "SetLinkMulticastDNS",
-                                &error,
-                                /* ret_reply= */ NULL,
-                                "is", arg_ifindex, argv[2]);
-        }
-        if (r < 0) {
-                if (arg_ifindex_permissive &&
-                    sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
-                        return 0;
-
-                return log_error_errno(r, "Failed to set MulticastDNS configuration: %s", bus_error_message(&error, r));
-        }
-
-        return 0;
+        return call_set_mdns(argv[2]);
 }
 
 VERB(verb_dns_over_tls, "dnsovertls", "[LINK [MODE]]\0", VERB_ANY, 3, 0,
      "Get/set per-interface DNS-over-TLS mode");
 static int verb_dns_over_tls(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
-
-        r = acquire_bus(&bus);
-        if (r < 0)
-                return r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2973,41 +3036,32 @@ static int verb_dns_over_tls(int argc, char *argv[], uintptr_t _data, void *user
         if (argc < 3)
                 return status_ifindex(arg_ifindex, STATUS_DNS_OVER_TLS);
 
+        /* An empty/NULL value will reset to the default. */
+        const char *mode_str = NULL;
+        if (!isempty(argv[2])) {
+                DnsOverTlsMode mode = dns_over_tls_mode_from_string(argv[2]);
+                if (mode < 0)
+                        return log_error_errno(mode, "Invalid DNS-over-TLS mode '%s'", argv[2]);
+
+                mode_str = dns_over_tls_mode_to_string(mode);
+        }
+
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
-        r = bus_call_method(bus, bus_resolve_mgr, "SetLinkDNSOverTLS", &error, /* ret_reply= */ NULL, "is", arg_ifindex, argv[2]);
-        if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
-                sd_bus_error_free(&error);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        r = sd_json_buildo(
+                        &parameters,
+                        JSON_BUILD_PAIR_ENUM("dnsOverTLS", mode_str));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON parameters: %m");
 
-                r = bus_call_method(
-                                bus,
-                                bus_network_mgr,
-                                "SetLinkDNSOverTLS",
-                                &error,
-                                /* ret_reply= */ NULL,
-                                "is", arg_ifindex, argv[2]);
-        }
-        if (r < 0) {
-                if (arg_ifindex_permissive &&
-                    sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
-                        return 0;
-
-                return log_error_errno(r, "Failed to set DNSOverTLS configuration: %s", bus_error_message(&error, r));
-        }
-
-        return 0;
+        return varlink_call_link_method("io.systemd.Resolve.Link.SetDNSOverTLS", parameters);
 }
 
 VERB(verb_dnssec, "dnssec", "[LINK [MODE]]\0", VERB_ANY, 3, 0,
      "Get/set per-interface DNSSEC mode");
 static int verb_dnssec(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
-
-        r = acquire_bus(&bus);
-        if (r < 0)
-                return r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -3021,58 +3075,60 @@ static int verb_dnssec(int argc, char *argv[], uintptr_t _data, void *userdata) 
         if (argc < 3)
                 return status_ifindex(arg_ifindex, STATUS_DNSSEC);
 
+        /* An empty/NULL value will reset to the default. */
+        const char *mode_str = NULL;
+        if (!isempty(argv[2])) {
+                DnssecMode mode = dnssec_mode_from_string(argv[2]);
+                if (mode < 0)
+                        return log_error_errno(mode, "Invalid DNSSEC mode '%s'", argv[2]);
+
+                mode_str = dnssec_mode_to_string(mode);
+        }
+
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
-        r = bus_call_method(bus, bus_resolve_mgr, "SetLinkDNSSEC", &error, /* ret_reply= */ NULL, "is", arg_ifindex, argv[2]);
-        if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
-                sd_bus_error_free(&error);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        r = sd_json_buildo(
+                        &parameters,
+                        SD_JSON_BUILD_PAIR_STRING("dnssec", mode_str));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON parameters: %m");
 
-                r = bus_call_method(bus, bus_network_mgr, "SetLinkDNSSEC", &error, /* ret_reply= */ NULL, "is", arg_ifindex, argv[2]);
-        }
-        if (r < 0) {
-                if (arg_ifindex_permissive &&
-                    sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
-                        return 0;
-
-                return log_error_errno(r, "Failed to set DNSSEC configuration: %s", bus_error_message(&error, r));
-        }
-
-        return 0;
+        return varlink_call_link_method("io.systemd.Resolve.Link.SetDNSSEC", parameters);
 }
 
-static int call_nta(sd_bus *bus, char **nta, const BusLocator *locator,  sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
+static int call_set_nta(char **ntas) {
         int r;
 
-        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+        assert(ntas);
 
-        r = bus_message_new_method_call(bus, &req, locator, "SetLinkDNSSECNegativeTrustAnchors");
+        /* If only argument is the empty string, then call io.systemd.Resolve.Link.SetDNSSECNegativeTrustAnchors
+         * with an empty list, which will clear the list of NTAs for an interface. */
+        bool clear = strv_equal(ntas, STRV_MAKE(""));
+
+        if (!clear)
+                STRV_FOREACH(p, ntas) {
+                        r = dns_name_is_valid(*p);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to validate specified domain %s: %m", *p);
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Domain not valid: %s", *p);
+                }
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        r = sd_json_buildo(
+                        &parameters,
+                        SD_JSON_BUILD_PAIR_STRV("negativeTrustAnchors", clear ? NULL : ntas));
         if (r < 0)
-                return bus_log_create_error(r);
+                return log_error_errno(r, "Failed to build JSON parameters: %m");
 
-        r = sd_bus_message_append(req, "i", arg_ifindex);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_append_strv(req, nta);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        return sd_bus_call(bus, req, /* usec= */ 0, error, /* ret_reply= */ NULL);
+        return varlink_call_link_method("io.systemd.Resolve.Link.SetDNSSECNegativeTrustAnchors", parameters);
 }
 
 VERB(verb_nta, "nta", "[LINK [DOMAIN…]]\0", VERB_ANY, VERB_ANY, 0,
      "Get/set per-interface DNSSEC NTA");
 static int verb_nta(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        char **args;
-        bool clear;
         int r;
-
-        r = acquire_bus(&bus);
-        if (r < 0)
-                return r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -3088,49 +3144,13 @@ static int verb_nta(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
-        /* If only argument is the empty string, then call SetLinkDNSSECNegativeTrustAnchors()
-         * with an empty list, which will clear the list of domains for an interface. */
-        args = strv_skip(argv, 2);
-        clear = strv_equal(args, STRV_MAKE(""));
-
-        if (!clear)
-                STRV_FOREACH(p, args) {
-                        r = dns_name_is_valid(*p);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to validate specified domain %s: %m", *p);
-                        if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Domain not valid: %s",
-                                                       *p);
-                }
-
-        r = call_nta(bus, clear ? NULL : args, bus_resolve_mgr, &error);
-        if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
-                sd_bus_error_free(&error);
-
-                r = call_nta(bus, clear ? NULL : args, bus_network_mgr, &error);
-        }
-        if (r < 0) {
-                if (arg_ifindex_permissive &&
-                    sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
-                        return 0;
-
-                return log_error_errno(r, "Failed to set DNSSEC NTA configuration: %s", bus_error_message(&error, r));
-        }
-
-        return 0;
+        return call_set_nta(strv_skip(argv, 2));
 }
 
 VERB(verb_revert_link, "revert", "LINK\0", VERB_ANY, 2, 0,
      "Revert per-interface configuration");
 static int verb_revert_link(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
-
-        r = acquire_bus(&bus);
-        if (r < 0)
-                return r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -3143,21 +3163,7 @@ static int verb_revert_link(int argc, char *argv[], uintptr_t _data, void *userd
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
-        r = bus_call_method(bus, bus_resolve_mgr, "RevertLink", &error, /* ret_reply= */ NULL, "i", arg_ifindex);
-        if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
-                sd_bus_error_free(&error);
-
-                r = bus_call_method(bus, bus_network_mgr, "RevertLinkDNS", &error, /* ret_reply= */ NULL, "i", arg_ifindex);
-        }
-        if (r < 0) {
-                if (arg_ifindex_permissive &&
-                    sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
-                        return 0;
-
-                return log_error_errno(r, "Failed to revert interface configuration: %s", bus_error_message(&error, r));
-        }
-
-        return 0;
+        return varlink_call_link_method("io.systemd.Resolve.Link.RevertDNS", /* parameters= */ NULL);
 }
 
 VERB(verb_log_level, "log-level", "[LEVEL]\0", VERB_ANY, 2, 0,
@@ -3243,7 +3249,7 @@ VERB_COMMON_HELP_AUTO_PROGRAM_HIDDEN("resolvectl");
 COMMAND(
         "systemd-resolve\0",
         "This command is deprecated. Use resolvectl.1 instead.",
-        .man_pages = "resolvectl(1)\0",
+        .man_page = "resolvectl(1)",
         .option_namespace = "systemd-resolve",
         .pager_flags = &arg_pager_flags,
 );

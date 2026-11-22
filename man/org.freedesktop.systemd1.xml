@@ -2107,6 +2107,16 @@ node /org/freedesktop/systemd1 {
       state require <interfacename>org.freedesktop.systemd1.bypass-dump-ratelimit</interfacename> to avoid
       rate limits.
       </para>
+
+      <para>The <interfacename>org.freedesktop.systemd1.manage-units</interfacename> polkit action may sometimes
+      pass some additional variables that can be used by polkit policies for more precise targeting. The
+      <literal>unit</literal> variable may be set to the name of the systemd unit being managed. The <literal>verb</literal>
+      variable may be set to the specific action being performed. Units that have <varname>Tags</varname>
+      configured will also expose the tags: parameterized tags will be prefixed with <literal>tag.</literal>
+      and their value will be the variable's value, and un-parameterized tags will be prefixed with <literal>btag.</literal>
+      and the variable's value will be <literal>1</literal>. For instance, a unit tagged with <literal>example=value</literal>
+      and <literal>otherexample</literal> will have the <literal>tag.example</literal> variable set to
+      <literal>value</literal> and the <literal>btag.otherexample</literal> variable set to <literal>1</literal>.</para>
     </refsect2>
   </refsect1>
 
@@ -2225,6 +2235,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly as Documentation = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Description = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as Tags = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s AccessSELinuxContext = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -2554,6 +2566,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="Description"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="Tags"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="AccessSELinuxContext"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LoadState"/>
@@ -2738,14 +2752,23 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       <para><varname>Documentation</varname> contains a string array with URLs of documentation for this
       unit.</para>
 
+      <para><varname>Tags</varname> contains the array of the unit's tags.</para>
+
       <para><varname>LoadState</varname> contains a state value that reflects whether the configuration file
       of this unit has been loaded. The following states are currently defined: <literal>loaded</literal>,
-      <literal>error</literal>, and <literal>masked</literal>. <literal>loaded</literal> indicates that the
-      configuration was successfully loaded. <literal>error</literal> indicates that the configuration failed
-      to load. The <varname>LoadError</varname> field (see below) contains information about the cause of
-      this failure. <literal>masked</literal> indicates that the unit is currently masked out (i.e. symlinked
-      to <filename>/dev/null</filename> or empty). Note that the <varname>LoadState</varname> is fully
-      orthogonal to the <varname>ActiveState</varname> (see below) as units without valid loaded
+      <literal>not-found</literal>, <literal>bad-setting</literal>, <literal>error</literal>,
+      <literal>masked</literal>, <literal>stub</literal>, and <literal>merged</literal>.
+      <literal>loaded</literal> indicates that the configuration was successfully loaded.
+      <literal>not-found</literal> indicates that no unit file was found for this unit.
+      <literal>bad-setting</literal> indicates that an essential setting in the unit file is missing,
+      invalid, or inconsistent. <literal>error</literal> indicates that the configuration failed to load for
+      another reason. <literal>masked</literal> indicates that the unit is currently masked out (i.e.
+      symlinked to <filename>/dev/null</filename> or empty). <literal>stub</literal> and
+      <literal>merged</literal> are transitional states used internally, while the unit is being loaded or
+      after it was merged into another unit (e.g. because it is an alias of that unit), and are normally not
+      seen by clients. For all states other than <literal>loaded</literal>, the <varname>LoadError</varname>
+      field (see below) contains an error describing the cause. Note that the <varname>LoadState</varname> is
+      fully orthogonal to the <varname>ActiveState</varname> (see below) as units without valid loaded
       configuration might be active (because configuration might have been reloaded at a time where a unit
       was already active).</para>
 
@@ -12913,6 +12936,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
 
   <refsect1>
     <title>History</title>
+    <para>The <interfacename>org.freedesktop.systemd1</interfacename> D-Bus API was added in version 1.</para>
     <refsect2>
       <title>The Manager Object</title>
       <para><varname>RuntimeWatchdogPreUSec</varname> and
@@ -12973,6 +12997,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>WantsMountsFor</varname> was added in version 256.</para>
       <para><varname>DebugInvocation</varname>, and
       <varname>CanLiveMount</varname> were added in version 257.</para>
+      <para><varname>Tags</varname> was added in version 263.</para>
     </refsect2>
     <refsect2>
       <title>Service Unit Objects</title>

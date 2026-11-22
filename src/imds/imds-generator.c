@@ -19,7 +19,7 @@ COMMAND(
         "systemd-imds-generator\0",
         "Enable IMDS support in supporting environments.",
         .argspec = GENERATOR_ARGSPEC,
-        .man_pages = "systemd-imds-generator(8)\0",
+        .man_page = "systemd-imds-generator(8)",
         .option_namespace = "common",
 );
 

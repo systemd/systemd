@@ -98,13 +98,13 @@ COMMAND(
         "systemd-fstab-generator\0",
         "Generate mount, swap, and automount units from /etc/fstab.",
         .argspec = GENERATOR_ARGSPEC,
-        .man_pages = "systemd-fstab-generator(8)\0",
+        .man_page = "systemd-fstab-generator(8)",
         .option_namespace = "common",
 );
 COMMAND(
         "systemd-sysroot-fstab-check\0",
         "Optionally call daemon-reload based on contents of /sysroot/etc/fstab.",
-        .man_pages = "systemd-fstab-generator(8)\0",
+        .man_page = "systemd-fstab-generator(8)",
         .option_namespace = "common",
 );
 
@@ -706,8 +706,11 @@ static int add_mount(
                         return r;
         }
 
+        /* validatefs and pcrfs are integrity checks, so they keep the target ordering.
+         * growfs and quota are not, so nofail mounts don't wait for them. */
+        const char *hook_up_target = FLAGS_SET(flags, MOUNT_NOFAIL) ? NULL : target_unit;
         if (flags & MOUNT_GROWFS) {
-                r = generator_hook_up_growfs(dest, where, target_unit);
+                r = generator_hook_up_growfs(dest, where, hook_up_target);
                 if (r < 0)
                         return r;
         }
@@ -730,12 +733,12 @@ static int add_mount(
         }
 
         if (flags & MOUNT_QUOTA) {
-                r = generator_hook_up_quotacheck(dest, what, where, target_unit, fstype);
+                r = generator_hook_up_quotacheck(dest, what, where, hook_up_target, fstype);
                 if (r < 0) {
                         if (r != -EOPNOTSUPP)
                                 return r;
                 } else if (r > 0) {
-                        r = generator_hook_up_quotaon(dest, where, target_unit);
+                        r = generator_hook_up_quotaon(dest, where, hook_up_target);
                         if (r < 0)
                                 return r;
                 }

@@ -44,13 +44,22 @@ if [[ -z "${COVERAGE_BUILD_DIR:-}" ]]; then
     fi
 
     systemd-run --wait --pipe -p ProtectSystem=yes \
-        bash -xec "test ! -w /usr; ${boot_path:+"test ! -w $boot_path; test ! -w $esp_path;"} test -w /etc; test -w /var"
+        bash -xec "test ! -w /usr; ${boot_path:+"test ! -w $boot_path; test ! -w $esp_path;"} test -w /etc; test -w /var; test -w /run"
     systemd-run --wait --pipe -p ProtectSystem=full \
-        bash -xec "test ! -w /usr; ${boot_path:+"test ! -w $boot_path; test ! -w $esp_path;"} test ! -w /etc; test -w /var"
+        bash -xec "test ! -w /usr; ${boot_path:+"test ! -w $boot_path; test ! -w $esp_path;"} test ! -w /etc; test -w /var; test -w /run"
     systemd-run --wait --pipe -p ProtectSystem=strict \
-        bash -xec "test ! -w /; test ! -w /etc; test ! -w /var; test -w /dev; test -w /proc"
+        bash -xec "test ! -w /; test ! -w /etc; test ! -w /var; test ! -w /run; test -w /dev; test -w /proc"
     systemd-run --wait --pipe -p ProtectSystem=no \
-        bash -xec "test -w /; test -w /etc; test -w /var; test -w /dev; test -w /proc"
+        bash -xec "test -w /; test -w /etc; test -w /var; test -w /run; test -w /dev; test -w /proc"
+
+    # /run/ stays read-only under ProtectSystem=strict even when MountAPIVFS= sets up a writable tmpfs there ...
+    systemd-run --wait --pipe -p ProtectSystem=strict -p MountAPIVFS=yes \
+        bash -xec "test ! -w /run"
+    # ... but ReadWritePaths= can still make a subdirectory of /run/ writable.
+    mkdir -p /run/test-exec-run-rw
+    systemd-run --wait --pipe -p ProtectSystem=strict -p MountAPIVFS=yes -p ReadWritePaths=/run/test-exec-run-rw \
+        bash -xec "test ! -w /run; test -w /run/test-exec-run-rw"
+    rm -rf /run/test-exec-run-rw
 
     MARK="$(mktemp /root/.exec-context.XXX)"
     systemd-run --wait --pipe -p ProtectHome=yes \
@@ -510,3 +519,40 @@ if [[ ! -v ASAN_OPTIONS ]]; then
    systemd-run --wait --pipe unshare -T true
    (! systemd-run --wait --pipe -p RestrictNamespaces=~time unshare -T true)
 fi
+
+# Tests for RootDirectory= pointing at the host root, and for RootDirectoryFileDescriptor=
+# RootDirectory=/ must be treated like any other root directory: with an implied
+# MountAPIVFS=yes, /run/ is a private tmpfs (not the host's) with the log sockets bound into it.
+rootdir_check='[[ "$(stat -fc %T /run)" == tmpfs ]] && [[ ! -e /run/test-07-rootdir-marker ]] && [[ -S /run/systemd/journal/socket ]]'
+touch /run/test-07-rootdir-marker
+ln -s / /test-07-rootdir-symlink
+
+systemd-run --wait --pipe -p RootDirectory=/ bash -xec "$rootdir_check"
+# A symlink to the root resolves to the root and behaves the same.
+systemd-run --wait --pipe -p RootDirectory=/test-07-rootdir-symlink bash -xec "$rootdir_check"
+# RootDirectoryFileDescriptor= (used by systemd-run --root-directory=), too.
+systemd-run --wait --pipe --root-directory=/ bash -xec "$rootdir_check"
+systemd-run --wait --pipe --root-directory=/test-07-rootdir-symlink bash -xec "$rootdir_check"
+
+# Combined with ProtectSystem=strict: everything below / is read-only, except for
+# the private /run/ tmpfs. Skipped in coverage builds, where ProtectSystem= is
+# forced off by a drop-in that overrides the transient setting.
+if [[ -z "${COVERAGE_BUILD_DIR:-}" ]]; then
+    systemd-run --wait --pipe -p RootDirectory=/ -p ProtectSystem=strict \
+        bash -xec '! test -w /etc && test -w /run'
+fi
+
+rm -f /run/test-07-rootdir-marker /test-07-rootdir-symlink
+
+# Check that the exec and noexec attributes are propagated to the mounts below.
+systemd-run --wait --pipe \
+    -p NoExecPaths=/root \
+    -p TemporaryFileSystem=/root/noexec \
+    -p BindPaths=/bin:/root/noexec/mnt \
+    -p TemporaryFileSystem=/root/exec \
+    -p BindPaths=/bin:/root/exec/mnt \
+    -p ExecPaths=/root/exec/mnt \
+    bash -xec '
+        (! /root/noexec/mnt/true)
+        /root/exec/mnt/true
+    '

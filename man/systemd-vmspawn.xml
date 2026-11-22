@@ -875,7 +875,8 @@
 
           <listitem><para>Configures the type of SSH key to generate, see
           <citerefentry project="man-pages"><refentrytitle>ssh-keygen</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-          for more information.</para>
+          for more information. Takes one of <literal>ed25519</literal>, <literal>rsa</literal>, or
+          <literal>ecdsa</literal>.</para>
 
           <para>By default, <literal>ed25519</literal> keys are generated, however <literal>rsa</literal> keys
           may also be useful if the VM has a particularly old version of
@@ -916,7 +917,7 @@
           <filename>systemd-ptybrokerd.service</filename>. The name the broker registers the pseudo TTY under
           is shown at startup; it may be used to monitor or hang up the console via
           <citerefentry><refentrytitle>ptyctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>. The
-          <literal>broker</literal> and <literal>broker-log</literal> modes were added in version 262.</para>
+          <literal>broker</literal> and <literal>broker-log</literal> modes were added in version 263.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/></listitem>
         </varlistentry>

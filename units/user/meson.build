@@ -43,9 +43,13 @@ units = [
           'conditions' : ['ENABLE_PORTABLED'],
           'symlinks' : ['dbus-org.freedesktop.portable1.service'],
         },
-        { 'file' : 'systemd-ptybrokerd.service.in' },
+        {
+          'file' : 'systemd-ptybrokerd.service.in',
+          'conditions' : ['ENABLE_PTYBROKER'],
+        },
         {
           'file' : 'systemd-ptybrokerd.socket',
+          'conditions' : ['ENABLE_PTYBROKER'],
           'symlinks' : ['sockets.target.wants/'],
         },
         { 'file' : 'paths.target' },
@@ -142,3 +146,8 @@ foreach unit : units
                 endforeach
         endif
 endforeach
+
+install_data('app-.service.d/10-defaults.conf',
+             install_dir : userunitdir + '/app-.service.d')
+install_data('app-.scope.d/10-defaults.conf',
+             install_dir : userunitdir + '/app-.scope.d')

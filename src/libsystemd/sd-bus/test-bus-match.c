@@ -57,7 +57,7 @@ static int match_add(sd_bus_slot *slots, BusMatchNode *root, const char *match, 
         return bus_match_add(root, components, n_components, &s->match_callback);
 }
 
-static void test_match_scope(const char *match, BusMatchScope scope) {
+static void test_match_scope_one(const char *match, BusMatchScope scope) {
         BusMatchComponent *components = NULL;
         size_t n_components = 0;
 
@@ -65,6 +65,30 @@ static void test_match_scope(const char *match, BusMatchScope scope) {
 
         ASSERT_OK(bus_match_parse(match, &components, &n_components));
         ASSERT_EQ((int) bus_match_get_scope(components, n_components), (int) scope);
+}
+
+TEST(match_scope) {
+        test_match_scope_one("interface='foobar'", BUS_MATCH_GENERIC);
+        test_match_scope_one("", BUS_MATCH_GENERIC);
+        test_match_scope_one("interface='org.freedesktop.DBus.Local'", BUS_MATCH_LOCAL);
+        test_match_scope_one("sender='org.freedesktop.DBus.Local'", BUS_MATCH_LOCAL);
+        test_match_scope_one("member='gurke',path='/org/freedesktop/DBus/Local'", BUS_MATCH_LOCAL);
+        test_match_scope_one("arg2='piep',sender='org.freedesktop.DBus',member='waldo'", BUS_MATCH_DRIVER);
+}
+
+static int test_bus_open(sd_bus **ret) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int r;
+
+        r = sd_bus_open_user(&bus);
+        if (r < 0)
+                r = sd_bus_open_system(&bus);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = TAKE_PTR(bus);
+        return 0;
 }
 
 static sd_bus *modify_bus;
@@ -98,10 +122,16 @@ static void add_cb_match(BusMatchNode *root, sd_bus_slot *slot, const char *matc
 
 /* Two argNhas= matches under the same node; the first callback frees that node. bus_match_run() must
  * not dereference it for the next array value. */
-static void test_match_run_strv_modified(sd_bus *bus) {
-        BusMatchNode root = { .type = BUS_MATCH_ROOT };
+TEST(match_run_strv_modified) {
+        _cleanup_(bus_match_free) BusMatchNode root = { .type = BUS_MATCH_ROOT };
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         sd_bus_slot slots[2] = {};
+        int r;
+
+        r = test_bus_open(&bus);
+        if (r < 0)
+                return (void) log_tests_skipped_errno(r, "Failed to open bus");
 
         modify_bus = bus;
         modify_root = &root;
@@ -120,12 +150,10 @@ static void test_match_run_strv_modified(sd_bus *bus) {
         bus->match_callbacks_modified = false;
 
         ASSERT_OK_ZERO(bus_match_run(bus, &root, m));
-
-        bus_match_free(&root);
 }
 
-int main(int argc, char *argv[]) {
-        BusMatchNode root = {
+TEST(match) {
+        _cleanup_(bus_match_free) BusMatchNode root = {
                 .type = BUS_MATCH_ROOT,
         };
 
@@ -133,14 +161,6 @@ int main(int argc, char *argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         sd_bus_slot slots[19] = {};
         int r;
-
-        test_setup_logging(LOG_INFO);
-
-        r = sd_bus_open_user(&bus);
-        if (r < 0)
-                r = sd_bus_open_system(&bus);
-        if (r < 0)
-                return log_tests_skipped("Failed to connect to bus");
 
         ASSERT_OK(match_add(slots, &root, "arg2='wal\\'do',sender='foo',type='signal',interface='bar.x',", 1));
         ASSERT_OK(match_add(slots, &root, "arg2='wal\\'do2',sender='foo',type='signal',interface='bar.x',", 2));
@@ -162,6 +182,10 @@ int main(int argc, char *argv[]) {
         ASSERT_OK(match_add(slots, &root, "arg4='pi'", 18));
 
         bus_match_dump(stdout, &root, /* level= */ 0);
+
+        r = test_bus_open(&bus);
+        if (r < 0)
+                return (void) log_tests_skipped_errno(r, "Failed to open bus");
 
         ASSERT_OK(sd_bus_message_new_signal(bus, &m, "/foo/bar", "bar.x", "waldo"));
         ASSERT_OK(sd_bus_message_append(m, "ssssas", "one", "two", "/prefix/three", "prefix.four", 3, "pi", "pa", "po"));
@@ -189,17 +213,6 @@ int main(int argc, char *argv[]) {
                 if (i >= BUS_MATCH_MESSAGE_TYPE)
                         ASSERT_EQ((int) bus_match_node_type_from_string(x, strlen(x)), (int) i);
         }
-
-        bus_match_free(&root);
-
-        test_match_scope("interface='foobar'", BUS_MATCH_GENERIC);
-        test_match_scope("", BUS_MATCH_GENERIC);
-        test_match_scope("interface='org.freedesktop.DBus.Local'", BUS_MATCH_LOCAL);
-        test_match_scope("sender='org.freedesktop.DBus.Local'", BUS_MATCH_LOCAL);
-        test_match_scope("member='gurke',path='/org/freedesktop/DBus/Local'", BUS_MATCH_LOCAL);
-        test_match_scope("arg2='piep',sender='org.freedesktop.DBus',member='waldo'", BUS_MATCH_DRIVER);
-
-        test_match_run_strv_modified(bus);
-
-        return 0;
 }
+
+DEFINE_TEST_MAIN(LOG_INFO);

@@ -68,7 +68,7 @@ COMMAND(
         "systemd-shutdown\0",
         "Execute the final phase of system shutdown.",
         .argspec = "reboot|poweroff|halt|kexec|exit\0",
-        .man_pages = "systemd-shutdown(8)\0",
+        .man_page = "systemd-shutdown(8)",
 );
 
 static int parse_argv(int argc, char *argv[]) {
@@ -308,10 +308,9 @@ static void init_watchdog(void) {
                 r = parse_pid(s, &pid);
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse $WATCHDOG_PID, ignoring: %s", s);
-                else if (pid != getpid_cached()) {
-                        log_warning("$WATCHDOG_PID set, but not to " PID_FMT ", skipping watchdog logic.", getpid_cached());
-                        return;
-                }
+                else if (pid != getpid_cached())
+                        return (void) log_warning("$WATCHDOG_PID set, but not to " PID_FMT ", skipping watchdog logic.",
+                                                  getpid_cached());
         }
 
         s = secure_getenv("WATCHDOG_DEVICE");

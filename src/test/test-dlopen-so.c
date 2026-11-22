@@ -79,6 +79,7 @@ static int run(int argc, char **argv) {
         ASSERT_DLOPEN(dlopen_pwquality, HAVE_PWQUALITY);
         ASSERT_DLOPEN(dlopen_qrencode, HAVE_QRENCODE);
         ASSERT_DLOPEN(dlopen_tpm2, HAVE_TPM2);
+        ASSERT_DLOPEN(dlopen_tpm2_tcti_device, HAVE_TPM2);
         ASSERT_DLOPEN(dlopen_zlib, HAVE_ZLIB);
         ASSERT_DLOPEN(dlopen_zstd, HAVE_ZSTD);
 

@@ -131,6 +131,8 @@ int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         (void) serialize_markers(f, u->markers);
 
         bus_track_serialize(u->bus_track, f, "ref");
+        STRV_FOREACH(i, u->deserialized_refs)
+                (void) serialize_item(f, "ref", *i);
 
         if (!switching_root) {
                 if (u->job) {
@@ -571,6 +573,9 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
 
         STRV_FOREACH(j, u->documentation)
                 fprintf(f, "%s\tDocumentation: %s\n", prefix, *j);
+
+        STRV_FOREACH(j, u->tags)
+                fprintf(f, "%s\tTags: %s\n", prefix, *j);
 
         if (u->access_selinux_context)
                 fprintf(f, "%s\tAccess SELinux Context: %s\n", prefix, u->access_selinux_context);

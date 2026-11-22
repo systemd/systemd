@@ -302,9 +302,8 @@
         format <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         consumes as <filename>Uapi16Manifest</filename> file, and that
         <citerefentry><refentrytitle>systemd-manifest</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-        generates and verifies for plain directory trees. Extended attributes in the
-        <literal>user.</literal> namespace are included. Note that some inode metadata (such as other
-        extended attributes, file system capabilities, MAC labels,
+        generates and verifies for plain directory trees. Note that some inode metadata (such as extended
+        attributes, file system capabilities, MAC labels,
         <citerefentry project='man-pages'><refentrytitle>chattr</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         file flags and timestamps) is currently not included in the output. Additional fields might be added
         in the future. The fields included are the default set of

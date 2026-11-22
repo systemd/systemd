@@ -33,10 +33,8 @@ TEST(deserialize_exec_command) {
         int r;
 
         r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
-        if (manager_errno_skip_test(r)) {
-                log_notice_errno(r, "Skipping test: manager_new: %m");
-                return;
-        }
+        if (manager_errno_skip_test(r))
+                return (void) log_notice_errno(r, "Skipping test: manager_new: %m");
 
         ASSERT_OK(r);
 

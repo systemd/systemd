@@ -731,6 +731,12 @@ testcase_08_resolved() {
     grep -qF '"data":"' "$RUN_OUT"
     (! run resolvectl openpgp mr.smith@signed.test --json=short --type=A)
     grep -qF -- "The openpgp command may only be combined with --type=OPENPGPKEY." "$RUN_OUT"
+    (! run resolvectl openpgp nobody@signed.test)
+    grep -qF "6382b3cc881412b77bfcaeed026001c00d9e3025e66c20f6e7e92f07._openpgpkey.signed.test" "$RUN_OUT"
+    (! grep -qF "efc75004" "$RUN_OUT")
+    (! run resolvectl openpgp nobody@signed.test --json=short)
+    grep -qF "6382b3cc881412b77bfcaeed026001c00d9e3025e66c20f6e7e92f07._openpgpkey.signed.test" "$RUN_OUT"
+    (! grep -qF "efc75004" "$RUN_OUT")
     (! run resolvectl tlsa tcp)
     grep -qF -- "The tlsa command requires at least one domain." "$RUN_OUT"
     (! run resolvectl tlsa signed.test:invalid --json=short)
@@ -1743,6 +1749,28 @@ testcase_dot_strict_per_link_verify() {
         --grep "Failed to invoke SSL_do_handshake.*(certificate verify failed|self[- ]signed certificate|unable to get local issuer)"
 }
 
+testcase_cd_bypass_not_cached() {
+    # shellcheck disable=SC2317,SC2329
+    cleanup() {
+        resolvectl revert dns0
+        resolvectl flush-caches
+    }
+    trap cleanup RETURN ERR
+
+    # Queries with DO=1 CD=1 are passed on upstream as they are, CD bit included, hence the upstream server
+    # may skip checks for them. Their answers must not be cached for other clients, even if we don't
+    # validate on our own.
+    resolvectl dnssec dns0 no
+    resolvectl flush-caches
+    run dig +nostats +do +cd signed.test
+    grep -qF "10.0.0.10" "$RUN_OUT"
+    (! resolvectl query --type=A --network=no signed.test)
+    # … while answers to the same queries without CD are
+    run dig +nostats +do signed.test
+    grep -qF "10.0.0.10" "$RUN_OUT"
+    resolvectl query --type=A --network=no signed.test
+}
+
 testcase_static_record() {
     mkdir -p /run/systemd/resolve/static.d/
     cat >/run/systemd/resolve/static.d/statictest.rr <<EOF
@@ -1793,11 +1821,13 @@ EOF
 }
 
 do_test_varlink_link_methods() {
-    local ifname ifindex socket
+    local ifname ifindex socket orig_config
 
     ifname="${1:?}"
     ifindex="$(cat "/sys/class/net/$ifname/ifindex")"
     socket="${2:?}"
+
+    orig_config="$(resolvectl --json=pretty status "$ifname")"
 
     # io.systemd.Resolve.Link.SetDNS
     varlinkctl call "$socket" io.systemd.Resolve.Link.SetDNS \
@@ -1826,9 +1856,96 @@ do_test_varlink_link_methods() {
 
     [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
     assert_eq "$(resolvectl --json=short domain "$ifname" | jq -rc '.[0].searchDomains')" 'null'
+
+    # io.systemd.Resolve.Link.SetDNSSECNegativeTrustAnchors
+    varlinkctl call "$socket" io.systemd.Resolve.Link.SetDNSSECNegativeTrustAnchors \
+        '{"ifindex":"'"$ifindex"'","negativeTrustAnchors":["local","test"]}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_eq \
+        "$(resolvectl --json=short nta "$ifindex" | jq -rc '.[0].negativeTrustAnchors')" \
+        '["local","test"]'
+
+    varlinkctl call "$socket" io.systemd.Resolve.Link.SetDNSSECNegativeTrustAnchors \
+        '{"ifindex":"'"$ifindex"'","negativeTrustAnchors":[]}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_eq "$(resolvectl --json=short nta "$ifindex" | jq -rc '.[0].negativeTrustAnchors')" 'null'
+
+    # io.systemd.Resolve.Link.SetDNSDefaultRoute
+    varlinkctl call "$socket" io.systemd.Resolve.Link.SetDNSDefaultRoute \
+        '{"ifindex":"'"$ifindex"'","defaultRoute":true}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'yes' "$(resolvectl default-route "$ifname")"
+
+    varlinkctl call "$socket" io.systemd.Resolve.Link.SetDNSDefaultRoute \
+        '{"ifindex":"'"$ifindex"'","defaultRoute":false}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'no' "$(resolvectl default-route "$ifname")"
+
+    # io.systemd.Resolve.Link.SetLLMNR
+    varlinkctl call "$socket" io.systemd.Resolve.Link.SetLLMNR \
+        '{"ifindex":"'"$ifindex"'","llmnr":"yes"}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'yes' "$(resolvectl llmnr "$ifname")"
+
+    varlinkctl call "$socket" io.systemd.Resolve.Link.SetLLMNR \
+        '{"ifindex":"'"$ifindex"'","llmnr":"resolve"}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'resolve' "$(resolvectl llmnr "$ifname")"
+
+    # io.systemd.Resolve.Link.SetMulticastDNS
+    varlinkctl call "$socket" io.systemd.Resolve.Link.SetMulticastDNS \
+        '{"ifindex":"'"$ifindex"'","mDNS":"yes"}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'yes' "$(resolvectl mdns "$ifname")"
+
+    varlinkctl call "$socket" io.systemd.Resolve.Link.SetMulticastDNS \
+        '{"ifindex":"'"$ifindex"'","mDNS":"resolve"}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'resolve' "$(resolvectl mdns "$ifname")"
+
+    # io.systemd.Resolve.Link.SetDNSOverTLS
+    varlinkctl call "$socket" io.systemd.Resolve.Link.SetDNSOverTLS \
+        '{"ifindex":"'"$ifindex"'","dnsOverTLS":"opportunistic"}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'opportunistic' "$(resolvectl dnsovertls "$ifname")"
+
+    varlinkctl call "$socket" io.systemd.Resolve.Link.SetDNSOverTLS \
+        '{"ifindex":"'"$ifindex"'","dnsOverTLS":"yes"}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'yes' "$(resolvectl dnsovertls "$ifname")"
+
+    # io.systemd.Resolve.Link.SetDNSSEC
+    varlinkctl call "$socket" io.systemd.Resolve.Link.SetDNSSEC \
+        '{"ifindex":"'"$ifindex"'","dnssec":"allow-downgrade"}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'allow-downgrade' "$(resolvectl dnssec "$ifname")"
+
+    varlinkctl call "$socket" io.systemd.Resolve.Link.SetDNSSEC \
+        '{"ifindex":"'"$ifindex"'","dnssec":"yes"}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'yes' "$(resolvectl dnssec "$ifname")"
+
+    # io.systemd.Resolve.Link.RevertDNS
+    varlinkctl call "$socket" io.systemd.Resolve.Link.RevertDNS \
+        '{"ifindex":"'"$ifindex"'"}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_eq "$(resolvectl --json=pretty status "$ifname")" "$orig_config"
 }
 
-do_test_varlink_link_error () {
+do_test_varlink_link_error() {
     local ifname ifindex socket error
 
     ifname="${1:?}"
@@ -1845,6 +1962,95 @@ do_test_varlink_link_error () {
         "$error" \
         "$(varlinkctl call --graceful="$error" "$socket" io.systemd.Resolve.Link.SetDomains \
         '{"ifindex":"'"$ifindex"'","searchDomains":[{"name":"example.test","routeOnly":false},{"name":"internal.test","routeOnly":true}]}' 2>&1)"
+
+    assert_in \
+        "$error" \
+        "$(varlinkctl call --graceful="$error" "$socket" io.systemd.Resolve.Link.SetDNSSECNegativeTrustAnchors \
+        '{"ifindex":"'"$ifindex"'","negativeTrustAnchors":["local","test"]}' 2>&1)"
+
+    assert_in \
+        "$error" \
+        "$(varlinkctl call --graceful="$error" "$socket" io.systemd.Resolve.Link.SetDNSDefaultRoute \
+            '{"ifindex":"'"$ifindex"'","defaultRoute":true}' 2>&1)"
+
+    assert_in \
+        "$error" \
+        "$(varlinkctl call --graceful="$error" "$socket" io.systemd.Resolve.Link.SetLLMNR \
+            '{"ifindex":"'"$ifindex"'","llmnr":"yes"}' 2>&1)"
+
+    assert_in \
+        "$error" \
+        "$(varlinkctl call --graceful="$error" "$socket" io.systemd.Resolve.Link.SetMulticastDNS \
+            '{"ifindex":"'"$ifindex"'","mDNS":"yes"}' 2>&1)"
+
+    assert_in \
+        "$error" \
+        "$(varlinkctl call --graceful="$error" "$socket" io.systemd.Resolve.Link.SetDNSOverTLS \
+            '{"ifindex":"'"$ifindex"'","dnsOverTLS":"yes"}' 2>&1)"
+
+    assert_in \
+        "$error" \
+        "$(varlinkctl call --graceful="$error" "$socket" io.systemd.Resolve.Link.SetDNSSEC \
+            '{"ifindex":"'"$ifindex"'","dnssec":"yes"}' 2>&1)"
+
+    assert_in \
+        "$error" \
+        "$(varlinkctl call --graceful="$error" "$socket" io.systemd.Resolve.Link.RevertDNS \
+            '{"ifindex":"'"$ifindex"'"}' 2>&1)"
+}
+
+do_test_varlink_link_invalid_parameters() {
+    local ifname ifindex socket
+
+    ifname="${1:?}"
+    ifindex="$(cat "/sys/class/net/$ifname/ifindex")"
+    socket="${2:?}"
+
+    # Address and family are inconsistent
+    assert_in "io.systemd.System" "$(varlinkctl call --graceful=io.systemd.System "$socket" \
+        io.systemd.Resolve.Link.SetDNS \
+        '{"ifindex":"'"$ifindex"'","servers":[{"family":2,"address":[10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2]}]}' 2>&1)"
+
+    # Unspecified address
+    assert_in "io.systemd.System" "$(varlinkctl call --graceful=io.systemd.System "$socket" \
+        io.systemd.Resolve.Link.SetDNS \
+        '{"ifindex":"'"$ifindex"'","servers":[{"family":2,"address":[0,0,0,0]}]}' 2>&1)"
+
+    # Interface index of a server does not match with the request
+    assert_in '"parameter":"servers"' "$(varlinkctl call --graceful=org.varlink.service.InvalidParameter \
+        "$socket" io.systemd.Resolve.Link.SetDNS \
+        '{"ifindex":"'"$ifindex"'","servers":[{"family":2,"address":[10,0,0,2],"ifindex":1}]}' 2>&1)"
+
+    # Root domain as search domain
+    assert_in "io.systemd.System" "$(varlinkctl call --graceful=io.systemd.System "$socket" \
+        io.systemd.Resolve.Link.SetDomains \
+        '{"ifindex":"'"$ifindex"'","searchDomains":[{"name":"."}]}' 2>&1)"
+
+    # Invalid search domain
+    assert_in "io.systemd.System" "$(varlinkctl call --graceful=io.systemd.System "$socket" \
+        io.systemd.Resolve.Link.SetDomains \
+        '{"ifindex":"'"$ifindex"'","searchDomains":[{"name":".."}]}' 2>&1)"
+
+    # routeOnly may be null
+    varlinkctl call "$socket" io.systemd.Resolve.Link.SetDomains \
+        '{"ifindex":"'"$ifindex"'","searchDomains":[{"name":"example.test","routeOnly":null}]}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'example.test' "$(resolvectl domain "$ifname")"
+    assert_not_in '~example.test' "$(resolvectl domain "$ifname")"
+
+    # Invalid DNSSEC mode
+    assert_in "org.varlink.service.InvalidParameter" "$(varlinkctl call --graceful=org.varlink.service.InvalidParameter \
+        "$socket" io.systemd.Resolve.Link.SetDNSSEC \
+        '{"ifindex":"'"$ifindex"'","dnssec":"bogus"}' 2>&1)"
+
+    # Invalid NTA domain
+    assert_in "io.systemd.System" "$(varlinkctl call --graceful=io.systemd.System "$socket" \
+        io.systemd.Resolve.Link.SetDNSSECNegativeTrustAnchors \
+        '{"ifindex":"'"$ifindex"'","negativeTrustAnchors":[".."]}' 2>&1)"
+
+    # Cleanup
+    varlinkctl call "$socket" io.systemd.Resolve.Link.RevertDNS '{"ifindex":"'"$ifindex"'"}'
 }
 
 testcase_16_varlink_link_methods() {
@@ -1873,6 +2079,9 @@ testcase_16_varlink_link_methods() {
 
     do_test_varlink_link_methods "hoge0" "/run/systemd/resolve/io.systemd.Resolve"
     do_test_varlink_link_methods "dns0" "/run/systemd/netif/io.systemd.Network"
+
+    do_test_varlink_link_invalid_parameters "hoge0" "/run/systemd/resolve/io.systemd.Resolve"
+    do_test_varlink_link_invalid_parameters "dns0" "/run/systemd/netif/io.systemd.Network"
 
     do_test_varlink_link_error "dns0" "/run/systemd/resolve/io.systemd.Resolve" "io.systemd.Resolve.Link.ManagedByNetworkd"
     do_test_varlink_link_error "hoge0" "/run/systemd/netif/io.systemd.Network" "io.systemd.Network.Link.InterfaceUnmanaged"

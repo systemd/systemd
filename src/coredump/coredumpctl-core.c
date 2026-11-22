@@ -17,6 +17,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 
 static int coredump_open_tmpfile(char **ret_path, int *ret_fd) {
@@ -190,6 +191,16 @@ int verb_dump_core(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return r;
 
         r = sd_journal_previous(j);
+        if (r > 0 && arg_since != USEC_INFINITY) {
+                usec_t usec;
+
+                int q = sd_journal_get_realtime_usec(j, &usec);
+                if (q < 0)
+                        return log_error_errno(q, "Failed to determine timestamp: %m");
+                if (usec < arg_since)
+                        r = 0;
+        }
+
         if (r > 0 && !arg_quiet)
                 log_notice("More than one entry matches, ignoring rest.");
 

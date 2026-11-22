@@ -25,7 +25,7 @@
 //! static VERBOSE: AtomicBool = AtomicBool::new(false);
 //!
 //! verbs! {
-//!     COMMAND { names: "systemd-foo\0", abstract_: "Frob the foo.", man_pages: "systemd-foo.1\0" },
+//!     COMMAND { names: "systemd-foo\0", abstract_: "Frob the foo.", man_page: "systemd-foo.1" },
 //!     VERB_DEFAULT_NOARG(verb_status, "status", "Show the status"),
 //!     VERB(verb_show, "show", "NAME…\0", 2, VERB_ANY, 0, "Show some names"),
 //!     VERB_COMMON_HELP_AUTO(),
@@ -155,7 +155,7 @@ pub struct CommandDescriptionEntry {
     pub abstract_: *const c_char,
     pub argspec: *const c_char,
     pub footer: *const c_char,
-    pub man_pages: *const c_char,
+    pub man_page: *const c_char,
     pub option_namespace: *const c_char,
     pub option_groups: *const c_char,
     pub pager_flags: *const sys::PagerFlags,
@@ -172,7 +172,7 @@ crate::assert_layout!(
     abstract_,
     argspec,
     footer,
-    man_pages,
+    man_page,
     option_namespace,
     option_groups,
     pager_flags,
@@ -186,7 +186,7 @@ impl CommandDescriptionEntry {
         abstract_: ptr::null(),
         argspec: ptr::null(),
         footer: ptr::null(),
-        man_pages: ptr::null(),
+        man_page: ptr::null(),
         option_namespace: ptr::null(),
         option_groups: ptr::null(),
         pager_flags: ptr::null(),
@@ -849,9 +849,9 @@ macro_rules! __verb_entry {
 
 /// The program's `SYSTEMD_VERBS` table: `COMMAND`, `VERB*` and `VERB_GROUP` from verbs.h, in this order.
 /// A verb is a `fn(Argv<'_>, usize, *mut c_void) -> Result<c_int>`; the `COMMAND` fields are those of
-/// `CommandDescription` (`abstract_` for `abstract`), `names`, `argspec` and `man_pages` are nulstrs written
-/// like in C, as are the argument specifications of the verbs, `pager_flags` names a
-/// `static` [`AtomicPagerFlags`].
+/// `CommandDescription` (`abstract_` for `abstract`), `names` and `argspec` are nulstrs written like in
+/// C, as are the argument specifications of the verbs, `pager_flags` names a `static`
+/// [`AtomicPagerFlags`].
 #[macro_export]
 macro_rules! verbs {
     ($($rest:tt)*) => {

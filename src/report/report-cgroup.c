@@ -25,6 +25,7 @@
 COMMAND(
         "systemd-report-cgroup\0",
         "Report cgroup metrics.",
+        .flags = COMMAND_EXPERIMENTAL,
         .option_namespace = "common",
 );
 

@@ -14,14 +14,14 @@ on:
       - "!README*"
       - "!LICENSE*"
       - "!LICENSES/**"
-      - "!TODO"
+      - "!TODO.md"
       - "!docs/**"
       - "!man/**"
       - "!catalog/**"
       - "!shell-completion/**"
       - "!po/**"
       - "!.**"
-      - ".github/**"
+      - ".github/workflows/mkosi.yml"
 
   pull_request:
     branches:
@@ -32,14 +32,21 @@ on:
       - "!README*"
       - "!LICENSE*"
       - "!LICENSES/**"
-      - "!TODO"
+      - "!TODO.md"
       - "!docs/**"
       - "!man/**"
       - "!catalog/**"
       - "!shell-completion/**"
       - "!po/**"
       - "!.**"
-      - ".github/**"
+      - ".github/workflows/mkosi.yml"
+
+  pull_request_target:
+    types: [closed]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -47,11 +54,10 @@ permissions:
 jobs:
   ci:
     # Don't run on pushes to forks, only on pushes to the upstream repositories
-    if: github.event_name != 'push' || github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable'
+    if: >
+      github.event_name != 'pull_request_target' &&
+      (github.event_name != 'push' || github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable')
     runs-on: ${{ matrix.runner || 'ubuntu-24.04' }}
-    concurrency:
-      group: ${{ github.workflow }}-${{ matrix.distro }}-${{ matrix.release }}-${{ github.ref }}-${{ matrix.runner || 'ubuntu-24.04' }}
-      cancel-in-progress: true
     strategy:
       fail-fast: false
       matrix:
@@ -64,12 +70,8 @@ jobs:
           - distro: debian
             release: stable
             rust: 1
-          - distro: debian
-            release: testing
-            shim: 1
-            rust: 1
-          - distro: debian
-            release: testing
+          - distro: ubuntu
+            release: resolute
             runner: ubuntu-24.04-arm
             no_qemu: 1
             no_kvm: 1
@@ -78,6 +80,7 @@ jobs:
             release: noble
           - distro: ubuntu
             release: resolute
+            shim: 1
           - distro: fedora
             release: "44"
             sanitizers: address,undefined
@@ -95,7 +98,7 @@ jobs:
           - distro: nura
             release: edge
             libc: musl
-            skip: TEST-92-TPM2-SWTPM
+            skip: TEST-29-PORTABLE TEST-92-TPM2-SWTPM
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1

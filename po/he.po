@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-26 10:57+0100\n"
+"POT-Creation-Date: 2026-11-19 10:41+0000\n"
 "PO-Revision-Date: 2026-08-02 00:15+0000\n"
 "Last-Translator: Yaron Shahrabani <sh.yaron@gmail.com>\n"
 "Language-Team: Hebrew <https://translate.fedoraproject.org/projects/systemd/"
@@ -193,37 +193,37 @@ msgstr "מחילה, נא לספק את מפתח השחזור מחדש: "
 msgid "Security token of user %s not inserted."
 msgstr "לא סופק אסימון אבטחה למשתמש %s."
 
-#: src/home/pam_systemd_home.c:394 src/home/pam_systemd_home.c:397
+#: src/home/pam_systemd_home.c:394 src/home/pam_systemd_home.c:402
 msgid "Try again with password: "
 msgstr "נא לנסות שוב עם סיסמה: "
 
-#: src/home/pam_systemd_home.c:396
+#: src/home/pam_systemd_home.c:400
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
 "%s not inserted."
 msgstr "הסיסמה שגויה או שאינה מספיקה, ואסימון האבטחה למשתמש %s לא סופק."
 
-#: src/home/pam_systemd_home.c:416
+#: src/home/pam_systemd_home.c:421
 msgid "Security token PIN: "
 msgstr "קוד אישי לאסימון אבטחה: "
 
-#: src/home/pam_systemd_home.c:433
+#: src/home/pam_systemd_home.c:438
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr "נא לבצע אימות פיזי באסימון האבטחה למשתמש %s."
 
-#: src/home/pam_systemd_home.c:444
+#: src/home/pam_systemd_home.c:449
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr "נא לאשר את נוכחות אסימון האבטחה למשתמש %s."
 
-#: src/home/pam_systemd_home.c:455
+#: src/home/pam_systemd_home.c:460
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr "נא לאמת את המשתמש באסימון האבטחה למשתמש %s."
 
-#: src/home/pam_systemd_home.c:464
+#: src/home/pam_systemd_home.c:469
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
@@ -231,76 +231,76 @@ msgstr ""
 "אסימון האבטחה נעול בקוד אישי (PIN), נא לשחרר אותו תחילה. (הסרה: ניתוק וחיבור "
 "מחדש אמורים להספיק.)"
 
-#: src/home/pam_systemd_home.c:472
+#: src/home/pam_systemd_home.c:477
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "הקוד האישי (PIN) למשתמש %s שגוי."
 
-#: src/home/pam_systemd_home.c:473 src/home/pam_systemd_home.c:492
-#: src/home/pam_systemd_home.c:511
+#: src/home/pam_systemd_home.c:478 src/home/pam_systemd_home.c:497
+#: src/home/pam_systemd_home.c:516
 msgid "Sorry, retry security token PIN: "
 msgstr "מחילה, נא לנסות שוב קוד אסימון אבטחה אישי (PIN): "
 
-#: src/home/pam_systemd_home.c:491
+#: src/home/pam_systemd_home.c:496
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
 "קוד אסימון אבטחה אישי (PIN) למשתמש %s שגוי (נותרו עוד מספר ניסיונות בודדים!)"
 
-#: src/home/pam_systemd_home.c:510
+#: src/home/pam_systemd_home.c:515
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr "קוד אסימון אבטחה אישי (PIN) למשתמש %s שגוי (נותר עוד ניסיון אחד!)"
 
-#: src/home/pam_systemd_home.c:677
+#: src/home/pam_systemd_home.c:686
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr "הבית של המשתמש %s אינו פעיל כרגע, נא להיכנס מקומית תחילה."
 
-#: src/home/pam_systemd_home.c:679
+#: src/home/pam_systemd_home.c:693
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr "הבית של המשתמש %s נעול כרגע, נא לשחרר אותו מקומית תחילה."
 
-#: src/home/pam_systemd_home.c:713
+#: src/home/pam_systemd_home.c:728
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr "יותר מדי ניסיונות כניסה כושלים למשתמש %s, יסורב מעתה."
 
-#: src/home/pam_systemd_home.c:1015
+#: src/home/pam_systemd_home.c:1030
 msgid "User record is blocked, prohibiting access."
 msgstr "רשומת המשתמש חסומה, הגישה נמנעת."
 
-#: src/home/pam_systemd_home.c:1019
+#: src/home/pam_systemd_home.c:1034
 msgid "User record is not valid yet, prohibiting access."
 msgstr "רשומת המשתמש לא תקפה עדיין, הגישה נמנעת."
 
-#: src/home/pam_systemd_home.c:1023
+#: src/home/pam_systemd_home.c:1038
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "רשומת המשתמש אינה תקפה עוד, הגישה נמנעת."
 
-#: src/home/pam_systemd_home.c:1028 src/home/pam_systemd_home.c:1077
+#: src/home/pam_systemd_home.c:1043 src/home/pam_systemd_home.c:1092
 msgid "User record not valid, prohibiting access."
 msgstr "רשומת המשתמש אינה תקפה, הגישה נמנעת."
 
-#: src/home/pam_systemd_home.c:1038
+#: src/home/pam_systemd_home.c:1053
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "יותר מדי ניסיונות כניסה, כדאי לנסות שוב בעוד %s."
 
-#: src/home/pam_systemd_home.c:1049
+#: src/home/pam_systemd_home.c:1064
 msgid "Password change required."
 msgstr "צריך לשנות את הסיסמה."
 
-#: src/home/pam_systemd_home.c:1053
+#: src/home/pam_systemd_home.c:1068
 msgid "Password expired, change required."
 msgstr "תוקף הסיסמה פג, צריך להחליף."
 
-#: src/home/pam_systemd_home.c:1059
+#: src/home/pam_systemd_home.c:1074
 msgid "Password is expired, but can't change, refusing login."
 msgstr "תוקף הסיסמה פג, אך אי אפשר להחליף, הכניסה מסורבת."
 
-#: src/home/pam_systemd_home.c:1063
+#: src/home/pam_systemd_home.c:1078
 msgid "Password will expire soon, please change."
 msgstr "תוקף הסיסמה יפוג בקרוב, נא להחליף."
 

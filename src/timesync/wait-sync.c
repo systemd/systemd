@@ -19,7 +19,7 @@
 COMMAND(
         "systemd-time-wait-sync\0",
         "Wait until the kernel time is synchronized.",
-        .man_pages = "systemd-time-wait-sync.service(8)\0",
+        .man_page = "systemd-time-wait-sync.service(8)",
         .option_namespace = "common",
 );
 

@@ -117,6 +117,7 @@ bool unit_has_startup_cgroup_constraints(Unit *u) {
                 return false;
 
         return c->startup_io_weight != CGROUP_WEIGHT_INVALID ||
+               c->startup_cpu_weight != CGROUP_WEIGHT_INVALID ||
                c->startup_cpuset_cpus.set ||
                c->startup_cpuset_mems.set ||
                c->startup_memory_high_set ||
@@ -938,26 +939,47 @@ static void cgroup_delegate_xattr_apply(Unit *u) {
 static void cgroup_survive_xattr_apply(Unit *u) {
         assert(u);
 
+        /* SurviveFinalKillSignal= is a system-only unit property */
+        if (!MANAGER_IS_SYSTEM(u->manager))
+                return;
+
         if (u->survive_final_kill_signal)
                 unit_set_xattr_graceful(u, "user.survive_final_kill_signal", "1", 1);
         else
                 unit_remove_xattr_graceful(u, "user.survive_final_kill_signal");
 }
 
+static void cgroup_tags_xattr_apply(Unit *u) {
+        int r;
+
+        assert(u);
+
+        if (!strv_isempty(u->tags)) {
+                _cleanup_free_ char *tags = NULL;
+                size_t size = 0;
+                r = strv_make_nulstr(u->tags, &tags, &size);
+                if (r < 0)
+                        return (void) log_oom();
+
+                unit_set_xattr_graceful(u, "user.tags", tags, size);
+        } else
+                unit_remove_xattr_graceful(u, "user.tags");
+}
+
 static void cgroup_xattr_apply(Unit *u) {
         assert(u);
 
-        /* The 'user.*' xattrs can be set from a user manager. */
+        /* The root slice of the user manager is a unit owned by the system manager */
+        if (!MANAGER_IS_SYSTEM(u->manager) && unit_has_name(u, SPECIAL_ROOT_SLICE))
+                return;
+
         cgroup_oomd_xattr_apply(u);
         cgroup_log_xattr_apply(u);
         cgroup_coredump_xattr_apply(u);
-
-        if (!MANAGER_IS_SYSTEM(u->manager))
-                return;
-
         cgroup_invocation_id_xattr_apply(u);
         cgroup_delegate_xattr_apply(u);
         cgroup_survive_xattr_apply(u);
+        cgroup_tags_xattr_apply(u);
 }
 
 static int lookup_block_device(const char *p, dev_t *ret) {
@@ -1132,10 +1154,8 @@ static void cgroup_apply_cpuset(Unit *u, const char *name, const CPUSet *cpus) {
         _cleanup_free_ char *buf = NULL;
 
         buf = cpu_set_to_range_string(cpus);
-        if (!buf) {
-                log_oom();
-                return;
-        }
+        if (!buf)
+                return (void) log_oom();
 
         (void) set_attribute_and_warn(u, name, buf);
 }
@@ -1172,11 +1192,13 @@ static void cgroup_apply_cpuset_partition(Unit *u, const char *name, const char 
         crt = ASSERT_PTR(unit_get_cgroup_runtime(u));
 
         r = cg_get_attribute(crt->cgroup_path, name, &buf);
-        if (r < 0) {
-                log_unit_full_errno(u, LOG_LEVEL_CGROUP_WRITE(r), r, "Failed to read back '%s' attribute on '%s' as '%.*s': %m",
-                                    name, empty_to_root(crt->cgroup_path), (int) strcspn(partition, NEWLINE), partition);
-                return;
-        }
+        if (r < 0)
+                return (void) log_unit_full_errno(u, LOG_LEVEL_CGROUP_WRITE(r), r,
+                                                  "Failed to read back '%s' attribute on '%s' as '%.*s': %m",
+                                                  name,
+                                                  empty_to_root(crt->cgroup_path),
+                                                  (int) strcspn(partition, NEWLINE),
+                                                  partition);
 
         r = cgroup_cpuset_partition_invalid(buf);
         if (r < 0)
@@ -3153,16 +3175,12 @@ static void unit_add_to_cgroup_oom_queue(Unit *u) {
                 _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
 
                 r = sd_event_add_defer(u->manager->event, &s, on_cgroup_oom_event, u->manager);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to create cgroup oom event source: %m");
-                        return;
-                }
+                if (r < 0)
+                        return (void) log_error_errno(r, "Failed to create cgroup oom event source: %m");
 
                 r = sd_event_source_set_priority(s, EVENT_PRIORITY_CGROUP_OOM);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to set priority of cgroup oom event source: %m");
-                        return;
-                }
+                if (r < 0)
+                        return (void) log_error_errno(r, "Failed to set priority of cgroup oom event source: %m");
 
                 (void) sd_event_source_set_description(s, "cgroup-oom");
                 u->manager->cgroup_oom_event_source = TAKE_PTR(s);

@@ -144,6 +144,8 @@
   <refsect1>
     <title>History</title>
 
+    <para><function>sd_seat_get_active()</function> and
+    <function>sd_seat_get_sessions()</function> were added in version 31.</para>
     <para><function>sd_seat_can_tty()</function> and
     <function>sd_seat_can_graphical()</function> were added in version 186.</para>
   </refsect1>

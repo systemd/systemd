@@ -29,6 +29,8 @@
     <para><filename>/usr/lib/systemd/systemd-report-netstat</filename></para>
   </refsynopsisdiv>
 
+  <xi:include href="experimental.xml" xpointer="component" />
+
   <refsect1>
     <title>Description</title>
 

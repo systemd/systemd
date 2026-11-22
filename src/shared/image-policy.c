@@ -181,6 +181,15 @@ PartitionPolicyFlags image_policy_get_exhaustively(const ImagePolicy *policy, Pa
         return flags;
 }
 
+bool image_policy_requires_signature(const ImagePolicy *policy, PartitionDesignator designator) {
+        PartitionPolicyFlags flags;
+
+        /* A partition with Verity but without a validated root hash signature only satisfies a policy that
+         * allows "verity". */
+        flags = image_policy_get_exhaustively(policy, designator);
+        return flags >= 0 && FLAGS_SET(flags, PARTITION_POLICY_SIGNED) && !FLAGS_SET(flags, PARTITION_POLICY_VERITY);
+}
+
 static PartitionPolicyFlags policy_flag_from_fstype(const char *s) {
         if (!s)
                 return _PARTITION_POLICY_FLAGS_INVALID;
@@ -319,6 +328,14 @@ ImagePolicy* image_policy_new_from_dissected(const DissectedImage *image, const 
                                         f |= PARTITION_POLICY_VERITY;
                         }
 
+                        /* A policy without use flags also permits "absent". We pin a data partition without
+                         * known protection as "unprotected", "verity" or "signed", so that the policy requires
+                         * the partition. Replacing the partition with one that uses Verity doesn't weaken its
+                         * protection. The policy therefore permits such a replacement. */
+                        if (!(f & (PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_ENCRYPTED)) &&
+                            !partition_designator_is_verity(pd))
+                                f |= PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED;
+
                         if (image->partition_table_type != PARTITION_BARE) {
                                 if (image->partitions[pd].growfs)
                                         f |= PARTITION_POLICY_GROWFS_ON;
@@ -340,6 +357,20 @@ ImagePolicy* image_policy_new_from_dissected(const DissectedImage *image, const 
         }
 
         return image_policy;
+}
+
+void image_policy_relax_protection(ImagePolicy *p) {
+        assert(p);
+
+        /* Changes a policy from image_policy_new_from_dissected() to allow any Verity protection and
+         * signature for each partition that it pins as verity or signed. The file system types, the other
+         * flags and the absent partitions stay pinned. */
+
+        FOREACH_ARRAY(pp, p->policies, p->n_policies)
+                if (partition_designator_is_verity(pp->designator))
+                        pp->flags = PARTITION_POLICY_OPEN;
+                else if (pp->flags & (PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED))
+                        pp->flags |= PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED;
 }
 
 int image_policy_from_string(const char *s, bool graceful, ImagePolicy **ret) {

@@ -50,6 +50,7 @@
 #include "systemctl-show.h"
 #include "systemctl-util.h"
 #include "terminal-util.h"
+#include "unit-name.h"
 #include "utf8.h"
 
 static OutputFlags get_output_flags(void) {
@@ -192,6 +193,7 @@ typedef struct UnitStatusInfo {
         const char *following;
 
         char **documentation;
+        char **tags;
 
         const char *fragment_path;
         const char *source_path;
@@ -312,6 +314,7 @@ typedef struct UnitStatusInfo {
 
 static void unit_status_info_done(UnitStatusInfo *info) {
         strv_free(info->documentation);
+        strv_free(info->tags);
         strv_free(info->dropin_paths);
         strv_free(info->triggered_by);
         strv_free(info->triggers);
@@ -431,6 +434,13 @@ static void print_status_info(
 
         if (i->transient)
                 printf("  Transient: yes\n");
+
+        if (arg_runtime_scope == RUNTIME_SCOPE_USER) {
+                _cleanup_free_ char *app_id = NULL;
+                r = unit_name_to_app_id(i->id, &app_id);
+                if (r >= 0)
+                        printf("     App ID: %s\n", app_id);
+        }
 
         if (!strv_isempty(i->dropin_paths)) {
                 _cleanup_free_ char *dir = NULL;
@@ -620,6 +630,9 @@ static void print_status_info(
 
                 printf("   %*s %s\n", 9, t == i->documentation ? "Docs:" : "", q);
         }
+
+        STRV_FOREACH(t, i->tags)
+                printf("   %*s %s\n", 9, t == i->tags ? "Tags:" : "", *t);
 
         STRV_FOREACH_PAIR(t, t2, i->listen)
                 printf("   %*s %s (%s)\n", 9, t == i->listen ? "Listen:" : "", *t2, *t);
@@ -964,10 +977,8 @@ static void show_unit_help(UnitStatusInfo *i) {
 
         assert(i);
 
-        if (!i->documentation) {
-                log_info("Documentation for %s not known.", i->id);
-                return;
-        }
+        if (!i->documentation)
+                return (void) log_info("Documentation for %s not known.", i->id);
 
         STRV_FOREACH(doc, i->documentation) {
                 const char *p;
@@ -2228,6 +2239,7 @@ static int show_one(
                 { "Description",                    "s",               NULL,           offsetof(UnitStatusInfo, description)                       },
                 { "Following",                      "s",               NULL,           offsetof(UnitStatusInfo, following)                         },
                 { "Documentation",                  "as",              NULL,           offsetof(UnitStatusInfo, documentation)                     },
+                { "Tags",                           "as",              NULL,           offsetof(UnitStatusInfo, tags)                              },
                 { "FragmentPath",                   "s",               NULL,           offsetof(UnitStatusInfo, fragment_path)                     },
                 { "SourcePath",                     "s",               NULL,           offsetof(UnitStatusInfo, source_path)                       },
                 { "ControlGroup",                   "s",               NULL,           offsetof(UnitStatusInfo, control_group)                     },

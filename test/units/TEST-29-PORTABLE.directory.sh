@@ -37,6 +37,28 @@ ln -s /tmp/portable-host-unit /tmp/symlink-unit/usr/lib/systemd/system/minimal-a
 (! portablectl inspect --cat /tmp/symlink-unit minimal-app0.service)
 rm -f /tmp/portable-host-unit
 
+# Refusing to start one unit must not prevent the other units from being started.
+rm -rf /tmp/refuse-manual-start
+cp -a /tmp/minimal_0 /tmp/refuse-manual-start
+cat >/tmp/refuse-manual-start/usr/lib/systemd/system/minimal-app0-refuse.service <<EOF
+[Unit]
+RefuseManualStart=yes
+
+[Service]
+ExecStart=sleep 120
+EOF
+
+for verb in attach reattach; do
+    portablectl "${ARGS[@]}" "$verb" --copy=symlink --now --runtime /tmp/refuse-manual-start minimal-app0
+    systemctl is-active minimal-app0.service
+    systemctl is-active minimal-app0-foo.service
+    assert_eq "$(systemctl show --property=ActiveState --value minimal-app0-refuse.service)" inactive
+    systemctl stop minimal-app0.service minimal-app0-foo.service
+done
+
+portablectl detach --now --runtime /tmp/refuse-manual-start minimal-app0
+rm -rf /tmp/refuse-manual-start
+
 portablectl "${ARGS[@]}" attach --copy=symlink --now --runtime /tmp/minimal_0 minimal-app0
 
 systemctl is-active minimal-app0.service
@@ -143,6 +165,26 @@ test -f /run/systemd/system.attached/app1.service
 test -L /run/systemd/system.attached/app0.service.d/10-profile.conf
 test -L /run/systemd/system.attached/app1.service.d/10-profile.conf
 portablectl detach --runtime --extension /tmp/app0 --extension /tmp/app1 /tmp/rootdir app0 app1
+
+# A reattach by image name picks the copy that --copy=mixed made in /run/portables/. The reattach must keep
+# that copy, because the reattached units use it.
+portablectl "${ARGS[@]}" attach --copy=mixed --runtime /tmp/rootdir minimal-app0
+test -d /run/portables/rootdir
+portablectl "${ARGS[@]}" reattach --copy=mixed --runtime rootdir minimal-app0
+test -d /run/portables/rootdir
+grep -F "RootDirectory=/run/portables/rootdir" /run/systemd/system.attached/minimal-app0.service.d/20-portable.conf >/dev/null
+portablectl detach --runtime rootdir minimal-app0
+rm -rf /run/portables/rootdir
+
+# A reattach that gets an extension by image name must keep the copy of the extension that --copy=mixed
+# made in /run/portables/.
+portablectl "${ARGS[@]}" attach --copy=mixed --runtime --extension /tmp/app0 /tmp/rootdir app0
+test -d /run/portables/app0
+portablectl "${ARGS[@]}" reattach --copy=mixed --runtime --extension app0 rootdir app0
+test -d /run/portables/app0
+grep -F "ExtensionDirectories=/run/portables/app0" /run/systemd/system.attached/app0.service.d/20-portable.conf >/dev/null
+portablectl detach --runtime --extension app0 rootdir app0
+rm -rf /run/portables/rootdir /run/portables/app0
 
 # Ensure that --force works with directory extensions, and that ExtensionDirectories=
 # is not decorated with :x-systemd.relax-extension-release-check

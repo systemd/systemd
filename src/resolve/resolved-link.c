@@ -1666,3 +1666,19 @@ int link_set_search_domains(Link *l, char * const *domains, ResolveConfigSource 
 
         return 0;
 }
+
+void link_revert_settings(Link *l) {
+        assert(l);
+
+        link_flush_settings(l);
+        link_allocate_scopes(l);
+        link_add_rrs(l, /* force_remove= */ false);
+
+        (void) link_save_user(l);
+        (void) manager_write_resolv_conf(l->manager);
+        (void) manager_send_changed(l->manager, "DNS");
+        (void) manager_send_dns_configuration_changed(l->manager, l, /* reset= */ true);
+
+        manager_llmnr_maybe_stop(l->manager);
+        manager_mdns_maybe_stop(l->manager);
+}

@@ -12,21 +12,36 @@ on:
   pull_request:
     paths:
       - '**/meson.build'
-      - '.github/workflows/**'
+      - '.github/workflows/cifuzz.yml'
+      - '.github/workflows/requirements.txt'
       - 'meson_options.txt'
       - 'src/**'
       - 'test/fuzz/**'
+      - 'test/test-bcd/**'
       - 'tools/oss-fuzz.sh'
+  pull_request_target:
+    types: [closed]
   push:
+    paths:
+      - '**/meson.build'
+      - '.github/workflows/cifuzz.yml'
+      - '.github/workflows/requirements.txt'
+      - 'meson_options.txt'
+      - 'src/**'
+      - 'test/fuzz/**'
+      - 'test/test-bcd/**'
+      - 'tools/oss-fuzz.sh'
     branches:
       - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   Fuzzing:
     runs-on: ubuntu-24.04
-    if: github.repository == 'systemd/systemd'
-    concurrency:
-      group: ${{ github.workflow }}-${{ matrix.sanitizer }}-${{ matrix.architecture }}-${{ github.ref }}
-      cancel-in-progress: true
+    if: github.event_name != 'pull_request_target' && github.repository == 'systemd/systemd'
     strategy:
       fail-fast: false
       matrix:

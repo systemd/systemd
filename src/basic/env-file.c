@@ -21,7 +21,7 @@ typedef int (*push_env_func_t)(
                 const char *filename,
                 unsigned line,
                 const char *key,
-                char *value,
+                const char *value,
                 void *userdata);
 
 static int parse_env_file_internal(
@@ -117,7 +117,7 @@ static int parse_env_file_internal(
                                         return r;
 
                                 n_key = 0;
-                                value = NULL;
+                                value = mfree(value);
                                 n_value = 0;
 
                         } else if (c == '\'')
@@ -160,7 +160,7 @@ static int parse_env_file_internal(
                                         return r;
 
                                 n_key = 0;
-                                value = NULL;
+                                value = mfree(value);
                                 n_value = 0;
 
                         } else if (c == '\\') {
@@ -283,8 +283,6 @@ static int parse_env_file_internal(
                 r = push(fname, line, key, value, userdata);
                 if (r < 0)
                         return r;
-
-                value = NULL;
         }
 
         return 0;
@@ -292,26 +290,24 @@ static int parse_env_file_internal(
 
 static int check_utf8ness_and_warn(
                 const char *filename, unsigned line,
-                const char *key, char *value) {
+                const char *key, const char *value) {
 
         assert(key);
 
         if (!utf8_is_valid(key)) {
-                _cleanup_free_ char *p = NULL;
+                _cleanup_free_ char *p = utf8_escape_invalid(key);
 
-                p = utf8_escape_invalid(key);
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "%s:%u: invalid UTF-8 in key '%s', ignoring.",
-                                       strna(filename), line, p);
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s:%u: invalid UTF-8 in key '%s', ignoring.",
+                                         strna(filename), line, strnull(p));
         }
 
         if (value && !utf8_is_valid(value)) {
-                _cleanup_free_ char *p = NULL;
+                _cleanup_free_ char *p = utf8_escape_invalid(value);
 
-                p = utf8_escape_invalid(value);
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "%s:%u: invalid UTF-8 value for key %s: '%s', ignoring.",
-                                       strna(filename), line, key, p);
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s:%u: invalid UTF-8 value for key %s: '%s', ignoring.",
+                                         strna(filename), line, key, strnull(p));
         }
 
         return 0;
@@ -319,7 +315,7 @@ static int check_utf8ness_and_warn(
 
 static int parse_env_file_push(
                 const char *filename, unsigned line,
-                const char *key, char *value,
+                const char *key, const char *value,
                 void *userdata) {
 
         const char *k;
@@ -335,21 +331,17 @@ static int parse_env_file_push(
         va_copy(aq, *ap);
 
         while ((k = va_arg(aq, const char *))) {
-                char **v;
-
-                v = va_arg(aq, char **);
+                char **v = va_arg(aq, char **);
 
                 if (streq(key, k)) {
-                        va_end(aq);
-                        free_and_replace(*v, value);
-
-                        return 1;
+                        r = free_and_strdup(v, value);
+                        if (r < 0)
+                                return r;
+                        break;
                 }
         }
 
         va_end(aq);
-        free(value);
-
         return 0;
 }
 
@@ -456,11 +448,10 @@ int parse_env_data_sentinel(
 
 static int load_env_file_push(
                 const char *filename, unsigned line,
-                const char *key, char *value,
+                const char *key, const char *value,
                 void *userdata) {
 
         char ***m = userdata;
-        char *p;
         int r;
 
         assert(key);
@@ -469,16 +460,11 @@ static int load_env_file_push(
         if (r < 0)
                 return r;
 
-        p = strjoin(key, "=", value);
+        char *p = strjoin(key, "=", value);
         if (!p)
                 return -ENOMEM;
 
-        r = strv_env_replace_consume(m, p);
-        if (r < 0)
-                return r;
-
-        free(value);
-        return 0;
+        return strv_env_replace_consume(m, p);
 }
 
 int load_env_file(FILE *f, const char *fname, char ***ret) {
@@ -498,7 +484,7 @@ int load_env_file(FILE *f, const char *fname, char ***ret) {
 
 static int load_env_file_push_pairs(
                 const char *filename, unsigned line,
-                const char *key, char *value,
+                const char *key, const char *value,
                 void *userdata) {
 
         char ***m = ASSERT_PTR(userdata);
@@ -512,21 +498,14 @@ static int load_env_file_push_pairs(
 
         /* Check if the key is present */
         for (char **t = *m; t && *t; t += 2)
-                if (streq(t[0], key)) {
-                        if (value)
-                                return free_and_replace(t[1], value);
-                        else
-                                return free_and_strdup(t+1, "");
-                }
+                if (streq(t[0], key))
+                        return free_and_strdup(t + 1, strempty(value));
 
         r = strv_extend(m, key);
         if (r < 0)
                 return r;
 
-        if (value)
-                return strv_push(m, value);
-        else
-                return strv_extend(m, "");
+        return strv_extend(m, strempty(value));
 }
 
 int load_env_file_pairs(FILE *f, const char *fname, char ***ret) {
@@ -559,11 +538,11 @@ int load_env_file_pairs_fd(int fd, const char *fname, char ***ret) {
 
 static int merge_env_file_push(
                 const char *filename, unsigned line,
-                const char *key, char *value,
+                const char *key, const char *value,
                 void *userdata) {
 
         char ***env = ASSERT_PTR(userdata);
-        char *expanded_value;
+        _cleanup_free_ char *expanded_value = NULL;
         int r;
 
         assert(key);
@@ -575,7 +554,6 @@ static int merge_env_file_push(
 
         if (!env_name_is_valid(key)) {
                 log_error("%s:%u: invalid variable name \"%s\", ignoring.", strna(filename), line, key);
-                free(value);
                 return 0;
         }
 
@@ -586,11 +564,10 @@ static int merge_env_file_push(
         if (r < 0)
                 return log_error_errno(r, "%s:%u: Failed to expand variable '%s': %m", strna(filename), line, value);
 
-        free_and_replace(value, expanded_value);
+        log_debug("%s:%u: setting %s=%s", filename, line, key, expanded_value);
 
-        log_debug("%s:%u: setting %s=%s", filename, line, key, value);
-
-        return load_env_file_push(filename, line, key, value, env);
+        r = load_env_file_push(filename, line, key, expanded_value, env);
+        return r == -EINVAL ? 0 : r;
 }
 
 int merge_env_file(

@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "bus-polkit.h"
+#include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.Resolve.Link.h"
 
 static SD_VARLINK_DEFINE_ERROR(IsLoopback);
+static SD_VARLINK_DEFINE_ERROR(InterfaceNotReady);
 static SD_VARLINK_DEFINE_ERROR(ManagedByNetworkd);
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
@@ -44,6 +46,60 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("DNS search or route domains to configure on the link."),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(searchDomains, SearchDomainContext, SD_VARLINK_ARRAY));
 
+static SD_VARLINK_DEFINE_METHOD(
+                SetDNSSECNegativeTrustAnchors,
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_FIELD_COMMENT("Index of the interface to configure."),
+                SD_VARLINK_DEFINE_INPUT(ifindex, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("DNSSEC negative trust anchors to configure on the link"),
+                SD_VARLINK_DEFINE_INPUT(negativeTrustAnchors, SD_VARLINK_STRING, SD_VARLINK_ARRAY));
+
+static SD_VARLINK_DEFINE_METHOD(
+                SetDNSDefaultRoute,
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_FIELD_COMMENT("Index of the interface to configure."),
+                SD_VARLINK_DEFINE_INPUT(ifindex, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Whether this link can be used as a default route for DNS lookups."),
+                SD_VARLINK_DEFINE_INPUT(defaultRoute, SD_VARLINK_BOOL, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
+                SetLLMNR,
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_FIELD_COMMENT("Index of the interface to configure."),
+                SD_VARLINK_DEFINE_INPUT(ifindex, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("LLMNR mode to configure on the link."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(llmnr, ResolveSupport, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
+                SetMulticastDNS,
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_FIELD_COMMENT("Index of the interface to configure."),
+                SD_VARLINK_DEFINE_INPUT(ifindex, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("MulticastDNS mode to configure on the link."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(mDNS, ResolveSupport, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
+                SetDNSOverTLS,
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_FIELD_COMMENT("Index of the interface to configure."),
+                SD_VARLINK_DEFINE_INPUT(ifindex, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("DNSOverTLS mode to configure on the link. Passing null resets to the default."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(dnsOverTLS, DNSOverTLSMode, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                SetDNSSEC,
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_FIELD_COMMENT("Index of the interface to configure."),
+                SD_VARLINK_DEFINE_INPUT(ifindex, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("DNSSEC mode to configure on the link. Passing null resets to the default."),
+                SD_VARLINK_DEFINE_INPUT(dnssec, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                RevertDNS,
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_FIELD_COMMENT("Index of the interface to configure."),
+                SD_VARLINK_DEFINE_INPUT(ifindex, SD_VARLINK_INT, 0));
+
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Resolve_Link,
                 "io.systemd.Resolve.Link",
@@ -51,6 +107,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_error_ManagedByNetworkd,
                 SD_VARLINK_SYMBOL_COMMENT("The specified interface is a loopback interface, and cannot be configured."),
                 &vl_error_IsLoopback,
+                SD_VARLINK_SYMBOL_COMMENT("The specified interface is not ready yet, e.g. its name is not known. The request should be retried later."),
+                &vl_error_InterfaceNotReady,
                 SD_VARLINK_SYMBOL_COMMENT("DNS server configuration input."),
                 &vl_type_DNSServerContext,
                 SD_VARLINK_SYMBOL_COMMENT("Set the per-link DNS server list."),
@@ -58,4 +116,20 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("Search domain configuration input."),
                 &vl_type_SearchDomainContext,
                 SD_VARLINK_SYMBOL_COMMENT("Set the per-link search domain list."),
-                &vl_method_SetDomains);
+                &vl_method_SetDomains,
+                SD_VARLINK_SYMBOL_COMMENT("Set the per-link DNSSEC negative trust anchors."),
+                &vl_method_SetDNSSECNegativeTrustAnchors,
+                SD_VARLINK_SYMBOL_COMMENT("Set the per-link DNS default route setting."),
+                &vl_method_SetDNSDefaultRoute,
+                &vl_type_ResolveSupport,
+                SD_VARLINK_SYMBOL_COMMENT("Set the per-link LLMNR mode."),
+                &vl_method_SetLLMNR,
+                SD_VARLINK_SYMBOL_COMMENT("Set the per-link MulticastDNS mode."),
+                &vl_method_SetMulticastDNS,
+                &vl_type_DNSOverTLSMode,
+                SD_VARLINK_SYMBOL_COMMENT("Set the per-link DNS-over-TLS mode."),
+                &vl_method_SetDNSOverTLS,
+                SD_VARLINK_SYMBOL_COMMENT("Set the per-link DNSSEC mode."),
+                &vl_method_SetDNSSEC,
+                SD_VARLINK_SYMBOL_COMMENT("Revert per-link DNS settings."),
+                &vl_method_RevertDNS);

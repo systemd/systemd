@@ -5,10 +5,8 @@
 #include "time-util.h"
 #include "watchdog.h"
 
-int main(int argc, char *argv[]) {
+TEST(watchdog) {
         int r;
-
-        test_setup_logging(LOG_DEBUG);
 
         bool slow = slow_tests_enabled();
 
@@ -31,5 +29,6 @@ int main(int argc, char *argv[]) {
         }
 
         watchdog_close(/* disarm= */ true);
-        return 0;
 }
+
+DEFINE_TEST_MAIN(LOG_DEBUG);

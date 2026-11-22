@@ -346,7 +346,7 @@ static void get_info_data_done(GetInfoData *d) {
 COMMAND(
         "varlinkctl\0",
         "Introspect Varlink Services.",
-        .man_pages = "varlinkctl(1)\0",
+        .man_page = "varlinkctl(1)",
         .footer = "With --exec, specify the command to invoke:\n"
                   "  varlinkctl --exec call ADDRESS METHOD PARAMS -- CMDLINE…",
         .pager_flags = &arg_pager_flags,
@@ -502,66 +502,84 @@ static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userda
         _cleanup_strv_free_ char **methods = NULL, **experimental_methods = NULL;
 
         STRV_FOREACH(i, interfaces) {
+                _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *vi = NULL;
+                static const sd_json_dispatch_field description_table[] = {
+                        { "description", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, SD_JSON_MANDATORY },
+                        {}
+                };
                 sd_json_variant *reply = NULL;
-                r = varlink_callbo_and_log(
-                                vl,
-                                "org.varlink.service.GetInterfaceDescription",
-                                &reply,
-                                SD_JSON_BUILD_PAIR_STRING("interface", *i));
+                const char *description = NULL;
+                unsigned line = 0, column = 0;
+
+                /* Keep the helper: it logs the error id a service returns, which sd_varlink_call()
+                 * would fold into -EBADR. */
+                r = varlink_callbo_and_log(vl, "org.varlink.service.GetInterfaceDescription", &reply,
+                                           SD_JSON_BUILD_PAIR_STRING("interface", *i));
                 if (r < 0)
                         return r;
 
-                if (!sd_json_format_enabled(arg_json_format_flags) || list_methods) {
-                        static const sd_json_dispatch_field dispatch_table[] = {
-                                { "description", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, SD_JSON_MANDATORY },
-                                {}
-                        };
-                        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *vi = NULL;
-                        const char *description = NULL;
-                        unsigned line = 0, column = 0;
+                r = sd_json_dispatch(reply, description_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &description);
+                if (r < 0)
+                        return r;
 
-                        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &description);
-                        if (r < 0)
-                                return r;
+                /* Parse the textual IDL, so that we can colorize it or render it as JSON */
+                r = sd_varlink_idl_parse(ASSERT_PTR(description), &line, &column, &vi);
+                if (r < 0) {
+                        /* The JSON rendering is the result of this parse, so there is nothing to show
+                         * on failure. The raw text is only useful in text mode. */
+                        if (list_methods || sd_json_format_enabled(arg_json_format_flags))
+                                return log_error_errno(r, "Failed to parse returned interface description at %u:%u: %m", line, column);
 
-                        if (!list_methods && i > interfaces)
+                        log_warning_errno(r, "Failed to parse returned interface description at %u:%u, showing raw interface description: %m", line, column);
+
+                        if (i > interfaces)
                                 print_separator();
 
-                        /* Try to parse the returned description, so that we can add syntax highlighting */
-                        r = sd_varlink_idl_parse(ASSERT_PTR(description), &line, &column, &vi);
-                        if (r < 0) {
-                                if (list_methods)
-                                        return log_error_errno(r, "Failed to parse returned interface description at %u:%u: %m", line, column);
+                        pager_open(arg_pager_flags);
+                        fputs_with_newline(stdout, description);
+                        continue;
+                }
 
-                                log_warning_errno(r, "Failed to parse returned interface description at %u:%u, showing raw interface description: %m", line, column);
+                if (list_methods) {
+                        for (const sd_varlink_symbol *const *y = vi->symbols, *symbol; (symbol = *y); y++) {
+                                if (symbol->symbol_type != SD_VARLINK_METHOD)
+                                        continue;
 
-                                pager_open(arg_pager_flags);
-                                fputs_with_newline(stdout, description);
-                        } else if (list_methods) {
-                                for (const sd_varlink_symbol *const *y = vi->symbols, *symbol; (symbol = *y); y++) {
-                                        if (symbol->symbol_type != SD_VARLINK_METHOD)
-                                                continue;
+                                r = strv_extendf(&methods, "%s.%s", vi->name, symbol->name);
+                                if (r < 0)
+                                        return log_oom();
 
-                                        r = strv_extendf(&methods, "%s.%s", vi->name, symbol->name);
+                                if (FLAGS_SET(vi->interface_flags, SD_VARLINK_EXPERIMENTAL) ||
+                                    FLAGS_SET(symbol->symbol_flags, SD_VARLINK_EXPERIMENTAL)) {
+                                        r = strv_extendf(&experimental_methods, "%s.%s", vi->name, symbol->name);
                                         if (r < 0)
                                                 return log_oom();
-
-                                        if (FLAGS_SET(vi->interface_flags, SD_VARLINK_EXPERIMENTAL) ||
-                                            FLAGS_SET(symbol->symbol_flags, SD_VARLINK_EXPERIMENTAL)) {
-                                                r = strv_extendf(&experimental_methods, "%s.%s", vi->name, symbol->name);
-                                                if (r < 0)
-                                                        return log_oom();
-                                        }
                                 }
-                        } else {
-                                pager_open(arg_pager_flags);
-                                r = sd_varlink_idl_dump(stdout, vi, SD_VARLINK_IDL_FORMAT_COLOR_AUTO, break_columns());
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to format parsed interface description: %m");
                         }
+
+                        continue;
+                }
+
+                /* Keep the JSON stream free of separators: a consumer reads it value by value. */
+                if (!sd_json_format_enabled(arg_json_format_flags) && i > interfaces)
+                        print_separator();
+
+                pager_open(arg_pager_flags);
+
+                if (sd_json_format_enabled(arg_json_format_flags)) {
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                        r = sd_varlink_idl_format_json(vi, &v);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to convert interface description to JSON: %m");
+
+                        r = sd_json_variant_dump(v, arg_json_format_flags, stdout, /* prefix= */ NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to print JSON interface description: %m");
                 } else {
-                        pager_open(arg_pager_flags);
-                        sd_json_variant_dump(reply, arg_json_format_flags, stdout, /* prefix= */ NULL);
+                        r = sd_varlink_idl_dump(stdout, vi, SD_VARLINK_IDL_FORMAT_COLOR_AUTO, break_columns());
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to format parsed interface description: %m");
                 }
         }
 
@@ -1714,13 +1732,6 @@ static Hashmap* monitor_json_buffers_free(Hashmap *h) {
         return hashmap_free(h);
 }
 
-static void monitor_json_buffer_consume(MonitorJsonBuffer *buf, size_t len) {
-        assert(len <= buf->data.iov_len);
-        buf->data.iov_len -= len;
-        if (buf->data.iov_len > 0)
-                memmove(buf->data.iov_base, (char*) buf->data.iov_base + len, buf->data.iov_len);
-}
-
 static void monitor_json_buffer_display_json(const MonitorJsonBuffer *buf, sd_json_variant *data, bool truncated) {
         assert(buf);
 
@@ -1864,7 +1875,7 @@ static void monitor_process_packet(
                 fflush(stdout);
 
                 buf->truncated = false;
-                monitor_json_buffer_consume(buf, msg_len + 1);
+                assert_se(iovec_consume(&buf->data, msg_len + 1));
         }
 
         if (buf->data.iov_len == 0)

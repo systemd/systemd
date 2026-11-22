@@ -93,6 +93,12 @@ int sd_future_add_callback(sd_future *f, sd_future_slot **ret_slot, sd_future_fu
 
 int sd_future_new_defer(sd_event *e, int result, sd_future **ret);
 
+/* A promise only resolves when the owner calls sd_future_resolve() or cancels it. Cancelling it resolves
+ * it with -ECANCELED. A fiber can await a promise for an event that no other future type represents,
+ * for example a reply on a connection that the fiber doesn't own. The code that sees the event resolves
+ * the promise. */
+int sd_future_new_promise(sd_event *e, sd_future **ret);
+
 _SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_future_slot);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_future_slot, sd_future_slot_unref);
 

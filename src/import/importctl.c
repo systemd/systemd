@@ -52,7 +52,7 @@ static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 COMMAND(
         "importctl\0",
         "Download, import or export disk images.",
-        .man_pages = "importctl(1)\0",
+        .man_page = "importctl(1)",
         .pager_flags = &arg_pager_flags,
 );
 

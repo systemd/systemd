@@ -8,6 +8,7 @@
 #include <linux/seccomp.h>
 #include <sched.h>
 #include <sys/mman.h>
+#include <sys/mount.h>
 #include <sys/personality.h>
 #include <sys/prctl.h> /* IWYU pragma: keep */
 #include <sys/ptrace.h>
@@ -1377,6 +1378,74 @@ int seccomp_parse_syscall_filter(
         return 0;
 }
 
+static int seccomp_add_mount_namespace_rules(scmp_filter_ctx seccomp, uint32_t arch) {
+        unsigned flag;
+        int id, r;
+
+        assert(seccomp);
+
+        /* Besides via unshare(), clone() and setns() with CLONE_NEWNS, mount namespaces are created by:
+         *
+         * - unshare() with UNSHARE_EMPTY_MNTNS, which implies CLONE_NEWNS without it being set,
+         * - open_tree() and open_tree_attr() with OPEN_TREE_CLONE (an anonymous mount namespace) or
+         *   OPEN_TREE_NAMESPACE (a regular one),
+         * - every fsmount() call (an anonymous mount namespace, or with FSMOUNT_NAMESPACE a regular one).
+         *
+         * The kernel treats all of these as creating a mount namespace (e.g. Landlock's namespace
+         * restrictions deny all of them), hence block all of them. Plain open_tree() and fspick() only
+         * refer to existing mounts, and remain permitted. */
+
+        r = sym_seccomp_rule_add_exact(
+                        seccomp,
+                        SCMP_ACT_ERRNO(EPERM),
+                        SCMP_SYS(unshare),
+                        1,
+                        SCMP_A0(SCMP_CMP_MASKED_EQ, UNSHARE_EMPTY_MNTNS, UNSHARE_EMPTY_MNTNS));
+        if (r < 0)
+                return r;
+
+        FOREACH_STRING(name, "open_tree", "open_tree_attr") {
+                id = sym_seccomp_syscall_resolve_name(name);
+
+                /* Older libseccomp versions do not know open_tree_attr() yet. On the native architecture we
+                 * can still filter it by its system call number, like we do for fchmodat2().
+                 * FIXME: remove this once we know libseccomp supports open_tree_attr */
+                if (id == __NR_SCMP_ERROR && streq(name, "open_tree_attr") &&
+                    arch == sym_seccomp_arch_native())
+                        id = __NR_open_tree_attr;
+
+                if (id == __NR_SCMP_ERROR) {
+                        log_debug("System call %s() is not known, not blocking it.", name);
+                        continue;
+                }
+
+                FOREACH_ARGUMENT(flag, OPEN_TREE_CLONE, OPEN_TREE_NAMESPACE) {
+                        r = sym_seccomp_rule_add_exact(
+                                        seccomp,
+                                        SCMP_ACT_ERRNO(EPERM),
+                                        id,
+                                        1,
+                                        SCMP_A2(SCMP_CMP_MASKED_EQ, flag, flag));
+                        if (r == -EDOM) /* Not available on this architecture */
+                                break;
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        id = sym_seccomp_syscall_resolve_name("fsmount");
+        if (id == __NR_SCMP_ERROR) {
+                log_debug("System call fsmount() is not known, not blocking it.");
+                return 0;
+        }
+
+        r = sym_seccomp_rule_add_exact(seccomp, SCMP_ACT_ERRNO(EPERM), id, /* arg_cnt= */ 0);
+        if (r < 0 && r != -EDOM)
+                return r;
+
+        return 0;
+}
+
 int seccomp_restrict_namespaces(unsigned long retain) {
         uint32_t arch;
         int r;
@@ -1505,6 +1574,15 @@ int seccomp_restrict_namespaces(unsigned long retain) {
                 }
                 if (r < 0)
                         continue;
+
+                if (!FLAGS_SET(retain, CLONE_NEWNS)) {
+                        r = seccomp_add_mount_namespace_rules(seccomp, arch);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to add mount namespace rules for architecture %s, skipping: %m",
+                                                seccomp_arch_to_string(arch));
+                                continue;
+                        }
+                }
 
                 r = sym_seccomp_load(seccomp);
                 if (ERRNO_IS_NEG_SECCOMP_FATAL(r))

@@ -8,16 +8,34 @@ on:
     branches:
       - main
       - v[0-9]+-stable
+    paths:
+      - '**'
+      - "!README*"
+      - "!LICENSE*"
+      - "!LICENSES/**"
+      - "!TODO.md"
+      - '!po/**'
+      - '!shell-completion/**'
+      - '!test/**'
+      - '!units/**'
+      - '!.github/**'
+      - '.github/workflows/*.cross'
+      - '.github/workflows/requirements.txt'
+      - '.github/workflows/unit-tests.*'
+  pull_request_target:
+    types: [closed]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
   build:
+    if: github.event_name == 'pull_request'
     runs-on: ${{ matrix.runner }}
-    concurrency:
-      group: ${{ github.workflow }}-${{ matrix.run_phase }}-${{ matrix.cross_arch || 'native' }}-${{ github.ref }}-${{ matrix.runner }}
-      cancel-in-progress: true
     strategy:
       fail-fast: false
       matrix:
@@ -64,10 +82,8 @@ jobs:
 
   build-musl:
     name: Build & test (musl, Nura)
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
-    concurrency:
-      group: ${{ github.workflow }}-musl-${{ github.ref }}
-      cancel-in-progress: true
     steps:
       - name: Repository checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1

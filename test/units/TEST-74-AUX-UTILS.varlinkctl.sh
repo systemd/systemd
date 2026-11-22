@@ -36,6 +36,9 @@ varlinkctl introspect -j /run/systemd/journal/io.systemd.journal | jq --seq .
 
 varlinkctl introspect /run/systemd/journal/io.systemd.journal io.systemd.Journal
 varlinkctl introspect -j /run/systemd/journal/io.systemd.journal io.systemd.Journal | jq .
+# The JSON rendering carries the interface name and keeps methods, not only the raw reply.
+varlinkctl introspect -j /run/systemd/journal/io.systemd.journal io.systemd.Journal |
+    jq -e '.name == "io.systemd.Journal" and any(.symbols[]; .kind == "method")'
 
 varlinkctl list-registry
 varlinkctl list-registry -j | jq .

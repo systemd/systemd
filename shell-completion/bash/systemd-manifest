@@ -29,7 +29,7 @@ _systemd_manifest() {
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
     local -A OPTS=(
         [STANDALONE]='-h --help --version --no-pager --graceful'
-        [ARG]='--json --format --field --hash --private-key --private-key-source
+        [ARG]='--json --format --field --hash --timestamp-accuracy-sec --private-key --private-key-source
                --certificate --certificate-source --verify-signature --voa-context'
     )
 
@@ -46,7 +46,7 @@ _systemd_manifest() {
             --field)
                 local f
                 comps=''
-                for f in mode uid gid size hash symlink device hardlink mtime user-xattr user-name group-name; do
+                for f in mode uid gid size hash symlink device hardlink mtime user-xattr user-name group-name flag-append-only flag-immutable flag-no-atime flag-no-cow flag-no-dump read-only flag-hidden flag-system flag-archive fs-uuid fs-label fat-serial; do
                     comps+=" $f +$f -$f"
                 done
                 comps+=' all default none'

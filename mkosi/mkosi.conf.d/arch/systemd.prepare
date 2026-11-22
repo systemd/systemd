@@ -29,9 +29,11 @@ for PACKAGE in "${PACKAGES[@]}"; do
     fi
 done
 
+EXCLUDE=("${PACKAGES[@]}" None)
+
 echo "$DEPS" |
     xargs | # Remove extra whitespace.
     tr ' ' '\n' |
-    grep --extended-regexp --invert-match --regexp "$(IFS=\| ; echo "${PACKAGES[*]}")" --regexp None | # systemd packages will be installed later on.
+    grep --fixed-strings --invert-match "${EXCLUDE[@]/#/--regexp=}" |  # systemd packages will be installed later on
     sort --unique |
     xargs --delimiter '\n' --no-run-if-empty mkosi-install

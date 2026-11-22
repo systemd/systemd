@@ -150,11 +150,6 @@ static Manager* manager_free(Manager *m) {
         sd_event_source_unref(m->console_active_event_source);
         sd_event_source_unref(m->lid_switch_ignore_event_source);
 
-        sd_event_source_unref(m->power_key_long_press_event_source);
-        sd_event_source_unref(m->reboot_key_long_press_event_source);
-        sd_event_source_unref(m->suspend_key_long_press_event_source);
-        sd_event_source_unref(m->hibernate_key_long_press_event_source);
-
 #if ENABLE_UTMP
         sd_event_source_unref(m->utmp_event_source);
 #endif
@@ -1375,7 +1370,7 @@ static int manager_run(Manager *m) {
 COMMAND(
         "systemd-logind\0",
         "Manage user logins and devices and privileged operations.",
-        .man_pages = "systemd-logind.service(8)\0",
+        .man_page = "systemd-logind.service(8)",
         .option_namespace = "service",
         .option_groups =
                 "Options\0"

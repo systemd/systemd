@@ -9,6 +9,12 @@ on:
     branches:
       - main
       - v[0-9]+-stable
+  pull_request_target:
+    types: [closed]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -16,10 +22,8 @@ permissions:
 jobs:
   build:
     name: Lint Code Base
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
-      cancel-in-progress: true
 
     steps:
       - name: Repo checkout

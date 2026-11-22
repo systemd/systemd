@@ -27,7 +27,7 @@
       <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
 
       <funcprototype>
-        <funcdef>int sd_bus_message_append_strv</funcdef>
+        <funcdef>int <function>sd_bus_message_append_strv</function></funcdef>
         <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>char **<parameter>l</parameter></paramdef>
       </funcprototype>
@@ -65,6 +65,11 @@
   </refsect1>
 
   <xi:include href="libsystemd-notes.xml"/>
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_bus_message_append_strv()</function> was added in version 221.</para>
+  </refsect1>
 
   <refsect1>
     <title>See Also</title>

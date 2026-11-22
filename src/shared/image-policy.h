@@ -81,6 +81,7 @@ extern const ImagePolicy image_policy_host;
 
 PartitionPolicyFlags image_policy_get(const ImagePolicy *policy, PartitionDesignator designator);
 PartitionPolicyFlags image_policy_get_exhaustively(const ImagePolicy *policy, PartitionDesignator designator);
+bool image_policy_requires_signature(const ImagePolicy *policy, PartitionDesignator designator);
 
 /* We want that the NULL image policy means "everything" allowed, hence use these simple accessors to make
  * NULL policies work reasonably */
@@ -115,6 +116,7 @@ int image_policy_intersect(const ImagePolicy *a, const ImagePolicy *b, ImagePoli
 int image_policy_union(const ImagePolicy *a, const ImagePolicy *b, ImagePolicy **ret);
 
 ImagePolicy* image_policy_new_from_dissected(const DissectedImage *image, const VeritySettings *verity);
+void image_policy_relax_protection(ImagePolicy *p);
 ImagePolicy* image_policy_free(ImagePolicy *p);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(ImagePolicy*, image_policy_free);

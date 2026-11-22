@@ -39,7 +39,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_title, freep);
 COMMAND(
         "ptyctl\0",
         "Interact with the pseudo TTY broker.",
-        .man_pages = "ptyctl(1)\0",
+        .man_page = "ptyctl(1)",
+        .flags = COMMAND_EXPERIMENTAL,
 );
 
 VERB_COMMON_HELP_AUTO_HIDDEN();
@@ -175,7 +176,7 @@ static int monitor_broker_pty(const char *name, int *ret_monitor_fd, char ***ret
                         &output_fd,
                         SD_JSON_BUILD_PAIR_STRING("name", name),
                         SD_JSON_BUILD_PAIR_UNSIGNED("trackBufferLines", MAX(5U, lines() / 2U)),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("osc2811", true), /* The PTY forwarder implements the emulator side */
+                        SD_JSON_BUILD_PAIR_BOOLEAN("inBandResize", true), /* The PTY forwarder implements the terminal side */
                         SD_JSON_BUILD_PAIR_VARIANT("terminalSettings", ts),
                         SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
         if (r < 0)

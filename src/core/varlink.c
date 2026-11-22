@@ -381,6 +381,8 @@ static void vl_disconnect(sd_varlink_server *s, sd_varlink *link, void *userdata
 
         if (link == m->managed_oom_varlink)
                 m->managed_oom_varlink = sd_varlink_unref(link);
+        if (link == m->pending_reexecute_message_vl)
+                m->pending_reexecute_message_vl = sd_varlink_unref(link);
 
         if (link == m->pending_reload_message_vl)
                 m->pending_reload_message_vl = sd_varlink_unref(link);
@@ -644,6 +646,7 @@ void manager_varlink_done(Manager *m) {
         sd_varlink_close_unref(TAKE_PTR(m->managed_oom_varlink));
 
         m->pending_reload_message_vl = sd_varlink_unref(m->pending_reload_message_vl);
+        m->pending_reexecute_message_vl = sd_varlink_unref(m->pending_reexecute_message_vl);
         m->stashed_varlink_job_clients = hashmap_free(m->stashed_varlink_job_clients);
 
         m->varlink_server = sd_varlink_server_unref(m->varlink_server);
@@ -667,7 +670,28 @@ void manager_varlink_send_pending_reload_message(Manager *m) {
         m->pending_reload_message_vl = sd_varlink_unref(m->pending_reload_message_vl);
 }
 
-int manager_varlink_claim_connection(Manager *m, const char *id, sd_varlink **ret) {
+void manager_varlink_send_pending_reexecute_error(Manager *m, int error) {
+        int r;
+
+        assert(m);
+
+        if (!m->pending_reexecute_message_vl)
+                return;
+
+        r = sd_varlink_error_errno(m->pending_reexecute_message_vl, error);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send queued reexecute error reply, ignoring: %m");
+
+        /* vl_method_reexecute_manager() stores the link in pending_reload_message_vl too, so that the
+         * reply is sent by the new manager once the reexecution succeeded. The call is answered now,
+         * hence clear that too, and don't reply a second time later. */
+        if (m->pending_reload_message_vl == m->pending_reexecute_message_vl)
+                m->pending_reload_message_vl = sd_varlink_unref(m->pending_reload_message_vl);
+
+        m->pending_reexecute_message_vl = sd_varlink_unref(m->pending_reexecute_message_vl);
+}
+
+int manager_varlink_claim_connection(Manager *m, const char *id, sd_varlink_server_claim_flags_t flags, sd_varlink **ret) {
         int r;
 
         assert(m);
@@ -680,7 +704,7 @@ int manager_varlink_claim_connection(Manager *m, const char *id, sd_varlink **re
         if (!m->varlink_server)
                 return log_warning_errno(SYNTHETIC_ERRNO(ESRCH), "Varlink server not set up, cannot claim connection '%s'.", id);
 
-        r = sd_varlink_server_claim_connection(m->varlink_server, id, ret);
+        r = sd_varlink_server_claim_connection(m->varlink_server, id, flags, ret);
         if (r == -ESRCH) /* Expected, the connection might have been closed before serialization */
                 return log_debug_errno(r, "Varlink connection '%s' not passed on across reexecution, ignoring.", id);
         if (r < 0)

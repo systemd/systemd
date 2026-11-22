@@ -422,7 +422,14 @@ static const sd_json_dispatch_field dns_server_context_dispatch_table[] = {
         {},
 };
 
-static int dispatch_dns_server(const sd_json_dispatch_field table[], const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+static int dispatch_dns_server(
+                const sd_json_dispatch_field table[],
+                bool input,
+                const char *name,
+                sd_json_variant *variant,
+                sd_json_dispatch_flags_t flags,
+                void *userdata) {
+
         DNSServer **ret = ASSERT_PTR(userdata);
         _cleanup_(dns_server_freep) DNSServer *s = NULL;
         int r;
@@ -438,6 +445,12 @@ static int dispatch_dns_server(const sd_json_dispatch_field table[], const char 
         if (s->family != s->in_addr.family)
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "'%s' address and family are inconsistent.", strna(name));
 
+        /* When used as input, refuse the unspecified address and our own stub listeners,
+         * like the D-Bus setters do. When used as output, stay lenient, as the reported
+         * configuration may come from unvalidated sources. */
+        if (input && !dns_server_address_valid(s->family, &s->in_addr.address))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Invalid DNS server address.");
+
         if (IN_SET(s->port, 53, 853))
                 s->port = 0;
 
@@ -447,10 +460,17 @@ static int dispatch_dns_server(const sd_json_dispatch_field table[], const char 
 }
 
 static int dispatch_dns_server_runtime(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        return dispatch_dns_server(dns_server_runtime_dispatch_table, name, variant, flags, userdata);
+        return dispatch_dns_server(dns_server_runtime_dispatch_table, /* input= */ false, name, variant, flags, userdata);
 }
 
-static int dispatch_dns_server_array(const sd_json_dispatch_field table[], const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+static int dispatch_dns_server_array(
+                const sd_json_dispatch_field table[],
+                bool input,
+                const char *name,
+                sd_json_variant *variant,
+                sd_json_dispatch_flags_t flags,
+                void *userdata) {
+
         OrderedSet **ret = ASSERT_PTR(userdata);
         _cleanup_ordered_set_free_ OrderedSet *dns_servers = NULL;
         sd_json_variant *v;
@@ -462,7 +482,7 @@ static int dispatch_dns_server_array(const sd_json_dispatch_field table[], const
         JSON_VARIANT_ARRAY_FOREACH(v, variant) {
                 _cleanup_(dns_server_freep) DNSServer *s = NULL;
 
-                r = dispatch_dns_server(table, name, v, flags, &s);
+                r = dispatch_dns_server(table, input, name, v, flags, &s);
                 if (r < 0)
                         return json_log(v, flags, r, "JSON array element is not a valid DNSServer.");
 
@@ -478,11 +498,11 @@ static int dispatch_dns_server_array(const sd_json_dispatch_field table[], const
 }
 
 static int dispatch_dns_server_runtime_array(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        return dispatch_dns_server_array(dns_server_runtime_dispatch_table, name, variant, flags, userdata);
+        return dispatch_dns_server_array(dns_server_runtime_dispatch_table, /* input= */ false, name, variant, flags, userdata);
 }
 
 int dispatch_dns_server_context_array(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        return dispatch_dns_server_array(dns_server_context_dispatch_table, name, variant, flags, userdata);
+        return dispatch_dns_server_array(dns_server_context_dispatch_table, /* input= */ true, name, variant, flags, userdata);
 }
 
 SearchDomain* search_domain_free(SearchDomain *d) {
@@ -511,7 +531,7 @@ static const sd_json_dispatch_field search_domain_runtime_dispatch_table[] = {
 
 static const sd_json_dispatch_field search_domain_context_dispatch_table[] = {
         { "name",      SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,  offsetof(SearchDomain, name),       SD_JSON_MANDATORY },
-        { "routeOnly", SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_stdbool, offsetof(SearchDomain, route_only), 0                 },
+        { "routeOnly", SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_stdbool, offsetof(SearchDomain, route_only), SD_JSON_NULLABLE  },
         {},
 };
 
@@ -653,7 +673,7 @@ static int dispatch_dns_scope_array(const char *name, sd_json_variant *variant, 
         return 0;
 }
 
-static int dispatch_negative_trust_anchors(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+int dispatch_negative_trust_anchors(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         char ***ret = ASSERT_PTR(userdata);
         int r;
 
@@ -665,10 +685,21 @@ static int dispatch_negative_trust_anchors(const char *name, sd_json_variant *va
         if (r < 0)
                 return r;
 
+        STRV_FOREACH(a, nta) {
+                r = dns_name_is_valid(*a);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Invalid negative trust anchor domain: %s", *a);
+        }
+
         strv_sort(nta);
         *ret = TAKE_PTR(nta);
         return 0;
 }
+
+JSON_DISPATCH_ENUM_DEFINE(dispatch_resolve_support_mode, ResolveSupport, resolve_support_from_string);
+JSON_DISPATCH_ENUM_DEFINE(dispatch_dns_over_tls_mode, DnsOverTlsMode, dns_over_tls_mode_from_string);
 
 DNSConfiguration* dns_configuration_free(DNSConfiguration *c) {
         if (!c)

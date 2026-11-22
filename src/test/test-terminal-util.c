@@ -146,10 +146,8 @@ TEST(get_ctty) {
         int r;
 
         r = get_ctty(/* pid= */ 0, &devnr, &ctty);
-        if (r < 0) {
-                log_notice_errno(r, "Apparently called without a controlling TTY, cutting get_ctty() test short: %m");
-                return;
-        }
+        if (r < 0)
+                return (void) log_notice_errno(r, "Apparently called without a controlling TTY, cutting get_ctty() test short: %m");
 
         /* In almost all cases STDIN will match our controlling TTY. Let's verify that and then compare paths */
         ASSERT_OK_ERRNO(fstat(STDIN_FILENO, &st));

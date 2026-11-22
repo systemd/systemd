@@ -78,6 +78,11 @@ executables += [
                 'import' : ['systemd-report-basic'],
         },
         libexec_template + {
+                'name' : 'systemd-report-power-source',
+                'sources' : files('report-power-source.c'),
+                'import' : ['systemd-report-basic'],
+        },
+        libexec_template + {
                 'name' : 'systemd-report-sign-plain',
                 'sources' : files('report-sign-plain.c'),
                 'import' : ['systemd-report-basic'],

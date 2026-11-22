@@ -410,14 +410,22 @@
 
     <para>A <literal>.profile</literal> section may contain meta-information about the profile. It follows a
     similar format as <literal>.osrel</literal> (i.e. an environment-variable-assignment-block-like list of
-    newline separated strings). Currently two fields are defined: <literal>ID=</literal> is supposed to carry
+    newline separated strings). The following fields are defined: <literal>ID=</literal> is supposed to carry
     a short identifying string that identifies the profile
     (e.g. <literal>ID=factory-reset</literal>). <literal>TITLE=</literal> should contain a human-readable
     string that may appear in the boot menu entry for this profile (e.g. <literal>TITLE='Factory Reset this
     Device'</literal>). <literal>TOFU=</literal> takes a token of up to 64 letters, digits,
     <literal>.</literal>, <literal>_</literal> and <literal>-</literal> (e.g. a reverse domain name
     identifying the OS), and enables trusting addons on first use when booting this profile, see below. It
-    defaults to off.</para>
+    defaults to off. <literal>PCRLOCK=</literal> takes a boolean. It controls whether
+    <command>systemd-pcrlock lock-uki</command> generates a <filename>.pcrlock</filename> file for this
+    profile, see
+    <citerefentry><refentrytitle>systemd-pcrlock</refentrytitle><manvolnum>8</manvolnum></citerefentry>. A
+    TPM2 object that is bound to the <command>systemd-pcrlock</command> policy, such as a disk encryption
+    key, can only be unlocked when a profile with such a file is booted. It defaults to on for profile
+    <literal>@0</literal> and to off for all other profiles (e.g. set <literal>PCRLOCK=yes</literal> in a
+    profile that only adds debug options to the kernel command line, and leave it off in a factory reset
+    profile).</para>
   </refsect1>
 
   <refsect1>
@@ -468,6 +476,10 @@
     addon is used on that boot, and enrollment is attempted again on the next boot. Only addons
     whose hash is in the written record are used, on the first and on subsequent boots, any other unsigned
     addon is ignored with an error message. Signed addons are unaffected.</para>
+
+    <para>Unsigned addons that pass credentials to the system may be generated with
+    <command>systemd-creds make-addon</command>, see
+    <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
 
     <para>Addons trusted on first use are read and parsed by <command>systemd-stub</command> itself rather
     than loaded by the firmware, and are never executed. As the firmware hence does not measure them into TPM

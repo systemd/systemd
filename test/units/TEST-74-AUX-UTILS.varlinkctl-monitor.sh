@@ -275,19 +275,18 @@ sed -n 's/^\x1e//p' "$MONITOR_OUT" | \
 # invalid data gracefully and continue capturing subsequent messages.
 # -----------------------------------------------------------------------
 echo "=== Test 7: garbage data ==="
-start_monitor
+GARBAGE_SOCK="@test-monitor-garbage"
+start_unix_server "$GARBAGE_SOCK"
+start_monitor --path="$GARBAGE_SOCK"
 
-# Send garbage to a varlink socket
-printf 'this is not json\0' | varlink_raw_send /run/systemd/io.systemd.Hostname || true
-
-# Send a normal call to verify the monitor still works
-varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}'
-
-wait_for_output "io.systemd.Hostname.Describe"
+# Send a malformed frame followed by a valid request on the same connection. The sink does not reply.
+printf 'this is not json\0\n\n{"method":"io.systemd.GarbageTest.After","parameters":{}}\0' | \
+    varlink_raw_send "$GARBAGE_SOCK"
+wait "$UNIX_SERVER_PID"
+wait_for_output "io.systemd.GarbageTest.After"
 
 stop_monitor
 grep "invalid JSON" "$MONITOR_OUT" >/dev/null
-grep "io.systemd.Hostname.Describe" "$MONITOR_OUT" >/dev/null
 
 # -----------------------------------------------------------------------
 # Test 8: JSON output mode
@@ -317,18 +316,17 @@ sed -n 's/^\x1e//p' "$MONITOR_OUT" | \
 # monitor must reassemble them into a single message.
 # -----------------------------------------------------------------------
 echo "=== Test 9: writev (multi-segment writes) ==="
-start_monitor
+WRITEV_SOCK="@test-monitor-writev"
+start_unix_server "$WRITEV_SOCK"
+start_monitor --path="$WRITEV_SOCK"
 
+# The server consumes the request without replying, so only a reassembled writev can satisfy the check.
 printf '{"method":"io.systemd.\nWritevTest.Call",\n"parameters":{}}\0' | \
-    varlink_raw_send /run/systemd/io.systemd.Hostname || true
-
-# Send a normal call so we have something to wait for
-varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}'
-wait_for_output "io.systemd.Hostname.Describe"
+    varlink_raw_send "$WRITEV_SOCK"
+wait "$UNIX_SERVER_PID"
+wait_for_output "io.systemd.WritevTest.Call"
 
 stop_monitor
-# The writev message should have been reassembled from multiple segments
-grep "WritevTest.Call" "$MONITOR_OUT" >/dev/null
 
 # -----------------------------------------------------------------------
 # Test 10: abstract sockets

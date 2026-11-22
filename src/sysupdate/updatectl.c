@@ -41,7 +41,7 @@ static const char *arg_host = NULL;
 COMMAND(
         "updatectl\0",
         "Manage system updates.",
-        .man_pages = "updatectl(1)\0",
+        .man_page = "updatectl(1)",
         .pager_flags = &arg_pager_flags,
 );
 
@@ -174,6 +174,9 @@ static int ensure_targets(sd_bus *bus, char **argv, char ***ret_targets) {
                 r = sd_bus_message_exit_container(reply);
                 if (r < 0)
                         return bus_log_parse_error(r);
+
+                if (strv_isempty(targets))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No targets found.");
         } else {
                 r = strv_extend_strv(&targets, argv, /* filter_duplicates= */ true);
                 if (r < 0)

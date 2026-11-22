@@ -31,7 +31,7 @@
 COMMAND(
         "systemd-rfkill\0",
         "Load and save the RF kill switch state.",
-        .man_pages = "systemd-rfkill.service(8)\0",
+        .man_page = "systemd-rfkill.service(8)",
         .option_namespace = "common",
 );
 

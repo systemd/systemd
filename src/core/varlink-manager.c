@@ -338,6 +338,10 @@ int vl_method_reexecute_manager(sd_varlink *link, sd_json_variant *parameters, s
 
         manager->pending_reload_message_vl = sd_varlink_ref(link);
 
+        assert(!manager->pending_reexecute_message_vl);
+        assert(!manager->pending_reexecute_message_dbus);
+
+        manager->pending_reexecute_message_vl = sd_varlink_ref(link);
         manager->objective = MANAGER_REEXECUTE;
 
         return 1;
@@ -358,12 +362,7 @@ int vl_method_enqueue_marked_jobs_manager(sd_varlink *link, sd_json_variant *par
         if (r < 0)
                 return r;
 
-        r = varlink_verify_polkit_async(
-                        link,
-                        manager->system_bus,
-                        "org.freedesktop.systemd1.manage-units",
-                        /* details= */ NULL,
-                        &manager->polkit_registry);
+        r = varlink_verify_manage_units_async(link, manager, /* details= */ NULL);
         if (r <= 0)
                 return r;
 

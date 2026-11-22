@@ -4,9 +4,7 @@
 #include "list.h"
 #include "tests.h"
 
-int main(int argc, const char *argv[]) {
-        test_setup_logging(LOG_DEBUG);
-
+TEST(list) {
         size_t i;
         typedef struct list_item {
                 LIST_FIELDS(struct list_item, item_list);
@@ -281,6 +279,6 @@ int main(int argc, const char *argv[]) {
 
         ASSERT_PTR_EQ(head, items + 0);
         ASSERT_NULL(head->item_list_next);
-
-        return 0;
 }
+
+DEFINE_TEST_MAIN(LOG_DEBUG);

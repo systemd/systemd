@@ -58,7 +58,7 @@ int pe_addon_make(
                 return log_error_errno(stub_fd, "Failed to open addon stub '%s': %m", stub_path);
 
         _cleanup_(pe_writer_freep) PeWriter *w = NULL;
-        r = pe_writer_new(stub_fd, &w);
+        r = pe_writer_new(stub_fd, /* flags= */ 0, &w);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse addon stub '%s': %m", stub_path);
 

@@ -201,6 +201,8 @@ static int verify_unmanaged_link(Link *l, sd_bus_error *error) {
                 return sd_bus_error_setf(error, BUS_ERROR_LINK_BUSY, "Link %s is loopback device.", l->ifname);
         if (l->is_managed)
                 return sd_bus_error_setf(error, BUS_ERROR_LINK_BUSY, "Link %s is managed.", l->ifname);
+        if (!l->ifname)
+                return sd_bus_error_setf(error, BUS_ERROR_LINK_BUSY, "Interface name of link %i is not known yet.", l->ifindex);
 
         return 0;
 }
@@ -654,17 +656,7 @@ int bus_link_method_revert(sd_bus_message *message, void *userdata, sd_bus_error
 
         bus_client_log(message, "revert");
 
-        link_flush_settings(l);
-        link_allocate_scopes(l);
-        link_add_rrs(l, /* force_remove= */ false);
-
-        (void) link_save_user(l);
-        (void) manager_write_resolv_conf(l->manager);
-        (void) manager_send_changed(l->manager, "DNS");
-        (void) manager_send_dns_configuration_changed(l->manager, l, /* reset= */ true);
-
-        manager_llmnr_maybe_stop(l->manager);
-        manager_mdns_maybe_stop(l->manager);
+        link_revert_settings(l);
 
         return sd_bus_reply_method_return(message, /* types= */ NULL);
 }

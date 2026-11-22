@@ -70,7 +70,7 @@ mkdir -p /var/lib/machines
 mount --bind "$(mktemp --tmpdir=/var/tmp -d)" /var/lib/machines
 
 testcase_sanity() {
-    local template root image uuid tmpdir
+    local template root image uuid tmpdir output
 
     tmpdir="$(mktemp -d)"
     template="$(mktemp -d /tmp/nspawn-template.XXX)"
@@ -86,6 +86,14 @@ testcase_sanity() {
 
     systemd-nspawn --help --no-pager
     systemd-nspawn --version
+
+    # Explicit invalid container-side veth names must be rejected instead of
+    # silently replaced with the host-side name.
+    if output=$(SYSTEMD_LOG_TARGET=console systemd-nspawn --network-veth-extra=host0:bad/name --directory=/nonexistent 2>&1); then
+        echo >&2 "invalid --network-veth-extra= container interface name was accepted"
+        return 1
+    fi
+    assert_in "Failed to parse --network-veth-extra= parameter" "$output"
 
     # --template=
     root="$(mktemp -u -d /var/lib/machines/TEST-13-NSPAWN.sanity.XXX)"
@@ -297,6 +305,27 @@ EOF
                    --tmpfs=/var:rw,nosuid,noexec \
                    bash -xec 'touch /var/nope'
     test ! -e "$root/var/nope"
+    # --tmpfs with --private-users and uid/gid options
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   --private-users=pick \
+                   --tmpfs=/test:rw,nosuid,noexec,uid=1000,gid=1000 \
+                   bash -xec '[[ "$(stat -c %u /test)" == 1000 ]] && [[ "$(stat -c %g /test)" == 1000 ]]'
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   --private-users=pick \
+                   --tmpfs=/test:rw,nosuid,noexec,uid=1000 \
+                   bash -xec '[[ "$(stat -c %u:%g /test)" == "1000:0" ]]'
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   --private-users=pick \
+                   --tmpfs=/test:rw,nosuid,noexec,gid=1000 \
+                   bash -xec '[[ "$(stat -c %u:%g /test)" == "0:1000" ]]'
+    (! systemd-nspawn --register=no \
+                      --directory="$root" \
+                      --private-users=65536:1 \
+                      --tmpfs=/test:rw,nosuid,noexec,uid=1 \
+                      true)
     # --overlay=
     systemd-nspawn --register=no \
                    --directory="$root" \
@@ -1119,7 +1148,10 @@ testcase_notification_socket() {
 testcase_fdstore_wipe() {
     local root commands n_fds names unit=test-nspawn-fdstore-wipe.service
 
-    dummy_container_has /usr/bin/test-fdstore || return 77
+    if ! dummy_container_has /usr/bin/test-fdstore; then
+        echo "test-fdstore is not available in the container template, skipping the test..."
+        return 0
+    fi
 
     root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.fdstore_wipe.XXX)"
     create_dummy_container "$root"
@@ -1188,7 +1220,10 @@ testcase_socket_activation() {
     # https://github.com/systemd/systemd/issues/43764
     local root entrypoint socket1 socket2 nspawn
 
-    dummy_container_has /usr/bin/test-fdstore || return 77
+    if ! dummy_container_has /usr/bin/test-fdstore; then
+        echo "test-fdstore is not available in the container template, skipping the test..."
+        return 0
+    fi
 
     root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.socket-activation.XXX)"
     create_dummy_container "$root"
@@ -1852,6 +1887,16 @@ testcase_unpriv_dir() {
 
     assert_eq "$(run0 --pipe -u testuser systemd-nspawn --pipe --register=no -D "$root" --private-users=managed --private-network bash -c 'echo foobar')" "foobar"
     assert_eq "$(run0 --pipe -u testuser systemd-nspawn --pipe --register=no -D "$root" --private-network bash -c 'echo foobar')" "foobar"
+
+    # The OS tree checks must also work if the foreign-owned root directory isn't accessible to the
+    # unprivileged user, both for /usr/ (non-boot) and os-release (--boot)
+    chmod 0700 "$root"
+    assert_eq "$(run0 --pipe -u testuser systemd-nspawn --pipe --register=no -D "$root" --private-network bash -c 'echo foobar')" "foobar"
+    run0 --pipe -u testuser systemd-nspawn --pipe --register=no -D "$root" --private-network --boot
+    rm -f "$root/etc/os-release" "$root/usr/lib/os-release"
+    (! run0 --pipe -u testuser systemd-nspawn --pipe --register=no -D "$root" --private-network --boot)
+    run0 --pipe -u testuser --setenv=SYSTEMD_NSPAWN_CHECK_OS_RELEASE=0 \
+        systemd-nspawn --pipe --register=no -D "$root" --private-network --boot
     chown root:root "$root/.."
 
     rm -rf "$root"

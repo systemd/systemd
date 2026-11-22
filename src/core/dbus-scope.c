@@ -26,7 +26,7 @@ int bus_scope_method_abandon(sd_bus_message *message, void *userdata, sd_bus_err
         if (r < 0)
                 return r;
 
-        r = bus_verify_manage_units_async(UNIT(s)->manager, message, reterr_error);
+        r = bus_verify_manage_units_async(UNIT(s)->manager, message, /* details= */ NULL, reterr_error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -303,6 +303,9 @@ int bus_scope_track_controller(Scope *s) {
         assert(s);
 
         if (!s->controller || s->controller_track)
+                return 0;
+
+        if (!UNIT(s)->manager->api_bus_ready)
                 return 0;
 
         r = sd_bus_track_new(UNIT(s)->manager->api_bus, &s->controller_track, on_controller_gone, s);

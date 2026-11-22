@@ -381,10 +381,8 @@ static void dns_transaction_tentative(DnsTransaction *t, DnsPacket *p) {
 
         /* RFC 4795, Section 4.1 says that the peer with the
          * lexicographically smaller IP address loses */
-        if (memcmp(&p->sender, &p->destination, FAMILY_ADDRESS_SIZE(p->family)) >= 0) {
-                log_debug("Peer has lexicographically larger IP address and thus lost in the conflict.");
-                return;
-        }
+        if (memcmp(&p->sender, &p->destination, FAMILY_ADDRESS_SIZE(p->family)) >= 0)
+                return (void) log_debug("Peer has lexicographically larger IP address and thus lost in the conflict.");
 
         log_debug("We have the lexicographically larger IP address and thus lost in the conflict.");
 
@@ -847,6 +845,11 @@ static void dns_transaction_cache_answer(DnsTransaction *t) {
 
         /* If validation is turned off for this transaction, but DNSSEC is on, then let's not cache this */
         if (FLAGS_SET(t->query_flags, SD_RESOLVED_NO_VALIDATE) && t->scope->dnssec_mode != DNSSEC_NO)
+                return;
+
+        /* Don't cache replies to bypass queries with checking disabled, regardless of DNSSEC mode. This only
+         * matters if the client's packet goes out as is, see dns_transaction_make_packet(). */
+        if (t->bypass && t->bypass->protocol == t->scope->protocol && DNS_PACKET_CD(t->bypass))
                 return;
 
         /* Same if the reply could not be validated merely because the query went out without DO (e.g. a

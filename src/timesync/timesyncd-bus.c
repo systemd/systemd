@@ -88,6 +88,9 @@ static int method_set_runtime_servers(sd_bus_message *message, void *userdata, s
 
         m->exhausted_servers = true;
         manager_set_server_name(m, NULL);
+        /* The ratelimit in manager_connect() only exists to slow down unattended retries. This is an
+         * explicit request, so contact the new servers without further delay. */
+        ratelimit_reset(&m->ratelimit);
         (void) manager_connect(m);
 
         return sd_bus_reply_method_return(message, /* types= */ NULL);

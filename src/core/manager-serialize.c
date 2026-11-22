@@ -514,15 +514,11 @@ static void manager_deserialize_uid_refs_one_internal(
         assert(value);
 
         r = parse_uid(value, &uid);
-        if (r < 0 || uid == 0) {
-                log_debug("Unable to parse UID/GID reference serialization: %s", value);
-                return;
-        }
+        if (r < 0 || uid == 0)
+                return (void) log_debug("Unable to parse UID/GID reference serialization: %s", value);
 
-        if (hashmap_ensure_allocated(uid_refs, &trivial_hash_ops) < 0) {
-                log_oom();
-                return;
-        }
+        if (hashmap_ensure_allocated(uid_refs, &trivial_hash_ops) < 0)
+                return (void) log_oom();
 
         c = PTR_TO_UINT32(hashmap_get(*uid_refs, UID_TO_PTR(uid)));
         if (c & DESTROY_IPC_FLAG)
@@ -531,10 +527,8 @@ static void manager_deserialize_uid_refs_one_internal(
         c |= DESTROY_IPC_FLAG;
 
         r = hashmap_replace(*uid_refs, UID_TO_PTR(uid), UINT32_TO_PTR(c));
-        if (r < 0) {
-                log_debug_errno(r, "Failed to add UID/GID reference entry: %m");
-                return;
-        }
+        if (r < 0)
+                return (void) log_debug_errno(r, "Failed to add UID/GID reference entry: %m");
 }
 
 static void manager_deserialize_uid_refs_one(Manager *m, const char *value) {
@@ -557,10 +551,10 @@ static void deserialize_restrict_fsaccess(Manager *m, const char *l, FDSet *fds)
                 if (!val)
                         continue;
                 fd = deserialize_fd(fds, val);
-                if (fd < 0) {
-                        log_warning_errno(fd, "bpf-restrict-fsaccess: Failed to deserialize FD for %s: %m", *name);
-                        return;
-                }
+                if (fd < 0)
+                        return (void) log_warning_errno(fd, "bpf-restrict-fsaccess: Failed to deserialize FD for %s: %m",
+                                                        *name);
+
                 close_and_replace(m->restrict_fsaccess_link_fds[name - restrict_fsaccess_link_names], fd);
                 return;
         }
@@ -592,10 +586,9 @@ static void deserialize_restrict_fsaccess(Manager *m, const char *l, FDSet *fds)
                 return;
 
         fd = deserialize_fd(fds, val);
-        if (fd < 0) {
-                log_warning_errno(fd, "bpf-restrict-fsaccess: Failed to deserialize FD for .bss map: %m");
-                return;
-        }
+        if (fd < 0)
+                return (void) log_warning_errno(fd, "bpf-restrict-fsaccess: Failed to deserialize FD for .bss map: %m");
+
         close_and_replace(m->restrict_fsaccess_bss_map_fd, fd);
 }
 
@@ -841,7 +834,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                 } else if ((val = startswith(l, "varlink-pending-reload-connection="))) {
                         sd_varlink *link;
 
-                        r = manager_varlink_claim_connection(m, val, &link);
+                        r = manager_varlink_claim_connection(m, val, /* flags= */ 0, &link);
                         if (r >= 0) {
                                 sd_varlink_unref(m->pending_reload_message_vl);
                                 m->pending_reload_message_vl = sd_varlink_ref(link);
@@ -853,7 +846,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         if (!MANAGER_IS_SYSTEM(m))
                                 continue;
 
-                        r = manager_varlink_claim_connection(m, val, &link);
+                        r = manager_varlink_claim_connection(m, val, /* flags= */ 0, &link);
                         if (r >= 0) {
                                 sd_varlink_unref(m->managed_oom_varlink);
                                 m->managed_oom_varlink = sd_varlink_ref(link);

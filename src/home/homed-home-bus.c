@@ -211,8 +211,9 @@ int bus_home_method_activate(
         r = home_activate(h, if_referenced, secret, error);
         if (r < 0)
                 return r;
+        if (r > 0) /* Done */
+                return sd_bus_reply_method_return(message, /* types= */ NULL);
 
-        assert(r == 0);
         assert(!h->current_operation);
 
         /* The operation is now in process, keep track of this message so that we can later reply to it. */
@@ -556,7 +557,7 @@ int bus_home_method_resize(
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = home_resize(h, sz, secret, error);
+        r = home_resize(h, sz, secret, /* automatic= */ false, error);
         if (r < 0)
                 return r;
 

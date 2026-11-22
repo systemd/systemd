@@ -40,6 +40,7 @@
 COMMAND(
         "systemd-report-basic\0",
         "Report basic information about the system.",
+        .flags = COMMAND_EXPERIMENTAL,
         .option_namespace = "common",
 );
 

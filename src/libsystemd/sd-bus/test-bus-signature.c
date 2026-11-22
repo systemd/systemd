@@ -5,11 +5,9 @@
 #include "log.h"
 #include "tests.h"
 
-int main(int argc, char *argv[]) {
+TEST(signature) {
         char prefix[256];
         int r;
-
-        test_setup_logging(LOG_DEBUG);
 
         ASSERT_TRUE(signature_is_single("y", /* allow_dict_entry= */ false));
         ASSERT_TRUE(signature_is_single("u", /* allow_dict_entry= */ false));
@@ -146,6 +144,6 @@ int main(int argc, char *argv[]) {
                 r++;
         }
         ASSERT_EQ(r, 3);
-
-        return 0;
 }
+
+DEFINE_TEST_MAIN(LOG_DEBUG);

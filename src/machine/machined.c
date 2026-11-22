@@ -347,7 +347,7 @@ static bool check_idle(void *userdata) {
 COMMAND(
         "systemd-machined\0",
         "Manage registrations of local VMs and containers.",
-        .man_pages = "systemd-machined.service(8)\0",
+        .man_page = "systemd-machined.service(8)",
         .option_namespace = "service",
         .option_groups =
                 "Options\0"
@@ -376,6 +376,8 @@ static int run(int argc, char *argv[]) {
                                argc, argv);
         if (r <= 0)
                 return r;
+
+        (void) ignore_signals(SIGPIPE);
 
         umask(0022);
 

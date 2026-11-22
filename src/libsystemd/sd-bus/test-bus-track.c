@@ -47,7 +47,7 @@ static void track_destroy_z(void *userdata) {
         track_destroy_called_z = true;
 }
 
-int main(int argc, char *argv[]) {
+TEST(track) {
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(sd_bus_track_unrefp) sd_bus_track *x = NULL, *y = NULL, *z = NULL;
         _cleanup_(sd_bus_unrefp) sd_bus *a = NULL, *b = NULL;
@@ -55,15 +55,13 @@ int main(int argc, char *argv[]) {
         const char *unique;
         int r;
 
-        test_setup_logging(LOG_INFO);
-
         ASSERT_OK(sd_event_default(&event));
 
         r = sd_bus_open_user(&a);
         if (IN_SET(r, -ECONNREFUSED, -ENOENT, -ENOMEDIUM)) {
                 r = sd_bus_open_system(&a);
                 if (IN_SET(r, -ECONNREFUSED, -ENOENT))
-                        return log_tests_skipped("Failed to connect to bus");
+                        return (void) log_tests_skipped_errno(r, "Failed to connect to bus");
                 use_system_bus = true;
         }
         ASSERT_OK(r);
@@ -145,6 +143,6 @@ int main(int argc, char *argv[]) {
 
         ASSERT_TRUE(track_cb_called_x);
         ASSERT_TRUE(track_cb_called_y);
-
-        return 0;
 }
+
+DEFINE_TEST_MAIN(LOG_INFO);

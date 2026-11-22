@@ -25,887 +25,1757 @@
 
   <refsect1>
     <title>Description</title>
-    <para>udev supplies the system software with device events, manages permissions
-    of device nodes and may create additional symlinks in the <filename>/dev/</filename>
-    directory, or renames network interfaces. The kernel usually just assigns unpredictable
-    device names based on the order of discovery. Meaningful symlinks or network device
-    names provide a way to reliably identify devices based on their properties or
+
+    <para>udev supplies the system software with device events, manages permissions of device nodes and may
+    create additional symlinks in the <filename>/dev/</filename> directory, or renames network interfaces.
+    The kernel usually just assigns unpredictable device names based on the order of discovery. Meaningful
+    symlinks or network device names provide a way to reliably identify devices based on their properties or
     current configuration.</para>
 
-    <para>The udev daemon, <citerefentry><refentrytitle>systemd-udevd.service</refentrytitle>
-    <manvolnum>8</manvolnum></citerefentry>, receives device uevents directly from
-    the kernel whenever a device is added or removed from the system, or it changes its
-    state. When udev receives a device event, it matches its configured set of rules
-    against various device attributes to identify the device. Rules that match may
-    provide additional device information to be stored in the udev database or
-    to be used to create meaningful symlink names.</para>
+    <para>The udev daemon,
+    <citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    receives device uevents directly from the kernel whenever a device is added or removed from the system,
+    or it changes its state. When udev receives a device event, it matches its configured set of rules
+    against various device attributes to identify the device. Rules that match may provide additional device
+    information to be stored in the udev database or to be used to create meaningful symlink names.</para>
 
-    <para>All device information udev processes is stored in the udev database and
-    sent out to possible event subscribers. Access to all stored data and the event
-    sources is provided by the library libudev.</para>
+    <para>All device information udev processes is stored in the udev database and sent out to possible event
+    subscribers. Access to all stored data and the event sources is provided by the library libudev.</para>
+
+    <para>This manual page documents the udev rule language. The rules are processed for every device event;
+    see <citerefentry><refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
+    tools to inspect devices and test rules.</para>
   </refsect1>
 
   <refsect1>
-      <title>Rules Files</title>
-      <para>The udev rules are read from the files located in the system rules directories
-      <filename>/usr/lib/udev/rules.d</filename> and <filename>/usr/local/lib/udev/rules.d</filename>, the
-      volatile runtime directory <filename>/run/udev/rules.d</filename> and the local administration
-      directory <filename>/etc/udev/rules.d</filename>.  All rules files are collectively sorted and
-      processed in lexicographic order, regardless of the directories in which they live. However, files with
-      identical filenames replace each other. Files in <filename>/etc/</filename> have the highest priority,
-      files in <filename>/run/</filename> take precedence over files with the same name under
-      <filename>/usr/</filename>. This can be used to override a system-supplied rules file with a local
-      file if needed; a symlink in <filename>/etc/</filename> with the same name as a rules file in
-      <filename>/usr/lib/</filename>, pointing to <filename>/dev/null</filename>, disables the rules file
-      entirely. Rule files must have the extension <filename>.rules</filename>; other extensions are
-      ignored.</para>
+    <title>Rules Files</title>
 
-      <para>Every line in the rules file contains at least one key-value pair.
-      A line ending with a backslash (<literal>\</literal>) is joined with the following line,
-      and the result is processed as a single line.
-      Lines beginning with <literal>#</literal> are ignored, even within a continuation.
-      An empty or whitespace-only line ends a pending continuation and is otherwise ignored.
-      There are two kinds of keys: match and assignment.
-      If all match keys match against their values, the rule gets applied and the
-      assignment keys get the specified values assigned.</para>
+    <para>The udev rules are read from the files located in the system rules directories
+    <filename>/usr/lib/udev/rules.d</filename> and <filename>/usr/local/lib/udev/rules.d</filename>, the
+    volatile runtime directory <filename>/run/udev/rules.d</filename> and the local administration directory
+    <filename>/etc/udev/rules.d</filename>. All rules files are collectively sorted and processed in
+    lexicographic order, regardless of the directories in which they live. However, files with identical
+    filenames replace each other. Files in <filename>/etc/</filename> have the highest priority, files in
+    <filename>/run/</filename> take precedence over files with the same name under
+    <filename>/usr/</filename>. This can be used to override a system-supplied rules file with a local file
+    if needed; a symlink in <filename>/etc/</filename> with the same name as a rules file in
+    <filename>/usr/lib/</filename>, pointing to <filename>/dev/null</filename>, disables the rules file
+    entirely. Rule files must have the extension <filename>.rules</filename>; other extensions are
+    ignored.</para>
 
-      <para>A matching rule may rename a network interface, add symlinks
-      pointing to the device node, or run a specified program as part of
-      the event handling.</para>
+    <para>Rules files are line-based text files. Each line contains at most one rule, which consists of one
+    or more tokens (see below). A line ending with a backslash (<literal>\</literal>) is joined with the
+    following line, and the result is processed as a single line. Lines beginning with <literal>#</literal>
+    are ignored, even within a continuation. An empty or whitespace-only line ends a pending continuation and
+    is otherwise ignored.</para>
+  </refsect1>
 
-      <para>A rule consists of a comma-separated list of one or more key-operator-value expressions.
-      Each expression has a distinct effect, depending on the key and operator used.</para>
+  <refsect1>
+    <title>Rule Syntax</title>
 
-      <refsect2>
-        <title>Operators</title>
-        <variablelist>
-          <varlistentry>
-            <term><literal>==</literal></term>
-            <listitem>
-              <para>Compare for equality. (The specified key has the specified value.)</para>
-            </listitem>
-          </varlistentry>
+    <para>A rule consists of a comma-separated list of one or more <emphasis>tokens</emphasis>
+    (key-operator-value expressions). Each token has a distinct effect, depending on the key and operator
+    used. A rule may contain both matching and assigning tokens: the assignments are applied only if all
+    matches succeed.</para>
 
-          <varlistentry>
-            <term><literal>!=</literal></term>
-            <listitem>
-              <para>Compare for inequality. (The specified key does not have the specified value, or the
-              specified key is not present at all.)
-              </para>
-            </listitem>
-          </varlistentry>
+    <refsect2>
+      <title>Lines and Tokens</title>
 
-          <varlistentry>
-            <term><literal>=</literal></term>
-            <listitem>
-              <para>Assign a value to a key. Keys that represent a list are reset
-              and only this single value is assigned.</para>
-            </listitem>
-          </varlistentry>
+      <para>The general format of a token is:</para>
 
-          <varlistentry>
-            <term><literal>+=</literal></term>
-            <listitem>
-              <para>Add the value to a key that holds a list of entries.</para>
-            </listitem>
-          </varlistentry>
+      <programlisting><replaceable>key</replaceable>[{<replaceable>attribute</replaceable>}] <replaceable>operator</replaceable> [<replaceable>modifier</replaceable>]"<replaceable>value</replaceable>"</programlisting>
 
-          <varlistentry>
-            <term><literal>-=</literal></term>
-            <listitem>
-              <para>Remove the value from a key that holds a list of entries.</para>
+      <para>with the following parts:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>key</replaceable></term>
+          <listitem>
+            <para>One of the key names described in the <literal>Match Keys</literal> and
+            <literal>Assignments</literal> sections below, for example <varname>KERNEL</varname> or
+            <varname>SYMLINK</varname>. The key determines what is matched against or assigned.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><replaceable>attribute</replaceable></term>
+          <listitem>
+            <para>An optional key-specific argument, enclosed in braces. For example,
+            <varname>ENV{<replaceable>property</replaceable>}</varname> takes a property name,
+            <varname>ATTR{<replaceable>sysfs attribute</replaceable>}</varname> takes a sysfs attribute name,
+            <varname>IMPORT{<replaceable>type</replaceable>}</varname> takes an import type, and
+            <varname>TEST{<replaceable>mask</replaceable>}</varname> takes an octal file mode mask. Keys that
+            do not take an attribute must not be given one.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><replaceable>operator</replaceable></term>
+          <listitem>
+            <para>One of <literal>==</literal>, <literal>!=</literal>, <literal>=</literal>,
+            <literal>:=</literal>, <literal>+=</literal> or <literal>-=</literal>; see
+            <literal>Operators</literal> below. Not every key accepts every operator; the allowed operators
+            are listed for each key.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><replaceable>modifier</replaceable></term>
+          <listitem>
+            <para>An optional prefix attached to the value: <literal>e</literal> for C-style escaped strings
+            and <literal>i</literal> for case-insensitive matching; see <literal>Values</literal>
+            below.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><replaceable>value</replaceable></term>
+          <listitem>
+            <para>The value to match against or assign, written as a double-quoted string; see
+            <literal>Values</literal> below. Depending on the key, the value is interpreted as a pattern (see
+            <literal>Pattern Matching</literal>) and may contain string substitutions (see <literal>String
+            Substitutions</literal>).</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+      <para>For example, in the rule</para>
+
+      <programlisting>SUBSYSTEM=="net", ATTR{address}=="52:54:00:12:34:56", NAME="lan0"</programlisting>
+
+      <para>the first two tokens are matches (on the subsystem and on a sysfs attribute), and the third token
+      assigns the interface name. The interface is only renamed if both matches succeed.</para>
+
+      <para>Tokens are separated by commas, optionally surrounded by whitespace. Although tokens may be
+      written in any order, they are evaluated in a fixed internal order, determined by the key: all match
+      keys are evaluated before all assignment keys, regardless of where they appear in the rule. The full
+      order and its consequences are described in <literal>Token Processing Order</literal> below.</para>
+    </refsect2>
+
+    <refsect2>
+      <title>Token Processing Order</title>
+
+      <para>The tokens of a rule are evaluated in the following order, determined by the key. Tokens with the
+      same key and attribute are evaluated in the order they are specified. The assignments are applied only
+      if all matches succeed.</para>
+
+      <orderedlist>
+        <listitem>
+          <para>The plain match keys: <varname>ACTION</varname>, <varname>DEVPATH</varname>,
+          <varname>KERNEL</varname>, <varname>SYMLINK</varname>, <varname>NAME</varname>,
+          <varname>ENV</varname>, <varname>CONST</varname>, <varname>TAG</varname>,
+          <varname>SUBSYSTEM</varname>, <varname>DRIVER</varname>, <varname>ATTR</varname>, and
+          <varname>SYSCTL</varname></para>
+        </listitem>
+        <listitem>
+          <para>The parent device match keys: <varname>KERNELS</varname>, <varname>SUBSYSTEMS</varname>,
+          <varname>DRIVERS</varname>, <varname>ATTRS</varname>, and <varname>TAGS</varname>, evaluated
+          together while walking up the device chain (see <literal>Matching Parent Devices</literal>
+          below)</para>
+        </listitem>
+        <listitem>
+          <para><varname>TEST</varname></para>
+        </listitem>
+        <listitem>
+          <para><varname>PROGRAM</varname></para>
+        </listitem>
+        <listitem>
+          <para><varname>IMPORT{file}</varname></para>
+        </listitem>
+        <listitem>
+          <para><varname>IMPORT{program}</varname></para>
+        </listitem>
+        <listitem>
+          <para><varname>IMPORT{builtin}</varname></para>
+        </listitem>
+        <listitem>
+          <para><varname>IMPORT{db}</varname></para>
+        </listitem>
+        <listitem>
+          <para><varname>IMPORT{cmdline}</varname></para>
+        </listitem>
+        <listitem>
+          <para><varname>IMPORT{parent}</varname></para>
+        </listitem>
+        <listitem>
+          <para><varname>RESULT</varname></para>
+        </listitem>
+        <listitem>
+          <para><varname>OPTIONS</varname></para>
+        </listitem>
+        <listitem>
+          <para><varname>OWNER</varname>, <varname>GROUP</varname>, and <varname>MODE</varname></para>
+        </listitem>
+        <listitem>
+          <para><varname>TAG</varname></para>
+        </listitem>
+        <listitem>
+          <para><varname>SECLABEL</varname></para>
+        </listitem>
+        <listitem>
+          <para><varname>ENV</varname></para>
+        </listitem>
+        <listitem>
+          <para><varname>NAME</varname></para>
+        </listitem>
+        <listitem>
+          <para><varname>SYMLINK</varname></para>
+        </listitem>
+        <listitem>
+          <para><varname>ATTR</varname></para>
+        </listitem>
+        <listitem>
+          <para><varname>SYSCTL</varname></para>
+        </listitem>
+        <listitem>
+          <para><varname>RUN{builtin}</varname></para>
+        </listitem>
+        <listitem>
+          <para><varname>RUN{program}</varname></para>
+        </listitem>
+      </orderedlist>
+
+      <para>This order has several consequences:</para>
+
+      <itemizedlist>
+        <listitem>
+          <para>No match key can see properties assigned in the same rule.</para>
+        </listitem>
+        <listitem>
+          <para><varname>RESULT</varname> is evaluated after all <varname>PROGRAM</varname> keys of the rule,
+          so it is matched against the output of the last executed program.</para>
+        </listitem>
+        <listitem>
+          <para>Properties imported by <varname>IMPORT{}</varname> are visible to all assignments of the
+          rule, while properties assigned by <varname>ENV</varname> are visible only to the assignments that
+          follow it in the order above: <varname>NAME</varname>, <varname>SYMLINK</varname>,
+          <varname>ATTR</varname>, <varname>SYSCTL</varname>, and <varname>RUN</varname>.</para>
+        </listitem>
+        <listitem>
+          <para>The <varname>OPTIONS</varname> string-escape settings affect the <varname>NAME</varname>,
+          <varname>SYMLINK</varname>, and <varname>ENV</varname> assignments of the same rule.</para>
+        </listitem>
+      </itemizedlist>
+    </refsect2>
+
+    <refsect2>
+      <title>Operators</title>
+
+      <variablelist>
+        <varlistentry>
+          <term><literal>==</literal></term>
+          <listitem>
+            <para>Compare for equality: the specified key has the specified value. The value may be a
+            pattern; see <literal>Pattern Matching</literal> below.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><literal>!=</literal></term>
+          <listitem>
+            <para>Compare for inequality: the specified key does not have the specified value or the
+            specified key is not present at all. The value may be a pattern.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><literal>=</literal></term>
+          <listitem>
+            <para>Assign a value to a key. Keys that represent a list are reset and only this single value is
+            assigned.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><literal>+=</literal></term>
+          <listitem>
+            <para>Add the value to a key that holds a list of entries.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><literal>-=</literal></term>
+          <listitem>
+            <para>Remove the value from a key that holds a list of entries.</para>
 
             <xi:include href="version-info.xml" xpointer="v217"/>
-            </listitem>
-          </varlistentry>
+          </listitem>
+        </varlistentry>
 
-          <varlistentry>
-            <term><literal>:=</literal></term>
-            <listitem>
-              <para>Assign a value to a key finally; disallow any later changes.</para>
+        <varlistentry>
+          <term><literal>:=</literal></term>
+          <listitem>
+            <para>Assign a value to a key finally; disallow any later changes.</para>
 
             <xi:include href="version-info.xml" xpointer="v247"/>
-            </listitem>
-          </varlistentry>
-        </variablelist>
-      </refsect2>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
 
-      <refsect2>
-        <title>Values</title>
-          <para>Values are written as double quoted strings, such as ("string").
-          To include a quotation mark (") in the value, precede it by a backslash (\").
-          Any other occurrences of a backslash followed by a character are not unescaped.
-          That is, "\t\n" is treated as four characters:
-          backslash, lowercase t, backslash, lowercase n.</para>
+    <refsect2>
+      <title>Values</title>
 
-          <para>The string can be prefixed with a lowercase e (e"string\n") to mark the string as
-          C-style escaped, see
-          <ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">Escape sequences in C</ulink>.
-          For example, e"string\n" is parsed as 7 characters: 6 lowercase letters and a newline.
-          This can be useful for writing special characters when a kernel driver requires them.</para>
+      <para>Values are written as double-quoted strings, such as '"string"'. To include a quotation mark (")
+      in the value, precede it by a backslash, i.e. '\"'. Any other occurrences of a backslash followed by a
+      character are not unescaped. That is, <literal>\t\n</literal> is treated as four characters: backslash,
+      lowercase <literal>t</literal>, backslash, lowercase <literal>n</literal>.</para>
 
-          <para>The string can be prefixed with a lowercase i (i"string") to mark that the string or pattern
-          will match case-insensitively. For example, i"foo" will match
-          <literal>foo</literal>, <literal>FOO</literal>, <literal>FoO</literal> and so on. The prefix can be
-          used only for match (<literal>==</literal>) or unmatch (<literal>!=</literal>) rules, e.g.
-          <varname>ATTR{foo}==i"abcd"</varname>.</para>
+      <para>The string can be prefixed with a lowercase <literal>e</literal> to mark the string as C-style
+      escaped; see
+      <ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">Escape sequences in C</ulink>.
+      For example, 'e"string\n"' is parsed as 7 characters: 6 lowercase letters and a newline. This can be
+      useful for writing special characters when a kernel driver requires them.</para>
 
-          <para>Please note that <constant>NUL</constant> is not allowed in either string variant.</para>
-      </refsect2>
+      <para>The string can be prefixed with a lowercase <literal>i</literal> to mark that the string or
+      pattern will match case-insensitively. For example, 'i"foo"' will match <literal>foo</literal>,
+      <literal>FOO</literal>, <literal>FoO</literal>, and so on. The prefix can be used only for match
+      (<literal>==</literal>) or unmatch (<literal>!=</literal>) rules, e.g.
+      <varname>ATTR{foo}==i"abcd"</varname>. The <literal>e</literal> and <literal>i</literal> prefixes may
+      be combined, in either order, e.g. 'ei"foo"'.</para>
 
-      <refsect2>
-        <title>Keys</title>
-        <para>The following key names can be used to match against device properties.
-        Some of the keys also match against properties of the parent devices in sysfs,
-        not only the device that has generated the event. If multiple keys that match
-        a parent device are specified in a single rule, all these keys must match at
-        one and the same parent device.</para>
-        <variablelist class='udev-directives'>
-          <varlistentry>
-            <term><varname>ACTION</varname></term>
-            <listitem>
-              <para>Match the name of the event action.</para>
-            </listitem>
-          </varlistentry>
+      <para>Please note that <constant>NUL</constant> is not allowed in either string variant.</para>
+    </refsect2>
 
-          <varlistentry>
-            <term><varname>DEVPATH</varname></term>
-            <listitem>
-              <para>Match the devpath of the event device.</para>
-            </listitem>
-          </varlistentry>
+    <refsect2>
+      <title>Pattern Matching</title>
 
-          <varlistentry>
-            <term><varname>KERNEL</varname></term>
-            <listitem>
-              <para>Match the name of the event device.</para>
-            </listitem>
-          </varlistentry>
+      <para>The values of most match keys are interpreted as patterns: they support shell glob pattern
+      matching and alternate patterns. This applies to the <varname>ACTION</varname>,
+      <varname>DEVPATH</varname>, <varname>KERNEL</varname>, <varname>SUBSYSTEM</varname>,
+      <varname>DRIVER</varname>, <varname>SYMLINK</varname>, <varname>NAME</varname>, <varname>ENV</varname>,
+      <varname>CONST</varname>, <varname>TAG</varname>, <varname>ATTR</varname>, <varname>SYSCTL</varname>,
+      <varname>KERNELS</varname>, <varname>SUBSYSTEMS</varname>, <varname>DRIVERS</varname>,
+      <varname>ATTRS</varname>, <varname>TAGS</varname>, and <varname>RESULT</varname> match keys. The values
+      of <varname>TEST</varname>, <varname>PROGRAM</varname>, and <varname>IMPORT</varname> are not patterns:
+      they are file paths and command lines (the value of <varname>IMPORT{parent}</varname> is a single glob
+      pattern matched against property names, and does not support alternate patterns). The following special
+      characters are supported in patterns:</para>
 
-          <varlistentry>
-            <term><varname>KERNELS</varname></term>
-            <listitem>
-              <para>Search the devpath upwards for a matching device name.</para>
-            </listitem>
-          </varlistentry>
+      <variablelist>
+        <varlistentry>
+          <term><literal>*</literal></term>
+          <listitem>
+            <para>Matches zero or more characters.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><literal>?</literal></term>
+          <listitem>
+            <para>Matches any single character.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><literal>[]</literal></term>
+          <listitem>
+            <para>Matches any single character specified within the brackets. For example, the pattern string
+            <literal>tty[SR]</literal> would match either <literal>ttyS</literal> or <literal>ttyR</literal>.
+            Ranges are also supported via the <literal>-</literal> character. For example, to match on the
+            range of all digits, the pattern <literal>[0-9]</literal> could be used. If the first character
+            following the <literal>[</literal> is a <literal>!</literal>, any characters not enclosed are
+            matched.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><literal>|</literal></term>
+          <listitem>
+            <para>Separates alternative patterns. For example, the pattern string <literal>abc|x*</literal>
+            would match either <literal>abc</literal> or <literal>x*</literal>.</para>
 
-          <varlistentry>
-            <term><varname>NAME</varname></term>
-            <listitem>
-              <para>Match the name of a network interface. It can be used once the
-              NAME key has been set in one of the preceding rules.</para>
-            </listitem>
-          </varlistentry>
+            <xi:include href="version-info.xml" xpointer="v217"/>
+          </listitem>
+        </varlistentry>
+      </variablelist>
 
-          <varlistentry>
-            <term><varname>SYMLINK</varname></term>
-            <listitem>
-              <para>Match the name of a symlink targeting the node. It can be used once a SYMLINK key has
-              been set in one of the preceding rules. There may be multiple symlinks; only one needs to
-              match. If the operator is <literal>!=</literal>, the token returns true only if there is no
-              symlink matched.</para>
-            </listitem>
-          </varlistentry>
+      <para>An empty alternative — produced by a leading, trailing, or doubled <literal>|</literal>, e.g.
+      <literal>|foo</literal> — matches an unset or empty value. For example,
+      <varname>ENV{FOO}=="bar|"</varname> matches when the property is set to <literal>bar</literal> or is
+      unset or empty. To test that a value is set and non-empty, the patterns '=="?*"' and
+      '!=""' are commonly used, e.g. <varname>ENV{FOO}=="?*"</varname>. The
+      <varname>ATTR</varname> and <varname>ATTRS</varname> keys are an exception: if the attribute cannot be
+      read, the token is false regardless of the pattern, even with the <literal>!=</literal>
+      operator.</para>
 
-          <varlistentry>
-            <term><varname>SUBSYSTEM</varname></term>
-            <listitem>
-              <para>Match the subsystem of the event device.</para>
-            </listitem>
-          </varlistentry>
+      <para>The <varname>SYMLINK</varname> and <varname>TAG</varname> match keys test a list of values
+      (symlinks, tags); the token matches if any of the values matches. With the <literal>!=</literal>
+      operator, the token is true only if none of the values matches.</para>
 
-          <varlistentry>
-            <term><varname>SUBSYSTEMS</varname></term>
-            <listitem>
-              <para>Search the devpath upwards for a matching device subsystem name.</para>
-            </listitem>
-          </varlistentry>
+      <para>For <varname>SUBSYSTEM</varname>, the value <literal>subsystem</literal> matches the devices that
+      represent the subsystem enumeration directories themselves.</para>
+    </refsect2>
 
-          <varlistentry>
-            <term><varname>DRIVER</varname></term>
-            <listitem>
-              <para>Match the driver name of the event device. Only set this key for devices
-              which are bound to a driver at the time the event is generated.</para>
-            </listitem>
-          </varlistentry>
+    <refsect2>
+      <title>Referring to Other Devices</title>
 
-          <varlistentry>
-            <term><varname>DRIVERS</varname></term>
-            <listitem>
-              <para>Search the devpath upwards for a matching device driver name.</para>
-            </listitem>
-          </varlistentry>
+      <para>Several keys and substitutions accept an attribute name in the following format, which addresses
+      a specific device by its subsystem and kernel name instead of the event device:</para>
 
-          <varlistentry>
-            <term><varname>ATTR{<replaceable>filename</replaceable>}</varname></term>
-            <listitem>
-              <para>Match sysfs attribute value of the event device.</para>
+      <programlisting>[<replaceable>SUBSYSTEM</replaceable>/<replaceable>KERNEL</replaceable>]<replaceable>attribute</replaceable></programlisting>
 
-              <para>Trailing whitespace in the attribute values is ignored unless the specified match value
-              itself contains trailing whitespace.</para>
-            </listitem>
-          </varlistentry>
+      <para>For example, the sysfs attribute <literal>/sys/class/dmi/id/product_name</literal> can be matched
+      with</para>
 
-          <varlistentry>
-            <term><varname>ATTRS{<replaceable>filename</replaceable>}</varname></term>
-            <listitem>
-              <para>Search the devpath upwards for a device with matching sysfs attribute values. If
-              multiple <varname>ATTRS</varname> matches are specified, all of them must match on the same
-              device.</para>
+      <programlisting>ATTR{[dmi/id]product_name}=="ThinkPad*"</programlisting>
 
-              <para>Trailing whitespace in the attribute values is ignored unless the specified match value
-              itself contains trailing whitespace.</para>
-            </listitem>
-          </varlistentry>
+      <para>The referenced device is looked up directly: the attribute is read from (or written to) it,
+      regardless of the event device or its parents. Attribute names in this format are looked up literally
+      by <varname>ATTR</varname>, <varname>ATTRS</varname>, and <varname>$attr{}</varname>: string
+      substitutions are not applied to them. <varname>TEST</varname> is an exception: its path is
+      substituted before the device reference is resolved, so e.g.
+      <varname>TEST=="[net/$env{INTERFACE}]operstate"</varname> is supported.</para>
 
-          <varlistentry>
-            <term><varname>SYSCTL{<replaceable>kernel parameter</replaceable>}</varname></term>
-            <listitem>
-              <para>Match a kernel parameter value.</para>
+      <para>The format is supported by the following keys and substitutions:</para>
 
-            <xi:include href="version-info.xml" xpointer="v240"/>
-            </listitem>
-          </varlistentry>
+      <itemizedlist>
+        <listitem>
+          <para><varname>ATTR{<replaceable>attribute</replaceable>}</varname>, for both matching and
+          assignment,</para>
+        </listitem>
+        <listitem>
+          <para><varname>ATTRS{<replaceable>attribute</replaceable>}</varname> (the attribute is read from
+          the referenced device instead of the devices along the devpath),</para>
+        </listitem>
+        <listitem>
+          <para><varname>TEST</varname> (as a leading prefix of a relative path, resolved to the referenced
+          device's sysfs path), and</para>
+        </listitem>
+        <listitem>
+          <para>the <varname>$attr{<replaceable>attribute</replaceable>}</varname> substitution.</para>
+        </listitem>
+      </itemizedlist>
+    </refsect2>
 
-          <varlistentry>
-            <term><varname>ENV{<replaceable>key</replaceable>}</varname></term>
-            <listitem>
-              <para>Match against a device property value.</para>
-            </listitem>
-          </varlistentry>
+    <refsect2>
+      <title>Key Overview</title>
 
-          <varlistentry>
-            <term><varname>CONST{<replaceable>key</replaceable>}</varname></term>
-            <listitem>
-              <para>Match against a system-wide constant. Supported keys are:</para>
-              <variablelist>
-                <varlistentry>
-                  <term><literal>arch</literal></term>
-                  <listitem>
-                    <para>System's architecture. See <option>ConditionArchitecture=</option> in
-                    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                    for possible values.</para>
+      <para>The following tables summarize the keys, the attributes they take, the operators they accept,
+      whether their match values are patterns, and where string substitutions are applied. See the next two
+      sections for the detailed descriptions.</para>
+
+      <para>Match keys:</para>
+
+      <table>
+        <title>Match keys</title>
+        <tgroup cols='5'>
+          <colspec colname='key' />
+          <colspec colname='attribute' />
+          <colspec colname='operators' />
+          <colspec colname='patterns' />
+          <colspec colname='substitutions' />
+
+          <thead><row>
+            <entry>Key</entry>
+            <entry>Attribute</entry>
+            <entry>Operators</entry>
+            <entry>Patterns</entry>
+            <entry>Substitutions</entry>
+          </row></thead>
+
+          <tbody>
+            <row>
+              <entry><varname>ACTION</varname></entry>
+              <entry>—</entry>
+              <entry><literal>==</literal>, <literal>!=</literal></entry>
+              <entry>yes</entry>
+              <entry>—</entry>
+            </row>
+            <row>
+              <entry><varname>DEVPATH</varname></entry>
+              <entry>—</entry>
+              <entry><literal>==</literal>, <literal>!=</literal></entry>
+              <entry>yes</entry>
+              <entry>—</entry>
+            </row>
+            <row>
+              <entry><varname>KERNEL</varname></entry>
+              <entry>—</entry>
+              <entry><literal>==</literal>, <literal>!=</literal></entry>
+              <entry>yes</entry>
+              <entry>—</entry>
+            </row>
+            <row>
+              <entry><varname>SUBSYSTEM</varname></entry>
+              <entry>—</entry>
+              <entry><literal>==</literal>, <literal>!=</literal></entry>
+              <entry>yes</entry>
+              <entry>—</entry>
+            </row>
+            <row>
+              <entry><varname>DRIVER</varname></entry>
+              <entry>—</entry>
+              <entry><literal>==</literal>, <literal>!=</literal></entry>
+              <entry>yes</entry>
+              <entry>—</entry>
+            </row>
+            <row>
+              <entry><varname>SYMLINK</varname></entry>
+              <entry>—</entry>
+              <entry><literal>==</literal>, <literal>!=</literal></entry>
+              <entry>yes</entry>
+              <entry>—</entry>
+            </row>
+            <row>
+              <entry><varname>NAME</varname></entry>
+              <entry>—</entry>
+              <entry><literal>==</literal>, <literal>!=</literal></entry>
+              <entry>yes</entry>
+              <entry>—</entry>
+            </row>
+            <row>
+              <entry><varname>ENV</varname></entry>
+              <entry>property name</entry>
+              <entry><literal>==</literal>, <literal>!=</literal></entry>
+              <entry>yes</entry>
+              <entry>—</entry>
+            </row>
+            <row>
+              <entry><varname>CONST</varname></entry>
+              <entry><literal>arch</literal>, <literal>virt</literal>, <literal>cvm</literal></entry>
+              <entry><literal>==</literal>, <literal>!=</literal></entry>
+              <entry>yes</entry>
+              <entry>—</entry>
+            </row>
+            <row>
+              <entry><varname>TAG</varname></entry>
+              <entry>—</entry>
+              <entry><literal>==</literal>, <literal>!=</literal></entry>
+              <entry>yes</entry>
+              <entry>—</entry>
+            </row>
+            <row>
+              <entry><varname>ATTR</varname></entry>
+              <entry>sysfs attribute</entry>
+              <entry><literal>==</literal>, <literal>!=</literal></entry>
+              <entry>yes</entry>
+              <entry>attribute name</entry>
+            </row>
+            <row>
+              <entry><varname>SYSCTL</varname></entry>
+              <entry>kernel parameter</entry>
+              <entry><literal>==</literal>, <literal>!=</literal></entry>
+              <entry>yes</entry>
+              <entry>attribute name</entry>
+            </row>
+            <row>
+              <entry><varname>KERNELS</varname></entry>
+              <entry>—</entry>
+              <entry><literal>==</literal>, <literal>!=</literal></entry>
+              <entry>yes</entry>
+              <entry>—</entry>
+            </row>
+            <row>
+              <entry><varname>SUBSYSTEMS</varname></entry>
+              <entry>—</entry>
+              <entry><literal>==</literal>, <literal>!=</literal></entry>
+              <entry>yes</entry>
+              <entry>—</entry>
+            </row>
+            <row>
+              <entry><varname>DRIVERS</varname></entry>
+              <entry>—</entry>
+              <entry><literal>==</literal>, <literal>!=</literal></entry>
+              <entry>yes</entry>
+              <entry>—</entry>
+            </row>
+            <row>
+              <entry><varname>ATTRS</varname></entry>
+              <entry>sysfs attribute</entry>
+              <entry><literal>==</literal>, <literal>!=</literal></entry>
+              <entry>yes</entry>
+              <entry>attribute name</entry>
+            </row>
+            <row>
+              <entry><varname>TAGS</varname></entry>
+              <entry>—</entry>
+              <entry><literal>==</literal>, <literal>!=</literal></entry>
+              <entry>yes</entry>
+              <entry>—</entry>
+            </row>
+            <row>
+              <entry><varname>TEST</varname></entry>
+              <entry>file mode mask</entry>
+              <entry><literal>==</literal>, <literal>!=</literal></entry>
+              <entry>no (file path)</entry>
+              <entry>value</entry>
+            </row>
+            <row>
+              <entry><varname>PROGRAM</varname></entry>
+              <entry>—</entry>
+              <entry><literal>==</literal>, <literal>!=</literal></entry>
+              <entry>no (command line)</entry>
+              <entry>value</entry>
+            </row>
+            <row>
+              <entry><varname>IMPORT</varname></entry>
+              <entry>import type</entry>
+              <entry><literal>==</literal>, <literal>!=</literal></entry>
+              <entry>no</entry>
+              <entry>value (except <literal>db</literal> and <literal>cmdline</literal>)</entry>
+            </row>
+            <row>
+              <entry><varname>RESULT</varname></entry>
+              <entry>—</entry>
+              <entry><literal>==</literal>, <literal>!=</literal></entry>
+              <entry>yes</entry>
+              <entry>—</entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </table>
+
+      <para>Assignment keys:</para>
+
+      <table>
+        <title>Assignment keys</title>
+        <tgroup cols='4'>
+          <colspec colname='key' />
+          <colspec colname='attribute' />
+          <colspec colname='operators' />
+          <colspec colname='substitutions' />
+
+          <thead><row>
+            <entry>Key</entry>
+            <entry>Attribute</entry>
+            <entry>Operators</entry>
+            <entry>Substitutions</entry>
+          </row></thead>
+
+          <tbody>
+            <row>
+              <entry><varname>NAME</varname></entry>
+              <entry>—</entry>
+              <entry><literal>=</literal>, <literal>:=</literal></entry>
+              <entry>value</entry>
+            </row>
+            <row>
+              <entry><varname>SYMLINK</varname></entry>
+              <entry>—</entry>
+              <entry><literal>=</literal>, <literal>:=</literal>, <literal>+=</literal>, <literal>-=</literal></entry>
+              <entry>value</entry>
+            </row>
+            <row>
+              <entry><varname>OWNER</varname>, <varname>GROUP</varname>, <varname>MODE</varname></entry>
+              <entry>—</entry>
+              <entry><literal>=</literal>, <literal>:=</literal></entry>
+              <entry>value</entry>
+            </row>
+            <row>
+              <entry><varname>SECLABEL</varname></entry>
+              <entry>LSM module name</entry>
+              <entry><literal>=</literal>, <literal>+=</literal></entry>
+              <entry>value</entry>
+            </row>
+            <row>
+              <entry><varname>ENV</varname></entry>
+              <entry>property name</entry>
+              <entry><literal>=</literal>, <literal>+=</literal></entry>
+              <entry>value</entry>
+            </row>
+            <row>
+              <entry><varname>TAG</varname></entry>
+              <entry>—</entry>
+              <entry><literal>=</literal>, <literal>+=</literal>, <literal>-=</literal></entry>
+              <entry>value</entry>
+            </row>
+            <row>
+              <entry><varname>ATTR</varname></entry>
+              <entry>sysfs attribute</entry>
+              <entry><literal>=</literal></entry>
+              <entry>value</entry>
+            </row>
+            <row>
+              <entry><varname>SYSCTL</varname></entry>
+              <entry>kernel parameter</entry>
+              <entry><literal>=</literal></entry>
+              <entry>attribute name and value</entry>
+            </row>
+            <row>
+              <entry><varname>RUN</varname></entry>
+              <entry><literal>program</literal>, <literal>builtin</literal></entry>
+              <entry><literal>=</literal>, <literal>:=</literal>, <literal>+=</literal></entry>
+              <entry>value</entry>
+            </row>
+            <row>
+              <entry><varname>LABEL</varname></entry>
+              <entry>—</entry>
+              <entry><literal>=</literal></entry>
+              <entry>—</entry>
+            </row>
+            <row>
+              <entry><varname>GOTO</varname></entry>
+              <entry>—</entry>
+              <entry><literal>=</literal></entry>
+              <entry>—</entry>
+            </row>
+            <row>
+              <entry><varname>OPTIONS</varname></entry>
+              <entry>—</entry>
+              <entry><literal>=</literal></entry>
+              <entry>—</entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </table>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Match Keys</title>
+
+    <para>The following keys can be used to match against device properties. With the <literal>==</literal>
+    and <literal>!=</literal> operators, they decide whether the rule (and thus the assignments in it) is
+    applied.</para>
+
+    <refsect2>
+      <title>Matching the Event Device</title>
+
+      <para>These keys are matched against the event device itself:</para>
+
+      <variablelist class='udev-directives'>
+        <varlistentry>
+          <term><varname>ACTION</varname></term>
+          <listitem>
+            <para>Match the name of the event action, e.g. <literal>add</literal> or
+            <literal>remove</literal>. See the <literal>Event Actions</literal> section for the list of
+            actions and their meaning.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>DEVPATH</varname></term>
+          <listitem>
+            <para>Match the devpath of the event device, e.g.
+            <literal>/devices/pci0000:00/0000:00:14.0/usb1/1-2/1-2:1.0/ttyUSB0/tty/ttyUSB0</literal>.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>KERNEL</varname></term>
+          <listitem>
+            <para>Match the name assigned by the kernel to the event device, e.g. <literal>sda</literal> or
+            <literal>ttyUSB0</literal>.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>SUBSYSTEM</varname></term>
+          <listitem>
+            <para>Match the subsystem of the event device, e.g. <literal>net</literal> or
+            <literal>block</literal>.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>DRIVER</varname></term>
+          <listitem>
+            <para>Match the driver name of the event device. Only set this key for devices which are bound to
+            a driver at the time the event is generated.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>SYMLINK</varname></term>
+          <listitem>
+            <para>Match the name of a symlink targeting the device node, without the
+            <filename>/dev/</filename> prefix, e.g. <literal>disk/by-label/root</literal>. It can be used
+            once a SYMLINK key has been set in one of the preceding rules. There may be multiple symlinks;
+            only one needs to match. If the operator is <literal>!=</literal>, the token returns true only if
+            there is no symlink matched.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>NAME</varname></term>
+          <listitem>
+            <para>Match the name of a network interface. It can be used once the NAME key has been set in one
+            of the preceding rules.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>ENV{<replaceable>property</replaceable>}</varname></term>
+          <listitem>
+            <para>Match against a device property value, e.g. properties set by the kernel (such as
+            <literal>DEVTYPE</literal> or <literal>MODALIAS</literal>), imported by
+            <varname>IMPORT{}</varname>, or assigned by earlier rules. An unset property is matched as the
+            empty value; see <literal>Pattern Matching</literal> above.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>CONST{<replaceable>key</replaceable>}</varname></term>
+          <listitem>
+            <para>Match against a system-wide constant. Supported keys are:</para>
+            <variablelist>
+              <varlistentry>
+                <term><literal>arch</literal></term>
+                <listitem>
+                  <para>System's architecture. See <option>ConditionArchitecture=</option> in
+                  <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                  for possible values.</para>
 
                   <xi:include href="version-info.xml" xpointer="v244"/>
-                  </listitem>
-                </varlistentry>
-                <varlistentry>
-                  <term><literal>virt</literal></term>
-                  <listitem>
-                    <para>System's virtualization environment. See
-                    <citerefentry><refentrytitle>systemd-detect-virt</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                    for possible values.</para>
-
-                    <xi:include href="version-info.xml" xpointer="v244"/>
-                  </listitem>
-                </varlistentry>
-                <varlistentry>
-                  <term><literal>cvm</literal></term>
-                  <listitem>
-                    <para>System's confidential virtualization technology. See
-                    <citerefentry><refentrytitle>systemd-detect-virt</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                    for possible values.</para>
-
-                    <xi:include href="version-info.xml" xpointer="v254"/>
-                  </listitem>
-                </varlistentry>
-              </variablelist>
-              <para>Unknown keys will never match.</para>
-
-              <xi:include href="version-info.xml" xpointer="v244"/>
-            </listitem>
-          </varlistentry>
-
-          <varlistentry>
-            <term><varname>TAG</varname></term>
-            <listitem>
-              <para>Match against one of device tags. It can be used once a TAG key has been set in one of
-              the preceding rules. There may be multiple tags; only one needs to match. If the operator is
-              <literal>!=</literal>, the token returns true only if there is no tag matched.</para>
-            </listitem>
-          </varlistentry>
-
-          <varlistentry>
-            <term><varname>TAGS</varname></term>
-            <listitem>
-              <para>Search the devpath upwards for a device with matching tag. If the operator is
-              <literal>!=</literal>, the token returns true only if there is no tag matched.</para>
-            </listitem>
-          </varlistentry>
-
-          <varlistentry>
-            <term><varname>TEST{<replaceable>octal mode mask</replaceable>}</varname></term>
-            <listitem>
-              <para>Test the existence of a file. An octal mode mask can be specified
-              if needed.</para>
-            </listitem>
-          </varlistentry>
-
-          <varlistentry>
-            <term><varname>PROGRAM</varname></term>
-            <listitem>
-              <para>Execute a program to determine whether there is a match; the key is true if the program
-              returns successfully. The device properties are made available to the executed program in the
-              environment. The program's standard output is available in the <varname>RESULT</varname>
-              key.</para>
-
-              <para>This can only be used for very short-running foreground tasks. For details, see
-              <varname>RUN</varname>.</para>
-
-              <para>Note that multiple <varname>PROGRAM</varname> keys may be specified in one rule, and
-              <literal>=</literal>, <literal>:=</literal>, and <literal>+=</literal> have the same effect as
-              <literal>==</literal>.</para>
-            </listitem>
-          </varlistentry>
-
-          <varlistentry>
-            <term><varname>RESULT</varname></term>
-            <listitem>
-              <para>Match the returned string of the last <varname>PROGRAM</varname> call.
-              This key can be used in the same or in any later rule after a
-              <varname>PROGRAM</varname> call.</para>
-            </listitem>
-          </varlistentry>
-        </variablelist>
-
-        <para>Most of the fields support shell glob pattern matching and
-        alternate patterns. The following special characters are supported:</para>
-        <variablelist>
-          <varlistentry>
-            <term><literal>*</literal></term>
-            <listitem>
-              <para>Matches zero or more characters.</para>
-            </listitem>
-          </varlistentry>
-          <varlistentry>
-            <term><literal>?</literal></term>
-            <listitem>
-              <para>Matches any single character.</para>
-            </listitem>
-          </varlistentry>
-          <varlistentry>
-            <term><literal>[]</literal></term>
-            <listitem>
-              <para>Matches any single character specified within the brackets. For
-              example, the pattern string <literal>tty[SR]</literal>
-              would match either <literal>ttyS</literal> or <literal>ttyR</literal>.
-              Ranges are also supported via the <literal>-</literal> character.
-              For example, to match on the range of all digits, the pattern
-              <literal>[0-9]</literal> could be used. If the first character
-              following the <literal>[</literal> is a <literal>!</literal>,
-              any characters not enclosed are matched.</para>
-            </listitem>
-          </varlistentry>
-          <varlistentry>
-            <term><literal>|</literal></term>
-            <listitem>
-              <para>Separates alternative patterns. For example, the pattern string
-              <literal>abc|x*</literal> would match either <literal>abc</literal>
-              or <literal>x*</literal>.</para>
-
-              <xi:include href="version-info.xml" xpointer="v217"/>
-            </listitem>
-          </varlistentry>
-        </variablelist>
-
-        <para>The following keys can get values assigned:</para>
-        <variablelist class='udev-directives'>
-          <varlistentry>
-            <term><varname>NAME</varname></term>
-            <listitem>
-              <para>The name to use for a network interface. See
-              <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-              for a higher-level mechanism for setting the interface name.
-              The name of a device node cannot be changed by udev, only additional
-              symlinks can be created.</para>
-            </listitem>
-          </varlistentry>
-
-          <varlistentry>
-            <term><varname>SYMLINK</varname></term>
-            <listitem>
-              <para>The name of a symlink targeting the node. Every matching rule adds
-              this value to the list of symlinks to be created.</para>
-              <para>The set of characters to name a symlink is limited. Allowed
-              characters are <literal>0-9A-Za-z#+-.:=@_/</literal>, valid UTF-8 character
-              sequences, and <literal>\x00</literal> hex encoding. All other
-              characters are replaced by a <literal>_</literal> character.</para>
-              <para>Multiple symlinks may be specified by separating the names by the
-              space character. In case multiple devices claim the same name, the link
-              always points to the device with the highest link_priority. If the current
-              device goes away, the links are re-evaluated and the device with the
-              next highest link_priority becomes the owner of the link. If no
-              link_priority is specified, the order of the devices (and which one of
-              them owns the link) is undefined.</para>
-              <para>Symlink names must never conflict with the kernel's default device
-              node names, as that would result in unpredictable behavior.
-              </para>
-            </listitem>
-          </varlistentry>
-
-          <varlistentry>
-            <term><varname>OWNER</varname>, <varname>GROUP</varname>, <varname>MODE</varname></term>
-            <listitem>
-              <para>The permissions for the device node. Every specified value overrides
-              the compiled-in default value.</para>
-            </listitem>
-          </varlistentry>
-
-          <varlistentry>
-            <term><varname>SECLABEL{<replaceable>module</replaceable>}</varname></term>
-            <listitem>
-              <para>Applies the specified Linux Security Module label to the device node.</para>
-
-            <xi:include href="version-info.xml" xpointer="v209"/>
-            </listitem>
-          </varlistentry>
-
-          <varlistentry>
-            <term><varname>ATTR{<replaceable>key</replaceable>}</varname></term>
-            <listitem>
-              <para>The value that should be written to a sysfs attribute of the
-              event device.</para>
-            </listitem>
-          </varlistentry>
-
-          <varlistentry>
-            <term><varname>SYSCTL{<replaceable>kernel parameter</replaceable>}</varname></term>
-            <listitem>
-              <para>The value that should be written to kernel parameter.</para>
-
-            <xi:include href="version-info.xml" xpointer="v220"/>
-            </listitem>
-          </varlistentry>
-
-          <varlistentry>
-            <term><varname>ENV{<replaceable>key</replaceable>}</varname></term>
-            <listitem>
-              <para>Set a device property value. Property names with a leading <literal>.</literal>
-              are neither stored in the database nor exported to events or
-              external tools (run by, for example, the <varname>PROGRAM</varname>
-              match key).</para>
-            </listitem>
-          </varlistentry>
-
-          <varlistentry>
-            <term><varname>TAG</varname></term>
-            <listitem>
-              <para>Attach a tag to a device. This is used to filter events for users
-              of libudev's monitor functionality, or to enumerate a group of tagged
-              devices. The implementation can only work efficiently if only a few
-              tags are attached to a device. It is only meant to be used in
-              contexts with specific device filter requirements, and not as a
-              general-purpose flag. Excessive use might result in inefficient event
-              handling.</para>
-            </listitem>
-          </varlistentry>
-
-          <varlistentry>
-            <term><varname>RUN{<replaceable>type</replaceable>}</varname></term>
-            <listitem>
-              <para>Specify a program to be executed after processing of all the rules for the event. With
-              <literal>+=</literal>, this invocation is added to the list, and with <literal>=</literal> or
-              <literal>:=</literal>, it replaces any previous contents of the list. Please note that both
-              <literal>program</literal> and <literal>builtin</literal> types described below share a common
-              list, so clearing the list with <literal>:=</literal> and <literal>=</literal> affects both
-              types.</para>
-
-              <para><replaceable>type</replaceable> may be:</para>
-              <variablelist>
-                <varlistentry>
-                  <term><literal>program</literal></term>
-                  <listitem>
-                    <para>Execute an external program specified as the assigned
-                    value. If no absolute path is given, the program is expected
-                    to live in <filename>/usr/lib/udev</filename>; otherwise, the
-                    absolute path must be specified.</para>
-                    <para>This is the default if no <replaceable>type</replaceable>
-                    is specified.</para>
-                  </listitem>
-                </varlistentry>
-                <varlistentry>
-                  <term><literal>builtin</literal></term>
-                  <listitem>
-                    <para>As <varname>program</varname>, but use one of the
-                    built-in programs rather than an external one.</para>
-
-                  <xi:include href="version-info.xml" xpointer="v199"/>
-                  </listitem>
-                </varlistentry>
-              </variablelist>
-
-              <para>The program name and following arguments are separated by spaces. Single quotes can be
-              used to specify arguments with spaces.</para>
-
-              <para>This can only be used for very short-running foreground tasks. Running an event process for
-              a long period of time may block all further events for this or a dependent device.</para>
-
-              <para>Note that running programs that access the network or mount/unmount filesystems is not
-              allowed inside of udev rules, due to the default sandbox that is enforced on
-              <filename>systemd-udevd.service</filename>.</para>
-
-              <para>Starting daemons or other long-running processes is not allowed; the forked processes,
-              detached or not, will be unconditionally killed after the event handling has finished. In order
-              to activate long-running processes from udev rules, provide a service unit and pull it in from a
-              udev device using the <varname>SYSTEMD_WANTS</varname> device property. See
-              <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-              for details.</para>
-            </listitem>
-          </varlistentry>
-
-          <varlistentry>
-            <term><varname>LABEL</varname></term>
-            <listitem>
-              <para>A named label to which a <varname>GOTO</varname> may jump.</para>
-            </listitem>
-          </varlistentry>
-
-          <varlistentry>
-            <term><varname>GOTO</varname></term>
-            <listitem>
-              <para>Jumps to the next <varname>LABEL</varname> with a matching name.</para>
-            </listitem>
-          </varlistentry>
-
-          <varlistentry>
-            <term><varname>IMPORT{<replaceable>type</replaceable>}</varname></term>
-            <listitem>
-              <para>Import a set of variables as device properties, depending on
-              <replaceable>type</replaceable>:</para>
-
-              <variablelist>
-                <varlistentry>
-                  <term><literal>program</literal></term>
-                  <listitem>
-                    <para>Execute an external program specified as the assigned
-                    value and, if it returns successfully,
-                    import its output, which must be in environment key
-                    format. Path specification, command/argument separation,
-                    and quoting work like in <varname>RUN</varname>.</para>
-
-                    <xi:include href="version-info.xml" xpointer="v199"/>
-                  </listitem>
-                </varlistentry>
-                <varlistentry>
-                  <term><literal>builtin</literal></term>
-                  <listitem>
-                    <para>Similar to <literal>program</literal>, but use one of the
-                    built-in programs rather than an external one.</para>
-
-                  <xi:include href="version-info.xml" xpointer="v199"/>
-                  </listitem>
-                </varlistentry>
+                </listitem>
+              </varlistentry>
               <varlistentry>
-                  <term><literal>file</literal></term>
-                  <listitem>
-                    <para>Import a text file specified as the assigned value, the content
-                    of which must be in environment key format.</para>
-                  </listitem>
-                </varlistentry>
-                <varlistentry>
-                  <term><literal>db</literal></term>
-                  <listitem>
-                    <para>Import a single property specified as the assigned value from the
-                    current device database. This works only if the database is already populated
-                    by an earlier event.</para>
-                  </listitem>
-                </varlistentry>
-                <varlistentry>
-                  <term><literal>cmdline</literal></term>
-                  <listitem>
-                    <para>Import a single property from the kernel command line. For simple flags
-                    the value of the property is set to <literal>1</literal>.</para>
-                  </listitem>
-                </varlistentry>
-                <varlistentry>
-                  <term><literal>parent</literal></term>
-                  <listitem>
-                    <para>Import the stored keys from the parent device by reading
-                    the database entry of the parent device. The value assigned to
-                    <option>IMPORT{parent}</option> is used as a filter of key names
-                    to import (with the same shell glob pattern matching used for
-                    comparisons).</para>
-                  </listitem>
-                </varlistentry>
-              </variablelist>
+                <term><literal>virt</literal></term>
+                <listitem>
+                  <para>System's virtualization environment. See
+                  <citerefentry><refentrytitle>systemd-detect-virt</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                  for possible values.</para>
 
-              <para>This can only be used for very short-running foreground tasks. For details see
-              <option>RUN</option>.</para>
+                  <xi:include href="version-info.xml" xpointer="v244"/>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><literal>cvm</literal></term>
+                <listitem>
+                  <para>System's confidential virtualization technology. See
+                  <citerefentry><refentrytitle>systemd-detect-virt</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                  for possible values.</para>
 
-              <para>Note that multiple <varname>IMPORT{}</varname> keys may be specified in one rule, and
-              <literal>=</literal>, <literal>:=</literal>, and <literal>+=</literal> have the same effect as
-              <literal>==</literal>. The key is true if the import is successful, unless <literal>!=</literal>
-              is used as the operator which causes the key to be true if the import failed.</para>
-            </listitem>
-          </varlistentry>
+                  <xi:include href="version-info.xml" xpointer="v254"/>
+                </listitem>
+              </varlistentry>
+            </variablelist>
+            <para>Unknown keys will never match.</para>
 
-          <varlistentry>
-            <term><varname>OPTIONS</varname></term>
-            <listitem>
-              <para>Rule and device options:</para>
-              <variablelist class='udev-directives'>
-                <varlistentry>
-                  <term><option>link_priority=<replaceable>value</replaceable></option></term>
-                  <listitem>
-                    <para>Specify the priority of the created symlinks. Devices with higher
-                    priorities overwrite existing symlinks of other devices. The default is 0.</para>
-                  </listitem>
-                </varlistentry>
-                <varlistentry>
-                  <term><option>string_escape=<replaceable>none|replace</replaceable></option></term>
-                  <listitem>
-                    <para>When <literal>replace</literal>, possibly unsafe characters in strings
-                    assigned to <varname>NAME</varname>, <varname>SYMLINK</varname>, and
-                    <varname>ENV{<replaceable>key</replaceable>}</varname> are replaced. When
-                    <literal>none</literal>, no replacement is performed. When unset, the replacement
-                    is performed for <varname>NAME</varname>, <varname>SYMLINK</varname>, but not for
-                    <varname>ENV{<replaceable>key</replaceable>}</varname>. Defaults to unset.</para>
-                  </listitem>
-                </varlistentry>
-                <varlistentry>
-                  <term><option>static_node=</option></term>
-                  <listitem>
-                    <para>Apply the permissions specified in this rule to the
-                    static device node with the specified name. Also, for every
-                    tag specified in this rule, create a symlink
-                    in the directory
-                    <filename>/run/udev/static_node-tags/<replaceable>tag</replaceable></filename>
-                    pointing at the static device node with the specified name.
-                    Static device node creation is performed by systemd-tmpfiles
-                    before systemd-udevd is started. The static nodes might not
-                    have a corresponding kernel device; they are used to trigger
-                    automatic kernel module loading when they are accessed.</para>
-                  </listitem>
-                </varlistentry>
-                <varlistentry>
-                  <term><option>watch</option></term>
-                  <listitem>
-                    <para>Watch the device node; when the node is closed after being opened for writing, a
-                    change uevent is synthesized.</para>
-                  </listitem>
-                </varlistentry>
-                <varlistentry>
-                  <term><option>nowatch</option></term>
-                  <listitem>
-                    <para>Disable the watching of a device node.</para>
-                  </listitem>
-                </varlistentry>
-                <varlistentry>
-                  <term><option>db_persist</option></term>
-                  <listitem>
-                    <para>Set the flag (sticky bit) on the udev database entry of the event device. Device
-                    properties are then kept in the database even when <command>udevadm info
-                    --cleanup-db</command> is called.  This option can be useful in certain cases
-                    (e.g. Device Mapper devices) for persisting device state on the transition from
-                    initrd.</para>
+            <xi:include href="version-info.xml" xpointer="v244"/>
+          </listitem>
+        </varlistentry>
 
-                    <xi:include href="version-info.xml" xpointer="v241"/>
-                  </listitem>
-                </varlistentry>
-                <varlistentry>
-                  <term><option>log_level=<replaceable>level</replaceable></option></term>
-                  <listitem>
-                    <para>Takes a log level name like <literal>debug</literal> or
-                    <literal>info</literal>, or a special value <literal>reset</literal>. When a log
-                    level name is specified, the maximum log level is changed to that level. When
-                    <literal>reset</literal> is set, then the previously specified log level is
-                    revoked. Defaults to the log level of the main process of
-                    <command>systemd-udevd</command>.</para>
-                    <para>This may be useful when debugging events for certain devices. Note that the
-                    log level is applied when the line including this rule is processed. So, for
-                    debugging, it is recommended that this is specified at earlier place, e.g., the
-                    first line of <filename>00-debug.rules</filename>.</para>
-                    <para>Example for debugging uevent processing for network interfaces:
-                    <programlisting># /etc/udev/rules.d/00-debug-net.rules
-SUBSYSTEM=="net", OPTIONS="log_level=debug"</programlisting></para>
+        <varlistentry>
+          <term><varname>TAG</varname></term>
+          <listitem>
+            <para>Match against one of device tags. It can be used once a TAG key has been set in one of the
+            preceding rules. There may be multiple tags; only one needs to match. If the operator is
+            <literal>!=</literal>, the token returns true only if there is no tag matched.</para>
+          </listitem>
+        </varlistentry>
 
-                    <xi:include href="version-info.xml" xpointer="v248"/>
-                  </listitem>
-                </varlistentry>
-                <varlistentry>
-                  <term><option>dump</option></term>
-                  <listitem>
-                    <para>Dump the status of the event currently processing. It may be useful for debugging
-                    udev rules by inserting this option.</para>
+        <varlistentry>
+          <term><varname>ATTR{<replaceable>filename</replaceable>}</varname></term>
+          <listitem>
+            <para>Match the value of a sysfs attribute of the event device, e.g.
+            <varname>ATTR{address}</varname> for a network interface. The attribute name may be a relative
+            path with <literal>/</literal> separators, e.g. <varname>ATTR{power/control}</varname>, and may
+            also address another device with the <literal>[SUBSYSTEM/KERNEL]attribute</literal> format; see
+            <literal>Referring to Other Devices</literal> above.</para>
 
-                    <xi:include href="version-info.xml" xpointer="v258"/>
-                  </listitem>
-                </varlistentry>
-                <varlistentry>
-                  <term><option>dump-json</option></term>
-                  <listitem>
-                    <para>Similar to <option>dump</option>, but dump the status of the event in JSON format.</para>
+            <para>Trailing whitespace in the attribute values is ignored unless the specified match value
+            itself contains trailing whitespace.</para>
 
-                    <xi:include href="version-info.xml" xpointer="v259"/>
-                  </listitem>
-                </varlistentry>
-              </variablelist>
-            </listitem>
-          </varlistentry>
-        </variablelist>
+            <para>The attribute name supports string substitutions, unless it is specified in the
+            <literal>[SUBSYSTEM/KERNEL]attribute</literal> format, which is looked up literally; see
+            <literal>String Substitutions</literal> below.</para>
+          </listitem>
+        </varlistentry>
 
-        <para>The <varname>ENV</varname>, <varname>GROUP</varname>,
-        <varname>MODE</varname>, <varname>NAME</varname>,
-        <varname>OWNER</varname>, <varname>PROGRAM</varname>,
-        <varname>RUN</varname>, <varname>SECLABEL</varname>, and
-        <varname>SYMLINK</varname> fields support simple string substitutions.
-        The <varname>RUN</varname> substitutions are performed after all rules
-        have been processed, right before the program is executed, allowing for
-        the use of device properties set by earlier matching rules. For all
-        other fields, substitutions are performed while the individual rule is
-        being processed. The available substitutions are:</para>
-        <variablelist class='udev-directives'>
-          <varlistentry>
-            <term><option>$kernel</option>, <option>%k</option></term>
-            <listitem>
-              <para>The kernel name for this device.</para>
-            </listitem>
-          </varlistentry>
+        <varlistentry>
+          <term><varname>SYSCTL{<replaceable>kernel parameter</replaceable>}</varname></term>
+          <listitem>
+            <para>Match the value of a kernel parameter (sysctl), e.g.
+            <varname>SYSCTL{kernel/hostname}</varname>. Both <literal>/</literal> and <literal>.</literal>
+            may be used as separators in the parameter name. The parameter name supports string
+            substitutions; see <literal>String Substitutions</literal> below.</para>
 
-          <varlistentry>
-            <term><option>$number</option>, <option>%n</option></term>
-            <listitem>
-              <para>The kernel number for this device. For example, <literal>sda3</literal> has kernel number
-              3.</para>
-            </listitem>
-          </varlistentry>
+            <xi:include href="version-info.xml" xpointer="v240"/>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
 
-          <varlistentry>
-            <term><option>$devpath</option>, <option>%p</option></term>
-            <listitem>
-              <para>The devpath of the device.</para>
-            </listitem>
-          </varlistentry>
+    <refsect2>
+      <title>Matching Parent Devices</title>
 
-          <varlistentry>
-            <term><option>$id</option>, <option>%b</option></term>
-            <listitem>
-              <para>The name of the device matched while searching the devpath
-                upwards for <option>SUBSYSTEMS</option>, <option>KERNELS</option>,
-                <option>DRIVERS</option>, and <option>ATTRS</option>.
-              </para>
-            </listitem>
-          </varlistentry>
+      <para>Devices are organized hierarchically in sysfs: every device except the root of its chain has a
+      parent device (for example, a partition is a child of its disk, which is a child of the storage
+      controller it is attached to). The following keys match against the devices along this chain:</para>
 
-          <varlistentry>
-            <term><option>$driver</option></term>
-            <listitem>
-              <para>The driver name of the device matched while searching the
-                devpath upwards for <option>SUBSYSTEMS</option>,
-                <option>KERNELS</option>, <option>DRIVERS</option>, and
-                <option>ATTRS</option>.
-              </para>
-            </listitem>
-          </varlistentry>
+      <variablelist class='udev-directives'>
+        <varlistentry>
+          <term><varname>KERNELS</varname></term>
+          <listitem>
+            <para>Search the devpath upwards for a matching device name.</para>
+          </listitem>
+        </varlistentry>
 
-          <varlistentry>
-            <term><option>$attr{<replaceable>file</replaceable>}</option>, <option>%s{<replaceable>file</replaceable>}</option></term>
-            <listitem>
-              <para>The value of a sysfs attribute found at the device where
-                all keys of the rule have matched. If the matching device does not
-                have such an attribute, and a previous <option>KERNELS</option>,
-                <option>SUBSYSTEMS</option>, <option>DRIVERS</option>, or
-                <option>ATTRS</option> test selected a parent device, then the
-                attribute from that parent device is used.
-              </para>
-              <para>If the attribute is a symlink, the last element of the
-                symlink target is returned as the value.
-              </para>
-            </listitem>
-          </varlistentry>
+        <varlistentry>
+          <term><varname>SUBSYSTEMS</varname></term>
+          <listitem>
+            <para>Search the devpath upwards for a matching device subsystem name.</para>
+          </listitem>
+        </varlistentry>
 
-          <varlistentry>
-            <term><option>$env{<replaceable>key</replaceable>}</option>, <option>%E{<replaceable>key</replaceable>}</option></term>
-            <listitem>
-              <para>A device property value.</para>
-            </listitem>
-          </varlistentry>
+        <varlistentry>
+          <term><varname>DRIVERS</varname></term>
+          <listitem>
+            <para>Search the devpath upwards for a matching device driver name.</para>
+          </listitem>
+        </varlistentry>
 
-          <varlistentry>
-            <term><option>$major</option>, <option>%M</option></term>
-            <listitem>
-              <para>The kernel major number for the device.</para>
-            </listitem>
-          </varlistentry>
+        <varlistentry>
+          <term><varname>ATTRS{<replaceable>filename</replaceable>}</varname></term>
+          <listitem>
+            <para>Search the devpath upwards for a device with a matching sysfs attribute value. Trailing
+            whitespace in the attribute values is ignored unless the specified match value itself contains
+            trailing whitespace. The attribute may also address another device with the
+            <literal>[SUBSYSTEM/KERNEL]attribute</literal> format; see <literal>Referring to Other
+            Devices</literal> above.</para>
 
-          <varlistentry>
-            <term><option>$minor</option>, <option>%m</option></term>
-            <listitem>
-              <para>The kernel minor number for the device.</para>
-            </listitem>
-          </varlistentry>
+            <para>Referencing attributes through the <literal>device/</literal> symlink or through
+            <literal>../</literal> (e.g. <varname>ATTRS{device/serial}</varname> or
+            <varname>ATTRS{../serial}</varname>) is discouraged: these paths may not be available in future
+            kernels. Prefer matching the attribute of the parent device directly, as shown by
+            <command>udevadm info --attribute-walk</command>.</para>
+          </listitem>
+        </varlistentry>
 
-          <varlistentry>
-            <term><option>$result</option>, <option>%c</option></term>
-            <listitem>
-              <para>The string returned by the external program requested with
-              <varname>PROGRAM</varname>.
-              A single part of the string, separated by a space character, may be selected
-              by specifying the part number as an attribute: <literal>%c{N}</literal>.
-              If the number is followed by the <literal>+</literal> character, this part plus all remaining parts
-              of the result string are substituted: <literal>%c{N+}</literal>.</para>
-            </listitem>
-          </varlistentry>
+        <varlistentry>
+          <term><varname>TAGS</varname></term>
+          <listitem>
+            <para>Search the devpath upwards for a device with matching tag. If the operator is
+            <literal>!=</literal>, the token returns true only if there is no tag matched.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
 
-          <varlistentry>
-            <term><option>$parent</option>, <option>%P</option></term>
-            <listitem>
-              <para>The node name of the parent device.</para>
-            </listitem>
-          </varlistentry>
+      <para>The search starts with the event device itself and continues towards the root of the device
+      chain. If several parent match keys are specified in a single rule, all of them must match one and the
+      same device in the chain (although different rules may match at different levels). If no device in the
+      chain satisfies all parent match keys, the rule does not match.</para>
 
-          <varlistentry>
-            <term><option>$name</option></term>
-            <listitem>
-              <para>The current name of the device. If not changed by a rule, it is the
-              name of the kernel device.</para>
-            </listitem>
-          </varlistentry>
+      <para>The device where the parent search succeeded can be referenced in substitutions:
+      <varname>$id</varname> expands to its kernel name and <varname>$driver</varname> to its driver name;
+      see <literal>String Substitutions</literal> below. For example, in</para>
 
-          <varlistentry>
-            <term><option>$links</option></term>
-            <listitem>
-              <para>A space-separated list of the current symlinks. The value is
-              only set during a remove event or if an earlier rule assigned a value.</para>
-            </listitem>
-          </varlistentry>
+      <programlisting>SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", SUBSYSTEMS=="usb", ATTRS{serial}=="0123456789", SYMLINK+="usb-$id"</programlisting>
 
-          <varlistentry>
-            <term><option>$root</option>, <option>%r</option></term>
-            <listitem>
-              <para>The udev_root value.</para>
-            </listitem>
-          </varlistentry>
+      <para>both <varname>SUBSYSTEMS</varname> and <varname>ATTRS</varname> must match the same USB device,
+      and <literal>$id</literal> expands to the kernel name of that USB device (e.g.
+      <literal>3-2</literal>).</para>
+    </refsect2>
 
-          <varlistentry>
-            <term><option>$sys</option>, <option>%S</option></term>
-            <listitem>
-              <para>The sysfs mount point.</para>
-            </listitem>
-          </varlistentry>
+    <refsect2>
+      <title>Matching Against Files and Program Results</title>
 
-          <varlistentry>
-            <term><option>$devnode</option>, <option>%N</option></term>
-            <listitem>
-              <para>The name of the device node.</para>
-            </listitem>
-          </varlistentry>
+      <variablelist class='udev-directives'>
+        <varlistentry>
+          <term><varname>TEST<optional>{<replaceable>mask</replaceable>}</optional></varname></term>
+          <listitem>
+            <para>Test the existence of a file. The value is a file path; if it is relative, it is taken
+            relative to the sysfs path of the event device, unless it starts with a
+            <literal>[<replaceable>SUBSYSTEM</replaceable>/<replaceable>KERNEL</replaceable>]</literal>
+            prefix, which is resolved to that device's sysfs path (see <literal>Referring to Other
+            Devices</literal> above). A <literal>/*/</literal> sequence in the path is expanded: the
+            <literal>*</literal> is replaced by the first non-hidden entry of the preceding directory for
+            which the remainder of the path exists; only the first such sequence is expanded, and a
+            <literal>*</literal> that is not a whole path component is taken literally. The value supports
+            string substitutions, see <literal>String Substitutions</literal> below.</para>
 
-          <varlistentry>
-            <term><option>%%</option></term>
-            <listitem>
-            <para>The <literal>%</literal> character itself.</para>
-            </listitem>
-          </varlistentry>
+            <para>Optionally, an octal file mode mask may be specified as the attribute; the token then
+            matches if the file exists and any of the bits set in the mask are also set in the file's mode.
+            For example, the following rule matches block devices whose device node is writable by its
+            owner:</para>
 
-          <varlistentry>
-            <term><option>$$</option></term>
-            <listitem>
-            <para>The <literal>$</literal> character itself.</para>
-            </listitem>
-          </varlistentry>
-        </variablelist>
-      </refsect2>
+            <programlisting>SUBSYSTEM=="block", TEST{0200}=="$devnode", ENV{NODE_OWNER_WRITABLE}="1"</programlisting>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>PROGRAM</varname></term>
+          <listitem>
+            <para>Execute a program to determine whether there is a match; the key is true if the program
+            returns successfully. The program's standard output is available in the <varname>RESULT</varname>
+            key. How the command line is specified, and which restrictions apply to the executed program, are
+            described in <literal>Program Execution</literal> below.</para>
+
+            <para>Multiple <varname>PROGRAM</varname> keys may be specified in one rule; they are executed
+            sequentially, in the order they are specified, and the output of the last executed program is
+            used for the <varname>RESULT</varname> match. As with any other match key, the remaining tokens
+            of the rule are not evaluated once one of the programs fails. For example,</para>
+
+            <programlisting>SUBSYSTEM=="block", \
+  PROGRAM=="/usr/lib/udev/example-probe $devnode", \
+  PROGRAM=="/usr/lib/udev/example-describe $devnode", \
+  RESULT=="usb*", SYMLINK+="example-%k"</programlisting>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>RESULT</varname></term>
+          <listitem>
+            <para>Match the returned string of the last <varname>PROGRAM</varname> call. This key can be used
+            in the same or in any later rule after a <varname>PROGRAM</varname> call. If several
+            <varname>PROGRAM</varname> keys were executed, the output of the most recently executed one is
+            matched; see <literal>Token Processing Order</literal> above.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Assignments</title>
+
+    <para>The following keys can get values assigned. Assignments in a rule are only applied if all match
+    keys of the rule succeed.</para>
+
+    <variablelist class='udev-directives'>
+      <varlistentry>
+        <term><varname>NAME</varname></term>
+        <listitem>
+          <para>The name to use for a network interface. This key is only used to rename network interfaces;
+          other devices — in particular device nodes — cannot be renamed by udev. The interface is renamed
+          when the device is added; on other events, the assignment only affects the <varname>$name</varname>
+          substitution and later <varname>NAME</varname> matches. Assigning <literal>%k</literal> or the
+          empty string is rejected. See
+          <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for a higher-level mechanism for setting the interface name.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>SYMLINK</varname></term>
+        <listitem>
+          <para>The name of a symlink targeting the device node, e.g.
+          <literal>disk/by-id/usb-1234567890</literal> for <filename>/dev/sda</filename>. With
+          <literal>+=</literal>, the value is added to the list of symlinks to be created; with
+          <literal>=</literal> or <literal>:=</literal>, the list is reset to this value; with
+          <literal>-=</literal>, the value is removed from the list.</para>
+          <para>The set of characters to name a symlink is limited. Allowed characters are
+          <literal>0-9A-Za-z#+-.:=@_/</literal>, valid UTF-8 character sequences, and <literal>\x00</literal>
+          hex encoding. All other characters are replaced by a <literal>_</literal> character.</para>
+          <para>Multiple symlinks may be specified by separating the names by the space character. In case
+          multiple devices claim the same name, the link always points to the device with the highest link
+          priority, set with the <option>link_priority=</option> option of <varname>OPTIONS</varname> (0 if
+          unset). If the current device goes away, the links are re-evaluated and the device with the next
+          highest link priority becomes the owner of the link. If several devices have the same priority,
+          which one of them owns the link is undefined.</para>
+          <para>Symlink names must never conflict with the kernel's default device node names, as that would
+          result in unpredictable behavior.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>OWNER</varname>, <varname>GROUP</varname>, <varname>MODE</varname></term>
+        <listitem>
+          <para>The permissions for the device node. Every specified value overrides the compiled-in default
+          value. The user and group may be specified as a name or a numeric ID. Note that assigning a user or
+          group that is not a system user or group is deprecated.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>SECLABEL{<replaceable>module</replaceable>}</varname></term>
+        <listitem>
+          <para>Applies the specified Linux Security Module label to the device node.</para>
+
+          <xi:include href="version-info.xml" xpointer="v209"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ENV{<replaceable>key</replaceable>}</varname></term>
+        <listitem>
+          <para>Set a device property value. With <literal>+=</literal>, the value is appended to the current
+          value of the property, separated by a space; assigning the empty string removes the property.
+          Properties that are set by the kernel or by udev itself (such as <literal>ACTION</literal>,
+          <literal>DEVPATH</literal>, <literal>DEVNAME</literal>, <literal>DEVLINKS</literal> or
+          <literal>INTERFACE</literal>) cannot be assigned or removed.</para>
+          <para>Property names with a leading <literal>.</literal> are neither stored in the database nor
+          exported to events or external tools (run by, for example, the <varname>PROGRAM</varname> match
+          key).</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>TAG</varname></term>
+        <listitem>
+          <para>Attach a tag to a device. With <literal>+=</literal>, the tag is added to the current list of
+          tags; with <literal>-=</literal>, the tag is removed from the current list of tags only — it
+          remains in the stored <literal>TAGS</literal> property and in the tag index, so libudev monitor and
+          enumeration filters still match it. With <literal>=</literal>, tags added by earlier rules during
+          the current event are dropped, and the value is assigned.</para>
+          <para>This is used to filter events for users of libudev's monitor functionality, or to enumerate a
+          group of tagged devices. The implementation can only work efficiently if only a few tags are
+          attached to a device. It is only meant to be used in contexts with specific device filter
+          requirements, and not as a general-purpose flag. Excessive use might result in inefficient event
+          handling.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ATTR{<replaceable>key</replaceable>}</varname></term>
+        <listitem>
+          <para>The value that should be written to a sysfs attribute of the event device. The attribute name
+          may address another device with the <literal>[SUBSYSTEM/KERNEL]attribute</literal> format (see
+          <literal>Referring to Other Devices</literal> above), and a <literal>/*/</literal> sequence in it
+          is expanded as described for <varname>TEST</varname> above. The assigned value supports string
+          substitutions; see <literal>String Substitutions</literal> below.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>SYSCTL{<replaceable>kernel parameter</replaceable>}</varname></term>
+        <listitem>
+          <para>The value that should be written to kernel parameter. The parameter name and the assigned
+          value support string substitutions; see <literal>String Substitutions</literal> below.</para>
+
+          <xi:include href="version-info.xml" xpointer="v220"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>RUN{<replaceable>type</replaceable>}</varname></term>
+        <listitem>
+          <para>Specify a program to be executed after processing of all the rules for the event. With
+          <literal>+=</literal>, this invocation is added to the list, and with <literal>=</literal> or
+          <literal>:=</literal>, it replaces any previous contents of the list. Please note that both
+          <literal>program</literal> and <literal>builtin</literal> types described below share a common
+          list, so clearing the list with <literal>:=</literal> and <literal>=</literal> affects both
+          types.</para>
+
+          <para><replaceable>type</replaceable> may be:</para>
+          <variablelist>
+            <varlistentry>
+              <term><literal>program</literal></term>
+              <listitem>
+                <para>Execute an external program specified as the assigned value.</para>
+                <para>This is the default if no <replaceable>type</replaceable> is specified.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><literal>builtin</literal></term>
+              <listitem>
+                <para>As <varname>program</varname>, but use one of the built-in programs rather than an
+                external one.</para>
+
+                <xi:include href="version-info.xml" xpointer="v199"/>
+              </listitem>
+            </varlistentry>
+          </variablelist>
+
+          <para>How the command line is specified, and which restrictions apply to the executed program, are
+          described in <literal>Program Execution</literal> below.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LABEL</varname></term>
+        <listitem>
+          <para>A named label to which a <varname>GOTO</varname> may jump.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>GOTO</varname></term>
+        <listitem>
+          <para>Jumps to the next <varname>LABEL</varname> with a matching name. The label must appear later
+          in the same rules file; a <varname>GOTO</varname> without a matching label is ignored.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IMPORT{<replaceable>type</replaceable>}</varname></term>
+        <listitem>
+          <para>Import a set of variables as device properties, depending on
+          <replaceable>type</replaceable>:</para>
+
+          <variablelist>
+            <varlistentry>
+              <term><literal>program</literal></term>
+              <listitem>
+                <para>Execute an external program specified as the assigned value and, if it returns
+                successfully, import its output, which must be in environment key format. How the command
+                line is specified, and which restrictions apply to the executed program, are described in
+                <literal>Program Execution</literal> below. If the value matches the name of a built-in
+                program, the built-in is executed instead.</para>
+
+                <xi:include href="version-info.xml" xpointer="v199"/>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><literal>builtin</literal></term>
+              <listitem>
+                <para>Similar to <literal>program</literal>, but use one of the built-in programs rather than
+                an external one.</para>
+
+                <xi:include href="version-info.xml" xpointer="v199"/>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><literal>file</literal></term>
+              <listitem>
+                <para>Import a text file specified as the assigned value, the content of which must be in
+                environment key format.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><literal>db</literal></term>
+              <listitem>
+                <para>Import a single property specified as the assigned value from the current device
+                database. This works only if the database is already populated by an earlier event.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><literal>cmdline</literal></term>
+              <listitem>
+                <para>Import a single property from the kernel command line. For simple flags the value of
+                the property is set to <literal>1</literal>.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><literal>parent</literal></term>
+              <listitem>
+                <para>Import the stored keys from the parent device by reading the database entry of the
+                parent device. The value assigned to <option>IMPORT{parent}</option> is used as a filter of
+                key names to import (with the same shell glob pattern matching used for comparisons). Unlike
+                match values, this pattern does not support alternate patterns separated by
+                <literal>|</literal>.</para>
+              </listitem>
+            </varlistentry>
+          </variablelist>
+
+          <para>Note that multiple <varname>IMPORT{}</varname> keys may be specified in one rule. The key is
+          true if the import is successful, unless <literal>!=</literal> is used as the operator which causes
+          the key to be true if the import failed.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>OPTIONS</varname></term>
+        <listitem>
+          <para>Rule and device options:</para>
+          <variablelist class='udev-directives'>
+            <varlistentry>
+              <term><option>link_priority=<replaceable>value</replaceable></option></term>
+              <listitem>
+                <para>Specify the priority of the created symlinks. Devices with higher priorities overwrite
+                existing symlinks of other devices. The default is 0.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>string_escape=<replaceable>none|replace</replaceable></option></term>
+              <listitem>
+                <para>When <literal>replace</literal>, possibly unsafe characters in strings assigned to
+                <varname>NAME</varname>, <varname>SYMLINK</varname>, and
+                <varname>ENV{<replaceable>key</replaceable>}</varname> are replaced. When
+                <literal>none</literal>, no replacement is performed. When unset, the replacement is
+                performed for <varname>NAME</varname>, <varname>SYMLINK</varname>, but not for
+                <varname>ENV{<replaceable>key</replaceable>}</varname>. Defaults to unset.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>static_node=</option></term>
+              <listitem>
+                <para>Apply the permissions specified in this rule to the static device node with the
+                specified name. Also, for every tag specified in this rule, create a symlink in the directory
+                <filename>/run/udev/static_node-tags/<replaceable>tag</replaceable></filename> pointing at
+                the static device node with the specified name. Static device node creation is performed by
+                systemd-tmpfiles before systemd-udevd is started. The static nodes might not have a
+                corresponding kernel device; they are used to trigger automatic kernel module loading when
+                they are accessed.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>watch</option></term>
+              <listitem>
+                <para>Watch the device node; when the node is closed after being opened for writing, a change
+                uevent is synthesized.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>nowatch</option></term>
+              <listitem>
+                <para>Disable the watching of a device node.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>db_persist</option></term>
+              <listitem>
+                <para>Set the flag (sticky bit) on the udev database entry of the event device. Device
+                properties are then kept in the database even when <command>udevadm info
+                --cleanup-db</command> is called. This option can be useful in certain cases (e.g. Device
+                Mapper devices) for persisting device state on the transition from initrd.</para>
+
+                <xi:include href="version-info.xml" xpointer="v241"/>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>log_level=<replaceable>level</replaceable></option></term>
+              <listitem>
+                <para>Takes a log level name like <literal>debug</literal> or <literal>info</literal>, or a
+                special value <literal>reset</literal>. When a log level name is specified, the maximum log
+                level is changed to that level. When <literal>reset</literal> is set, then the previously
+                specified log level is revoked. Defaults to the log level of the main process of
+                <command>systemd-udevd</command>.</para>
+                <para>This may be useful when debugging events for certain devices. Note that the log level
+                is applied when the line including this rule is processed. So, for debugging, it is
+                recommended that this is specified at earlier place, e.g., the first line of
+                <filename>00-debug.rules</filename>. For an example, see the <literal>Examples</literal>
+                section below.</para>
+
+                <xi:include href="version-info.xml" xpointer="v248"/>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>dump</option></term>
+              <listitem>
+                <para>Dump the status of the event currently processing. It may be useful for debugging udev
+                rules by inserting this option.</para>
+
+                <xi:include href="version-info.xml" xpointer="v258"/>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>dump-json</option></term>
+              <listitem>
+                <para>Similar to <option>dump</option>, but dump the status of the event in JSON
+                format.</para>
+
+                <xi:include href="version-info.xml" xpointer="v259"/>
+              </listitem>
+            </varlistentry>
+          </variablelist>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Program Execution</title>
+
+    <para>The <varname>PROGRAM</varname> and <varname>IMPORT{program}</varname> match keys and the
+    <varname>RUN{program}</varname> assignment key execute external programs as part of the event processing.
+    (The <varname>IMPORT{builtin}</varname> and <varname>RUN{builtin}</varname> variants use built-in
+    programs instead; see <varname>IMPORT{}</varname> and <varname>RUN{}</varname> above.)</para>
+
+    <para>The program name and following arguments are separated by spaces. Single quotes can be used to
+    specify arguments with spaces. If no absolute path is given, the program is expected to live in
+    <filename>/usr/lib/udev</filename>; otherwise, the absolute path must be specified.</para>
+
+    <para>The device properties are made available to the executed program in the environment.</para>
+
+    <para>Program execution can only be used for very short-running foreground tasks. Running an event
+    process for a long period of time may block all further events for this or a dependent device.</para>
+
+    <para>Note that running programs that access the network or mount/unmount filesystems is not allowed
+    inside of udev rules, due to the default sandbox that is enforced on
+    <filename>systemd-udevd.service</filename>.</para>
+
+    <para>Starting daemons or other long-running processes is not allowed; the forked processes, detached or
+    not, will be unconditionally killed after the event handling has finished. In order to activate
+    long-running processes from udev rules, provide a service unit and pull it in from a udev device using
+    the <varname>SYSTEMD_WANTS</varname> device property. See
+    <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>String Substitutions</title>
+
+    <para>Values (and, for some keys, attribute names) may contain references to device properties and other
+    data, which are replaced when the rule is processed. Substitutions are applied to the values of the
+    <varname>ENV</varname>, <varname>GROUP</varname>, <varname>MODE</varname>, <varname>NAME</varname>,
+    <varname>OWNER</varname>, <varname>RUN</varname>, <varname>SECLABEL</varname>,
+    <varname>SYMLINK</varname>, <varname>TAG</varname> and <varname>ATTR</varname>/<varname>SYSCTL</varname>
+    assignment keys, to the values of the <varname>TEST</varname>, <varname>PROGRAM</varname> and
+    <varname>IMPORT{file}</varname>, <varname>IMPORT{program}</varname>, <varname>IMPORT{builtin}</varname>
+    and <varname>IMPORT{parent}</varname> match keys, and to the attribute names of the
+    <varname>ATTR</varname> and <varname>ATTRS</varname> match keys and the <varname>SYSCTL</varname>
+    key.</para>
+
+    <para>Substitutions are performed while the individual rule is being processed: values of
+    <varname>RUN</varname> are substituted when the rule is processed (and the result is executed later,
+    after all rules have been processed), so device properties set by earlier rules can be used, but
+    properties set by later rules cannot. Which properties of the same rule are visible depends on the token
+    processing order; see <literal>Token Processing Order</literal> above. The values of the other match keys
+    are not substituted: for example, <varname>KERNEL=="%k"</varname> matches the literal string
+    <literal>%k</literal>.</para>
+
+    <para>The available substitutions are:</para>
+
+    <variablelist class='udev-directives'>
+      <varlistentry>
+        <term><option>$kernel</option>, <option>%k</option></term>
+        <listitem>
+          <para>The kernel name for this device.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>$number</option>, <option>%n</option></term>
+        <listitem>
+          <para>The kernel number for this device. For example, <literal>sda3</literal> has kernel number 3.
+          It is empty if the kernel name does not end in digits.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>$devpath</option>, <option>%p</option></term>
+        <listitem>
+          <para>The devpath of the device.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>$id</option>, <option>%b</option></term>
+        <listitem>
+          <para>The kernel name of the device matched while searching the devpath upwards for
+          <option>SUBSYSTEMS</option>, <option>KERNELS</option>, <option>DRIVERS</option>, and
+          <option>ATTRS</option>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>$driver</option>, <option>%d</option></term>
+        <listitem>
+          <para>The driver name of the device matched while searching the devpath upwards for
+          <option>SUBSYSTEMS</option>, <option>KERNELS</option>, <option>DRIVERS</option>, and
+          <option>ATTRS</option>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>$attr{<replaceable>file</replaceable>}</option>,
+        <option>%s{<replaceable>file</replaceable>}</option></term>
+        <listitem>
+          <para>The value of a sysfs attribute found at the device where all keys of the rule have matched.
+          If the matching device does not have such an attribute, and a previous <option>KERNELS</option>,
+          <option>SUBSYSTEMS</option>, <option>DRIVERS</option>, or <option>ATTRS</option> test selected a
+          parent device, then the attribute from that parent device is used.</para>
+          <para>The attribute may also address another device with the
+          <literal>[SUBSYSTEM/KERNEL]attribute</literal> format; see <literal>Referring to Other
+          Devices</literal> above.</para>
+          <para>If the attribute is a symlink, the last element of the symlink target is returned as the
+          value.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>$env{<replaceable>key</replaceable>}</option>,
+        <option>%E{<replaceable>key</replaceable>}</option></term>
+        <listitem>
+          <para>A device property value.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>$major</option>, <option>%M</option></term>
+        <listitem>
+          <para>The kernel major number for the device.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>$minor</option>, <option>%m</option></term>
+        <listitem>
+          <para>The kernel minor number for the device.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>$result</option>, <option>%c</option></term>
+        <listitem>
+          <para>The string returned by the external program requested with <varname>PROGRAM</varname>. A
+          single part of the string, separated by a space character, may be selected by specifying the part
+          number as an attribute: <literal>%c{N}</literal>. If the number is followed by the
+          <literal>+</literal> character, this part plus all remaining parts of the result string are
+          substituted: <literal>%c{N+}</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>$parent</option>, <option>%P</option></term>
+        <listitem>
+          <para>The node name of the parent device.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>$name</option>, <option>%D</option></term>
+        <listitem>
+          <para>The current name of the device. If not changed by a rule, it is the name of the kernel
+          device.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>$links</option>, <option>%L</option></term>
+        <listitem>
+          <para>A space-separated list of the current symlinks. The value is only set during a remove event
+          or if an earlier rule assigned a value.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>$root</option>, <option>%r</option></term>
+        <listitem>
+          <para>The udev_root value.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>$sys</option>, <option>%S</option></term>
+        <listitem>
+          <para>The sysfs mount point.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>$devnode</option>, <option>%N</option></term>
+        <listitem>
+          <para>The name of the device node.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>$tempnode</option></term>
+        <listitem>
+          <para>A deprecated alias for <option>$devnode</option>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>$sysfs{<replaceable>file</replaceable>}</option></term>
+        <listitem>
+          <para>A deprecated alias for <option>$attr{<replaceable>file</replaceable>}</option>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>%%</option></term>
+        <listitem>
+          <para>The <literal>%</literal> character itself.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>$$</option></term>
+        <listitem>
+          <para>The <literal>$</literal> character itself.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Event Actions</title>
+
+    <para>The <varname>ACTION</varname> match key tests the action that triggered the uevent. Uevents
+    originate from the kernel; the following actions are processed by udev:</para>
+
+    <table>
+      <title>Device actions</title>
+      <tgroup cols='2'>
+        <colspec colname='action' />
+        <colspec colname='description' />
+
+        <thead><row>
+          <entry>Action</entry>
+          <entry>Description</entry>
+        </row></thead>
+
+        <tbody>
+          <row>
+            <entry><literal>add</literal></entry>
+            <entry>A device has been created or initialized.</entry>
+          </row>
+          <row>
+            <entry><literal>remove</literal></entry>
+            <entry>A device is being removed; see below.</entry>
+          </row>
+          <row>
+            <entry><literal>change</literal></entry>
+            <entry>A device has changed its state or properties; the device node is kept, but rules are re-run and symlinks and permissions are re-created. udev itself synthesizes <literal>change</literal> events in some cases, e.g. for the <option>watch</option> option.</entry>
+          </row>
+          <row>
+            <entry><literal>move</literal></entry>
+            <entry>A device has been moved or renamed; the previous devpath is available in the <literal>DEVPATH_OLD</literal> property.</entry>
+          </row>
+          <row>
+            <entry><literal>online</literal></entry>
+            <entry>A device has been set online.</entry>
+          </row>
+          <row>
+            <entry><literal>offline</literal></entry>
+            <entry>A device has been set offline.</entry>
+          </row>
+          <row>
+            <entry><literal>bind</literal></entry>
+            <entry>A device driver has been bound to the device.</entry>
+          </row>
+          <row>
+            <entry><literal>unbind</literal></entry>
+            <entry>A device driver has been unbound from the device.</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+
+    <para>Which events are emitted, and when, is subsystem-specific; see the kernel documentation of the
+    <ulink url="https://docs.kernel.org/core-api/kobject.html">kobject</ulink> infrastructure for background.
+    When a device is removed, the kernel emits a <literal>remove</literal> event for each device of the
+    affected hierarchy (e.g. for each partition before the containing disk), after the device node itself
+    (such as <filename>/dev/sda1</filename>) has already been removed. Symlinks created by udev do not cause
+    separate events; they are cleaned up by udev when the corresponding <literal>remove</literal> event is
+    processed.</para>
+
+    <para>When a <literal>remove</literal> event is processed, the device properties stored by earlier events
+    are first read into memory and remain available for matching, and the <option>$links</option>
+    substitution expands to the symlinks that were created for the device. Before the rules are processed,
+    systemd-udevd already removes the tag index entries and the database entry of the device; the symlinks it
+    created are removed after the rules have been processed. Assignments that manage the device node
+    (<varname>NAME</varname>, <varname>SYMLINK</varname>, <varname>OWNER</varname>, <varname>GROUP</varname>,
+    <varname>MODE</varname>) have no effect.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Authoring and Debugging Rules</title>
+
+    <para>To write a rule that matches a specific device, first find out which values are available to match
+    against. The <citerefentry><refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    tool provides several modes for this:</para>
+
+    <itemizedlist>
+      <listitem>
+        <para><command>udevadm info --query=all <replaceable>device</replaceable></command> shows the
+        properties, device node name and symlinks of a device, i.e. the values tested by the
+        <varname>ENV</varname>, <varname>KERNEL</varname>, <varname>DEVPATH</varname> and
+        <varname>SYMLINK</varname> keys.</para>
+      </listitem>
+
+      <listitem>
+        <para><command>udevadm info --attribute-walk <replaceable>device</replaceable></command> shows the
+        device chain — for the event device and each of its parents, the values tested by the
+        <varname>KERNELS</varname>, <varname>SUBSYSTEMS</varname>, <varname>DRIVERS</varname> and
+        <varname>ATTRS</varname> keys are listed in order. This is the primary tool for writing parent device
+        matches: a rule that combines several parent match keys must match them all at one of the devices
+        shown.</para>
+      </listitem>
+
+      <listitem>
+        <para><command>udevadm monitor</command> shows uevents as they arrive, including the action and
+        devpath, while devices are (dis)connected or change state.</para>
+      </listitem>
+    </itemizedlist>
+
+    <para>Rules can be tested before they are installed:</para>
+
+    <itemizedlist>
+      <listitem>
+        <para><command>udevadm verify</command> checks rules files for syntax errors and common mistakes
+        (such as duplicate or conflicting expressions).</para>
+      </listitem>
+
+      <listitem>
+        <para><command>udevadm test --action=<replaceable>action</replaceable>
+        <replaceable>devpath</replaceable></command> processes all rules against a device without applying
+        changes — device nodes, symlinks and the database are not modified, and programs specified with
+        <varname>RUN</varname> are not executed — showing which rules match and what would be assigned. Of
+        the programs invoked by the <varname>PROGRAM</varname> and <varname>IMPORT{program}</varname> keys,
+        only a few well-known helpers (<command>ata_id</command>, <command>cdrom_id</command>,
+        <command>dmi_memory_id</command>, <command>fido_id</command>, <command>mtd_probe</command> and
+        <command>scsi_id</command>) are actually executed; other commands are skipped and reported as
+        successful with empty output.</para>
+      </listitem>
+    </itemizedlist>
+
+    <para>For events processed by the running daemon, the <option>log_level=</option> and
+    <option>dump</option> options (see <varname>OPTIONS</varname> above) can be used to inspect the
+    processing of specific devices. Detailed per-token tracing — log messages for every token that passes,
+    fails, or is applied — is enabled with <command>udevadm control --trace=yes</command>, which also raises
+    the log level to debug (as does the <option>udev.trace=1</option> kernel command line option), or shown
+    by <command>udevadm test --verbose</command>.</para>
+
+    <para>For devices identified by their hardware properties, the hardware database described in
+    <citerefentry><refentrytitle>systemd-hwdb</refentrytitle><manvolnum>8</manvolnum></citerefentry> provides
+    an alternative to udev rules: it maps modalias-style match keys to device properties, which can be
+    imported into the event with <varname>IMPORT{builtin}="hwdb"</varname> and then matched with the
+    <varname>ENV</varname> key.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Set the group and mode of USB serial devices</title>
+
+      <programlisting>SUBSYSTEM=="tty", KERNEL=="ttyUSB[0-9]*", GROUP="dialout", MODE="0660"</programlisting>
+    </example>
+
+    <example>
+      <title>Rename a network interface based on its MAC address</title>
+
+      <programlisting>SUBSYSTEM=="net", ACTION=="add", ATTR{address}=="52:54:00:12:34:56", NAME="lan0"</programlisting>
+    </example>
+
+    <example>
+      <title>Create a symlink for a USB storage device</title>
+
+      <para>The <varname>SUBSYSTEMS</varname> and <varname>ATTRS</varname> keys both match at the USB device
+      in the parent chain of the block device:</para>
+
+      <programlisting>SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", SUBSYSTEMS=="usb", ATTRS{serial}=="1234567890", SYMLINK+="usbdisk"</programlisting>
+    </example>
+
+    <example>
+      <title>Import properties and use them in later rules</title>
+
+      <para>For a partition, the properties of the containing disk (stored in its database entry during an
+      earlier event) are imported from the parent device. As <varname>IMPORT</varname> runs after the plain
+      match keys, the imported properties are matched in a second rule, where they are also available to the
+      <varname>SYMLINK</varname> assignment:</para>
+
+      <programlisting>SUBSYSTEM=="block", ENV{DEVTYPE}=="partition", IMPORT{parent}=="ID_*"
+SUBSYSTEM=="block", ENV{DEVTYPE}=="partition", ENV{ID_SERIAL}=="?*", \
+  SYMLINK+="disk-by-serial-$env{ID_SERIAL}-part$number"</programlisting>
+    </example>
+
+    <example>
+      <title>Run a program and match on its output</title>
+
+      <programlisting>SUBSYSTEM=="block", KERNEL=="sr[0-9]*", \
+  PROGRAM=="/usr/lib/udev/example-media-type $devnode", \
+  RESULT=="cd*|dvd*", SYMLINK+="media-$kernel"</programlisting>
+    </example>
+
+    <example>
+      <title>Write to a sysfs attribute if it exists</title>
+
+      <para>This mirrors the pattern used by the autosuspend rules: the <varname>TEST</varname> key checks
+      that the attribute exists before it is written:</para>
+
+      <programlisting>ENV{ID_AUTOSUSPEND}=="1", TEST=="power/control", ATTR{power/control}="auto"</programlisting>
+    </example>
+
+    <example>
+      <title>Skip parts of a rules file</title>
+
+      <programlisting># Network interface rules follow; skip everything else.
+SUBSYSTEM!="net", GOTO="net_end"
+ATTR{address}=="52:54:00:12:34:56", NAME="lan0"
+LABEL="net_end"</programlisting>
+    </example>
+
+    <example>
+      <title>Raise the log level for specific devices</title>
+
+      <para>Raising the log level early makes the worker log which rules are applied:</para>
+
+      <programlisting># /etc/udev/rules.d/00-debug.rules
+SUBSYSTEM=="block", OPTIONS="log_level=debug"</programlisting>
+    </example>
+
+    <example>
+      <title>Dump the state of a device</title>
+
+      <para>Dumping the event state in a late rules file shows the result of the processing:</para>
+
+      <programlisting># /etc/udev/rules.d/99-dump.rules
+SUBSYSTEM=="block", OPTIONS="dump"</programlisting>
+    </example>
   </refsect1>
 
   <refsect1>
@@ -919,6 +1789,9 @@ SUBSYSTEM=="net", OPTIONS="log_level=debug"</programlisting></para>
       </citerefentry></member>
       <member><citerefentry>
         <refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum>
+      </citerefentry></member>
+      <member><citerefentry>
+        <refentrytitle>systemd-hwdb</refentrytitle><manvolnum>8</manvolnum>
       </citerefentry></member>
     </simplelist></para>
   </refsect1>

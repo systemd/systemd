@@ -14,12 +14,12 @@
 #include "mkdir.h"
 #include "parse-argument.h"
 #include "socket-util.h"
-#include "ssh-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
 #include "verbs.h"
 #include "virt.h"
+#include "vsock-util.h"
 
 static char *arg_issue_path = NULL;
 static bool arg_issue_stdout = false;
@@ -29,7 +29,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_issue_path, freep);
 COMMAND(
         "systemd-ssh-issue\0",
         "Create or remove the /run/issue.d/ file announcing the SSH VSOCK address.",
-        .man_pages = "systemd-ssh-issue(1)\0",
+        .man_page = "systemd-ssh-issue(1)",
 );
 
 static int acquire_cid(unsigned *ret_cid) {

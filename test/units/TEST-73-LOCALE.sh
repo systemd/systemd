@@ -651,6 +651,58 @@ testcase_locale_gen_leading_space() {
     localectl set-locale en_US.UTF-8
 }
 
+# Issue: https://github.com/systemd/systemd/issues/44823
+testcase_locale_gen_supported_without_codeset() {
+    local locale request
+
+    if ! command -v locale-gen >/dev/null; then
+        echo "No locale-gen support, skipping test."
+        return 0
+    fi
+
+    # Find a UTF-8 locale that SUPPORTED lists without the codeset in its name,
+    # e.g. "sr_RS UTF-8" or "ca_ES@valencia UTF-8"
+    locale=$(awk '$1 ~ /_/ && $1 !~ /\./ && $2 == "UTF-8" { print $1; exit }' \
+                   /usr/share/i18n/SUPPORTED 2>/dev/null || true)
+    if [[ -z "$locale" ]]; then
+        echo "No locale listed without codeset in SUPPORTED, skipping test."
+        return 0
+    fi
+
+    # The same locale with the codeset in its name, as users usually spell it,
+    # e.g. "sr_RS.UTF-8" or "ca_ES.UTF-8@valencia"
+    if [[ "$locale" == *@* ]]; then
+        request="${locale/@/.UTF-8@}"
+    else
+        request="$locale.UTF-8"
+    fi
+
+    [[ -e /etc/locale.gen ]] && cp -f /etc/locale.gen /tmp/locale.gen.bak
+    trap locale_gen_cleanup RETURN
+    # Overmount the existing locale-gen database with an empty directory
+    # to force it to regenerate locales
+    mount -t tmpfs tmpfs /usr/lib/locale
+
+    echo "# temporary locale.gen for TEST-73-LOCALE" >/etc/locale.gen
+
+    # Request the locale with the codeset in its name. This used to be refused
+    # for locales that SUPPORTED lists without the codeset.
+    assert_rc 0 localectl set-locale "LANG=$request"
+    assert_in "$request" "$(localectl list-locales)"
+
+    # The locale must be enabled in /etc/locale.gen with the spelling that
+    # SUPPORTED uses.
+    grep -E "^[[:space:]]*$locale UTF-8\$" /etc/locale.gen
+
+    # The name without the codeset must work for the generated locale, too.
+    assert_rc 0 localectl set-locale "LANG=$locale"
+    assert_in "$request" "$(localectl list-locales)"
+
+    # Do not leave LANG set to a locale that goes away when the locale database
+    # is unmounted again.
+    localectl set-locale en_US.UTF-8
+}
+
 teardown_localed_alternate_paths() {
     set +e
 
@@ -672,6 +724,7 @@ testcase_localed_alternate_paths() {
 [Service]
 Environment=SYSTEMD_ETC_LOCALE_CONF=/run/alternate-path/mylocale.conf
 Environment=SYSTEMD_ETC_VCONSOLE_CONF=/run/alternate-path/myvconsole.conf
+ReadWritePaths=/run/alternate-path
 EOF
     systemctl daemon-reload
     systemctl restart systemd-localed

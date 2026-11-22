@@ -6,10 +6,8 @@
 #include "tests.h"
 #include "unit.h"
 
-int main(int argc, char *argv[]) {
+TEST(job_type) {
         const ServiceState test_states[] = { SERVICE_DEAD, SERVICE_RUNNING };
-
-        test_setup_logging(LOG_DEBUG);
 
         FOREACH_ELEMENT(state, test_states) {
                 /* fake a unit */
@@ -76,6 +74,6 @@ int main(int argc, char *argv[]) {
                         }
                 }
         }
-
-        return 0;
 }
+
+DEFINE_TEST_MAIN(LOG_DEBUG);
