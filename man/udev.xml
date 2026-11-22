@@ -1043,6 +1043,11 @@
           <literal>+=</literal>, the value is added to the list of symlinks to be created; with
           <literal>=</literal> or <literal>:=</literal>, the list is reset to this value; with
           <literal>-=</literal>, the value is removed from the list.</para>
+          <para>The value must be a normalized path, i.e. it must not contain redundant or
+          trailing slashes, or <literal>.</literal> or <literal>..</literal> as a path component.
+          A relative path is interpreted relative to <filename>/dev/</filename>, and an absolute
+          path must be located below <filename>/dev/</filename>. Otherwise, the value is
+          ignored.</para>
           <para>The set of characters to name a symlink is limited. Allowed characters are
           <literal>0-9A-Za-z#+-.:=@_/</literal>, valid UTF-8 character sequences, and <literal>\x00</literal>
           hex encoding. All other characters are replaced by a <literal>_</literal> character.</para>
