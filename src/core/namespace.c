@@ -47,6 +47,7 @@
 #include "socket-util.h"
 #include "sort-util.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -1217,6 +1218,22 @@ static int bind_mount_device_dir(const char *temporary_mount, const char *dir) {
         return mount_nofollow_verbose(LOG_DEBUG, dir, t, /* fstype= */ NULL, MS_BIND, /* options= */ NULL);
 }
 
+static int mount_private_devpts(const char *temporary_mount, gid_t tty_gid) {
+        assert(temporary_mount);
+        assert(gid_is_valid(tty_gid));
+
+        const char *pts = strjoina(temporary_mount, "/dev/pts");
+        (void) mkdir(pts, 0755);
+
+        /* Note that the kernel resolves gid= in the caller's user namespace. */
+        _cleanup_free_ char *options = asprintf_safe(
+                        "newinstance,ptmxmode=0666,mode=" STRINGIFY(TTY_MODE) ",gid=" GID_FMT, tty_gid);
+        if (!options)
+                return -ENOMEM;
+
+        return mount_nofollow_verbose(LOG_DEBUG, "devpts", pts, "devpts", MS_NOSUID|MS_NOEXEC, options);
+}
+
 static char* settle_runtime_dir(RuntimeScope scope) {
         char *runtime_dir;
 
@@ -1283,15 +1300,21 @@ static int mount_private_dev(const MountEntry *m, const NamespaceParameters *p) 
         if (r < 0)
                 return log_debug_errno(r, "Failed to fix label of '%s' as /dev/: %m", dev);
 
-        r = bind_mount_device_dir(temporary_mount, "/dev/pts");
+        if (p->private_devpts)
+                /* Give the unit its own devpts instance, like a container manager would, instead of
+                 * allocating its PTYs on the host's. */
+                r = mount_private_devpts(temporary_mount, p->private_devpts_tty_gid);
+        else
+                r = bind_mount_device_dir(temporary_mount, "/dev/pts");
         if (r < 0)
                 return r;
 
         /* /dev/ptmx can either be a device node or a symlink to /dev/pts/ptmx.
          * When /dev/ptmx a device node, /dev/pts/ptmx has 000 permissions making it inaccessible.
          * Thus, in that case make a clone.
-         * In nspawn and other containers it will be a symlink, in that case make it a symlink. */
-        r = is_symlink("/dev/ptmx");
+         * In nspawn and other containers it will be a symlink, in that case make it a symlink.
+         * With our own devpts instance, /dev/pts/ptmx is accessible, hence always make it a symlink. */
+        r = p->private_devpts ? 1 : is_symlink("/dev/ptmx");
         if (r < 0)
                 return log_debug_errno(r, "Failed to detect whether /dev/ptmx is a symlink or not: %m");
         if (r > 0) {

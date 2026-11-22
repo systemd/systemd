@@ -2809,6 +2809,7 @@ static int setup_private_users_child(int unshare_ready_fd, const char *uid_map, 
 
 static int setup_private_users(
                 sd_varlink *nsresource_link, /* may be NULL */
+                int managed_userns_fd,       /* if >= 0, the already allocated userns for PRIVATE_USERS_MANAGED */
                 PrivateUsers private_users,
                 uid_t saved_uid,             /* service manager uid */
                 gid_t saved_gid,             /* service manager gid */
@@ -2850,12 +2851,18 @@ static int setup_private_users(
                 if (uid_is_valid(*uid) || uid_is_valid(*gid))
                         return log_debug_errno(SYNTHETIC_ERRNO(EPERM), "When allocating dynamic user namespace range, target UID/GID must be root, refusing.");
 
-                _cleanup_close_ int userns_fd = nsresource_allocate_userns(
-                                nsresource_link,
-                                /* name= */ NULL,
-                                NSRESOURCE_UIDS_64K);
-                if (userns_fd < 0)
-                        return userns_fd;
+                _cleanup_close_ int allocated_userns_fd = -EBADF;
+                int userns_fd = managed_userns_fd;
+                if (userns_fd < 0) {
+                        allocated_userns_fd = nsresource_allocate_userns(
+                                        nsresource_link,
+                                        /* name= */ NULL,
+                                        NSRESOURCE_UIDS_64K);
+                        if (allocated_userns_fd < 0)
+                                return allocated_userns_fd;
+
+                        userns_fd = allocated_userns_fd;
+                }
 
                 _cleanup_(uid_range_freep) UIDRange *uid_range = NULL;
                 r = uid_range_load_userns_by_fd(userns_fd, UID_RANGE_USERNS_OUTSIDE, &uid_range);
@@ -4519,6 +4526,7 @@ static int apply_mount_namespace(
                 PinnedResource *rootfs,
                 char *const *pressure_path,
                 bool needs_sandboxing,
+                gid_t devpts_tty_gid,        /* the tty group of the managed userns, as seen from the current userns */
                 uid_t exec_directory_uid,
                 gid_t exec_directory_gid,
                 PidRef *bpffs_pidref,
@@ -4713,6 +4721,9 @@ static int apply_mount_namespace(
                 .proc_subset = needs_sandboxing ? context->proc_subset : PROC_SUBSET_ALL,
                 .private_bpf = needs_sandboxing ? context->private_bpf : PRIVATE_BPF_NO,
                 .private_users = needs_sandboxing ? context->private_users : PRIVATE_USERS_NO,
+                .private_devpts = needs_sandboxing && context->private_users == PRIVATE_USERS_MANAGED &&
+                                  gid_is_valid(devpts_tty_gid),
+                .private_devpts_tty_gid = devpts_tty_gid,
 
                 .bpffs_pidref = bpffs_pidref,
                 .bpffs_socket_fd = bpffs_socket_fd,
@@ -5354,6 +5365,7 @@ static int setup_delegated_namespaces(
                 const ExecCommand *command,
                 bool needs_sandboxing,
                 bool have_cap_sys_admin,
+                gid_t devpts_tty_gid,
                 PidRef *bpffs_pidref,
                 int bpffs_socket_fd,
                 int bpffs_errno_pipe,
@@ -5486,6 +5498,7 @@ static int setup_delegated_namespaces(
                                 rootfs,
                                 pressure_path,
                                 needs_sandboxing,
+                                devpts_tty_gid,
                                 uid,
                                 gid,
                                 bpffs_pidref,
@@ -6796,6 +6809,7 @@ int exec_invoke(
                  * unprivileged user namespaces. */
                 r = setup_private_users(
                                 nsresource_link,
+                                /* managed_userns_fd= */ -EBADF,
                                 pu,
                                 saved_uid,
                                 saved_gid,
@@ -6820,6 +6834,36 @@ int exec_invoke(
                 }
         }
 
+        /* With PrivateDevices=, units in a managed user namespace get their own devpts instance, whose PTYs
+         * belong to the tty group of the user namespace. The kernel resolves the gid= mount option in the
+         * user namespace of the caller, hence if the user namespace has been joined already, TTY_GID is
+         * what we want. Otherwise, if the mount namespace is set up before joining the user namespace, we
+         * need the GID the group has outside of it, hence allocate the user namespace already now to find
+         * out which one that is. Note that PrivateUsers= cannot be combined with UserNamespacePath=, hence
+         * the user namespace allocated here is always the one joined below. */
+        _cleanup_close_ int managed_userns_fd = -EBADF;
+        gid_t devpts_tty_gid = userns_set_up ? TTY_GID : GID_INVALID;
+        if (needs_sandboxing && !userns_set_up &&
+            exec_context_get_effective_private_users(context, params) == PRIVATE_USERS_MANAGED &&
+            context->private_devices &&
+            !exec_namespace_is_delegated(context, params, have_cap_sys_admin, CLONE_NEWNS)) {
+
+                managed_userns_fd = nsresource_allocate_userns(
+                                nsresource_link,
+                                /* name= */ NULL,
+                                NSRESOURCE_UIDS_64K);
+                if (managed_userns_fd < 0) {
+                        *exit_status = EXIT_USER;
+                        return log_error_errno(managed_userns_fd, "Failed to allocate user namespace: %m");
+                }
+
+                r = uid_range_translate_userns_fd(managed_userns_fd, GID_RANGE_USERNS_INSIDE, TTY_GID, &devpts_tty_gid);
+                if (r < 0) {
+                        *exit_status = EXIT_USER;
+                        return log_error_errno(r, "Failed to determine tty group of allocated user namespace: %m");
+                }
+        }
+
         /* Call setup_delegated_namespaces() the first time to unshare all non-delegated namespaces. */
         r = setup_delegated_namespaces(
                         context,
@@ -6833,6 +6877,7 @@ int exec_invoke(
                         command,
                         needs_sandboxing,
                         have_cap_sys_admin,
+                        devpts_tty_gid,
                         &bpffs_pidref,
                         bpffs_socket_fd,
                         bpffs_errno_pipe,
@@ -6893,6 +6938,7 @@ int exec_invoke(
 
                 r = setup_private_users(
                                 nsresource_link,
+                                managed_userns_fd,
                                 pu,
                                 saved_uid,
                                 saved_gid,
@@ -6935,6 +6981,7 @@ int exec_invoke(
                         command,
                         needs_sandboxing,
                         have_cap_sys_admin,
+                        /* devpts_tty_gid= */ TTY_GID,
                         &bpffs_pidref,
                         bpffs_socket_fd,
                         bpffs_errno_pipe,
@@ -6945,6 +6992,7 @@ int exec_invoke(
                 return r;
 
         /* We are done now with the nsresourced/mountfsd shenanigans, let's close the connections */
+        managed_userns_fd = safe_close(managed_userns_fd);
         nsresource_link = sd_varlink_unref(nsresource_link);
         mountfsd_link = sd_varlink_unref(mountfsd_link);
         /* With PrivatePIDs=, this releases the parent process that set up the connections */
