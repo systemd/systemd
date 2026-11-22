@@ -763,6 +763,13 @@ char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
                         e = ansi_seq_parser_feed(&parser, *i);
                         if (e < 0)
                                 return NULL;
+                        if (e == ANSI_SEQ_EVENT_RESTART) {
+                                /* The ESC preceding the current character aborted a string sequence, and
+                                 * begins a new one. Both are dropped, and they are adjacent, hence just keep
+                                 * 'begin', and drop them both in one go later on. */
+                                assert(begin);
+                                continue;
+                        }
                         if (e != ANSI_SEQ_EVENT_ABORT)
                                 break;
 
