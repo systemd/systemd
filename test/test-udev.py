@@ -312,11 +312,7 @@ RULES = [
             '/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1',
             exp_links=[
                 'link1',
-                'link2/foo',
-                'link3/aaa/bbb',
                 'abs1',
-                'abs2/foo',
-                'abs3/aaa/bbb',
                 'default___replace_test/foo_aaa',
                 'string_escape___replace/foo_bbb',
                 'env_with_space',
@@ -324,6 +320,8 @@ RULES = [
                 'replace_env_harder_foo__hoge',
                 'match',
                 'unmatch',
+                'subdir/valid',
+                'not-removed',
             ],
             not_exp_links=[
                 'removed1',
@@ -331,15 +329,22 @@ RULES = [
                 'removed3',
                 'unsafe/../../path',
                 '/nondev/path/will/be/refused',
+                'link2/foo',
+                'link3/aaa/bbb',
+                'abs2/foo',
+                'abs3/aaa/bbb',
+                'subdir/dot-component',
             ],
         ),
         rules=r'''
         SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", SYMLINK+="removed1"
         SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", SYMLINK-="removed1"
-        SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", SYMLINK+="/./dev///removed2"
+        SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", SYMLINK+="/dev/removed2"
         SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", SYMLINK-="removed2"
-        SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", SYMLINK+="././removed3"
-        SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", SYMLINK-="/dev//./removed3/./"
+        SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", SYMLINK+="removed3"
+        SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", SYMLINK-="/dev/removed3"
+        SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", SYMLINK+="not-removed"
+        SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", SYMLINK-="not-removed/"
         SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", SYMLINK+="unsafe/../../path"
         SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", SYMLINK+="/nondev/path/will/be/refused"
         SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", SYMLINK+="link1 .///link2/././/foo//./ .///link3/aaa/bbb"
@@ -351,6 +356,7 @@ RULES = [
         SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", OPTIONS="string_escape=replace", ENV{.HOGE}="replace/env/harder?foo;;hoge", SYMLINK+="%E{.HOGE}"
         SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", SYMLINK=="link1", SYMLINK+="match"
         SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", SYMLINK!="removed1", SYMLINK+="unmatch"
+        SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", SYMLINK+="subdir/valid subdir/. subdir/./dot-component"
         ''',
     ),
     Rules.new(
