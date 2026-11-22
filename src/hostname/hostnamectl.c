@@ -22,6 +22,7 @@
 #include "format-table.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
+#include "id128-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "os-util.h"
@@ -75,6 +76,7 @@ typedef struct StatusInfo {
         usec_t firmware_date;
         sd_id128_t machine_id;
         sd_id128_t boot_id;
+        sd_id128_t file_system_id;
         const char *hardware_serial;
         sd_id128_t product_uuid;
         uint32_t vsock_cid;
@@ -229,6 +231,14 @@ static int print_status_info(StatusInfo *i) {
                 r = table_add_many(table,
                                    TABLE_FIELD, "Boot ID",
                                    TABLE_ID128, i->boot_id);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (!sd_id128_is_null(i->file_system_id)) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "File System ID",
+                                   TABLE_UUID, i->file_system_id);
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -472,6 +482,7 @@ static int show_all_names(sd_bus *bus) {
                 { "FirmwareDate",                "t",  NULL,          offsetof(StatusInfo, firmware_date)    },
                 { "MachineID",                   "ay", bus_map_id128, offsetof(StatusInfo, machine_id)       },
                 { "BootID",                      "ay", bus_map_id128, offsetof(StatusInfo, boot_id)          },
+                { "FileSystemID",                "ay", bus_map_id128, offsetof(StatusInfo, file_system_id)   },
                 { "VSockCID",                    "u",  NULL,          offsetof(StatusInfo, vsock_cid)        },
                 {}
         }, manager_map[] = {
@@ -555,6 +566,8 @@ static int show_all_names(sd_bus *bus) {
                         (void) sd_id128_get_machine(&info.machine_id);
                 if (sd_id128_is_null(info.boot_id))
                         (void) sd_id128_get_boot(&info.boot_id);
+                if (sd_id128_is_null(info.file_system_id))
+                        (void) id128_get_var_fs_uuid(&info.file_system_id);
         }
 
         return print_status_info(&info);

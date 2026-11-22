@@ -24,6 +24,7 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
+#include "id128-util.h"
 #include "iovec-util.h"
 #include "json-util.h"
 #include "log.h"
@@ -1197,21 +1198,13 @@ static int manifest_read_fs_identity(int dir_fd, FsIdentity *ret) {
                         id.fat_serial_set = true;
                 }
         } else {
-                struct fsuuid2 u = {};
-                if (ioctl(fd, FS_IOC_GETFSUUID, &u) < 0) {
-                        if (!ERRNO_IS_IOCTL_NOT_SUPPORTED(errno))
-                                return -errno;
-
+                r = id128_get_fs_uuid_fd(fd, &id.uuid);
+                if (r == -EOPNOTSUPP)
                         id.unqueryable |= MANIFEST_FIELD_FS_UUID;
-                } else if (u.len != sizeof(id.uuid.bytes)) {
-                        /* The kernel permits file systems to report identifiers shorter than 16 bytes,
-                         * which are not UUIDs and hence cannot be represented as "fsUUID" */
-                        log_debug("File system reports a %u byte identifier, which is not a UUID, ignoring.", (unsigned) u.len);
-                        id.unqueryable |= MANIFEST_FIELD_FS_UUID;
-                } else {
-                        memcpy(id.uuid.bytes, u.uuid, sizeof(id.uuid.bytes));
-                        id.uuid_set = !sd_id128_is_null(id.uuid);
-                }
+                else if (r >= 0)
+                        id.uuid_set = true;
+                else if (r != -EADDRNOTAVAIL) /* All-zero UUID: supported, but not set */
+                        return r;
         }
 
         *ret = TAKE_STRUCT(id);
