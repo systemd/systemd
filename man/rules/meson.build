@@ -1048,6 +1048,7 @@ manpages = [
    'sd_varlink_connect_fd_pair',
    'sd_varlink_connect_url'],
   ''],
+ ['sd_varlink_idl_format', '3', ['sd_varlink_idl_format_json'], ''],
  ['sd_varlink_is_connected',
   '3',
   ['sd_varlink_is_idle', 'sd_varlink_wants_reply'],

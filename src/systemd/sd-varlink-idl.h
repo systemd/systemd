@@ -266,6 +266,9 @@ int sd_varlink_idl_dump(FILE *f, const sd_varlink_interface *interface, sd_varli
 int sd_varlink_idl_format_full(const sd_varlink_interface *interface, sd_varlink_idl_format_flags_t flags, size_t cols, char **ret);
 int sd_varlink_idl_format(const sd_varlink_interface *interface, char **ret);
 
+/* Renders an interface definition as JSON, see sd_varlink_idl_format_json(3). */
+int sd_varlink_idl_format_json(const sd_varlink_interface *interface, sd_json_variant **ret);
+
 int sd_varlink_idl_parse(const char *text, unsigned *reterr_line, unsigned *reterr_column, sd_varlink_interface **ret);
 sd_varlink_interface* sd_varlink_interface_free(sd_varlink_interface *interface);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_varlink_interface, sd_varlink_interface_free);
