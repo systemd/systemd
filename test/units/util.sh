@@ -407,7 +407,9 @@ EOF
         chmod +x "$initdir/opt/script0.sh"
         echo MARKER=1 >"$initdir/usr/lib/systemd/system/some_file"
         mksquashfs "$initdir" /tmp/app0.raw -noappend
-        veritysetup format /tmp/app0.raw /tmp/app0.verity --root-hash-file /tmp/app0.roothash
+        # TEST-50 looks up these images as <hex root hash>-verity. With a SHA-512 default, the hash alone
+        # exceeds the 127-character device-mapper name limit.
+        veritysetup format /tmp/app0.raw /tmp/app0.verity --hash=sha256 --root-hash-file /tmp/app0.roothash
         openssl smime -sign -nocerts -noattr -binary \
                 -in /tmp/app0.roothash \
                 -inkey /usr/share/mkosi.key \
@@ -426,7 +428,7 @@ EOF
         ) >>"$initdir/etc/extension-release.d/extension-release.conf0"
         echo MARKER_1 >"$initdir/etc/systemd/system/some_file"
         mksquashfs "$initdir" /tmp/conf0.raw -noappend
-        veritysetup format /tmp/conf0.raw /tmp/conf0.verity --root-hash-file /tmp/conf0.roothash
+        veritysetup format /tmp/conf0.raw /tmp/conf0.verity --hash=sha256 --root-hash-file /tmp/conf0.roothash
         openssl smime -sign -nocerts -noattr -binary \
                 -in /tmp/conf0.roothash \
                 -inkey /usr/share/mkosi.key \

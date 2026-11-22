@@ -685,7 +685,7 @@ systemd-run -P \
 # Check that two identical verity images at different paths do not fail with -ELOOP from OverlayFS
 mkdir -p /tmp/loop
 cp /tmp/app0.raw /tmp/loop/app0.raw
-veritysetup format /tmp/loop/app0.raw /tmp/loop/app0.verity --root-hash-file /tmp/loop/app0.roothash
+veritysetup format /tmp/loop/app0.raw /tmp/loop/app0.verity --hash=sha256 --root-hash-file /tmp/loop/app0.roothash
 cp /tmp/loop/app0.raw /tmp/loop/app0_copy.raw
 cp /tmp/loop/app0.verity /tmp/loop/app0_copy.verity
 cp /tmp/loop/app0.roothash /tmp/loop/app0_copy.roothash
