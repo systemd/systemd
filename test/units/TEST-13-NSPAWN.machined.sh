@@ -16,6 +16,10 @@ at_exit() {
     mountpoint -q /var/lib/machines && timeout 30 bash -c "until umount /var/lib/machines; do sleep .5; done"
     [[ -n "${NSPAWN_FRAGMENT:-}" ]] && rm -f "/etc/systemd/nspawn/$NSPAWN_FRAGMENT" "/var/lib/machines/$NSPAWN_FRAGMENT"
     rm -f /run/systemd/nspawn/*.nspawn
+    if [[ -f /etc/polkit-1/rules.d/machined-image-test.rules ]]; then
+        rm -f /etc/polkit-1/rules.d/machined-image-test.rules
+        systemctl try-reload-or-restart polkit.service
+    fi
 }
 
 trap at_exit EXIT
@@ -166,6 +170,72 @@ machinectl image-status container1 container1 container{0..4}
 machinectl show-image
 machinectl show-image container1
 machinectl show-image container1 container1 container{0..4}
+
+# Unprivileged callers need org.freedesktop.machine1.inspect-images to read image metadata, and
+# org.freedesktop.machine1.manage-images to clean the pool. testuser isn't in an active session, so it
+# doesn't have either by default.
+for method in GetImageHostname GetImageMachineID GetImageMachineInfo GetImageOSRelease; do
+    (! runas testuser busctl call --allow-interactive-authorization=no \
+                                  org.freedesktop.machine1 /org/freedesktop/machine1 org.freedesktop.machine1.Manager \
+                                  "$method" s container1)
+done
+(! runas testuser busctl call --allow-interactive-authorization=no \
+                              org.freedesktop.machine1 /org/freedesktop/machine1/image/container1 org.freedesktop.machine1.Image \
+                              GetOSRelease)
+(! runas testuser busctl call --allow-interactive-authorization=no \
+                              org.freedesktop.machine1 /org/freedesktop/machine1 org.freedesktop.machine1.Manager \
+                              CleanPool s hidden)
+# image-status still shows the image, but without its metadata
+output="$(runas testuser machinectl --no-ask-password image-status container1 container1 2>&1)"
+assert_in "Cannot show metadata of image 'container1'" "$output"
+assert_in "Path: /var/lib/machines/container1" "$output"
+assert_not_in "OS: " "$output"
+# image-status shows the images that exist even if another one doesn't
+output="$(machinectl image-status container1 nonexistent-image)" && assert_not_reached
+assert_in "Path: /var/lib/machines/container1" "$output"
+assert_in "OS: " "$output"
+
+if [[ -f /usr/share/dbus-1/system-services/org.freedesktop.PolicyKit1.service ]]; then
+    mkdir -p /etc/polkit-1/rules.d
+    cat >/etc/polkit-1/rules.d/machined-image-test.rules <<'EOF'
+polkit.addRule(function(action, subject) {
+    if (subject.user != "testuser")
+        return polkit.Result.NOT_HANDLED;
+    if (action.id == "org.freedesktop.machine1.inspect-images" &&
+        action.lookup("image") == "container1" &&
+        (action.lookup("verb") == "get_os_release" || action.lookup("verb") == "list_images"))
+        return polkit.Result.YES;
+    if (action.id == "org.freedesktop.machine1.manage-images" &&
+        action.lookup("verb") == "clean_pool")
+        return polkit.Result.YES;
+    return polkit.Result.NOT_HANDLED;
+});
+EOF
+    systemctl reload-or-restart polkit.service
+
+    # The "verb" detail distinguishes the metadata getters
+    runas testuser busctl call --allow-interactive-authorization=no \
+                               org.freedesktop.machine1 /org/freedesktop/machine1 org.freedesktop.machine1.Manager \
+                               GetImageOSRelease s container1
+    (! runas testuser busctl call --allow-interactive-authorization=no \
+                                  org.freedesktop.machine1 /org/freedesktop/machine1 org.freedesktop.machine1.Manager \
+                                  GetImageHostname s container1)
+    # CleanPool checks manage-images
+    runas testuser busctl call --allow-interactive-authorization=no \
+                               org.freedesktop.machine1 /org/freedesktop/machine1 org.freedesktop.machine1.Manager \
+                               CleanPool s hidden
+
+    # Varlink checks inspect-images with the same "image" detail. Varlink authorization needs pidfd
+    # subjects (kernel >= 6.5 and polkit >= 124).
+    if systemd-analyze compare-versions "$(uname -r)" ge 6.5 &&
+       systemd-analyze compare-versions "$(pkcheck --version | awk '{print $3}')" ge 124; then
+        runas testuser varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List \
+                                       '{"name":"container1","acquireMetadata":"graceful"}'
+    fi
+
+    rm -f /etc/polkit-1/rules.d/machined-image-test.rules
+    systemctl reload-or-restart polkit.service
+fi
 
 machinectl clone container1 clone1
 machinectl show-image clone1
