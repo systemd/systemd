@@ -1,0 +1,191 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="rtwatchd.conf" conditional='ENABLE_RTWATCH'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>rtwatchd.conf</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>rtwatchd.conf</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>rtwatchd.conf</refname>
+    <refname>rtwatchd.conf.d</refname>
+    <refpurpose>Realtime scheduling policy service configuration files</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><simplelist>
+      <member><filename>/etc/systemd/rtwatchd.conf</filename></member>
+      <member><filename>/run/systemd/rtwatchd.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/rtwatchd.conf</filename></member>
+      <member><filename>/usr/lib/systemd/rtwatchd.conf</filename></member>
+      <member><filename>/etc/systemd/rtwatchd.conf.d/*.conf</filename></member>
+      <member><filename>/run/systemd/rtwatchd.conf.d/*.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/rtwatchd.conf.d/*.conf</filename></member>
+      <member><filename>/usr/lib/systemd/rtwatchd.conf.d/*.conf</filename></member>
+    </simplelist></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>These files configure the policy enforced by
+    <citerefentry><refentrytitle>systemd-rtwatchd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    which hands out realtime scheduling and high priority to threads of unprivileged processes. See
+    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry> for a
+    general description of the syntax.</para>
+
+    <para>Each setting may also be specified via the corresponding command line option of
+    <command>systemd-rtwatchd</command>, which takes precedence over the configuration files.</para>
+  </refsect1>
+
+  <xi:include href="standard-conf.xml" xpointer="main-conf" />
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>All options are configured in the [RTWatch] section:</para>
+
+    <variablelist class='config-directives'>
+      <varlistentry>
+        <term><varname>SchedulingPolicy=</varname></term>
+
+        <listitem><para>Selects the realtime scheduling policy to hand out. Takes either
+        <literal>rr</literal> or <literal>fifo</literal>. Defaults to <literal>rr</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>OurRealtimePriority=</varname></term>
+
+        <listitem><para>The realtime priority the service temporarily runs at while processing a request.
+        Must be higher than the value of <varname>MaxRealtimePriority=</varname>. Defaults to 21.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>OurNiceLevel=</varname></term>
+
+        <listitem><para>The nice level the service runs at otherwise. Defaults to 1.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>MaxRealtimePriority=</varname></term>
+
+        <listitem><para>The maximum realtime priority handed out to clients. Defaults to 20.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>MinNiceLevel=</varname></term>
+
+        <listitem><para>The minimum nice level handed out to clients. Defaults to -15.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>RTTimeMax=</varname></term>
+
+        <listitem><para>Clients must have set the hard limit of <constant>RLIMIT_RTTIME</constant> to a value
+        no larger than this time span in order to be granted realtime scheduling. Takes a time span, parsed
+        the same way as <varname>LimitRTTIME=</varname> in unit files (see
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>),
+        i.e. without unit suffix it is interpreted in microseconds. Defaults to 200ms.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>UsersMax=</varname></term>
+        <term><varname>ProcessesPerUserMax=</varname></term>
+        <term><varname>ThreadsPerUserMax=</varname></term>
+
+        <listitem><para>The maximum number of users, processes per user, and threads per user the service
+        supervises at the same time. Requests beyond these limits are refused. Default to 2048, 15, and 25,
+        respectively.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ActionsBurstSec=</varname></term>
+        <term><varname>ActionsPerBurstMax=</varname></term>
+
+        <listitem><para>Configures request rate limiting: each user may issue at most the specified number of
+        requests within the specified time window. The time window is specified in seconds, but other time
+        units may be used with the usual suffixes, see
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        Defaults to 20s and 25.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Canary=</varname></term>
+
+        <listitem><para>Takes a boolean. Controls whether the canary based watchdog is enabled. Defaults to
+        yes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CanaryCheepSec=</varname></term>
+        <term><varname>CanaryWatchdogSec=</varname></term>
+
+        <listitem><para>The interval in which the main loop signals the watchdog thread, and the time after
+        which the watchdog thread takes action if it did not hear from the main loop. The latter must be
+        larger than the former. Both are specified in seconds, but other time units may be used with the usual
+        suffixes. Defaults to 5s and 10s.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CanaryRefuseSec=</varname></term>
+
+        <listitem><para>How long to refuse further requests after the watchdog had to take action. Specified in
+        seconds, but other time units may be used with the usual suffixes. Defaults to 5min.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CanaryDemoteRoot=</varname></term>
+        <term><varname>CanaryDemoteUnknown=</varname></term>
+
+        <listitem><para>Take booleans. When the watchdog takes action it normally only demotes threads the
+        service handed out realtime scheduling or high priority to. If
+        <varname>CanaryDemoteUnknown=yes</varname> is used all realtime threads of the system are demoted
+        instead, except for those owned by root, unless <varname>CanaryDemoteRoot=yes</varname> is used
+        too. The latter also applies to <function>ResetAll()</function>. Both default to no.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-rtwatchd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>sched</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
