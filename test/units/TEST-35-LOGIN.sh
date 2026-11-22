@@ -854,6 +854,73 @@ EOF
     rm -f "$SCRIPT" "$PAMSERVICE"
 }
 
+testcase_ambient_caps_pam_cap_defer() {
+    local PAMSERVICE TRANSIENTUNIT SCRIPT CAPCONF PAMCAP
+
+    # Verify that pam_end() is called with PAM_DATA_SILENT in the process executing the payload, by
+    # making use of pam_cap's "defer" option, which applies its capabilities only then. pam_systemd
+    # sets CAP_KILL as ambient capability, which pam_cap is expected to replace by CAP_CHOWN.
+
+    if ! grep -q 'CapAmb:' /proc/self/status ; then
+        echo "ambient caps not available, skipping test." >&2
+        return
+    fi
+
+    for PAMCAP in /usr/lib{64,}/security/pam_cap.so \
+                  /usr/lib/*/security/pam_cap.so \
+                  /lib{64,}/security/pam_cap.so; do
+        [[ -e "$PAMCAP" ]] && break
+    done
+    if [[ ! -e "$PAMCAP" ]]; then
+        echo "pam_cap.so not available, skipping test." >&2
+        return
+    fi
+
+    typeset -i BND MASK
+
+    # Get PID 1's bounding set
+    BND="0x$(grep 'CapBnd:' /proc/1/status | cut -d: -f2 | tr -d '[:space:]')"
+
+    # CAP_CHOWN | CAP_KILL
+    MASK=$(((1 << 0) | (1 << 5)))
+
+    if [ $((BND & MASK)) -ne "$MASK" ] ; then
+        echo "CAP_CHOWN or CAP_KILL not available in bounding set, skipping test." >&2
+        return
+    fi
+
+    PAMSERVICE="pamserv$RANDOM"
+    TRANSIENTUNIT="pamcapdefer$RANDOM.service"
+    SCRIPT="/tmp/pamcapdefer$RANDOM.sh"
+    CAPCONF="/tmp/pamcapdefer$RANDOM.conf"
+
+    echo "^cap_chown logind-test-user" >"$CAPCONF"
+
+    cat >/etc/pam.d/"$PAMSERVICE" <<EOF
+auth optional      pam_cap.so defer config=$CAPCONF
+auth required      pam_permit.so
+account sufficient pam_unix.so
+account required   pam_permit.so
+session optional   pam_systemd.so default-capability-ambient-set=CAP_KILL debug
+session required   pam_unix.so
+EOF
+
+    cat >"$SCRIPT" <<'EOF'
+#!/usr/bin/env bash
+set -ex
+typeset -i AMB MASK
+AMB="0x$(grep 'CapAmb:' /proc/self/status | cut -d: -f2 | tr -d '[:space:]')"
+MASK=$((1 << 0))
+test "$AMB" -eq "$MASK"
+EOF
+
+    chmod +x "$SCRIPT"
+
+    systemd-run -u "$TRANSIENTUNIT" -p PAMName="$PAMSERVICE" -p Type=oneshot -p User=logind-test-user -p StandardError=tty "$SCRIPT"
+
+    rm -f "$SCRIPT" "$CAPCONF" /etc/pam.d/"$PAMSERVICE"
+}
+
 background_at_return() {
     rm -f /etc/pam.d/"$PAMSERVICE"
     unset PAMSERVICE
