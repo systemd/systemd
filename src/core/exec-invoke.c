@@ -1517,7 +1517,8 @@ static int setup_pam(
                 gid_t gid,
                 char ***env, /* updated on success */
                 bool needs_sandboxing,
-                int exec_fd) {
+                int exec_fd,
+                pam_handle_t **ret_pamh) {
 
 #if HAVE_PAM
         AskPasswordConvData conv_data = {
@@ -1547,6 +1548,7 @@ static int setup_pam(
         assert(uid_is_valid(uid));
         assert(gid_is_valid(gid));
         assert(env);
+        assert(ret_pamh);
 
         /* We set up PAM in the parent process, then fork. The child will then stay around until killed via
          * PR_GET_PDEATHSIG or systemd via the cgroup logic. It will then remove the PAM session again. The
@@ -1691,9 +1693,9 @@ static int setup_pam(
 
         barrier_set_role(&barrier, BARRIER_PARENT);
 
-        /* If the child was forked off successfully it will do all the cleanups, so forget about the handle
-         * here. */
-        pamh = NULL;
+        /* If the child was forked off successfully it will do all the cleanups. We keep our copy of the
+         * handle around however, as we need to call pam_end() with PAM_DATA_SILENT on it after changing
+         * the UID and right before executing the payload, see exec_invoke(). */
 
         /* Unblock SIGTERM again in the parent */
         assert_se(sigprocmask(SIG_SETMASK, &old_ss, NULL) >= 0);
@@ -1707,7 +1709,9 @@ static int setup_pam(
         if (!barrier_place_and_sync(&barrier))
                 log_error("PAM initialization failed");
 
-        return strv_free_and_replace(*env, e);
+        strv_free_and_replace(*env, e);
+        *ret_pamh = TAKE_PTR(pamh);
+        return 0;
 
 fail:
         if (pam_code != PAM_SUCCESS) {
@@ -5876,6 +5880,7 @@ int exec_invoke(
         int secure_bits, inherited_secure_bits;
         _cleanup_free_ gid_t *gids = NULL, *gids_after_pam = NULL;
         int ngids = 0, ngids_after_pam = 0;
+        pam_handle_t *pamh = NULL;
         int named_iofds[3] = EBADF_TRIPLET;
         _cleanup_close_ int socket_fd = -EBADF, broker_fd = -EBADF, bpffs_socket_fd = -EBADF, bpffs_errno_pipe = -EBADF;
         _cleanup_(pidref_done_sigkill_wait) PidRef bpffs_pidref = PIDREF_NULL;
@@ -6708,7 +6713,7 @@ int exec_invoke(
 
                 /* All fds passed in the fds array will be closed in the pam child process. */
                 r = setup_pam(context, cgroup_context, params, username, uid, gid, &accum_env,
-                              needs_sandboxing, params->exec_fd);
+                              needs_sandboxing, params->exec_fd, &pamh);
                 if (r < 0) {
                         *exit_status = EXIT_PAM;
                         return log_error_errno(r, "Failed to set up PAM session: %m");
@@ -7188,6 +7193,22 @@ int exec_invoke(
                         }
                 }
         }
+
+#if HAVE_PAM
+        if (pamh) {
+                /* The PAM session is owned by the sd-pam child, which will close it once we are gone. We
+                 * are the process that is about to execute the payload, and are past the setresuid() call,
+                 * hence let the PAM modules know about that by calling pam_end() with PAM_DATA_SILENT. This
+                 * is the same convention as followed by login(1) and display managers, and is for example
+                 * needed by pam_cap's "defer" option, which applies the configured capabilities at this
+                 * point. Do this before we apply seccomp filters and similar, so that this is not affected
+                 * by them. See pam_end(3). */
+                (void) sym_pam_end(TAKE_PTR(pamh), PAM_SUCCESS | PAM_DATA_SILENT);
+
+                /* PAM modules might have opened the log */
+                closelog();
+        }
+#endif
 
         /* Apply working directory here, because the working directory might be on NFS and only the user
          * running this service might have the correct privilege to change to the working directory. Also, it
