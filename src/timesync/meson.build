@@ -11,6 +11,7 @@ timesyncd_sources = files(
 timesyncd_export_sources = files(
         'timesyncd-conf.c',
         'timesyncd-manager.c',
+        'timesyncd-phc.c',
         'timesyncd-server.c',
 )
 
