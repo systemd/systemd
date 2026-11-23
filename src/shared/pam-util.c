@@ -123,18 +123,19 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(PamBusData*, pam_bus_data_free);
 
 static void pam_bus_data_destroy(pam_handle_t *pamh, void *data, int error_status) {
         /* Destructor when called from PAM. Note that error_status is supposed to tell us via PAM_DATA_SILENT
-         * whether we are called in a forked off child of the PAM session or in the original parent. We don't
-         * bother with that however, and instead rely on the PID checks that sd_bus_flush_close_unref() does
-         * internally anyway. That said, we still generate a warning message, since this really shouldn't
-         * happen. */
+         * whether we are called in the process that is about to execute the payload of the PAM session or
+         * in the one that sticks around to clean up. Which one of the two is the forked off child depends on
+         * the application: for login(1) it is the former, for the service manager the latter. We don't
+         * bother with the flag, and instead rely on the PID checks that sd_bus_flush_close_unref() does
+         * internally anyway. That said, we still generate a warning message if the connection was passed
+         * across a fork(), since this really shouldn't happen. */
 
         if (!data)
                 return;
 
         PamBusData *d = data;
-        if (FLAGS_SET(error_status, PAM_DATA_SILENT) &&
-            d->bus && bus_origin_changed(d->bus))
-                /* Please adjust test/units/end.sh when updating the log message. */
+        if (d->bus && bus_origin_changed(d->bus))
+                /* Please adjust test/units/post.sh when updating the log message. */
                 sym_pam_syslog(pamh, LOG_DEBUG,
                                "Warning: cannot close sd-bus connection (%s) after fork when it was opened before the fork.",
                                strna(d->cache_id));
