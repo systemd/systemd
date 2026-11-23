@@ -5,6 +5,9 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
 # Check if all symlinks under /dev/disk/ are valid
 # shellcheck disable=SC2120
 helper_check_device_symlinks() (
@@ -756,9 +759,8 @@ EOF
 testcase_simultaneous_events() {
     local reduce_num_disks
 
-    . /etc/os-release
     reduce_num_disks=0
-    if [[ "$ID" == "ubuntu" || "$ID" == "debian" ]]; then
+    if os_release_id_is ubuntu debian; then
         reduce_num_disks=1
     fi
 
