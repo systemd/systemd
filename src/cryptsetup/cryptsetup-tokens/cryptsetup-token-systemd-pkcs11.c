@@ -125,9 +125,9 @@ _public_ int cryptsetup_token_validate(
                 struct crypt_device *cd, /* is always LUKS2 context */
                 const char *json /* contains valid 'type' and 'keyslots' fields. 'type' is 'systemd-pkcs11' */) {
 
-        int r;
-        sd_json_variant *w;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_(pkcs11_luks2_token_done) Pkcs11Luks2Token t = {};
+        int r;
 
         r = dlopen_cryptsetup(LOG_DEBUG);
         if (r < 0)
@@ -137,40 +137,9 @@ _public_ int cryptsetup_token_validate(
         if (r < 0)
                 return crypt_log_debug_errno(cd, r, "Could not parse " TOKEN_NAME " json object: %m.");
 
-        w = sd_json_variant_by_key(v, "pkcs11-uri");
-        if (!w || !sd_json_variant_is_string(w)) {
-                crypt_log_debug(cd, "PKCS#11 token data lacks 'pkcs11-uri' field.");
-                return 1;
-        }
-
-        if (!pkcs11_uri_valid(sd_json_variant_string(w))) {
-                crypt_log_debug(cd, "PKCS#11 token data contains invalid PKCS#11 URI.");
-                return 1;
-        }
-
-        w = sd_json_variant_by_key(v, "pkcs11-key");
-        if (!w) {
-                crypt_log_debug(cd, "PKCS#11 token data lacks 'pkcs11-key' field.");
-                return 1;
-        }
-
-        r = sd_json_variant_unbase64(w, /* ret= */ NULL, /* ret_size= */ NULL);
+        r = pkcs11_luks2_token_parse(v, &t);
         if (r < 0)
-                return crypt_log_debug_errno(cd, r, "Failed to decode base64 encoded key: %m.");
-
-        /* Optional 'pkcs11-padding' field: must be a known padding scheme string if present. Older systemd
-         * versions will just ignore this field entirely and assume PKCS#1 v1.5. */
-        w = sd_json_variant_by_key(v, "pkcs11-padding");
-        if (w) {
-                if (!sd_json_variant_is_string(w)) {
-                        crypt_log_debug(cd, "PKCS#11 token field 'pkcs11-padding' is not a string.");
-                        return 1;
-                }
-                if (pkcs11_rsa_padding_from_string(sd_json_variant_string(w)) < 0) {
-                        crypt_log_debug(cd, "PKCS#11 token field 'pkcs11-padding' has unsupported value.");
-                        return 1;
-                }
-        }
+                return crypt_log_debug_errno(cd, r, "Invalid " TOKEN_NAME " token data: %m");
 
         return 0;
 }

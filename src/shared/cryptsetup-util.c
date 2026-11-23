@@ -10,6 +10,7 @@
 #include "escape.h"
 #include "hexdecoct.h"
 #include "hmac.h"
+#include "json-util.h"
 #include "log.h"
 #include "parse-util.h"
 #include "string-util.h"
@@ -176,13 +177,17 @@ int cryptsetup_get_token_as_json(
                 return r == -ENOMEM ? r : -EUCLEAN; /* Report unparseable token data in a single way for callers to skip */
 
         if (verify_type) {
-                sd_json_variant *w;
+                const char *type = NULL;
 
-                w = sd_json_variant_by_key(v, "type");
-                if (!w)
+                static const sd_json_dispatch_field dispatch_table[] = {
+                        { "type", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, SD_JSON_MANDATORY },
+                        {}
+                };
+
+                r = sd_json_dispatch(v, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &type);
+                if (r == -ENXIO)
                         return -EINVAL;
-
-                if (!streq_ptr(sd_json_variant_string(w), verify_type))
+                if (r < 0 || !streq(type, verify_type))
                         return -EMEDIUMTYPE;
         }
 
@@ -370,33 +375,101 @@ int dlopen_cryptsetup(int log_level) {
 #endif
 }
 
+typedef struct CryptsetupTokenKeyslots {
+        int *keyslots;
+        size_t n_keyslots;
+} CryptsetupTokenKeyslots;
+
+static int dispatch_token_keyslots(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        CryptsetupTokenKeyslots *k = ASSERT_PTR(userdata);
+        sd_json_variant *i;
+        int r;
+
+        /* The "keyslots" field is an array of key slot numbers, written as strings */
+
+        if (!sd_json_variant_is_array(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EMEDIUMTYPE), "JSON field '%s' is not an array.", strna(name));
+
+        JSON_VARIANT_ARRAY_FOREACH(i, variant) {
+                int keyslot;
+
+                if (!sd_json_variant_is_string(i))
+                        return json_log(i, flags, SYNTHETIC_ERRNO(EMEDIUMTYPE), "JSON field '%s' contains an element that is not a string.", strna(name));
+
+                r = safe_atoi(sd_json_variant_string(i), &keyslot);
+                if (r < 0)
+                        return json_log(i, flags, r, "JSON field '%s' contains an element that is not a number: %m", strna(name));
+                if (keyslot < 0)
+                        return json_log(i, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' contains a negative key slot.", strna(name));
+
+                if (!GREEDY_REALLOC(k->keyslots, k->n_keyslots + 1))
+                        return json_log_oom(i, flags);
+
+                k->keyslots[k->n_keyslots++] = keyslot;
+        }
+
+        return 0;
+}
+
+int cryptsetup_token_parse_common(
+                sd_json_variant *v,
+                const char **ret_type,
+                int **ret_keyslots,
+                size_t *ret_n_keyslots) {
+
+        struct {
+                const char *type;
+                CryptsetupTokenKeyslots keyslots;
+        } p = {};
+        int r;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "type",     SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, voffsetof(p, type),     SD_JSON_MANDATORY },
+                { "keyslots", _SD_JSON_VARIANT_TYPE_INVALID, dispatch_token_keyslots,       voffsetof(p, keyslots), SD_JSON_MANDATORY },
+                {}
+        };
+
+        assert(v);
+
+        /* Parses the "type" and "keyslots" fields that every LUKS2 token has. They are defined by the LUKS2
+         * spec, not by us. The returned type string is owned by the JSON variant. */
+
+        r = sd_json_dispatch(v, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
+        if (r < 0) {
+                free(p.keyslots.keyslots);
+                return r;
+        }
+
+        if (ret_type)
+                *ret_type = p.type;
+        if (ret_n_keyslots)
+                *ret_n_keyslots = p.keyslots.n_keyslots;
+        if (ret_keyslots)
+                *ret_keyslots = TAKE_PTR(p.keyslots.keyslots);
+        else
+                free(p.keyslots.keyslots);
+
+        return 0;
+}
+
 int cryptsetup_get_keyslot_from_token(sd_json_variant *v) {
-        int keyslot, r;
-        sd_json_variant *w;
+        _cleanup_free_ int *keyslots = NULL;
+        size_t n_keyslots;
+        int r;
 
         /* Parses the "keyslots" field of a LUKS2 token object. The field can be an array, but here we assume
          * that it contains a single element only, since that's the only way we ever generate it
          * ourselves. */
 
-        w = sd_json_variant_by_key(v, "keyslots");
-        if (!w)
+        r = cryptsetup_token_parse_common(v, /* ret_type= */ NULL, &keyslots, &n_keyslots);
+        if (r == -ENXIO)
                 return -ENOENT;
-        if (!sd_json_variant_is_array(w) || sd_json_variant_elements(w) != 1)
-                return -EMEDIUMTYPE;
-
-        w = sd_json_variant_by_index(w, /* index= */ 0);
-        if (!w)
-                return -ENOENT;
-        if (!sd_json_variant_is_string(w))
-                return -EMEDIUMTYPE;
-
-        r = safe_atoi(sd_json_variant_string(w), &keyslot);
         if (r < 0)
                 return r;
-        if (keyslot < 0)
-                return -EINVAL;
+        if (n_keyslots != 1)
+                return -EMEDIUMTYPE;
 
-        return keyslot;
+        return keyslots[0];
 }
 
 const char* mangle_none(const char *s) {

@@ -9,6 +9,8 @@
 #  include <p11-kit/uri.h>      /* IWYU pragma: export */
 #endif
 
+#include <sys/uio.h>
+
 #include "ask-password-api.h"
 #include "dlfcn-util.h"
 #include "dlopen-note.h"
@@ -16,6 +18,16 @@
 #include "pkcs11-padding.h"
 
 bool pkcs11_uri_valid(const char *uri);
+
+/* The fields of a "systemd-pkcs11" LUKS2 token */
+typedef struct Pkcs11Luks2Token {
+        char *uri;
+        struct iovec key;
+        Pkcs11RsaPadding rsa_padding;
+} Pkcs11Luks2Token;
+
+void pkcs11_luks2_token_done(Pkcs11Luks2Token *t);
+int pkcs11_luks2_token_parse(sd_json_variant *v, Pkcs11Luks2Token *ret);
 
 #if HAVE_P11KIT
 extern DLSYM_PROTOTYPE(p11_kit_module_get_name);

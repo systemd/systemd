@@ -1138,7 +1138,26 @@ static int event_log_load_firmware(EventLog *el, bool keep_no_action) {
 }
 
 static int event_log_record_parse_json(EventLogRecord *record, sd_json_variant *j) {
+        struct {
+                uint64_t pcr;
+                uint64_t nv_index;
+                sd_json_variant *digests;
+                const char *content_type;
+                sd_json_variant *content;
+        } p = {
+                .pcr = UINT64_MAX,
+                .nv_index = UINT64_MAX,
+        };
         int r;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "pcr",          SD_JSON_VARIANT_UNSIGNED,      sd_json_dispatch_uint64,        voffsetof(p, pcr),          0                 },
+                { "nv_index",     SD_JSON_VARIANT_UNSIGNED,      sd_json_dispatch_uint64,        voffsetof(p, nv_index),     0                 },
+                { "digests",      SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant_noref, voffsetof(p, digests),      SD_JSON_MANDATORY },
+                { "content_type", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  voffsetof(p, content_type), 0                 },
+                { "content",      _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_variant_noref, voffsetof(p, content),      0                 },
+                {}
+        };
 
         assert(record);
         assert(j);
@@ -1146,67 +1165,59 @@ static int event_log_record_parse_json(EventLogRecord *record, sd_json_variant *
         if (!sd_json_variant_is_object(j))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "record object is not an object.");
 
-        sd_json_variant *jp = sd_json_variant_by_key(j, "pcr");
-        sd_json_variant *jn = sd_json_variant_by_key(j, "nv_index");
-        if (jp) {
-                uint64_t u;
-                if (jn)
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Both 'pcr' and 'nv_index' field found in TPM measurement log file entry.");
-                if (!sd_json_variant_is_unsigned(jp))
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'pcr' field is not an integer.");
+        r = sd_json_dispatch(j, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &p);
+        if (r < 0)
+                return -EBADMSG;
 
-                u = sd_json_variant_unsigned(jp);
-                if (u >= TPM2_PCRS_MAX)
+        if (p.pcr != UINT64_MAX) {
+                if (p.nv_index != UINT64_MAX)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Both 'pcr' and 'nv_index' field found in TPM measurement log file entry.");
+                if (p.pcr >= TPM2_PCRS_MAX)
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'pcr' field is out of range.");
 
-                record->pcr = u;
+                record->pcr = p.pcr;
                 record->nv_index = UINT32_MAX;
         } else {
-                uint64_t u;
-
-                if (!jn)
+                if (p.nv_index == UINT64_MAX)
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Neither 'pcr' nor 'nv_index' field found in TPM measurement log file entry.");
-                if (!sd_json_variant_is_unsigned(jn))
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'nv_index' field is not an integer.");
-
-                u = sd_json_variant_unsigned(jn);
-                if (u >= UINT32_MAX)
+                if (p.nv_index >= UINT32_MAX)
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'nv_index' field is out of range.");
 
-                record->nv_index = u;
+                record->nv_index = p.nv_index;
                 record->pcr = UINT32_MAX;
         }
 
-        sd_json_variant *x = sd_json_variant_by_key(j, "digests");
-        if (!x)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'digests' field missing from TPM measurement log file entry.");
-        if (!sd_json_variant_is_array(x))
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'digests' field is not an array.");
-
         sd_json_variant *k;
-        JSON_VARIANT_ARRAY_FOREACH(k, x) {
+        JSON_VARIANT_ARRAY_FOREACH(k, p.digests) {
                 _cleanup_free_ void *hash = NULL;
                 size_t hash_size;
-                sd_json_variant *a, *h;
+                struct {
+                        const char *hash_alg;
+                        sd_json_variant *digest;
+                } d = {};
                 int na;
 
-                a = sd_json_variant_by_key(k, "hashAlg");
-                if (!a)
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'digests' field element lacks 'hashAlg' field.");
-                if (!sd_json_variant_is_string(a))
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'hashAlg' field is not a string.");
+                /* The digest is only checked for supported hash algorithms */
+                static const sd_json_dispatch_field digest_dispatch_table[] = {
+                        { "hashAlg", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  voffsetof(d, hash_alg), SD_JSON_MANDATORY },
+                        { "digest",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_variant_noref, voffsetof(d, digest),   0                 },
+                        {}
+                };
 
-                na = tpm2_hash_alg_from_string(sd_json_variant_string(a));
+                r = sd_json_dispatch(k, digest_dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &d);
+                if (r < 0)
+                        return -EBADMSG;
+
+                na = tpm2_hash_alg_from_string(d.hash_alg);
                 if (na < 0) {
-                        log_debug_errno(na, "Unsupported hash '%s' in userspace event log, ignoring: %m", sd_json_variant_string(a));
+                        log_debug_errno(na, "Unsupported hash '%s' in userspace event log, ignoring: %m", d.hash_alg);
                         continue;
                 }
 
-                h = sd_json_variant_by_key(k, "digest");
-                if (!h)
+                if (!d.digest)
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'digests' field lacks 'digest' field.");
 
-                r = sd_json_variant_unhex(h, &hash, &hash_size);
+                r = sd_json_variant_unhex(d.digest, &hash, &hash_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode digest: %m");
 
@@ -1220,48 +1231,44 @@ static int event_log_record_parse_json(EventLogRecord *record, sd_json_variant *
                         return log_error_errno(r, "Failed to add bank to event log record: %m");
         }
 
-        const char *rectype = NULL;
-        x = sd_json_variant_by_key(j, "content_type");
-        if (!x)
+        if (!p.content_type)
                 log_debug("'content_type' missing from TPM measurement log file entry, ignoring.");
-        else {
-                if (!sd_json_variant_is_string(x))
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'content_type' field is not a string.");
 
-                rectype = sd_json_variant_string(x);
-        }
+        if (streq_ptr(p.content_type, "systemd")) {
+                struct {
+                        const char *string;
+                        const char *event_type;
+                } c = {};
 
-        if (streq_ptr(rectype, "systemd")) {
-                sd_json_variant *y;
+                static const sd_json_dispatch_field content_dispatch_table[] = {
+                        { "string",    SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(c, string),     0 },
+                        { "eventType", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(c, event_type), 0 },
+                        {}
+                };
 
-                x = sd_json_variant_by_key(j, "content");
-                if (!x)
+                if (!p.content)
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'content' field missing from TPM measurement log file entry.");
-                if (!sd_json_variant_is_object(x))
+                if (!sd_json_variant_is_object(p.content))
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'content' sub-object is not an object.");
 
-                y = sd_json_variant_by_key(x, "string");
-                if (y) {
-                        if (!sd_json_variant_is_string(y))
-                                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'string' field is not a string.");
+                r = sd_json_dispatch(p.content, content_dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &c);
+                if (r < 0)
+                        return -EBADMSG;
 
-                        r = free_and_strdup_warn(&record->description, sd_json_variant_string(y));
+                if (c.string) {
+                        r = free_and_strdup_warn(&record->description, c.string);
                         if (r < 0)
                                 return r;
                 }
 
-                y = sd_json_variant_by_key(x, "eventType");
-                if (y) {
-                        if (!sd_json_variant_is_string(y))
-                                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'eventType' field is not a string.");
-
-                        record->userspace_event_type = tpm2_userspace_event_type_from_string(sd_json_variant_string(y));
+                if (c.event_type) {
+                        record->userspace_event_type = tpm2_userspace_event_type_from_string(c.event_type);
                         if (record->userspace_event_type < 0)
-                                log_debug_errno(record->userspace_event_type, "Unknown userspace event type '%s', ignoring.", sd_json_variant_string(y));
+                                log_debug_errno(record->userspace_event_type, "Unknown userspace event type '%s', ignoring.", c.event_type);
                 }
 
                 sd_json_variant_unref(record->userspace_content);
-                record->userspace_content = sd_json_variant_ref(x);
+                record->userspace_content = sd_json_variant_ref(p.content);
         }
 
         return 0;
@@ -1810,7 +1817,7 @@ static int event_log_add_component_file(EventLog *el, EventLogComponent *compone
         _cleanup_(event_log_component_variant_freep) EventLogComponentVariant *variant = NULL;
         _cleanup_free_ char *fname = NULL, *id = NULL, *path_copy = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
-        sd_json_variant *records;
+        sd_json_variant *records = NULL;
         const char *e;
         int r;
 
@@ -1868,7 +1875,17 @@ static int event_log_add_component_file(EventLog *el, EventLogComponent *compone
                 .id = TAKE_PTR(id),
         };
 
-        records = sd_json_variant_by_key(j, "records");
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "records", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_variant_noref, 0, 0 },
+                {}
+        };
+
+        r = sd_json_dispatch(j, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &records);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to parse component file %s, ignoring: %m", path);
+                return 0;
+        }
+
         if (records) {
                 sd_json_variant *rj;
 
