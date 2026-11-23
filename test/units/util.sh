@@ -407,8 +407,9 @@ EOF
         chmod +x "$initdir/opt/script0.sh"
         echo MARKER=1 >"$initdir/usr/lib/systemd/system/some_file"
         mksquashfs "$initdir" /tmp/app0.raw -noappend
-        # TEST-50 looks up these images as <hex root hash>-verity. With a SHA-512 default, the hash alone
-        # exceeds the 127-character device-mapper name limit.
+        # TEST-50 references the shared verity devices as <hex root hash>-verity, which only fits
+        # in a device-mapper name for small hashes, so pin one explicitly: some distributions
+        # default to SHA-512, whose encoding is too long.
         veritysetup format /tmp/app0.raw /tmp/app0.verity --hash=sha256 --root-hash-file /tmp/app0.roothash
         openssl smime -sign -nocerts -noattr -binary \
                 -in /tmp/app0.roothash \
