@@ -768,15 +768,20 @@ testcase_simultaneous_events() {
 }
 
 testcase_lvm_basic() {
-    local i iterations partitions part timeout
+    local i iterations partitions part timeout lvm_version
     local vgroup="MyTestGroup$RANDOM"
     local devices=(
         /dev/disk/by-id/scsi-0systemd_foobar_deadbeeflvm{0..3}
     )
 
-    . /etc/os-release
-    if [[ "$ID" == "ubuntu" ]]; then
-        echo "LVM on Ubuntu is broken, skipping the test" | tee --append /skipped
+    # When udev reprocesses a suspended DM device, lvm2 older than 2.03.19 does not
+    # re-import the ID_FS_* properties from the udev database. Without ID_FS_USAGE,
+    # 99-systemd.rules marks the device as SYSTEMD_READY=0, and the mount created below
+    # is unmounted while the device is suspended. See
+    # https://github.com/lvmteam/lvm2/commit/94f77a4d8d9737fca05fb4e451678ec440c68670
+    lvm_version="$(lvm version | sed -n 's/^ *LVM version: *\([0-9.]*\).*/\1/p')"
+    if systemd-analyze compare-versions "$lvm_version" lt 2.03.19; then
+        echo "lvm2 $lvm_version does not keep DM devices ready while suspended, skipping the test" | tee --append /skipped
         exit 77
     fi
 
