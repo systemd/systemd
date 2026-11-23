@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "crypto-util.h"
@@ -7,6 +9,8 @@
 #include "env-util.h"
 #include "escape.h"
 #include "format-table.h"
+#include "iovec-util.h"
+#include "json-util.h"
 #include "log.h"
 #include "memory-util.h"
 #include "pkcs11-util.h"
@@ -34,6 +38,45 @@ bool pkcs11_uri_valid(const char *uri) {
                 return false;
 
         return true;
+}
+
+void pkcs11_luks2_token_done(Pkcs11Luks2Token *t) {
+        assert(t);
+
+        t->uri = mfree(t->uri);
+        iovec_done(&t->key);
+}
+
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_pkcs11_rsa_padding, Pkcs11RsaPadding, pkcs11_rsa_padding_from_string);
+
+int pkcs11_luks2_token_parse(sd_json_variant *v, Pkcs11Luks2Token *ret) {
+        _cleanup_(pkcs11_luks2_token_done) Pkcs11Luks2Token t = {
+                /* Old tokens do not have the "pkcs11-padding" field. They use PKCS#1 v1.5. */
+                .rsa_padding = PKCS11_RSA_PADDING_PKCS1V15,
+        };
+        int r;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "pkcs11-uri",     SD_JSON_VARIANT_STRING, sd_json_dispatch_string,      offsetof(Pkcs11Luks2Token, uri),         SD_JSON_MANDATORY },
+                { "pkcs11-key",     SD_JSON_VARIANT_STRING, json_dispatch_unbase64_iovec, offsetof(Pkcs11Luks2Token, key),         SD_JSON_MANDATORY },
+                { "pkcs11-padding", SD_JSON_VARIANT_STRING, dispatch_pkcs11_rsa_padding,  offsetof(Pkcs11Luks2Token, rsa_padding), 0                 },
+                {}
+        };
+
+        assert(v);
+        assert(ret);
+
+        /* Parses the JSON of a "systemd-pkcs11" LUKS2 token */
+
+        r = sd_json_dispatch(v, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &t);
+        if (r < 0)
+                return r;
+
+        if (!pkcs11_uri_valid(t.uri) || t.rsa_padding < 0)
+                return -EINVAL;
+
+        *ret = TAKE_STRUCT(t);
+        return 0;
 }
 
 static const char* const pkcs11_rsa_padding_table[_PKCS11_RSA_PADDING_MAX] = {
