@@ -402,7 +402,7 @@ static mhd_result request_handler(
                 return mhd_respond(connection, MHD_HTTP_NOT_FOUND, "Not found.");
 
         header = sym_MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Content-Type");
-        if (!header || !streq(header, "application/vnd.fdo.journal"))
+        if (!streq_ptr(header, "application/vnd.fdo.journal"))
                 return mhd_respond(connection, MHD_HTTP_UNSUPPORTED_MEDIA_TYPE,
                                    "Content-Type: application/vnd.fdo.journal is required.");
 
