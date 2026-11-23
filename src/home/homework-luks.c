@@ -850,6 +850,19 @@ static int crypt_device_to_evp_cipher(struct crypt_device *cd, const EVP_CIPHER 
         return 0;
 }
 
+/* The fields of a "systemd-homed" LUKS2 token: the encrypted user record and the IV used to encrypt it */
+typedef struct HomedLuksToken {
+        struct iovec record;
+        struct iovec iv;
+} HomedLuksToken;
+
+static void homed_luks_token_done(HomedLuksToken *t) {
+        assert(t);
+
+        iovec_done(&t->record);
+        iovec_done(&t->iv);
+}
+
 static int luks_validate_home_record(
                 struct crypt_device *cd,
                 UserRecord *h,
@@ -867,14 +880,19 @@ static int luks_validate_home_record(
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *rr = NULL;
                 _cleanup_(EVP_CIPHER_CTX_freep) EVP_CIPHER_CTX *context = NULL;
                 _cleanup_(user_record_unrefp) UserRecord *lhr = NULL;
-                _cleanup_free_ void *encrypted = NULL, *iv = NULL;
-                size_t decrypted_size, encrypted_size, iv_size;
+                _cleanup_(homed_luks_token_done) HomedLuksToken t = {};
+                size_t decrypted_size;
                 int decrypted_size_out1, decrypted_size_out2;
                 _cleanup_free_ char *decrypted = NULL;
                 const char *text, *type;
                 crypt_token_info state;
-                sd_json_variant *jr, *jiv;
                 const EVP_CIPHER *cc;
+
+                static const sd_json_dispatch_field dispatch_table[] = {
+                        { "record", SD_JSON_VARIANT_STRING, json_dispatch_unbase64_iovec, offsetof(HomedLuksToken, record), SD_JSON_MANDATORY },
+                        { "iv",     SD_JSON_VARIANT_STRING, json_dispatch_unbase64_iovec, offsetof(HomedLuksToken, iv),     SD_JSON_MANDATORY },
+                        {}
+                };
 
                 state = sym_crypt_token_status(cd, token, &type);
                 if (state == CRYPT_TOKEN_INACTIVE) /* First unconfigured token, give up */
@@ -896,40 +914,29 @@ static int luks_validate_home_record(
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse LUKS token JSON data %u:%u: %m", line, column);
 
-                jr = sd_json_variant_by_key(v, "record");
-                if (!jr)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "LUKS token lacks 'record' field.");
-                jiv = sd_json_variant_by_key(v, "iv");
-                if (!jiv)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "LUKS token lacks 'iv' field.");
-
-                r = sd_json_variant_unbase64(jr, &encrypted, &encrypted_size);
+                r = sd_json_dispatch(v, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &t);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to base64 decode record: %m");
-
-                r = sd_json_variant_unbase64(jiv, &iv, &iv_size);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to base64 decode IV: %m");
+                        return log_error_errno(r, "Failed to parse LUKS token %i: %m", token);
 
                 r = crypt_device_to_evp_cipher(cd, &cc);
                 if (r < 0)
                         return r;
-                if (iv_size > INT_MAX || sym_EVP_CIPHER_get_iv_length(cc) != (int) iv_size)
+                if (t.iv.iov_len > INT_MAX || sym_EVP_CIPHER_get_iv_length(cc) != (int) t.iv.iov_len)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "IV size doesn't match.");
 
                 context = sym_EVP_CIPHER_CTX_new();
                 if (!context)
                         return log_oom();
 
-                if (sym_EVP_DecryptInit_ex(context, cc, /* impl= */ NULL, volume_key, iv) != 1)
+                if (sym_EVP_DecryptInit_ex(context, cc, /* impl= */ NULL, volume_key, t.iv.iov_base) != 1)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize decryption context.");
 
-                decrypted_size = encrypted_size + sym_EVP_CIPHER_get_key_length(cc) * 2;
+                decrypted_size = t.record.iov_len + sym_EVP_CIPHER_get_key_length(cc) * 2;
                 decrypted = new(char, decrypted_size);
                 if (!decrypted)
                         return log_oom();
 
-                if (sym_EVP_DecryptUpdate(context, (uint8_t*) decrypted, &decrypted_size_out1, encrypted, encrypted_size) != 1)
+                if (sym_EVP_DecryptUpdate(context, (uint8_t*) decrypted, &decrypted_size_out1, t.record.iov_base, t.record.iov_len) != 1)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to decrypt JSON record.");
 
                 assert((size_t) decrypted_size_out1 <= decrypted_size);

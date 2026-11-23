@@ -1,7 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <sys/uio.h>
+
 #include "forward.h"
+#include "libfido2-util.h"
+
+/* The fields of a "systemd-fido2" LUKS2 token */
+typedef struct Fido2Luks2Token {
+        struct iovec cid;
+        struct iovec salt;
+        char *rp_id;
+        Fido2EnrollFlags required;
+} Fido2Luks2Token;
+
+void fido2_luks2_token_done(Fido2Luks2Token *t);
+int fido2_luks2_token_parse(sd_json_variant *v, Fido2Luks2Token *ret);
 
 int acquire_fido2_key(
                 const char *volume_name,

@@ -1143,6 +1143,44 @@ TEST(calculate_policy_auth_value) {
         ASSERT_TRUE(digest_check(&d, "759ebd5ed65100e0b4aa2d04b4b789c2672d92ecc9cdda4b5fa16a303132e008"));
 }
 
+static int prediction_from_json(const char *json, Tpm2PCRPrediction *ret) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+        ASSERT_OK(sd_json_parse(json, /* flags= */ 0, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
+
+        return tpm2_pcr_prediction_from_json(ret, TPM2_ALG_SHA256, v);
+}
+
+TEST(tpm2_pcr_prediction_from_json) {
+        _cleanup_(tpm2_pcr_prediction_done) Tpm2PCRPrediction p = {};
+
+        /* Two values for PCR 7, one for PCR 11, plus an unknown field that is ignored */
+        ASSERT_OK(prediction_from_json(
+                        "[{\"pcr\":7,\"values\":[\"0101\",\"0202\"]},"
+                        "{\"pcr\":11,\"values\":[\"0303\"],\"comment\":\"x\"}]",
+                        &p));
+        ASSERT_EQ(p.pcrs, (UINT32_C(1) << 7) | (UINT32_C(1) << 11));
+        ASSERT_EQ(ordered_set_size(p.results[7]), 2U);
+        ASSERT_EQ(ordered_set_size(p.results[11]), 1U);
+}
+
+TEST(tpm2_pcr_prediction_from_json_invalid) {
+        static const char *const invalid[] = {
+                "{}",                                     /* not an array */
+                "[{\"values\":[\"0101\"]}]",                /* no PCR index */
+                "[{\"pcr\":7}]",                          /* no values */
+                "[{\"pcr\":24,\"values\":[\"0101\"]}]",     /* PCR index out of range */
+                "[{\"pcr\":\"7\",\"values\":[\"0101\"]}]",  /* PCR index not a number */
+                "[{\"pcr\":7,\"values\":\"0101\"}]",        /* values not an array */
+        };
+
+        FOREACH_ELEMENT(j, invalid) {
+                _cleanup_(tpm2_pcr_prediction_done) Tpm2PCRPrediction p = {};
+
+                ASSERT_ERROR(prediction_from_json(*j, &p), EBADMSG);
+        }
+}
+
 TEST(tpm2_fido2_salt_and_public_key_tag) {
         _cleanup_(iovec_done) struct iovec salt = {}, tag = {}, tag2 = {};
         _cleanup_free_ char *h = NULL;
