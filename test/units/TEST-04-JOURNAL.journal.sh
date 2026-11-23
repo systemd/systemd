@@ -52,8 +52,9 @@ echo -ne "foo" | systemd-cat -t "$ID" --level-prefix false
 # Let's test varlinkctl a bit, i.e. implement the equivalent of 'journalctl --sync' via varlinkctl
 varlinkctl call /run/systemd/journal/io.systemd.journal io.systemd.Journal.Synchronize '{}'
 journalctl -b -o export --output-fields=MESSAGE,FOO --output-fields=PRIORITY,MESSAGE -t "$ID" >/tmp/output
-[[ $(wc -l </tmp/output) -eq 9 ]]
+[[ $(wc -l </tmp/output) -eq 10 ]]
 grep -q '^__CURSOR=' /tmp/output
+grep -q '^__BOOTTIME_TIMESTAMP=' /tmp/output
 grep -q '^MESSAGE=foo$' /tmp/output
 grep -q '^PRIORITY=6$' /tmp/output
 (! grep '^FOO=' /tmp/output)
