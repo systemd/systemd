@@ -65,6 +65,9 @@ typedef enum Uapi16Order {
 
 DECLARE_STRING_TABLE_LOOKUP(uapi16_order, Uapi16Order);
 
+/* See manifest-util.h for Uapi16Complete */
+DECLARE_STRING_TABLE_LOOKUP(uapi16_complete, Uapi16Complete);
+
 typedef struct Uapi16Object {
         char *name;
         char *media_type;
@@ -74,6 +77,10 @@ typedef struct Uapi16Object {
         /* The ordering the manifest declares. Only set on the root file object, _UAPI16_ORDER_INVALID if not
          * declared, and _UAPI16_ORDER_UNKNOWN if declared to a value we do not know. */
         Uapi16Order order;
+        /* The completeness the manifest declares. Only set on the root file object,
+         * _UAPI16_COMPLETE_INVALID if not declared (i.e. UAPI16_COMPLETE_YES is implied). Values we do not
+         * know are mapped to UAPI16_COMPLETE_NO, as the specification requires. */
+        Uapi16Complete complete;
         mode_t type;  /* the inode type, i.e. S_IFREG, S_IFDIR, … – but no access mode bits */
         uint64_t size;
         mode_t mode;  /* the access bits, without inode type */
@@ -128,6 +135,7 @@ typedef struct Uapi16Object {
 #define UAPI16_OBJECT_NULL (const Uapi16Object) {     \
                 .features = _MANIFEST_FIELD_INVALID,  \
                 .order = _UAPI16_ORDER_INVALID,       \
+                .complete = _UAPI16_COMPLETE_INVALID, \
                 .size = UINT64_MAX,                   \
                 .mode = MODE_INVALID,                 \
                 .uid = UID_INVALID,                   \

@@ -37,6 +37,7 @@
 #include "path-util.h"
 #include "recurse-dir.h"
 #include "rm-rf.h"
+#include "set.h"
 #include "sha256.h"
 #include "stat-util.h"
 #include "string-table.h"
@@ -1587,6 +1588,9 @@ static int manifest_uapi16_item(
                          * and lists the entries of a directory right after it, i.e. the order of complete
                          * names is the code point ordering, hence declare it */
                         SD_JSON_BUILD_PAIR_CONDITION(is_root, "order", JSON_BUILD_CONST_STRING("codepoint")),
+                        /* Resolved by manifest_make(). The specification asks us not to set fields to their
+                         * defaults, hence omit "yes". */
+                        SD_JSON_BUILD_PAIR_CONDITION(is_root && c->complete != UAPI16_COMPLETE_YES, "complete", SD_JSON_BUILD_STRING(uapi16_complete_to_string(c->complete))),
                         SD_JSON_BUILD_PAIR_CONDITION(!is_root, "name", SD_JSON_BUILD_STRING(path)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!type, "type", SD_JSON_BUILD_STRING(type)),
                         SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(c->fields, MANIFEST_FIELD_SIZE) && have_size, "size", SD_JSON_BUILD_UNSIGNED(size)),
@@ -1840,6 +1844,50 @@ int manifest_uapi16_end(ManifestContext *c) {
         return 0;
 }
 
+static int manifest_uapi16_resolve_complete(ManifestContext *c) {
+        assert(c);
+
+        /* Picks the completeness to declare, unless explicitly configured, from the inode types we list, and
+         * checks that the configured one holds. */
+
+        uint32_t all_but_dir = MANIFEST_INODE_TYPES_ALL & ~(UINT32_C(1) << DT_DIR);
+
+        if (c->complete < 0) {
+                if (c->inode_types == MANIFEST_INODE_TYPES_ALL)
+                        c->complete = UAPI16_COMPLETE_YES;
+                else if (c->inode_types == all_but_dir)
+                        c->complete = UAPI16_COMPLETE_NO_DIR;
+                else
+                        c->complete = UAPI16_COMPLETE_NO;
+
+                return 0;
+        }
+
+        switch (c->complete) {
+
+        case UAPI16_COMPLETE_YES:
+                if (c->inode_types != MANIFEST_INODE_TYPES_ALL)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot declare manifest complete if not all inode types are listed.");
+                break;
+
+        case UAPI16_COMPLETE_NO_DIR:
+                if ((c->inode_types & all_but_dir) != all_but_dir)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot declare manifest complete except for directories if inode types other than directories are not listed.");
+
+                /* Such manifests must not list directories (other than the root), hence never do */
+                c->inode_types &= ~(UINT32_C(1) << DT_DIR);
+                break;
+
+        case UAPI16_COMPLETE_NO:
+                break;
+
+        default:
+                assert_not_reached();
+        }
+
+        return 0;
+}
+
 int manifest_make(ManifestContext *c, int dir_fd) {
         int r;
 
@@ -1885,9 +1933,9 @@ int manifest_make(ManifestContext *c, int dir_fd) {
                 break;
 
         case MANIFEST_FORMAT_UAPI16:
-                /* The file objects of all directories other file objects are located in must be listed */
-                if (!BIT_SET(c->inode_types, DT_DIR))
-                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "UAPI.16 manifests must list directories.");
+                r = manifest_uapi16_resolve_complete(c);
+                if (r < 0)
+                        return r;
 
                 statx_mask |= manifest_uapi16_fields_to_statx(c->fields);
                 flags |= RECURSE_DIR_INODE_FD|RECURSE_DIR_TOPLEVEL;
@@ -2683,10 +2731,252 @@ static int verify_object(ManifestContext *c, int dir_fd, const Uapi16Object *o) 
         return 0;
 }
 
+typedef struct VerifyDirectory {
+        char *path;    /* NULL for the top-level directory */
+        Set *listed;   /* The names of the entries the manifest lists (without the directory path) */
+        Set *implicit; /* The names of the subdirectories the manifest does not list, but lists file objects
+                        * below, i.e. that were entered implicitly */
+} VerifyDirectory;
+
 typedef struct VerifyObjectContext {
         ManifestContext *context;
         int dir_fd;
+
+        /* The inode types the manifest is guaranteed to list all inodes of, according to its completeness
+         * (or what we have been told to treat it as), and which are selected. Inodes of these types in the
+         * tree the manifest does not list are reported. If zero, we do not check for unlisted inodes. */
+        uint32_t check_types;
+
+        /* The directories entered but not left yet, i.e. whose entries may still follow in the manifest,
+         * innermost last. Only maintained if check_types is non-zero. */
+        VerifyDirectory *dirs;
+        size_t n_dirs;
 } VerifyObjectContext;
+
+static void verify_object_context_done(VerifyObjectContext *vc) {
+        assert(vc);
+
+        FOREACH_ARRAY(d, vc->dirs, vc->n_dirs) {
+                free(d->path);
+                set_free(d->listed);
+                set_free(d->implicit);
+        }
+
+        vc->dirs = mfree(vc->dirs);
+        vc->n_dirs = 0;
+}
+
+static int verify_directory_enter(VerifyObjectContext *vc, const char *path) {
+        assert(vc);
+
+        /* Enters a directory, i.e. starts recording the entries the manifest lists for it, until it is left
+         * again with verify_directory_leave(). Note that the directory is not accessed before then. */
+
+        _cleanup_free_ char *p = NULL;
+        if (path) {
+                p = strdup(path);
+                if (!p)
+                        return log_oom();
+        }
+
+        if (!GREEDY_REALLOC(vc->dirs, vc->n_dirs + 1))
+                return log_oom();
+
+        vc->dirs[vc->n_dirs++] = (VerifyDirectory) {
+                .path = TAKE_PTR(p),
+        };
+
+        return 0;
+}
+
+static int verify_unlisted_item(
+                RecurseDirEvent event,
+                const char *path,
+                int dir_fd,
+                int inode_fd,
+                const struct dirent *de,
+                const struct statx *sx,
+                void *userdata) {
+
+        VerifyObjectContext *vc = ASSERT_PTR(userdata);
+
+        if (!IN_SET(event, RECURSE_DIR_ENTER, RECURSE_DIR_ENTRY))
+                return RECURSE_DIR_CONTINUE;
+
+        assert(de);
+
+        /* Every inode in the subtree is unlisted. Directories are not reported here, as we only enumerate
+         * subtrees if their type is not checked, see verify_directory_leave(). */
+        if (BIT_SET(vc->check_types, de->d_type))
+                manifest_verify_error(vc->context, path, "Found in tree, but not listed in manifest.");
+
+        return RECURSE_DIR_CONTINUE;
+}
+
+static int verify_unlisted_subtree(VerifyObjectContext *vc, int parent_fd, const char *name, const char *path) {
+        int r;
+
+        assert(vc);
+        assert(parent_fd >= 0);
+        assert(name);
+        assert(path);
+        assert(!BIT_SET(vc->check_types, DT_DIR));
+
+        _cleanup_close_ int fd = xopenat(parent_fd, name, O_DIRECTORY|O_NOFOLLOW|O_RDONLY);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to open directory '%s': %m", path);
+
+        r = recurse_dir(fd, path, /* statx_mask= */ 0, /* n_depth_max= */ UINT_MAX, RECURSE_DIR_SORT|RECURSE_DIR_ENSURE_TYPE, verify_unlisted_item, vc);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate directory '%s': %m", path);
+
+        return 0;
+}
+
+static int verify_directory_leave(VerifyObjectContext *vc) {
+        int r;
+
+        assert(vc);
+        assert(vc->n_dirs > 0);
+
+        /* Leaves the innermost directory entered: all of its entries the manifest lists have been seen,
+         * hence enumerate the directory in the tree and complain about every entry the manifest does not
+         * list. */
+
+        VerifyDirectory *d = vc->dirs + --vc->n_dirs;
+        _cleanup_free_ char *path = TAKE_PTR(d->path);
+        _cleanup_set_free_ Set *listed = TAKE_PTR(d->listed), *implicit = TAKE_PTR(d->implicit);
+
+        _cleanup_close_ int fd = -EBADF;
+        r = chaseat(vc->dir_fd, vc->dir_fd, path ?: ".", CHASE_NOFOLLOW|CHASE_PROHIBIT_SYMLINKS|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &fd);
+        if (IN_SET(r, -ENOENT, -ENOTDIR, -EREMCHG, -ELOOP)) {
+                /* Missing in the tree, or not a directory: verify_object() reported that already (or will
+                 * for the entries below it, if the manifest does not list the directory itself) */
+                log_debug_errno(r, "Directory '%s' not found in tree, not checking for unlisted entries: %m", path ?: ".");
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to open directory '%s': %m", path ?: ".");
+
+        /* chaseat() returns an O_PATH fd, hence have it reopened */
+        _cleanup_free_ DirectoryEntries *de = NULL;
+        r = readdir_all(fd, RECURSE_DIR_REOPEN|RECURSE_DIR_SORT|RECURSE_DIR_ENSURE_TYPE, &de);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate directory '%s': %m", path ?: ".");
+
+        FOREACH_ARRAY(i, de->entries, de->n_entries) {
+                const struct dirent *e = *i;
+
+                if (set_contains(listed, e->d_name))
+                        continue;
+
+                /* A manifest embedded in the tree it covers does not list itself, see manifest_make() */
+                if (!path && e->d_type == DT_REG && uapi16_manifest_filename_is_reserved(e->d_name))
+                        continue;
+
+                _cleanup_free_ char *j = path_join(path, e->d_name);
+                if (!j)
+                        return log_oom();
+
+                /* Report unlisted inodes whose type the manifest guarantees to list. For directories that
+                 * is the topmost one only, what is below it is not listed either, after all. */
+                if (BIT_SET(vc->check_types, e->d_type)) {
+                        manifest_verify_error(vc->context, j, "Found in tree, but not listed in manifest.");
+                        continue;
+                }
+
+                /* Directories the manifest does not list (and does not have to, e.g. for "no-dir"
+                 * manifests) may still contain inodes it has to list. The entries of those it lists file
+                 * objects below have been checked when they were left, but the others need to be
+                 * enumerated recursively now. */
+                if (e->d_type != DT_DIR || set_contains(implicit, e->d_name))
+                        continue;
+
+                r = verify_unlisted_subtree(vc, fd, e->d_name, j);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int verify_directory_track(VerifyObjectContext *vc, const Uapi16Object *o) {
+        int r;
+
+        assert(vc);
+        assert(o);
+        assert(o->name);
+
+        /* Maintains the stack of entered directories, mirroring the placement check in uapi16_manifest_read(),
+         * and records the object as listed in the directory it is located in. */
+
+        _cleanup_free_ char *parent = NULL;
+        r = path_extract_directory(o->name, &parent);
+        if (r < 0 && r != -EDESTADDRREQ) /* EDESTADDRREQ → in the root directory */
+                return log_error_errno(r, "Failed to extract directory of '%s': %m", o->name);
+
+        /* Leave all directories the object is not located in, directly or indirectly. The top-level
+         * directory is only left at the very end. */
+        while (vc->n_dirs > 1 && !(parent && path_startswith(parent, vc->dirs[vc->n_dirs - 1].path))) {
+                r = verify_directory_leave(vc);
+                if (r < 0)
+                        return r;
+        }
+
+        assert(vc->n_dirs > 0);
+
+        /* If the manifest lacks the file objects of the directories the object is located in (e.g. because
+         * it is not complete, or because it is "no-dir"), enter them implicitly, so that we also find their
+         * unlisted entries. As we do not record them as listed in their parent directories, they are
+         * reported as unlisted themselves if the directory type is checked, which they are. */
+        if (parent && !streq_ptr(vc->dirs[vc->n_dirs - 1].path, parent)) {
+                const char *top = vc->dirs[vc->n_dirs - 1].path;
+                const char *rest = top ? path_startswith(parent, top) : parent;
+                assert(rest);
+
+                for (const char *q = rest;;) {
+                        const char *e;
+                        r = path_find_first_component(&q, /* accept_dot_dot= */ false, &e);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse path '%s': %m", parent);
+                        if (r == 0)
+                                break;
+
+                        _cleanup_free_ char *d = strndup(parent, e + r - parent);
+                        if (!d)
+                                return log_oom();
+
+                        _cleanup_free_ char *n = strndup(e, r);
+                        if (!n)
+                                return log_oom();
+
+                        r = set_ensure_consume(&vc->dirs[vc->n_dirs - 1].implicit, &string_hash_ops_free, TAKE_PTR(n));
+                        if (r < 0)
+                                return log_oom();
+
+                        r = verify_directory_enter(vc, d);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        _cleanup_free_ char *fn = NULL;
+        r = path_extract_filename(o->name, &fn);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract file name of '%s': %m", o->name);
+
+        r = set_ensure_consume(&vc->dirs[vc->n_dirs - 1].listed, &string_hash_ops_free, TAKE_PTR(fn));
+        if (r < 0)
+                return log_oom();
+
+        if (o->type == S_IFDIR) {
+                r = verify_directory_enter(vc, o->name);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
 
 static int verify_object_handler(Uapi16Object *o, size_t index, void *userdata) {
         VerifyObjectContext *vc = ASSERT_PTR(userdata);
@@ -2701,6 +2991,42 @@ static int verify_object_handler(Uapi16Object *o, size_t index, void *userdata) 
                 log_warning_errno(r, "File object has been revoked, processing anyway.");
         else if (r < 0)
                 return log_error_errno(r, "Failed to check file object validity: %m");
+
+        if (index == 0) {
+                /* The caller may override what the manifest declares */
+                Uapi16Complete complete = vc->context->complete >= 0 ? vc->context->complete :
+                                          o->complete >= 0 ? o->complete : UAPI16_COMPLETE_YES;
+
+                switch (complete) {
+                case UAPI16_COMPLETE_YES:
+                        vc->check_types = MANIFEST_INODE_TYPES_ALL;
+                        break;
+                case UAPI16_COMPLETE_NO_DIR:
+                        vc->check_types = MANIFEST_INODE_TYPES_ALL & ~(UINT32_C(1) << DT_DIR);
+                        break;
+                case UAPI16_COMPLETE_NO:
+                        vc->check_types = 0;
+                        break;
+                default:
+                        assert_not_reached();
+                }
+
+                vc->check_types &= vc->context->inode_types;
+
+                log_debug("Treating manifest as complete=%s, %s for unlisted inodes in tree.",
+                          uapi16_complete_to_string(complete),
+                          vc->check_types != 0 ? "checking" : "not checking");
+
+                if (vc->check_types != 0) {
+                        r = verify_directory_enter(vc, /* path= */ NULL);
+                        if (r < 0)
+                                return r;
+                }
+        } else if (vc->check_types != 0) {
+                r = verify_directory_track(vc, o);
+                if (r < 0)
+                        return r;
+        }
 
         /* The root object is always verified, like it is always generated */
         if (index > 0 && !BIT_SET(vc->context->inode_types, IFTODT(o->type))) {
@@ -2719,17 +3045,26 @@ static int uapi16_manifest_verify(ManifestContext *c, int dir_fd, FILE *f) {
         assert(dir_fd >= 0);
         assert(f);
 
+        _cleanup_(verify_object_context_done) VerifyObjectContext vc = {
+                .context = c,
+                .dir_fd = dir_fd,
+        };
+
         r = uapi16_manifest_read(
                         f,
                         c->certificates,
                         c->n_certificates,
                         verify_object_handler,
-                        &(VerifyObjectContext) {
-                                .context = c,
-                                .dir_fd = dir_fd,
-                        });
+                        &vc);
         if (r < 0)
                 return r;
+
+        /* Leave the directories still entered, checking them for unlisted entries, too */
+        while (vc.n_dirs > 0) {
+                r = verify_directory_leave(&vc);
+                if (r < 0)
+                        return r;
+        }
 
         if (c->n_certificates > 0)
                 log_info("Manifest signature verified successfully.");

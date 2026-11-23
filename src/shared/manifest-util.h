@@ -81,6 +81,16 @@ typedef enum ManifestField {
          (UINT32_C(1) << DT_BLK) | (UINT32_C(1) << DT_FIFO) |           \
          (UINT32_C(1) << DT_SOCK))
 
+/* Which file objects of the directory tree a UAPI.16 manifest lists, as declared in the "complete" field of
+ * its root file object. Defined here rather than in uapi16-manifest.h, as ManifestContext needs it. */
+typedef enum Uapi16Complete {
+        UAPI16_COMPLETE_YES,    /* All file objects are listed (the default) */
+        UAPI16_COMPLETE_NO_DIR, /* All file objects except for those of directories (other than the root) */
+        UAPI16_COMPLETE_NO,     /* Any file objects may be missing */
+        _UAPI16_COMPLETE_MAX,
+        _UAPI16_COMPLETE_INVALID = -EINVAL,
+} Uapi16Complete;
+
 /* The hash algorithm to use for MANIFEST_FIELD_HASH. Only the mtree format supports anything but SHA256. */
 typedef enum ManifestHash {
         MANIFEST_HASH_SHA256,
@@ -132,6 +142,13 @@ typedef struct ManifestContext {
 
         sd_json_format_flags_t json_format_flags;
 
+        /* UAPI.16 only. When generating, the completeness to declare. If unset, it is derived from
+         * inode_types: "yes" if all types are selected, "no-dir" if only directories are not, "no"
+         * otherwise. When verifying, overrides the completeness the manifest declares, if set. Inodes in
+         * the tree the manifest does not list are mismatches, as far as the completeness guarantees they
+         * are listed (and their type is selected in inode_types). */
+        Uapi16Complete complete;
+
         /* When verifying, the maximum deviation of timestamps (currently only the modification time) from
          * the manifest we accept */
         nsec_t timestamp_accuracy_nsec;
@@ -157,6 +174,7 @@ typedef struct ManifestContext {
                 .hash = MANIFEST_HASH_SHA256,                                            \
                 .db_fd = -EBADF,                                                         \
                 .json_format_flags = SD_JSON_FORMAT_OFF,                                 \
+                .complete = _UAPI16_COMPLETE_INVALID,                                    \
                 .timestamp_accuracy_nsec = MANIFEST_TIMESTAMP_ACCURACY_DEFAULT_NSEC,     \
         }
 
@@ -214,7 +232,9 @@ int manifest_parse_sums(FILE *f, size_t *line_nr, char **ret_filename, struct io
  * stream. The manifest is processed entry by entry, and never loaded into memory as a whole. Every mismatch is
  * logged and counted, and once the whole manifest is processed -EBADMSG is returned if there was at least
  * one. Only the list, sha256sums and uapi16 formats are supported. Inodes whose type is not included in the
- * inode types configured in the context are not verified. */
+ * inode types configured in the context are not verified. For UAPI.16 manifests, inodes in the tree the
+ * manifest does not list are mismatches too, as far as its completeness (see ManifestContext.complete)
+ * guarantees they are listed. */
 int manifest_verify(ManifestContext *c, int dir_fd, FILE *f);
 
 /* Calculates the hash of the file the specified fd refers to, with the algorithm configured in the context.

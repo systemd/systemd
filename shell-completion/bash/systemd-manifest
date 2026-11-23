@@ -30,7 +30,7 @@ _systemd_manifest() {
     local -A OPTS=(
         [STANDALONE]='-h --help --version --no-pager --graceful'
         [ARG]='--json --format --field --filter-type --hash --timestamp-accuracy-sec --private-key --private-key-source
-               --certificate --certificate-source --verify-signature --voa-context'
+               --certificate --certificate-source --verify-signature --voa-context --complete'
     )
 
     _init_completion || return
@@ -58,6 +58,9 @@ _systemd_manifest() {
                     comps+=" $t +$t -$t"
                 done
                 comps+=' all none'
+                ;;
+            --complete)
+                comps='yes no-dir no'
                 ;;
             --hash)
                 comps='sha256 sha512'
