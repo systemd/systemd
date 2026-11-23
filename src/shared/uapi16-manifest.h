@@ -74,6 +74,9 @@ typedef struct Uapi16Object {
         /* The ordering the manifest declares. Only set on the root file object, _UAPI16_ORDER_INVALID if not
          * declared, and _UAPI16_ORDER_UNKNOWN if declared to a value we do not know. */
         Uapi16Order order;
+        /* Whether the manifest declares itself incomplete, i.e. may lack the file objects of directories
+         * other file objects are located in. Only set on the root file object, -1 if not declared. */
+        int incomplete;
         mode_t type;  /* the inode type, i.e. S_IFREG, S_IFDIR, … – but no access mode bits */
         uint64_t size;
         mode_t mode;  /* the access bits, without inode type */
@@ -128,6 +131,7 @@ typedef struct Uapi16Object {
 #define UAPI16_OBJECT_NULL (const Uapi16Object) {     \
                 .features = _MANIFEST_FIELD_INVALID,  \
                 .order = _UAPI16_ORDER_INVALID,       \
+                .incomplete = -1,                     \
                 .size = UINT64_MAX,                   \
                 .mode = MODE_INVALID,                 \
                 .uid = UID_INVALID,                   \

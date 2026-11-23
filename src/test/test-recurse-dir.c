@@ -188,6 +188,38 @@ static void test_must_be_flags(void) {
         check_readdir_all(tfd, RECURSE_DIR_MUST_BE_DIRECTORY|RECURSE_DIR_MUST_BE_SOCKET, STRV_MAKE("dir", "sock"));
 }
 
+static void test_reopen(void) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, path_fd = -EBADF;
+
+        log_info("/* %s */", __func__);
+
+        ASSERT_OK(tfd = mkdtemp_open(/* template= */ NULL, O_DIRECTORY, &t));
+        ASSERT_OK_ERRNO(mkdirat(tfd, "a", 0777));
+        ASSERT_OK_ERRNO(mkdirat(tfd, "b", 0777));
+
+        /* Without RECURSE_DIR_REOPEN the file offset of the fd is consumed, hence a second enumeration on
+         * the same fd yields nothing … */
+        _cleanup_free_ DirectoryEntries *de1 = NULL, *de2 = NULL, *de3 = NULL, *de4 = NULL, *de5 = NULL;
+        ASSERT_OK(readdir_all(tfd, RECURSE_DIR_SORT, &de1));
+        assert_entries(de1, STRV_MAKE("a", "b"));
+        ASSERT_OK(readdir_all(tfd, RECURSE_DIR_SORT, &de2));
+        ASSERT_EQ(de2->n_entries, 0U);
+
+        /* … but with it every enumeration starts from the beginning */
+        ASSERT_OK(readdir_all(tfd, RECURSE_DIR_SORT|RECURSE_DIR_REOPEN, &de3));
+        assert_entries(de3, STRV_MAKE("a", "b"));
+
+        /* O_PATH fds can only be enumerated if reopened, directly or via an empty path */
+        ASSERT_OK(path_fd = xopenat(AT_FDCWD, t, O_PATH|O_DIRECTORY));
+        ASSERT_ERROR(readdir_all(path_fd, /* flags= */ 0, /* ret= */ NULL), EBADF);
+        ASSERT_OK(readdir_all(path_fd, RECURSE_DIR_SORT|RECURSE_DIR_REOPEN, &de4));
+        assert_entries(de4, STRV_MAKE("a", "b"));
+        ASSERT_OK(readdir_all_at(path_fd, "", RECURSE_DIR_SORT|RECURSE_DIR_REOPEN, &de5));
+        assert_entries(de5, STRV_MAKE("a", "b"));
+        ASSERT_ERROR(readdir_all_at(path_fd, "", /* flags= */ 0, /* ret= */ NULL), ENOENT);
+}
+
 int main(int argc, char *argv[]) {
         _cleanup_strv_free_ char **list_recurse_dir = NULL;
         const char *p;
@@ -198,6 +230,7 @@ int main(int argc, char *argv[]) {
         test_setup_logging(LOG_INFO);
 
         test_must_be_flags();
+        test_reopen();
 
         if (argc > 1)
                 p = argv[1];

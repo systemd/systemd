@@ -118,6 +118,11 @@ typedef struct ManifestContext {
 
         sd_json_format_flags_t json_format_flags;
 
+        /* UAPI.16 only. When generating, whether to declare the manifest incomplete (if > 0). When
+         * verifying, whether to treat the manifest as incomplete, i.e. accept inodes in the tree it does
+         * not list, overriding what the manifest declares (if >= 0). */
+        int incomplete;
+
         /* When verifying, the maximum deviation of timestamps (currently only the modification time) from
          * the manifest we accept */
         nsec_t timestamp_accuracy_nsec;
@@ -142,6 +147,7 @@ typedef struct ManifestContext {
                 .hash = MANIFEST_HASH_SHA256,                                            \
                 .db_fd = -EBADF,                                                         \
                 .json_format_flags = SD_JSON_FORMAT_OFF,                                 \
+                .incomplete = -1,                                                        \
                 .timestamp_accuracy_nsec = MANIFEST_TIMESTAMP_ACCURACY_DEFAULT_NSEC,     \
         }
 
@@ -192,7 +198,8 @@ int manifest_parse_sums(FILE *f, size_t *line_nr, char **ret_filename, struct io
 /* Verifies the directory tree the specified fd refers to against the manifest read from the specified
  * stream. The manifest is processed entry by entry, and never loaded into memory as a whole. Every mismatch is
  * logged and counted, and once the whole manifest is processed -EBADMSG is returned if there was at least
- * one. Only the list, sha256sums and uapi16 formats are supported. */
+ * one. Only the list, sha256sums and uapi16 formats are supported. For complete UAPI.16 manifests (see
+ * ManifestContext.incomplete) inodes in the tree the manifest does not list are mismatches too. */
 int manifest_verify(ManifestContext *c, int dir_fd, FILE *f);
 
 /* Calculates the hash of the file the specified fd refers to, with the algorithm configured in the context.
