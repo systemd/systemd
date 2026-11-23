@@ -177,6 +177,20 @@ CK_RV pkcs11_get_slot_list_malloc(
         return CKR_BUFFER_TOO_SMALL;
 }
 
+bool pkcs11_slot_is_enumerable(const CK_SLOT_INFO *slot_info) {
+        assert(slot_info);
+
+        /* We only care about hardware devices here with a token inserted. Let's filter everything else
+         * out. (Note that the user can explicitly specify non-hardware tokens if they like, but during
+         * enumeration we'll filter those, since software tokens are typically the system certificate store
+         * and such, and it's typically not what people want to bind their home directories to.)
+         *
+         * This takes only the slot info on purpose: CKF_HW_SLOT and CKF_TOKEN_PRESENT have the same values
+         * as the token flags CKF_LOGIN_REQUIRED and CKF_RNG, so testing them against CK_TOKEN_INFO.flags
+         * compiles fine but filters on the wrong properties. */
+        return FLAGS_SET(slot_info->flags, CKF_HW_SLOT|CKF_TOKEN_PRESENT);
+}
+
 char* pkcs11_token_label(const CK_TOKEN_INFO *token_info) {
         char *t;
 
@@ -1917,11 +1931,7 @@ static int list_callback(
         if (r < 0)
                 return r;
 
-        /* We only care about hardware devices here with a token inserted. Let's filter everything else
-         * out. (Note that the user can explicitly specify non-hardware tokens if they like, but during
-         * enumeration we'll filter those, since software tokens are typically the system certificate store
-         * and such, and it's typically not what people want to bind their home directories to.) */
-        if (!FLAGS_SET(slot_info->flags, CKF_HW_SLOT|CKF_TOKEN_PRESENT))
+        if (!pkcs11_slot_is_enumerable(slot_info))
                 return -EAGAIN;
 
         token_label = pkcs11_token_label(token_info);
@@ -2034,7 +2044,7 @@ static int auto_callback(
         if (r < 0)
                 return r;
 
-        if (!FLAGS_SET(token_info->flags, CKF_HW_SLOT|CKF_TOKEN_PRESENT))
+        if (!pkcs11_slot_is_enumerable(slot_info))
                 return -EAGAIN;
 
         if (*t)
