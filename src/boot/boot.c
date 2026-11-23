@@ -3006,6 +3006,13 @@ static EFI_STATUS call_image_start(
         _cleanup_file_close_ EFI_FILE *image_root = NULL;
         _cleanup_free_ EFI_DEVICE_PATH *path = NULL;
         bool boot_policy;
+
+        assert(entry->device);
+
+        err = open_volume(entry->device, &image_root);
+        if (err != EFI_SUCCESS)
+                return log_error_status(err, "Error opening entry root path: %m");
+
         if (entry->url) {
                 /* Generate a device path that only contains the URL */
                 err = make_url_device_path(entry->url, &path);
@@ -3040,12 +3047,7 @@ static EFI_STATUS call_image_start(
                                      * controls whether the LoadFile (and thus HTTP boot) or LoadFile2 (which
                                      * does not set up HTTP boot) protocol shall be used. */
         } else {
-                assert(entry->device);
                 assert(entry->loader);
-
-                err = open_volume(entry->device, &image_root);
-                if (err != EFI_SUCCESS)
-                        return log_error_status(err, "Error opening root path: %m");
 
                 err = make_file_device_path(entry->device, entry->loader, &path);
                 if (err != EFI_SUCCESS)
@@ -3106,7 +3108,8 @@ static EFI_STATUS call_image_start(
                         if (err != EFI_SUCCESS)
                                 return err; /* load_extras() logs on its own */
 
-                        register_extra_addons(image_root, entry, &addon_handles, &n_addon_handles);
+                        if (entry->type == LOADER_UKI)
+                                register_extra_addons(image_root, entry, &addon_handles, &n_addon_handles);
                         break;
 
                 default:
