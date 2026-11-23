@@ -808,7 +808,9 @@ static int varlink_parse_message(sd_varlink *v) {
 static int varlink_test_timeout(sd_varlink *v) {
         assert(v);
 
-        usec_t deadline = json_stream_get_timeout(&v->stream);
+        /* Only the idle deadline matters here: partial message timeouts are reported by
+         * json_stream_read()/json_stream_write() and handled as connection failures. */
+        usec_t deadline = json_stream_get_idle_deadline(&v->stream);
         if (deadline == USEC_INFINITY || now(CLOCK_MONOTONIC) < deadline)
                 return 0;
 
