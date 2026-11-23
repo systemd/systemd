@@ -115,6 +115,36 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                         pos += r;
                 }
                         _fallthrough_;
+                case ENTRY_BOOTTIME: {
+                        usec_t boottime;
+
+                        r = sd_journal_get_boottime_usec(u->journal, &boottime, &(sd_id128_t) {});
+                        if (r < 0 && !IN_SET(r, -EBADMSG, -ENODATA))
+                                return log_error_errno(r, "Failed to get boottime timestamp: %m");
+                        if (r >= 0) {
+                                r = snprintf(buf + pos, size - pos,
+                                             "__BOOTTIME_TIMESTAMP="USEC_FMT"\n", boottime);
+                                assert(r >= 0);
+                                if ((size_t) r > size - pos)
+                                        /* not enough space */
+                                        return pos;
+
+                                u->entry_state++;
+
+                                if (r + pos == size) {
+                                        /* exactly one character short, but we don't need it */
+                                        buf[size - 1] = '\n';
+                                        return size;
+                                }
+
+                                pos += r;
+                        } else {
+                                /* The boottime timestamp is optional, skip it if not available */
+                                log_debug_errno(r, "Boottime timestamp of entry not available, not including it: %m");
+                                u->entry_state++;
+                        }
+                }
+                        _fallthrough_;
                 case ENTRY_BOOT_ID: {
                         sd_id128_t boot_id;
 
