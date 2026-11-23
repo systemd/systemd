@@ -22,10 +22,9 @@
 #include "measure.h"
 #include "measure-smbios.h"
 #include "memory-util.h"
+#include "next-boot.h"
 #include "part-discovery.h"
 #include "pe.h"
-#include "proto/block-io.h"
-#include "proto/disk-io.h"
 #include "proto/load-file.h"
 #include "proto/simple-text-io.h"
 #include "random-seed.h"
@@ -66,6 +65,7 @@ typedef enum LoaderType {
         LOADER_AUTO_WINDOWS,     /* Auto-detected Windows Boot Manager */
         LOADER_AUTO_OSX,         /* Auto-detected macOS boot loader */
         LOADER_EFI,              /* Boot loader spec type #1 entries with "efi" line */
+        LOADER_EFI_NEXT_BOOT,    /* Boot loader spec type #1 entries with "efi-next-boot" line */
         LOADER_LINUX,            /* Boot loader spec type #1 entries with "linux" line */
         LOADER_UKI,              /* Boot loader spec type #1 entries with "uki" line */
         LOADER_UKI_URL,          /* Boot loader spec type #1 entries with "uki-url" line */
@@ -86,7 +86,7 @@ typedef enum LoaderType {
 #define LOADER_TYPE_ALLOW_EDITOR_IN_SB(t) IN_SET(t, LOADER_EFI, LOADER_LINUX)
 
 /* Which loader types shall be considered for automatic selection */
-#define LOADER_TYPE_MAY_AUTO_SELECT(t) IN_SET(t, LOADER_EFI, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_TYPE2_UKI)
+#define LOADER_TYPE_MAY_AUTO_SELECT(t) IN_SET(t, LOADER_EFI, LOADER_EFI_NEXT_BOOT, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_TYPE2_UKI)
 
 /* Whether to do boot attempt counting logic (only works if userspace can actually find the selected option later) */
 #define LOADER_TYPE_BUMP_COUNTERS(t) IN_SET(t, LOADER_LINUX, LOADER_UKI, LOADER_TYPE2_UKI)
@@ -95,12 +95,12 @@ typedef enum LoaderType {
 #define LOADER_TYPE_PROCESS_RANDOM_SEED(t) IN_SET(t, LOADER_LINUX, LOADER_UKI, LOADER_TYPE2_UKI)
 
 /* Whether to persistently save the selected entry in an EFI variable, if that's requested. */
-#define LOADER_TYPE_SAVE_ENTRY(t) IN_SET(t, LOADER_AUTO_EFI_SHELL, LOADER_AUTO_EFI_DEFAULT, LOADER_AUTO_WINDOWS, LOADER_AUTO_OSX, LOADER_EFI, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_TYPE2_UKI)
+#define LOADER_TYPE_SAVE_ENTRY(t) IN_SET(t, LOADER_AUTO_EFI_SHELL, LOADER_AUTO_EFI_DEFAULT, LOADER_AUTO_WINDOWS, LOADER_AUTO_OSX, LOADER_EFI, LOADER_EFI_NEXT_BOOT, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_TYPE2_UKI)
 
 /* Whether this item is an actual operating system to boot into (as opposed to internal items, the EFI shell, …).
  * Note that the EFI default loader is only added if it is not systemd-boot itself, hence it typically is
  * another OS' boot loader or shim, and is hence considered an OS here. */
-#define LOADER_TYPE_IS_OS(t) IN_SET(t, LOADER_AUTO_EFI_DEFAULT, LOADER_AUTO_WINDOWS, LOADER_AUTO_OSX, LOADER_EFI, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_TYPE2_UKI)
+#define LOADER_TYPE_IS_OS(t) IN_SET(t, LOADER_AUTO_EFI_DEFAULT, LOADER_AUTO_WINDOWS, LOADER_AUTO_OSX, LOADER_EFI, LOADER_EFI_NEXT_BOOT, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_TYPE2_UKI)
 
 /* Whether this item is implemented fully inside of systemd-boot */
 #define LOADER_TYPE_IS_INTERNAL(t) IN_SET(t, LOADER_SECURE_BOOT_KEYS, LOADER_REBOOT, LOADER_POWEROFF, LOADER_FWSETUP)
@@ -170,7 +170,6 @@ typedef struct {
         bool auto_firmware;
         bool auto_poweroff;
         bool auto_reboot;
-        bool reboot_for_bitlocker;
         RebootOnError reboot_on_error;
         secure_boot_enroll secure_boot_enroll;
         secure_boot_enroll_action secure_boot_enroll_action;
@@ -382,7 +381,6 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
         printf("                 auto-poweroff: %ls\n", yes_no(config->auto_poweroff));
         printf("                   auto-reboot: %ls\n", yes_no(config->auto_reboot));
         printf("                          beep: %ls\n", yes_no(config->beep));
-        printf("          reboot-for-bitlocker: %ls\n", yes_no(config->reboot_for_bitlocker));
         printf("               reboot-on-error: %s\n",  reboot_on_error_to_string(config->reboot_on_error));
         printf("            secure-boot-enroll: %s\n",  secure_boot_enroll_to_string(config->secure_boot_enroll));
         printf("     secure-boot-enroll-action: %s\n",  secure_boot_enroll_action_to_string(config->secure_boot_enroll_action));
@@ -1195,11 +1193,6 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                         if (!parse_boolean(value, &config->beep))
                                 log_warning("Error parsing 'beep' config option, ignoring: %s", value);
 
-                } else if (streq8(key, "reboot-for-bitlocker")) {
-                        if (!parse_boolean(value, &config->reboot_for_bitlocker))
-                                log_warning("Error parsing 'reboot-for-bitlocker' config option, ignoring: %s",
-                                          value);
-
                 } else if (streq8(key, "reboot-on-error")) {
                         if (streq8(value, "auto"))
                                 config->reboot_on_error = REBOOT_AUTO;
@@ -1404,6 +1397,7 @@ read_only:
 }
 
 static EFI_STATUS call_image_start(const BootEntry *entry, EFI_FILE *root_dir, EFI_HANDLE parent_image);
+static EFI_STATUS call_image_next_boot(const BootEntry *entry, EFI_FILE *root_dir, EFI_HANDLE parent_image);
 
 static void boot_entry_add_type1(
                 Config *config,
@@ -1519,6 +1513,24 @@ static void boot_entry_add_type1(
                         entry->type = LOADER_EFI;
                         free(entry->loader);
                         entry->loader = xstr8_to_path(value);
+
+                        /* do not add an entry for ourselves */
+                        if (strcaseeq16(entry->loader, loaded_image_path)) {
+                                entry->type = LOADER_IGNORE;
+                                break;
+                        }
+
+                } else if (streq8(key, "efi-next-boot")) {
+
+                        if (!IN_SET(entry->type, LOADER_UNDEFINED, LOADER_EFI_NEXT_BOOT)) {
+                                entry->type = LOADER_BAD;
+                                break;
+                        }
+
+                        entry->type = LOADER_EFI_NEXT_BOOT;
+                        free(entry->loader);
+                        entry->loader = xstr8_to_path(value);
+                        entry->call = call_image_next_boot;
 
                         /* do not add an entry for ourselves */
                         if (strcaseeq16(entry->loader, loaded_image_path)) {
@@ -2230,98 +2242,6 @@ static void config_add_entry_osx(Config *config) {
         }
 }
 
-#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
-static EFI_STATUS call_boot_windows_bitlocker(const BootEntry *entry, EFI_FILE *root_dir, EFI_HANDLE parent_image) {
-        _cleanup_free_ EFI_HANDLE *handles = NULL;
-        size_t n_handles;
-        EFI_STATUS err;
-
-        assert(entry);
-
-        // FIXME: Experimental for now. Should be generalized, and become a per-entry option that can be
-        // enabled independently of BitLocker, and without a BootXXXX entry pre-existing.
-
-        /* BitLocker key cannot be sealed without a TPM present. */
-        if (!tpm_present())
-                return EFI_NOT_FOUND;
-
-        err = BS->LocateHandleBuffer(
-                        ByProtocol, MAKE_GUID_PTR(EFI_BLOCK_IO_PROTOCOL), NULL, &n_handles, &handles);
-        if (err != EFI_SUCCESS)
-                return err;
-
-        /* Look for BitLocker magic string on all block drives. */
-        bool found = false;
-        for (size_t i = 0; i < n_handles; i++) {
-                EFI_BLOCK_IO_PROTOCOL *block_io;
-                err = BS->HandleProtocol(handles[i], MAKE_GUID_PTR(EFI_BLOCK_IO_PROTOCOL), (void **) &block_io);
-                if (err != EFI_SUCCESS || block_io->Media->BlockSize < 512 || block_io->Media->BlockSize > 4096)
-                        continue;
-
-                EFI_DISK_IO_PROTOCOL *disk_io;
-                err = BS->HandleProtocol(handles[i], MAKE_GUID_PTR(EFI_DISK_IO_PROTOCOL), (void **) &disk_io);
-                if (err != EFI_SUCCESS) {
-                        log_debug_status(err, "Failed to get disk I/O protocol: %m");
-                        continue;
-                }
-
-                char buf[STRLEN("-FVE-FS-")];
-                err = disk_io->ReadDisk(disk_io, block_io->Media->MediaId, /* Offset= */ 3, sizeof(buf), buf);
-                if (err != EFI_SUCCESS)
-                        continue;
-
-                if (memcmp(buf, "-FVE-FS-", STRLEN("-FVE-FS-")) == 0) {
-                        found = true;
-                        break;
-                }
-        }
-
-        /* If no BitLocker drive was found, we can just chainload bootmgfw.efi directly. */
-        if (!found)
-                return EFI_NOT_FOUND;
-
-        _cleanup_free_ uint16_t *boot_order = NULL;
-        size_t boot_order_size;
-
-        /* There can be gaps in Boot#### entries. Instead of iterating over the full
-         * EFI var list or uint16_t namespace, just look for "Windows Boot Manager" in BootOrder. */
-        err = efivar_get_raw(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"BootOrder", (void**) &boot_order, &boot_order_size);
-        if (err != EFI_SUCCESS || boot_order_size % sizeof(uint16_t) != 0)
-                return err;
-
-        for (size_t i = 0; i < boot_order_size / sizeof(uint16_t); i++) {
-                _cleanup_free_ char *buf = NULL;
-                size_t buf_size;
-
-                _cleanup_free_ char16_t *name = xasprintf("Boot%04x", boot_order[i]);
-                err = efivar_get_raw(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), name, (void**) &buf, &buf_size);
-                if (err != EFI_SUCCESS)
-                        continue;
-
-                /* Boot#### are EFI_LOAD_OPTION. But we really are only interested
-                 * for the description, which is at this offset. */
-                size_t offset = sizeof(uint32_t) + sizeof(uint16_t);
-                if (buf_size < offset + sizeof(char16_t))
-                        continue;
-
-                if (streq16((char16_t *) (buf + offset), u"Windows Boot Manager")) {
-                        err = efivar_set_raw(
-                                MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE),
-                                u"BootNext",
-                                boot_order + i,
-                                sizeof(boot_order[i]),
-                                EFI_VARIABLE_NON_VOLATILE);
-                        if (err != EFI_SUCCESS)
-                                return err;
-                        RT->ResetSystem(EfiResetWarm, EFI_SUCCESS, 0, NULL);
-                        assert_not_reached();
-                }
-        }
-
-        return EFI_NOT_FOUND;
-}
-#endif
-
 static void config_add_entry_windows(Config *config, EFI_HANDLE *device, EFI_FILE *root) {
 #if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
         _cleanup_free_ char *bcd = NULL;
@@ -2352,8 +2272,12 @@ static void config_add_entry_windows(Config *config, EFI_HANDLE *device, EFI_FIL
                         title ?: u"Windows Boot Manager",
                         u"\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
 
-        if (e && config->reboot_for_bitlocker)
-                e->call = call_boot_windows_bitlocker;
+        /* Windows typically binds the BitLocker key to TPM PCR 4 (among others), which covers all EFI
+         * binaries invoked during boot, including us. Hence, if a TPM is present, let the firmware invoke
+         * Windows Boot Manager directly via BootNext, so that the PCR state Windows sees does not change
+         * whenever systemd-boot is updated. */
+        if (e && tpm_present())
+                e->call = call_image_next_boot;
 #endif
 }
 
@@ -3310,6 +3234,24 @@ static EFI_STATUS call_image_start(
         return log_error_status(err, "Failed to execute %ls (%ls): %m", entry->title_show, entry->loader ?: entry->url);
 }
 
+static EFI_STATUS call_image_next_boot(
+                const BootEntry *entry,
+                EFI_FILE *root_dir,
+                EFI_HANDLE parent_image) {
+
+        EFI_STATUS err;
+
+        assert(entry);
+        assert(entry->device);
+        assert(entry->loader);
+
+        /* Only returns on failure */
+        err = next_boot_image(entry->device, entry->loader, entry->options, entry->title ?: entry->id);
+        log_warning_status(err, "Failed to boot %ls via BootNext, chainloading it instead: %m", entry->loader);
+
+        return call_image_start(entry, root_dir, parent_image);
+}
+
 static void config_free(Config *config) {
         assert(config);
         for (size_t i = 0; i < config->n_entries; i++)
@@ -3463,6 +3405,7 @@ static void export_loader_variables(
                 EFI_LOADER_FEATURE_FACTORY_RESET_VARIABLES |
                 (fwupdate_available ? EFI_LOADER_FEATURE_FIRMWARE_UPDATE : 0) |
                 EFI_LOADER_FEATURE_ENTRY_ADDONS |
+                EFI_LOADER_FEATURE_TYPE1_EFI_NEXT_BOOT |
                 0;
 
         assert(loaded_image);

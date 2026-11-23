@@ -348,6 +348,7 @@ systemd_boot_sources = files(
         'boot.c',
         'fwupdate.c',
         'line-edit.c',
+        'next-boot.c',
 )
 
 stub_sources = files(

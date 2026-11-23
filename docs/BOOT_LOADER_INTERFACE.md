@@ -151,6 +151,8 @@ Variables will be listed below using the Linux efivarfs naming,
   * `1 << 23` → The boot loader supports installing firmware update capsules prepared by fwupd.
   * `1 << 24` → The boot loader passes the addons of the selected entry to the started Unified Kernel Image,
                 see below.
+  * `1 << 25` → The boot loader supports the `efi-next-boot` field in Type #1 entries, see
+                [`systemd-boot(7)`](https://www.freedesktop.org/software/systemd/man/latest/systemd-boot.html).
 
 * The EFI variable `LoaderFactoryResetVariables-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`
   contains a boolean, formatted as a NUL-terminated UTF-16 string

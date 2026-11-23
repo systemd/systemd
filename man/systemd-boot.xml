@@ -491,6 +491,42 @@ extra       /6a9857a393724b7a981ebb5b8495b9ea/1.2.3/debug.addon.efi</programlist
   </refsect1>
 
   <refsect1>
+    <title>Invoking EFI Binaries via <varname>BootNext</varname></title>
+
+    <para>In addition to the keys defined by the <ulink
+    url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader
+    Specification</ulink>, <command>systemd-boot</command> supports an <literal>efi-next-boot</literal> key
+    in Type #1 boot loader entries. It takes a path to an EFI binary, relative to the root of the file
+    system containing the entry snippet, similar to the <literal>efi</literal> key. However, instead of
+    chainloading the binary directly, <command>systemd-boot</command> will look for a firmware boot option
+    (i.e. a <varname>Boot<replaceable>XXXX</replaceable></varname> EFI variable) referencing the same file on
+    the same partition, set the <varname>BootNext</varname> EFI variable to it, and reboot the system. The
+    firmware will then invoke the EFI binary directly. If no matching firmware boot option exists yet,
+    <command>systemd-boot</command> will overwrite a firmware boot option it created earlier, or create a new
+    one if there is none. Firmware boot options created this way carry a description consisting of the
+    <literal>[Next] </literal> prefix followed by the entry title, by which they are recognized. They are
+    marked hidden (i.e. they have the <constant>LOAD_OPTION_HIDDEN</constant> attribute set) and not added to
+    <varname>BootOrder</varname>, as they are only intended to be used via
+    <varname>BootNext</varname>.</para>
+
+    <para>This is useful for operating systems that bind their disk encryption keys to TPM PCR 4 (which
+    covers all EFI binaries invoked during boot, including <command>systemd-boot</command> itself), as it
+    ensures the PCR state they see does not change whenever <command>systemd-boot</command> is updated.
+    If the <literal>options</literal> key is used, the specified options are stored as optional data in the
+    firmware boot option, which the firmware passes to the binary as load options, and only a firmware boot
+    option with matching optional data is reused. If it is not used, any firmware boot option referencing
+    the file is reused regardless of its optional data. If setting up the firmware boot option fails, the
+    binary is chainloaded directly, as a fallback.</para>
+
+    <para>Example:</para>
+
+    <programlisting>title Some Other OS
+efi-next-boot /EFI/someotheros/loader.efi</programlisting>
+
+    <xi:include href="version-info.xml" xpointer="v264"/>
+  </refsect1>
+
+  <refsect1>
     <title>EFI Variables</title>
 
     <para>The following EFI variables are defined, and may be set or read by <command>systemd-boot</command>
