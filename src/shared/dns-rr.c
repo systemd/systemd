@@ -258,6 +258,16 @@ int dns_resource_key_match_rr(const DnsResourceKey *key, DnsResourceRecord *rr, 
         return 0;
 }
 
+static int dns_name_endswith_strict(const char *name, const char *suffix) {
+        int r;
+
+        r = dns_name_equal(name, suffix);
+        if (r != 0)
+                return r < 0 ? r : 0;
+
+        return dns_name_endswith(name, suffix);
+}
+
 int dns_resource_key_match_cname_or_dname(const DnsResourceKey *key, const DnsResourceKey *cname, const char *search_domain) {
         int r;
 
@@ -273,7 +283,7 @@ int dns_resource_key_match_cname_or_dname(const DnsResourceKey *key, const DnsRe
         if (cname->type == DNS_TYPE_CNAME)
                 r = dns_name_equal(dns_resource_key_name(key), dns_resource_key_name(cname));
         else if (cname->type == DNS_TYPE_DNAME)
-                r = dns_name_endswith(dns_resource_key_name(key), dns_resource_key_name(cname));
+                r = dns_name_endswith_strict(dns_resource_key_name(key), dns_resource_key_name(cname));
         else
                 return 0;
 
@@ -290,7 +300,7 @@ int dns_resource_key_match_cname_or_dname(const DnsResourceKey *key, const DnsRe
                 if (cname->type == DNS_TYPE_CNAME)
                         return dns_name_equal(joined, dns_resource_key_name(cname));
                 else if (cname->type == DNS_TYPE_DNAME)
-                        return dns_name_endswith(joined, dns_resource_key_name(cname));
+                        return dns_name_endswith_strict(joined, dns_resource_key_name(cname));
         }
 
         return 0;
@@ -2046,6 +2056,13 @@ int dns_resource_record_get_cname_target(DnsResourceKey *key, DnsResourceRecord 
                         return -ENOMEM;
 
         } else if (cname->key->type == DNS_TYPE_DNAME) {
+                r = dns_name_endswith_strict(
+                                dns_resource_key_name(key),
+                                dns_resource_key_name(cname->key));
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -EUNATCH;
 
                 r = dns_name_change_suffix(
                                 dns_resource_key_name(key),
