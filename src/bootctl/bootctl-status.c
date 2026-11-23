@@ -415,6 +415,7 @@ int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         { EFI_LOADER_FEATURE_FACTORY_RESET_VARIABLES, "Loader erases EFI variables on request"  },
                         { EFI_LOADER_FEATURE_FIRMWARE_UPDATE,         "Support for installing fwupd updates"    },
                         { EFI_LOADER_FEATURE_ENTRY_ADDONS,            "Loader passes entry addons to stub"      },
+                        { EFI_LOADER_FEATURE_TYPE1_EFI_NEXT_BOOT,     "Support Type #1 efi-next-boot field"     },
                 };
                 static const struct {
                         uint64_t flag;

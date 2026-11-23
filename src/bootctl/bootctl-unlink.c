@@ -128,6 +128,10 @@ static int boot_entry_ref_files(
         if (r < 0)
                 return r;
 
+        r = ref_file(known_files, e->efi_next_boot, increment);
+        if (r < 0)
+                return r;
+
         r = ref_file(known_files, e->uki, increment);
         if (r < 0)
                 return r;
@@ -296,6 +300,7 @@ int boot_entry_unlink(
 
         (void) unref_unlink_file(&known_files, root, root_fd, e->kernel, dry_run);
         (void) unref_unlink_file(&known_files, root, root_fd, e->efi, dry_run);
+        (void) unref_unlink_file(&known_files, root, root_fd, e->efi_next_boot, dry_run);
         (void) unref_unlink_file(&known_files, root, root_fd, e->uki, dry_run);
         STRV_FOREACH(s, e->initrd)
                 (void) unref_unlink_file(&known_files, root, root_fd, *s, dry_run);

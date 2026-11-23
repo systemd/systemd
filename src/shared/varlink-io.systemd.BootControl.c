@@ -60,6 +60,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(linux, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Path to the EFI binary to invoke, relative to the root directory of the file system containing the entry file"),
                 SD_VARLINK_DEFINE_FIELD(efi, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Path to the EFI binary to invoke via the firmware's BootNext mechanism, relative to the root directory of the file system containing the entry file"),
+                SD_VARLINK_DEFINE_FIELD(efiNextBoot, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Path to an UKI EFI binary to invoke, relative to the root directory of the file system containing the entry file"),
                 SD_VARLINK_DEFINE_FIELD(uki, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("An UKI profile index to invoke. If not specified defaults to the first profile."),
