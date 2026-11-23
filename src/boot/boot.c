@@ -61,15 +61,18 @@ DECLARE_SBAT(SBAT_BOOT_SECTION_TEXT);
 
 typedef enum LoaderType {
         LOADER_UNDEFINED,
-        LOADER_AUTO,
-        LOADER_EFI,           /* Boot loader spec type #1 entries with "efi" line */
-        LOADER_LINUX,         /* Boot loader spec type #1 entries with "linux" line */
-        LOADER_UKI,           /* Boot loader spec type #1 entries with "uki" line */
-        LOADER_UKI_URL,       /* Boot loader spec type #1 entries with "uki-url" line */
-        LOADER_TYPE2_UKI,     /* Boot loader spec type #2 entries */
+        LOADER_AUTO_EFI_SHELL,   /* Auto-detected EFI shell */
+        LOADER_AUTO_EFI_DEFAULT, /* Auto-detected EFI default loader (i.e. \EFI\BOOT\BOOT….EFI) */
+        LOADER_AUTO_WINDOWS,     /* Auto-detected Windows Boot Manager */
+        LOADER_AUTO_OSX,         /* Auto-detected macOS boot loader */
+        LOADER_EFI,              /* Boot loader spec type #1 entries with "efi" line */
+        LOADER_LINUX,            /* Boot loader spec type #1 entries with "linux" line */
+        LOADER_UKI,              /* Boot loader spec type #1 entries with "uki" line */
+        LOADER_UKI_URL,          /* Boot loader spec type #1 entries with "uki-url" line */
+        LOADER_TYPE2_UKI,        /* Boot loader spec type #2 entries */
         LOADER_SECURE_BOOT_KEYS,
-        LOADER_BAD,           /* Marker: this boot loader spec type #1 entry is invalid */
-        LOADER_IGNORE,        /* Marker: this boot loader spec type #1 entry does not match local host */
+        LOADER_BAD,              /* Marker: this boot loader spec type #1 entry is invalid */
+        LOADER_IGNORE,           /* Marker: this boot loader spec type #1 entry does not match local host */
         LOADER_REBOOT,
         LOADER_POWEROFF,
         LOADER_FWSETUP,
@@ -92,7 +95,12 @@ typedef enum LoaderType {
 #define LOADER_TYPE_PROCESS_RANDOM_SEED(t) IN_SET(t, LOADER_LINUX, LOADER_UKI, LOADER_TYPE2_UKI)
 
 /* Whether to persistently save the selected entry in an EFI variable, if that's requested. */
-#define LOADER_TYPE_SAVE_ENTRY(t) IN_SET(t, LOADER_AUTO, LOADER_EFI, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_TYPE2_UKI)
+#define LOADER_TYPE_SAVE_ENTRY(t) IN_SET(t, LOADER_AUTO_EFI_SHELL, LOADER_AUTO_EFI_DEFAULT, LOADER_AUTO_WINDOWS, LOADER_AUTO_OSX, LOADER_EFI, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_TYPE2_UKI)
+
+/* Whether this item is an actual operating system to boot into (as opposed to internal items, the EFI shell, …).
+ * Note that the EFI default loader is only added if it is not systemd-boot itself, hence it typically is
+ * another OS' boot loader or shim, and is hence considered an OS here. */
+#define LOADER_TYPE_IS_OS(t) IN_SET(t, LOADER_AUTO_EFI_DEFAULT, LOADER_AUTO_WINDOWS, LOADER_AUTO_OSX, LOADER_EFI, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_TYPE2_UKI)
 
 /* Whether this item is implemented fully inside of systemd-boot */
 #define LOADER_TYPE_IS_INTERNAL(t) IN_SET(t, LOADER_SECURE_BOOT_KEYS, LOADER_REBOOT, LOADER_POWEROFF, LOADER_FWSETUP)
@@ -136,7 +144,9 @@ typedef struct BootEntry {
         char16_t *directory;
         char16_t *current_name;
         char16_t *next_name;
+        char16_t *confirm;    /* If set, a message to show, and ask the user to confirm before invoking the entry */
         unsigned profile;
+        bool default_profile; /* If true, this is the first profile of a UKI that is not hidden (and doesn't require confirmation), which may be auto-selected */
 } BootEntry;
 
 typedef struct {
@@ -172,6 +182,7 @@ typedef struct {
         bool use_saved_entry_preferred_efivar;
         bool beep;
         bool sysfail_occurred;
+        bool netboot;         /* Whether we have been booted from the network */
         int64_t console_mode;
         int64_t console_mode_efivar;
 } Config;
@@ -335,6 +346,7 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
                         secure_boot_mode_to_string(secure));
         printf("                  shim: %ls\n", yes_no(shim_loaded()));
         printf("                   TPM: %ls\n", yes_no(tpm_present()));
+        printf("              net boot: %ls\n", yes_no(config->netboot));
         printf("          console mode: %i/%" PRIi64 " (%zux%zu",
                ST->ConOut->Mode->Mode, ST->ConOut->Mode->MaxMode - INT64_C(1),
                x_max, y_max);
@@ -441,6 +453,8 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
                         printf("       options: %ls\n", entry->options);
                 if (entry->profile > 0)
                         printf("       profile: %u\n", entry->profile);
+                if (!isempty(entry->confirm))
+                        printf("       confirm: %ls\n", entry->confirm);
                 printf(" internal call: %ls\n", yes_no(LOADER_TYPE_IS_INTERNAL(entry->type)));
 
                 printf("counting boots: %ls\n", yes_no(entry->tries_left >= 0));
@@ -493,6 +507,16 @@ static EFI_STATUS call_reboot_into_firmware(const BootEntry *entry, EFI_FILE *ro
         return call_reboot_system(entry, root_dir, parent_image);
 }
 
+static bool config_has_os_entries(const Config *config) {
+        assert(config);
+
+        for (size_t i = 0; i < config->n_entries; i++)
+                if (LOADER_TYPE_IS_OS(config->entries[i]->type))
+                        return true;
+
+        return false;
+}
+
 static bool menu_run(
                 Config *config,
                 BootEntry **chosen_entry,
@@ -514,6 +538,7 @@ static bool menu_run(
                 timeout_remain = config->timeout_sec == TIMEOUT_MENU_FORCE ? 0 : config->timeout_sec;
         int64_t console_mode_initial = ST->ConOut->Mode->Mode, console_mode_efivar_saved = config->console_mode_efivar;
         size_t default_efivar_saved = config->idx_default_efivar;
+        bool have_os = config_has_os_entries(config);
 
         enum {
                 ACTION_CONTINUE,        /* Continue with loop over user input */
@@ -538,6 +563,11 @@ static bool menu_run(
                 clear_screen(COLOR_NORMAL);
                 log_error_status(err, "Error switching console mode: %m");
         }
+
+        /* If there's nothing real to boot into, tell the user right away, instead of just showing a list
+         * of firmware setup, reboot, … entries. */
+        if (!have_os)
+                status = xstrdup16(u"No operating system boot entries found.");
 
         size_t line_width = 0, entry_padding = 3;
         while (IN_SET(action, ACTION_CONTINUE, ACTION_FIRMWARE_SETUP)) {
@@ -1062,6 +1092,7 @@ static BootEntry* boot_entry_free(BootEntry *entry) {
         free(entry->directory);
         free(entry->current_name);
         free(entry->next_name);
+        free(entry->confirm);
 
         return mfree(entry);
 }
@@ -1858,9 +1889,20 @@ static size_t config_find_entry(Config *config, const char16_t *pattern, const b
         if (!pattern)
                 return IDX_INVALID;
 
-        for (size_t i = 0; i < config->n_entries; i++)
-                if (efi_fnmatch(pattern, config->entries[i]->id) && (!check_assessment || config->entries[i]->tries_left != 0))
+        for (size_t i = 0; i < config->n_entries; i++) {
+                BootEntry *e = config->entries[i];
+
+                if (check_assessment && e->tries_left == 0)
+                        continue;
+
+                if (efi_fnmatch(pattern, e->id))
                         return i;
+
+                /* If the first profile of a UKI is hidden, the next visible one takes its place as default
+                 * profile. Make sure it is also found under the UKI's ID without profile suffix. */
+                if (e->default_profile && e->id_without_profile && efi_fnmatch(pattern, e->id_without_profile))
+                        return i;
+        }
 
         return IDX_INVALID;
 }
@@ -1949,7 +1991,7 @@ static void config_select_default_entry(Config *config) {
 
         /* select the first suitable entry */
         for (i = 0; i < config->n_entries; i++) {
-                if (config->entries[i]->profile > 0)
+                if (config->entries[i]->profile > 0 && !config->entries[i]->default_profile)
                         continue; /* For now, never select any non-default profile */
 
                 if (LOADER_TYPE_MAY_AUTO_SELECT(config->entries[i]->type)) {
@@ -1958,8 +2000,20 @@ static void config_select_default_entry(Config *config) {
                 }
         }
 
-        /* If no configured entry to select from was found, enable the menu. */
+        /* If no configured entry to select from was found, enable the menu, and highlight the first OS
+         * entry (if there is one), so that we don't end up booting into the EFI shell or similar after the
+         * timeout. */
         config->idx_default = 0;
+        for (i = 0; i < config->n_entries; i++) {
+                if (config->entries[i]->profile > 0 && !config->entries[i]->default_profile)
+                        continue;
+
+                if (LOADER_TYPE_IS_OS(config->entries[i]->type)) {
+                        config->idx_default = i;
+                        break;
+                }
+        }
+
         if (config->timeout_sec == 0)
                 config->timeout_sec = 10;
 }
@@ -2088,6 +2142,7 @@ static BootEntry* config_add_entry_loader_auto(
                 EFI_HANDLE *device,
                 EFI_FILE *root_dir,
                 const char16_t *loaded_image_path,
+                LoaderType type,
                 const char16_t *id,
                 char16_t key,
                 const char16_t *title,
@@ -2096,6 +2151,7 @@ static BootEntry* config_add_entry_loader_auto(
         assert(config);
         assert(device);
         assert(root_dir);
+        assert(IN_SET(type, LOADER_AUTO_EFI_SHELL, LOADER_AUTO_EFI_DEFAULT, LOADER_AUTO_WINDOWS, LOADER_AUTO_OSX));
         assert(id);
         assert(title);
 
@@ -2125,7 +2181,7 @@ static BootEntry* config_add_entry_loader_auto(
         BootEntry *entry = xnew(BootEntry, 1);
         *entry = (BootEntry) {
                 .id = xstrdup16(id),
-                .type = LOADER_AUTO,
+                .type = type,
                 .title = xstrdup16(title),
                 .device = device,
                 .loader = xstrdup16(loader),
@@ -2165,6 +2221,7 @@ static void config_add_entry_osx(Config *config) {
                                 handles[i],
                                 root,
                                 /* loaded_image_path= */ NULL,
+                                LOADER_AUTO_OSX,
                                 u"auto-osx",
                                 'a',
                                 u"macOS",
@@ -2289,6 +2346,7 @@ static void config_add_entry_windows(Config *config, EFI_HANDLE *device, EFI_FIL
                         device,
                         root,
                         /* loaded_image_path= */ NULL,
+                        LOADER_AUTO_WINDOWS,
                         u"auto-windows",
                         'w',
                         title ?: u"Windows Boot Manager",
@@ -2297,6 +2355,24 @@ static void config_add_entry_windows(Config *config, EFI_HANDLE *device, EFI_FIL
         if (e && config->reboot_for_bitlocker)
                 e->call = call_boot_windows_bitlocker;
 #endif
+}
+
+static bool profile_condition_test(const char *field, const char *value, bool state) {
+        bool b;
+
+        assert(field);
+        assert(value);
+
+        /* Checks a boolean CONDITION_xyz= field of a .profile section against the actual state. If the
+         * field is true the condition only holds if the state is true too, if the field is false only if the
+         * state is false too. */
+
+        if (!parse_boolean(value, &b)) {
+                log_warning("Error parsing %s= field of .profile section, ignoring: %s", field, value);
+                return true;
+        }
+
+        return b == state;
 }
 
 static void boot_entry_add_type2(
@@ -2350,7 +2426,10 @@ static void boot_entry_add_type2(
                         size_in_memory,
                         base_sections);
 
-        /* and now iterate through possible profiles, and create a menu item for each profile we find */
+        /* and now iterate through possible profiles, and create a menu item for each profile we find. The
+         * first profile we show (i.e. that isn't hidden by its conditions, and doesn't require
+         * confirmation) is considered the default. */
+        bool have_default_profile = false;
         for (unsigned profile = 0; profile < UNIFIED_PROFILES_MAX; profile ++) {
                 PeSectionVector sections[_SECTION_MAX] = {};
 
@@ -2437,7 +2516,8 @@ static void boot_entry_add_type2(
                                     &good_sort_key))
                         continue;
 
-                _cleanup_free_ char16_t *profile_id = NULL, *profile_title = NULL;
+                _cleanup_free_ char16_t *profile_id = NULL, *profile_title = NULL, *profile_confirm = NULL;
+                bool profile_hide = false;
 
                 if (PE_SECTION_VECTOR_IS_SET(sections + SECTION_PROFILE)) {
                         content = mfree(content);
@@ -2462,7 +2542,24 @@ static void boot_entry_add_type2(
                                 } else if (streq8(key, "TITLE")) {
                                         free(profile_title);
                                         profile_title = xstr8_to_16(value);
+                                } else if (streq8(key, "CONFIRM")) {
+                                        free(profile_confirm);
+                                        profile_confirm = xstr8_to_16(value);
+                                } else if (streq8(key, "CONDITION_TPM")) {
+                                        if (!profile_condition_test(key, value, tpm_present()))
+                                                profile_hide = true;
+                                } else if (streq8(key, "CONDITION_SECUREBOOT")) {
+                                        if (!profile_condition_test(key, value, secure_boot_enabled()))
+                                                profile_hide = true;
+                                } else if (streq8(key, "CONDITION_NETBOOT")) {
+                                        if (!profile_condition_test(key, value, config->netboot))
+                                                profile_hide = true;
                                 }
+
+                        if (profile_hide) {
+                                log_debug("Conditions of profile %u of %ls not met, hiding.", profile, filename);
+                                continue;
+                        }
                 }
 
                 _cleanup_free_ char16_t *title = NULL;
@@ -2488,8 +2585,14 @@ static void boot_entry_add_type2(
                         .tries_done = -1,
                         .tries_left = -1,
                         .profile = profile,
+                        .confirm = TAKE_PTR(profile_confirm),
                         .call = call_image_start,
                 };
+
+                /* Never pick a profile that requires confirmation as default profile, except if it is the
+                 * first one, so that unattended boots do not stop at the confirmation prompt. */
+                if (!have_default_profile && (profile == 0 || isempty(entry->confirm)))
+                        entry->default_profile = have_default_profile = true;
 
                 boot_entry_parse_tries(entry, path, filename, u".efi");
 
@@ -3429,6 +3532,11 @@ static void config_load_all_entries(
 
         config_load_defaults(config, root_dir);
 
+        /* If the device we have been loaded from is backed by a URL (i.e. we have been booted via HTTP
+         * boot), we are network booting. */
+        _cleanup_free_ char16_t *url = disk_get_url(loaded_image->DeviceHandle);
+        config->netboot = !!url;
+
         /* Scan /EFI/Linux/ directory */
         config_load_type2_entries(config, loaded_image->DeviceHandle, root_dir);
 
@@ -3452,6 +3560,7 @@ static void config_load_all_entries(
                         loaded_image->DeviceHandle,
                         root_dir,
                         /* loaded_image_path= */ NULL,
+                        LOADER_AUTO_EFI_SHELL,
                         u"auto-efi-shell",
                         's',
                         u"EFI Shell",
@@ -3461,6 +3570,7 @@ static void config_load_all_entries(
                         loaded_image->DeviceHandle,
                         root_dir,
                         loaded_image_path,
+                        LOADER_AUTO_EFI_DEFAULT,
                         u"auto-efi-default",
                         '\0',
                         u"EFI Default Loader",
@@ -3481,6 +3591,99 @@ static void config_load_all_entries(
 
         /* Select entry by configured pattern or EFI LoaderDefaultEntry= variable */
         config_select_default_entry(config);
+
+        /* If there's no operating system to boot into, never boot anything automatically (such as the EFI
+         * shell, or the firmware setup), but always show the menu, without a timeout. Unless the menu has
+         * been disabled explicitly, in which case we leave things as they are. */
+        if (!config_has_os_entries(config) && config->timeout_sec != TIMEOUT_MENU_DISABLED)
+                config->timeout_sec = TIMEOUT_MENU_FORCE;
+}
+
+static EFI_STATUS boot_entry_confirm(const BootEntry *entry, bool *ret) {
+        char16_t input[16];
+        size_t n = 0;
+        EFI_STATUS err;
+
+        assert(entry);
+        assert(ret);
+
+        /* If the boot entry requests it, show the configured message and ask the user to type "YES" before
+         * we invoke it. This is useful for profiles that do destructive things, such as factory reset. Any
+         * other input, or Escape cancels. Sets *ret to true if the entry shall be invoked, false
+         * otherwise. Returns an error if reading user input failed. */
+
+        if (isempty(entry->confirm)) {
+                *ret = true;
+                return EFI_SUCCESS;
+        }
+
+        clear_screen(COLOR_NORMAL);
+        printf("%ls\n"
+               "\n"
+               "Type YES and press Enter to continue, or press Escape to cancel: ",
+               entry->confirm);
+
+        for (;;) {
+                uint64_t key;
+
+                err = console_key_read(&key, /* timeout_usec= */ UINT64_MAX);
+                if (err == EFI_NOT_READY)
+                        continue;
+                if (err != EFI_SUCCESS) {
+                        printf("\n");
+                        return log_error_status(err, "Error waiting for user input: %m");
+                }
+
+                switch (key) {
+
+                case KEYPRESS(0, SCAN_ESC, 0):
+                case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'c'):
+                case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('c')):
+                        printf("\n");
+                        *ret = false;
+                        return EFI_SUCCESS;
+
+                case KEYPRESS(0, 0, '\r'):
+                case KEYPRESS(0, 0, '\n'):
+                case KEYPRESS(0, SCAN_F3, '\r'): /* Teclast X98+ II firmware sends malformed events */
+                        printf("\n");
+                        input[n] = '\0';
+                        *ret = streq16(input, u"YES");
+                        if (!*ret)
+                                log_info("Boot entry not confirmed, not starting it.");
+                        return EFI_SUCCESS;
+
+                case KEYPRESS(0, 0, '\b'):
+                        if (n > 0) {
+                                n--;
+                                printf("\b \b");
+                        }
+                        break;
+
+                default: {
+                        char16_t c = KEYCHAR(key);
+
+                        /* Only accept printable ASCII characters without modifiers, ignore anything else */
+                        if (key != KEYPRESS(0, 0, c) && key != KEYPRESS(EFI_SHIFT_PRESSED, 0, c))
+                                break;
+                        if (c < ' ' || c > '~')
+                                break;
+                        if (n >= ELEMENTSOF(input) - 1)
+                                break;
+
+                        /* Be friendly to QWERTZ keyboards (as common in Central Europe), where Y and Z
+                         * are swapped: the firmware might assume a US layout, hence translate a typed Z
+                         * into a Y right away. "YES" contains no Z, hence this is safe. */
+                        if (c == 'Z')
+                                c = 'Y';
+                        else if (c == 'z')
+                                c = 'y';
+
+                        input[n++] = c;
+                        printf("%c", c);
+                        break;
+                }}
+        }
 }
 
 static EFI_STATUS discover_root_dir(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, EFI_FILE **ret_dir) {
@@ -3583,6 +3786,17 @@ static EFI_STATUS run(EFI_HANDLE image) {
                         efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeMenuUSec", /* usec= */ 0);
                         if (!menu_run(&config, &entry, loaded_image_path))
                                 return EFI_SUCCESS;
+                }
+
+                bool confirmed = false;
+                err = boot_entry_confirm(entry, &confirmed);
+                if (err != EFI_SUCCESS)
+                        return err;
+                if (!confirmed) {
+                        /* Not confirmed, show the menu again */
+                        menu = true;
+                        config.timeout_sec = 0;
+                        continue;
                 }
 
                 (void) boot_entry_bump_counters(entry);
