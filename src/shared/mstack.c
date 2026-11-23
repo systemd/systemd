@@ -452,22 +452,17 @@ static int mstack_load_now(MStack *mstack, const char *dir, int dir_fd, MStackFl
         if (r < 0)
                 return r;
 
-        /* Expects dir_fd already opened. If not, then we'll open it based on 'dir' */
+        /* Expects dir_fd already opened (possibly as O_PATH fd). If not, then we'll open it based on 'dir' */
         if (dir_fd < 0) {
-                _dir_fd = xopenat(AT_FDCWD, isempty(dir) ? "." : dir, O_DIRECTORY);
+                _dir_fd = xopenat(AT_FDCWD, isempty(dir) ? "." : dir, O_DIRECTORY|O_PATH);
                 if (_dir_fd < 0)
                         return log_debug_errno(_dir_fd, "Failed to open '%s': %m", dir);
 
                 dir_fd = _dir_fd;
-        } else {
-                /* Possibly convert an O_PATH fd to a real one */
-                dir_fd = fd_reopen_condition(dir_fd, O_DIRECTORY, O_PATH|O_DIRECTORY, &_dir_fd);
-                if (dir_fd < 0)
-                        return log_debug_errno(dir_fd, "Failed to reopen '%s': %m", dir);
         }
 
         _cleanup_free_ DirectoryEntries *de = NULL;
-        r = readdir_all(dir_fd, RECURSE_DIR_IGNORE_DOT, &de);
+        r = readdir_all(dir_fd, RECURSE_DIR_REOPEN|RECURSE_DIR_IGNORE_DOT, &de);
         if (r < 0)
                 return r;
 

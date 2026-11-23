@@ -407,14 +407,9 @@ static int make_choice(
 
         /* Underspecified, so we do our enumeration dance */
 
-        /* Convert O_PATH to a regular directory fd */
-        _cleanup_close_ int enumerate_fd = fd_reopen(inode_fd, O_DIRECTORY|O_RDONLY);
-        if (enumerate_fd < 0)
-                return log_debug_errno(enumerate_fd, "Failed to reopen '%s/%s' as directory: %m",
-                                       empty_to_root(root_path), skip_leading_slash(inode_path));
-
+        /* inode_fd is an O_PATH fd, hence have it reopened */
         _cleanup_free_ DirectoryEntries *de = NULL;
-        r = readdir_all(enumerate_fd, /* flags= */ 0, &de);
+        r = readdir_all(inode_fd, RECURSE_DIR_REOPEN, &de);
         if (r < 0)
                 return log_debug_errno(r, "Failed to read directory '%s/%s': %m",
                                        empty_to_root(root_path), skip_leading_slash(inode_path));
