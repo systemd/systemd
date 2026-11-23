@@ -5,35 +5,28 @@ set -o pipefail
 
 # Test that the service is not invoked if the cgroup cannot be created.
 
-# It seems openSUSE kernel (at least kernel-default-6.16.8-1.1.x86_64.rpm) has a
-# bag in kernel oom killer or clone3 syscall, and spawning executor on a cgroup
-# with too small MemoryMax= triggers infinite loop of OOM kill, and posix_spawn()
-# will never return, and the service manager will stuck.
-####
-# [  119.776797] systemd invoked oom-killer: gfp_mask=0xcc0(GFP_KERNEL), order=0, oom_score_adj=0
-# [  119.776859] CPU: 1 UID: 0 PID: 1472 Comm: systemd Not tainted 6.16.8-1-default #1 PREEMPT(voluntary) openSUSE Tumbleweed  6c85865973e4ae641870ed68afe8933a6986c974
-# [  119.776865] Hardware name: QEMU Standard PC (Q35 + ICH9, 2009), BIOS 1.17.0-5.fc42 04/01/2014
-# [  119.776867] Call Trace:
-# (snip)
-# [  119.778126] Out of memory and no killable processes...
-####
-# On other distributions, the oom killer is triggered, but clone3 immediately
-# fails with ENOMEM, and such problematic loop does not happen.
-. /etc/os-release
-if [[ "$ID" =~ opensuse ]]; then
-    echo "Skipping cgroup test with too small MemoryMax= setting on openSUSE."
-    exit 77
-fi
-
 cat >/run/systemd/system/testslice.slice <<EOF
 [Slice]
 MemoryMax=1
 EOF
 
+# Enable memory accounting explicitly, so that the memory controller is enabled in the
+# parent slice's subtree_control and creating our cgroup requires a memcg css allocation
+# charged to the slice. This must not depend on DefaultMemoryAccounting=, which distros
+# may default to no (e.g. openSUSE): without the controller, the cgroup is created
+# without any charge, and starting the service then runs into a kernel bug:
+#
+# The executor is cloned with CLONE_VM|CLONE_VFORK|CLONE_INTO_CGROUP directly into the
+# MemoryMax=1 slice. When the first page fault of the child cannot be charged, the memcg
+# OOM killer cannot select the child as a victim, because tasks in the middle of a vfork
+# are excluded from victim selection (killing them would not free the mm shared with the
+# parent). The charge keeps failing, userspace retries the fault over and over, and the
+# parent — the service manager — never returns from clone3().
 cat >/run/systemd/system/testservice.service <<EOF
 [Service]
 Type=oneshot
 ExecStart=cat /proc/self/cgroup
+MemoryAccounting=yes
 Slice=testslice.slice
 EOF
 
