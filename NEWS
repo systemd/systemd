@@ -11,6 +11,27 @@ CHANGES WITH 263 in spe:
 
         Feature Removals and Incompatible Changes:
 
+        * The default sysctl.d/50-default.conf now sets
+          net.vsock.child_ns_mode=local (on kernels ≥ v7.0), and PID 1 now
+          loads the vsock kernel module early during boot so that this
+          setting is reliably applied before any network namespace is
+          created. This means AF_VSOCK sockets are now isolated by network
+          namespace: processes in network namespaces other than the host's
+          (e.g. services with PrivateNetwork=yes, containers with private
+          networking) can no longer reach vsock services on the host or VMs
+          whose /dev/vhost-vsock device was opened in another network
+          namespace, and vice versa. Inside VMs, processes in such network
+          namespaces can no longer reach the hypervisor via vsock at all, as
+          the guest-to-host transports are not network namespace aware.
+          Setups relying on the old behaviour may restore it by setting
+          net.vsock.child_ns_mode=global in a sysctl.d/ drop-in. Note that
+          this sysctl is write-once and typically already applied in the
+          initrd: once set it cannot be changed until the next reboot, and
+          a later attempt to set a different value fails with EBUSY. Hence,
+          if this setting is changed, the initrd must be rebuilt so that it
+          includes the same configuration (for example, dracut only includes
+          /etc/sysctl.d/ in host-only mode).
+
         * /run/ is now correctly read-only under ProtectSystem=strict. Since
           v248, when MountAPIVFS= was in effect (which is also implied by
           ProtectControlGroups=, ProtectKernelTunables=, ProtectProc=, and similar
