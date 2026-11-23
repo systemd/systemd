@@ -677,7 +677,7 @@ static char* find_header(const char *s, const char *header) {
                 v = startswith(s, header);
                 if (v) {
                         v += strspn(v, WHITESPACE);
-                        return strndup(v, strcspn(v, NEWLINE));
+                        return strdupcspn(v, NEWLINE);
                 }
 
                 if (!next_header(&s))
