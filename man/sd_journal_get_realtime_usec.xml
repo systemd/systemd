@@ -19,6 +19,7 @@
   <refnamediv>
     <refname>sd_journal_get_realtime_usec</refname>
     <refname>sd_journal_get_monotonic_usec</refname>
+    <refname>sd_journal_get_boottime_usec</refname>
     <refpurpose>Read timestamps from the current journal entry</refpurpose>
   </refnamediv>
 
@@ -34,6 +35,13 @@
 
       <funcprototype>
         <funcdef>int <function>sd_journal_get_monotonic_usec</function></funcdef>
+        <paramdef>sd_journal *<parameter>j</parameter></paramdef>
+        <paramdef>uint64_t *<parameter>usec</parameter></paramdef>
+        <paramdef>sd_id128_t *<parameter>boot_id</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_journal_get_boottime_usec</function></funcdef>
         <paramdef>sd_journal *<parameter>j</parameter></paramdef>
         <paramdef>uint64_t *<parameter>usec</parameter></paramdef>
         <paramdef>sd_id128_t *<parameter>boot_id</parameter></paramdef>
@@ -68,6 +76,13 @@
     timestamp of the current entry is not of the current system
     boot.</para>
 
+    <para><function>sd_journal_get_boottime_usec()</function> is similar to
+    <function>sd_journal_get_monotonic_usec()</function>, but gets the boottime timestamp of the current
+    journal entry, i.e. <constant>CLOCK_BOOTTIME</constant>. This clock is like
+    <constant>CLOCK_MONOTONIC</constant>, but also includes the time the system spent in suspend. The
+    boottime timestamp is not known for all entries, in particular not for those written by older versions
+    of systemd.</para>
+
     <para>Note that these functions will not work before
     <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     (or related call) has been called at least
@@ -84,6 +99,11 @@
     timestamp of the current journal entry is not of the current
     system boot, <constant>-ESTALE</constant> is returned by
     <function>sd_journal_get_monotonic_usec()</function>.</para>
+
+    <para><function>sd_journal_get_boottime_usec()</function> returns 0 on success, and
+    <constant>-ESTALE</constant> under the same conditions as
+    <function>sd_journal_get_monotonic_usec()</function>. If the boottime timestamp of the current journal
+    entry is not known, <constant>-ENODATA</constant> is returned.</para>
   </refsect1>
 
   <refsect1>
@@ -98,6 +118,7 @@
     <title>History</title>
     <para><function>sd_journal_get_realtime_usec()</function> and
     <function>sd_journal_get_monotonic_usec()</function> were added in version 38.</para>
+    <para><function>sd_journal_get_boottime_usec()</function> was added in version 263.</para>
   </refsect1>
 
   <refsect1>

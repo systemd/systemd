@@ -29,7 +29,7 @@ static void make_file(char *name, const uint8_t *data, size_t size) {
 static void read_journal(const char *name) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         _cleanup_free_ char *cursor = NULL, *match = NULL;
-        uint64_t realtime = 0, monotonic = 0;
+        uint64_t realtime = 0, monotonic = 0, boottime = 0;
         sd_id128_t boot_id = SD_ID128_NULL;
         const void *data;
         const char *field;
@@ -46,6 +46,7 @@ static void read_journal(const char *name) {
 
                 (void) sd_journal_get_realtime_usec(j, &realtime);
                 (void) sd_journal_get_monotonic_usec(j, &monotonic, &boot_id);
+                (void) sd_journal_get_boottime_usec(j, &boottime, &boot_id);
 
                 SD_JOURNAL_FOREACH_DATA(j, data, size)
                         if (!match && size > 0 && size < 4096 && memchr(data, '=', size)) {
