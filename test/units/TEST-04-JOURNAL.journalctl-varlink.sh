@@ -42,9 +42,11 @@ varlinkctl_get_entries '{}' | jq --seq '.entry | {MESSAGE, PRIORITY, _UID}'
 
 # check that default limit works (100), we don't know how many entries we have so we just check
 # bounds
-ENTRIES=$(varlinkctl_get_entries '{}' | wc -l)
-test "$ENTRIES" -gt 0
-test "$ENTRIES" -le 100
+for PARAMETERS in '{}' '{"limit": null}'; do
+    ENTRIES=$(varlinkctl_get_entries "$PARAMETERS" | wc -l)
+    test "$ENTRIES" -gt 0
+    test "$ENTRIES" -le 100
+done
 
 # check explicit limit
 ENTRIES=$(varlinkctl_get_entries '{"limit": 3}' | wc -l)

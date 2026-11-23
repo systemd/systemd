@@ -187,7 +187,7 @@ int vl_method_get_entries(sd_varlink *link, sd_json_variant *parameters, sd_varl
                 { "userUnits", SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,         offsetof(GetEntriesParameters, user_units), 0 },
                 { "namespace", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(GetEntriesParameters, namespace),  0 },
                 { "priority",  _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_log_level,       offsetof(GetEntriesParameters, priority),   0 },
-                { "limit",     _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(GetEntriesParameters, limit),      0 },
+                { "limit",     _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(GetEntriesParameters, limit),      SD_JSON_NULL_TO_ZERO },
                 { "follow",    SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,      offsetof(GetEntriesParameters, follow),     0 },
                 {}
         };
