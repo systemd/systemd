@@ -305,7 +305,6 @@ static int pseudo_tty_monitor_enqueue_output_full(PseudoTTYMonitor *monitor, con
         const char *q = data;
         for (size_t i = 0, inc = 1; i < n; i += inc, inc = 1) {
                 char c = q[i];
-                AnsiSeqState previous_state = monitor->output_parser.state;
 
                 r = ansi_seq_parser_feed(&monitor->output_parser, c);
                 if (r < 0)
@@ -329,33 +328,26 @@ static int pseudo_tty_monitor_enqueue_output_full(PseudoTTYMonitor *monitor, con
                         r = pseudo_tty_monitor_process_output_sequence(monitor, replay, &reenable);
                         break;
 
-                case ANSI_SEQ_EVENT_ABORT: {
+                case ANSI_SEQ_EVENT_ABORT:
+                case ANSI_SEQ_EVENT_RESTART: {
                         /* Not a valid sequence after all: pass it on as it is, and process the current
-                         * character again. Except if a string sequence (OSC, DCS, …) was aborted because
-                         * the ESC within it did not introduce ST: terminals treat such an ESC as the
-                         * beginning of a new sequence (and ptyfwd doesn't know DCS & friends at all,
-                         * hence sees an ESC there in any case). Hence process that ESC again too, as
-                         * otherwise "ESC P ESC [ ? 2048 l" or "ESC P ESC c" would get past us. */
-                        size_t restart = previous_state == ANSI_SEQ_STATE_STRING_ESC ? 1 : 0;
+                         * character again. On restart the ESC within the aborted string sequence (OSC, DCS,
+                         * …) did not introduce ST, and begins a new sequence instead, as terminals see it
+                         * (and ptyfwd doesn't know DCS & friends at all, hence sees an ESC there in any
+                         * case). Hence keep holding that ESC back, as otherwise "ESC P ESC [ ? 2048 l" or
+                         * "ESC P ESC c" would get past us. */
+                        size_t keep = r == ANSI_SEQ_EVENT_RESTART;
 
-                        assert(monitor->output_hold.iov_len >= restart);
-                        assert(restart == 0 || ((const char*) monitor->output_hold.iov_base)[monitor->output_hold.iov_len - 1] == 0x1B);
+                        assert(monitor->output_hold.iov_len >= keep);
+                        assert(keep == 0 || ((const char*) monitor->output_hold.iov_base)[monitor->output_hold.iov_len - 1] == 0x1B);
 
-                        r = pseudo_tty_monitor_push_output(monitor, monitor->output_hold.iov_base, monitor->output_hold.iov_len - restart);
+                        r = pseudo_tty_monitor_push_output(monitor, monitor->output_hold.iov_base, monitor->output_hold.iov_len - keep);
                         if (r < 0)
                                 return r;
 
                         monitor->output_hold.iov_len = 0;
-
-                        if (restart > 0) {
-                                /* In the ground state an ESC always begins a sequence */
-                                r = ansi_seq_parser_feed(&monitor->output_parser, 0x1B);
-                                if (r < 0)
-                                        return r;
-                                assert(r == ANSI_SEQ_EVENT_SEQUENCE);
-
+                        if (keep > 0)
                                 r = pseudo_tty_monitor_push_output_hold(monitor, 0x1B);
-                        }
 
                         inc = 0;
                         break;
@@ -519,6 +511,13 @@ static int pseudo_tty_monitor_read(PseudoTTYMonitor *monitor, int fd) {
                         /* Not a valid sequence after all: leave it in the stream as it is, and process the
                          * current character again */
                         begin = SIZE_MAX;
+                        inc = 0;
+                        break;
+
+                case ANSI_SEQ_EVENT_RESTART:
+                        /* Same, but the preceding ESC begins a new sequence */
+                        assert(i > 0 && ((const char*) fwb->iov_base)[i - 1] == 0x1B);
+                        begin = i - 1;
                         inc = 0;
                         break;
 

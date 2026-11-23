@@ -165,7 +165,12 @@ int ansi_seq_parser_feed(AnsiSeqParser *p, char c) {
                         return ANSI_SEQ_EVENT_END;
                 }
 
-                return ansi_seq_parser_bad(p);
+                /* The ESC did not introduce ST after all. The string sequence is aborted, but terminals treat
+                 * the ESC as the beginning of a new sequence, hence so do we, as otherwise e.g.
+                 * "ESC P ESC [ 1 m" would leave "[1m" behind as text. */
+                p->state = ANSI_SEQ_STATE_ESC;
+                ansi_seq_parser_begin_string(p, /* introducer= */ 0);
+                return ANSI_SEQ_EVENT_RESTART;
 
         case ANSI_SEQ_STATE_NF:
                 if (u >= 0x30 && u <= 0x7E) { /* final byte, the sequence is complete */
@@ -203,11 +208,12 @@ int ansi_seq_parser_feed_harder(AnsiSeqParser *p, char c) {
 
         assert(p);
 
-        /* Just like ansi_seq_parser_feed(), but automatically eat up abort events, and resubmit the bad character. */
+        /* Just like ansi_seq_parser_feed(), but automatically eat up abort and restart events, and resubmit
+         * the bad character. */
 
         do {
                 r = ansi_seq_parser_feed(p, c);
-        } while (r == ANSI_SEQ_EVENT_ABORT);
+        } while (ANSI_SEQ_EVENT_NEEDS_REFEED(r));
 
         return r;
 }
