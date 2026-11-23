@@ -27,7 +27,6 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
-#include "json-util.h"
 #include "keyring-util.h"
 #include "libfido2-util.h"
 #include "libmount-util.h"
@@ -856,8 +855,9 @@ static PassphraseType check_registered_passwords(struct crypt_device *cd) {
         /* Iterate all LUKS2 tokens and keep track of all their slots */
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_free_ int *keyslots = NULL;
+                size_t n_keyslots;
                 const char *type;
-                sd_json_variant *w, *z;
                 int tk;
 
                 tk = cryptsetup_get_token_as_json(cd, token, /* verify_type= */ NULL, &v);
@@ -868,47 +868,26 @@ static PassphraseType check_registered_passwords(struct crypt_device *cd) {
                         continue;
                 }
 
-                w = sd_json_variant_by_key(v, "type");
-                if (!w || !sd_json_variant_is_string(w)) {
-                        log_warning("Token JSON data lacks type field, ignoring.");
+                tk = cryptsetup_token_parse_common(v, &type, &keyslots, &n_keyslots);
+                if (tk < 0) {
+                        log_warning_errno(tk, "Token JSON data lacks a valid type or keyslots field, ignoring: %m");
                         continue;
                 }
 
-                type = sd_json_variant_string(w);
-                if (STR_IN_SET(type, "systemd-recovery", "systemd-pkcs11", "systemd-fido2", "systemd-tpm2")) {
+                if (!STR_IN_SET(type, "systemd-recovery", "systemd-pkcs11", "systemd-fido2", "systemd-tpm2"))
+                        continue;
 
-                        /* At least exists one recovery key */
-                        if (streq(type, "systemd-recovery"))
-                                passphrase_type |= PASSPHRASE_RECOVERY_KEY;
+                /* At least exists one recovery key */
+                if (streq(type, "systemd-recovery"))
+                        passphrase_type |= PASSPHRASE_RECOVERY_KEY;
 
-                        w = sd_json_variant_by_key(v, "keyslots");
-                        if (!w || !sd_json_variant_is_array(w)) {
-                                log_warning("Token JSON data lacks keyslots field, ignoring.");
+                FOREACH_ARRAY(k, keyslots, n_keyslots) {
+                        if (*k >= slot_max) {
+                                log_warning("Token JSON data's keyslot field exceeds the maximum value allowed, ignoring.");
                                 continue;
                         }
 
-                        JSON_VARIANT_ARRAY_FOREACH(z, w) {
-                                unsigned u;
-                                int at;
-
-                                if (!sd_json_variant_is_string(z)) {
-                                        log_warning("Token JSON data's keyslot field is not an array of strings, ignoring.");
-                                        continue;
-                                }
-
-                                at = safe_atou(sd_json_variant_string(z), &u);
-                                if (at < 0) {
-                                        log_warning_errno(at, "Token JSON data's keyslot field is not an integer formatted as string, ignoring.");
-                                        continue;
-                                }
-
-                                if (u >= (unsigned) slot_max) {
-                                        log_warning("Token JSON data's keyslot field exceeds the maximum value allowed, ignoring.");
-                                        continue;
-                                }
-
-                                slots[u] = false;
-                        }
+                        slots[*k] = false;
                 }
         }
 
