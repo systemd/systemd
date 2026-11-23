@@ -749,12 +749,8 @@ static int link_context_pick_entry_commit(LinkContext *c) {
         if (c->entry_commit != 0)
                 return 0;
 
-        _cleanup_close_ int opened_fd = fd_reopen(c->loader_entries_dir_fd, O_DIRECTORY);
-        if (opened_fd < 0)
-                return log_error_errno(opened_fd, "Failed to reopen loader entries dir: %m");
-
         _cleanup_free_ DirectoryEntries *dentries = NULL;
-        r = readdir_all(opened_fd, RECURSE_DIR_IGNORE_DOT, &dentries);
+        r = readdir_all(c->loader_entries_dir_fd, RECURSE_DIR_REOPEN|RECURSE_DIR_IGNORE_DOT, &dentries);
         if (r < 0)
                 return log_error_errno(r, "Failed to read loader entries directory: %m");
 
@@ -810,12 +806,8 @@ static int clean_temporary_files(int fd) {
          * materialized before they are fully written. However, vfat currently does not support O_TMPFILE,
          * hence we need to clean things up manually. */
 
-        _cleanup_close_ int dfd = fd_reopen(fd, O_DIRECTORY);
-        if (dfd < 0)
-                return log_error_errno(dfd, "Failed to open directory: %m");
-
         _cleanup_free_ DirectoryEntries *de = NULL;
-        r = readdir_all(dfd, RECURSE_DIR_ENSURE_TYPE, &de);
+        r = readdir_all(fd, RECURSE_DIR_REOPEN|RECURSE_DIR_ENSURE_TYPE, &de);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate contents of directory: %m");
 
@@ -828,7 +820,7 @@ static int clean_temporary_files(int fd) {
                 if (!startswith_no_case(e->d_name, ".#"))
                         continue;
 
-                if (unlinkat(dfd, e->d_name, /* flags= */ 0) < 0 && errno != ENOENT)
+                if (unlinkat(fd, e->d_name, /* flags= */ 0) < 0 && errno != ENOENT)
                         log_warning_errno(errno, "Failed to remove temporary file '%s', ignoring: %m", e->d_name);
         }
 
