@@ -13,7 +13,8 @@
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "unaligned.h"          /* IWYU pragma: keep */
+#include "sysctl-util.h"
+#include "unaligned.h"         /* IWYU pragma: keep */
 #include "virt.h"
 
 int set_dumpable(SuidDumpMode mode) {
@@ -185,7 +186,7 @@ void disable_coredumps(void) {
         if (detect_container() > 0)
                 return;
 
-        r = write_string_file("/proc/sys/kernel/core_pattern", "|/bin/false", WRITE_STRING_FILE_DISABLE_BUFFER);
+        r = sysctl_write("kernel/core_pattern", "|/bin/false");
         if (r < 0)
                 log_debug_errno(r, "Failed to turn off coredumps, ignoring: %m");
 }

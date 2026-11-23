@@ -2014,9 +2014,9 @@ static void initialize_core_pattern(bool skip_setup) {
         if (getpid_cached() != 1)
                 return;
 
-        r = write_string_file("/proc/sys/kernel/core_pattern", arg_early_core_pattern, WRITE_STRING_FILE_DISABLE_BUFFER);
+        r = sysctl_write_verify("kernel/core_pattern", arg_early_core_pattern);
         if (r < 0)
-                log_warning_errno(r, "Failed to write '%s' to /proc/sys/kernel/core_pattern, ignoring: %m",
+                log_warning_errno(r, "Failed to set kernel.core_pattern to '%s', ignoring: %m",
                                   arg_early_core_pattern);
 }
 

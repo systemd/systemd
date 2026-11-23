@@ -10,7 +10,6 @@
 #include "parse-util.h"
 #include "process-util.h"
 #include "procfs-util.h"
-#include "stdio-util.h"
 #include "string-util.h"
 #include "sysctl-util.h"
 #include "time-util.h"
@@ -28,7 +27,6 @@ int procfs_get_threads_max(uint64_t *ret) {
 }
 
 int procfs_tasks_set_limit(uint64_t limit) {
-        char buffer[DECIMAL_STR_MAX(uint64_t)+1];
         uint64_t pid_max;
         int r;
 
@@ -50,14 +48,12 @@ int procfs_tasks_set_limit(uint64_t limit) {
         /* As pid_max is about the numeric pid_t range we'll bump it if necessary, but only ever increase it, never
          * decrease it, as threads-max is the much more relevant sysctl. */
         if (limit > pid_max-1) {
-                xsprintf(buffer, "%" PRIu64, limit+1); /* Add one, since PID 0 is not a valid PID */
-                r = write_string_file("/proc/sys/kernel/pid_max", buffer, WRITE_STRING_FILE_DISABLE_BUFFER);
+                r = sysctl_writef("kernel/pid_max", "%" PRIu64, limit+1); /* Add one, since PID 0 is not a valid PID */
                 if (r < 0)
                         return r;
         }
 
-        xsprintf(buffer, "%" PRIu64, limit);
-        r = write_string_file("/proc/sys/kernel/threads-max", buffer, WRITE_STRING_FILE_DISABLE_BUFFER);
+        r = sysctl_writef("kernel/threads-max", "%" PRIu64, limit);
         if (r < 0) {
                 uint64_t threads_max;
 
