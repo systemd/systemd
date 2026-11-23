@@ -66,7 +66,7 @@ _public_ sd_bus_creds* sd_bus_creds_ref(sd_bus_creds *c) {
 
         if (c->allocated) {
                 assert(c->n_ref > 0);
-                c->n_ref++;
+                ref_counter_inc(&c->n_ref);
         } else {
                 sd_bus_message *m;
 

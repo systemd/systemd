@@ -52,7 +52,7 @@ sd_lldp_neighbor *sd_lldp_neighbor_ref(sd_lldp_neighbor *n) {
                 return NULL;
 
         assert(n->n_ref > 0 || n->lldp_rx);
-        n->n_ref++;
+        ref_counter_inc(&n->n_ref);
 
         return n;
 }

@@ -805,7 +805,7 @@ _public_ sd_bus_message* sd_bus_message_ref(sd_bus_message *m) {
          * least one bus connection object. */
         assert(m->n_ref > 0 || m->n_queued > 0);
 
-        m->n_ref++;
+        ref_counter_inc(&m->n_ref);
 
         /* Each user reference to a bus message shall also be considered a ref on the bus */
         sd_bus_ref(m->bus);

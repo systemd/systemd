@@ -127,6 +127,10 @@ DnsResourceKey* dns_resource_key_ref(DnsResourceKey *k) {
         assert(k->n_ref != UINT_MAX);
 
         assert(k->n_ref > 0);
+
+        /* Also make sure we never increase the counter to UINT_MAX, since that would turn this key into
+         * a const one. See ref_counter_inc() for an explanation why we abort here. */
+        assert_se(k->n_ref < UINT_MAX - 1);
         k->n_ref++;
 
         return k;

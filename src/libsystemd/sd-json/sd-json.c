@@ -922,7 +922,7 @@ _public_ sd_json_variant *sd_json_variant_ref(sd_json_variant *v) {
                 sd_json_variant_ref(v->parent); /* ref the compounding variant instead */
         else {
                 assert(v->n_ref > 0);
-                v->n_ref++;
+                ref_counter_inc(&v->n_ref);
         }
 
         return v;
