@@ -22,7 +22,7 @@
   "nura": {
     "url": "https://gitlab.postmarketos.org/postmarketOS/pmaports",
     "branch": "main",
-    "commit": "7a6b81a4f1a7a510d088a5874bebcf2b200b69b3"
+    "commit": "f1b733bddf36acf19630e92bb168a84a57ebf1fb"
   },
   "opensuse": {
     "url": "https://github.com/bmwiedemann/openSUSE",

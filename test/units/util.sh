@@ -724,7 +724,7 @@ kill_sleep_by_udevd() {
 
     while read -r pid; do
         read -r comm <"/proc/$pid/comm" 2>/dev/null || continue
-        [[ "${comm##*/}" == sleep ]] && pids+=("$pid")
+        [[ "$comm" == sleep ]] && pids+=("$pid")
     done <"/sys/fs/cgroup$(systemctl show -P ControlGroup systemd-udevd.service)/workers/cgroup.procs"
 
     for pid in "${pids[@]}"; do
