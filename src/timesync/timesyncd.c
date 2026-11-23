@@ -21,6 +21,7 @@
 #include "timesyncd-bus.h"
 #include "timesyncd-conf.h"
 #include "timesyncd-manager.h"
+#include "timesyncd-phc.h"
 #include "verbs.h"
 
 static int advance_tstamp(int fd, usec_t epoch) {
@@ -187,7 +188,12 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        if (network_is_online()) {
+        /* Prefer a PTP hardware clock offered by the hypervisor, if there is one */
+        r = manager_phc_setup(m);
+        if (r < 0)
+                return r;
+
+        if (r == 0 && network_is_online()) {
                 r = manager_connect(m);
                 if (r < 0)
                         return r;
