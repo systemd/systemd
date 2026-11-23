@@ -684,19 +684,30 @@ systemd-run -P \
             --property ExtensionImages="/tmp/app0.raw /tmp/conf0.raw" \
             veritysetup status "$(cat /tmp/conf0.roothash)-verity" | grep "$(cat /tmp/conf0.roothash)" >/dev/null
 
-# Check that two identical verity images at different paths do not fail with -ELOOP from OverlayFS
+# Check that two identical verity images at different paths do not fail with -ELOOP from OverlayFS.
+# The duplicate is dropped before mounting (see drop_duplicates() in namespace.c), so also check
+# that the remaining image gets a verity device with the shared name. SHA-512 makes the
+# hex-encoded root hash too long for a device-mapper name, so the name is the SHA-256 of the root
+# hash instead: hex(sha256(roothash))-verity, mirroring verity_dm_name_base() in dissect-image.c.
 mkdir -p /tmp/loop
 cp /tmp/app0.raw /tmp/loop/app0.raw
-veritysetup format /tmp/loop/app0.raw /tmp/loop/app0.verity --hash=sha256 --root-hash-file /tmp/loop/app0.roothash
+veritysetup format /tmp/loop/app0.raw /tmp/loop/app0.verity --hash=sha512 --root-hash-file /tmp/loop/app0.roothash
 cp /tmp/loop/app0.raw /tmp/loop/app0_copy.raw
 cp /tmp/loop/app0.verity /tmp/loop/app0_copy.verity
 cp /tmp/loop/app0.roothash /tmp/loop/app0_copy.roothash
+loop_roothash="$(cat /tmp/loop/app0.roothash)"
+loop_dm_name="$(printf '%b' "$(printf '%s' "$loop_roothash" | sed 's/../\\x&/g')" | sha256sum | cut -d' ' -f1)-verity"
 systemd-run -P \
             --property ExtensionImages=/tmp/loop/app0.raw \
             --property ExtensionImages=/tmp/loop/app0_copy.raw \
             --property RootImage="$MINIMAL_IMAGE.raw" \
             "${BIND_LOG_SOCKETS[@]}" \
             cat /opt/script0.sh | grep -F "extension-release.app0" >/dev/null
+systemd-run -P \
+            --property ExtensionImages=/tmp/loop/app0.raw \
+            --property ExtensionImages=/tmp/loop/app0_copy.raw \
+            --property RootImage="$MINIMAL_IMAGE.raw" \
+            veritysetup status "$loop_dm_name" | grep -F "$loop_roothash" >/dev/null
 rm -rf /tmp/loop/
 
 # Check that using a symlink to NAME-VERSION.raw works as long as the symlink has the correct name NAME.raw
