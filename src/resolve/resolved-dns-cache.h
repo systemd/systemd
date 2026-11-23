@@ -58,4 +58,6 @@ unsigned dns_cache_size(DnsCache *cache);
 
 int dns_cache_export_shared_to_packet(DnsCache *cache, DnsPacket *p, usec_t ts, unsigned max_rr);
 
-bool dns_cache_expiry_in_one_second(DnsCache *c, usec_t t);
+/* Earliest eviction time (DnsCacheItem.until) of any entry, USEC_INFINITY for an empty cache. With
+ * StaleRetentionSec= set, unicast DNS entries are evicted that much after their TTL expires. */
+usec_t dns_cache_next_expiry(DnsCache *c);
