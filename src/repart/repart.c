@@ -6724,7 +6724,7 @@ static int context_copy_blocks(Context *context) {
 
                 /* For offline signing case */
                 if (!set_isempty(arg_verity_settings) && p->copy_blocks_fd < 0 &&
-                    partition_designator_is_verity_sig(p->type.designator)) {
+                    p->verity == VERITY_SIG) {
                         Partition *hp, *rp;
 
                         assert_se(hp = p->siblings[VERITY_HASH]);
