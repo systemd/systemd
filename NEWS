@@ -1,5 +1,15 @@
 systemd System and Service Manager
 
+CHANGES WITH 264 in spe:
+
+        Feature Removals and Incompatible Changes:
+
+        * systemd-journald (with ForwardToSocket=) and
+          systemd-journal-upload now include the new __BOOTTIME_TIMESTAMP=
+          field in the entries they send. Older versions of
+          systemd-journal-remote do not know this field, and log a notice
+          about an unknown field for every received entry.
+
 CHANGES WITH 263 in spe:
 
         Announcements of Future Feature Removals and Incompatible Changes:
