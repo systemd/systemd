@@ -1137,3 +1137,8 @@ global:
         sd_peer_get_unit_cgroup;
         sd_peer_get_user_unit_cgroup;
 } LIBSYSTEMD_262;
+
+LIBSYSTEMD_264 {
+global:
+        sd_journal_get_boottime_usec;
+} LIBSYSTEMD_263;
