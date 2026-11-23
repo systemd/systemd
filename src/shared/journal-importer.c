@@ -265,6 +265,23 @@ static int process_special_field(JournalImporter *imp, char *line) {
                 return 1;
         }
 
+        value = startswith(line, "__BOOTTIME_TIMESTAMP=");
+        if (value) {
+                uint64_t x;
+
+                r = safe_atou64(value, &x);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to parse __BOOTTIME_TIMESTAMP '%s': %m",
+                                                 cellescape(buf, sizeof buf, value));
+                else if (!VALID_MONOTONIC(x)) {
+                        log_warning("__BOOTTIME_TIMESTAMP out of range, ignoring: %"PRIu64, x);
+                        return -ERANGE;
+                }
+
+                imp->ts.boottime = x;
+                return 1;
+        }
+
         /* Just a single underline, but it needs special treatment too. */
         value = startswith(line, "_BOOT_ID=");
         if (value) {
@@ -452,6 +469,9 @@ void journal_importer_drop_iovw(JournalImporter *imp) {
         /* This function drops processed data that along with the iovw that points at it */
 
         iovw_done(&imp->iovw);
+
+        /* The boottime timestamp is optional, make sure we don't apply the one of this entry to the next */
+        imp->ts.boottime = USEC_INFINITY;
 
         /* possibly reset buffer position */
         remain = imp->filled - imp->offset;
