@@ -4353,7 +4353,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
                 return 0;
         }
 
-        if (m->action_job && streq(m->action_job, path)) {
+        if (streq_ptr(m->action_job, path)) {
                 assert(m->delayed_action);
                 log_info("Operation '%s' finished.", handle_action_to_string(m->delayed_action->handle));
 

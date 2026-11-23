@@ -342,7 +342,7 @@ int coredump_context_build_iovw(CoredumpContext *context) {
         if (get_process_root(pid, &t) >= 0) {
                 bool proc_self_root_is_slash;
 
-                proc_self_root_is_slash = strcmp(t, "/") == 0;
+                proc_self_root_is_slash = streq(t, "/");
 
                 (void) iovw_put_string_field_free(&context->iovw, "COREDUMP_ROOT=", t);
 

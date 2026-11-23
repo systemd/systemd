@@ -143,7 +143,7 @@ int xml_tokenize(const char **p, char **name, void **state, unsigned *line) {
 
                 case STATE_TAG:
 
-                        b = c + strspn(c, WHITESPACE);
+                        b = skip_leading_chars(c, WHITESPACE);
                         if (*b == 0)
                                 return -EINVAL;
 

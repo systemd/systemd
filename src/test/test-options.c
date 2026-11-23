@@ -46,7 +46,7 @@ static void test_option_parse_one(
 
                 log_debug("%c %s: %s=%s",
                           opts.opt->short_code != 0 ? opts.opt->short_code : ' ',
-                          opts.opt->long_code ?: "",
+                          strempty(opts.opt->long_code),
                           strnull(opts.opt->metavar), strnull(opts.arg));
 
                 ASSERT_LT(i, n_entries);
@@ -939,7 +939,7 @@ static void test_macros_parse_one(
 
                 log_debug("%c %s: %s=%s",
                           opts.opt->short_code != 0 ? opts.opt->short_code : ' ',
-                          opts.opt->long_code ?: "",
+                          strempty(opts.opt->long_code),
                           strnull(opts.opt->metavar), strnull(opts.arg));
 
                 ASSERT_LT(i, n_entries);

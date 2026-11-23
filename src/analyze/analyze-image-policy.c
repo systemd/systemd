@@ -76,7 +76,7 @@ static int table_add_designator_line(Table *table, PartitionDesignator d, Partit
                 return table_log_add_error(r);
 
         r = table_add_many(table,
-                           TABLE_STRING, isempty(t) ? "-" : t);
+                           TABLE_STRING, empty_to_dash(t));
         if (r < 0)
                 return table_log_add_error(r);
 

@@ -1246,7 +1246,7 @@ int parse_time(const char *t, usec_t *ret, usec_t default_unit) {
                 else
                         p = e;
 
-                s = extract_multiplier(p + strspn(p, WHITESPACE), &multiplier);
+                s = extract_multiplier(skip_leading_chars(p, WHITESPACE), &multiplier);
                 if (s == p && *s != '\0')
                         /* Don't allow '12.34.56', but accept '12.34 .56' or '12.34s.56' */
                         return -EINVAL;
@@ -1425,7 +1425,7 @@ int parse_nsec(const char *t, nsec_t *ret) {
                 else
                         p = e;
 
-                s = extract_nsec_multiplier(p + strspn(p, WHITESPACE), &multiplier);
+                s = extract_nsec_multiplier(skip_leading_chars(p, WHITESPACE), &multiplier);
                 if (s == p && *s != '\0')
                         /* Don't allow '12.34.56', but accept '12.34 .56' or '12.34s.56' */
                         return -EINVAL;

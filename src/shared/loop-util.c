@@ -885,7 +885,7 @@ int loop_device_make_by_path_at(
                   path ?: "loop device",
                   open_flags == O_RDWR ? "O_RDWR" : "O_RDONLY",
                   open_flags != rdwr_flags ? " (O_RDWR was requested but not allowed)" : "",
-                  direct ? "enabled" : "disabled",
+                  enabled_disabled(direct),
                   direct != (direct_flags != 0) ? " (O_DIRECT was requested but not supported)" : "");
 
         return loop_device_make_internal(

@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <ctype.h>
 #include <unistd.h>
 
 #include "sd-id128.h"
@@ -1710,7 +1709,7 @@ static const char* table_data_format(
 
                         char *q = d->formatted;
                         for (const char *p = s; *p; p++)
-                                *(q++) = (char) toupper((unsigned char) *p);
+                                *(q++) = ascii_toupper(*p);
 
                         if (d->type == TABLE_FIELD)
                                 *(q++) = ':';

@@ -11037,7 +11037,7 @@ static int context_crypttab(Context *context, bool late) {
                 fprintf(f, "%s UUID=%s %s %s\n",
                         p->encrypted_volume->name ?: volume,
                         SD_ID128_TO_UUID_STRING(p->luks_uuid),
-                        isempty(p->encrypted_volume->keyfile) ? "-" : p->encrypted_volume->keyfile,
+                        empty_to_dash(p->encrypted_volume->keyfile),
                         strempty(p->encrypted_volume->options));
         }
 

@@ -2443,7 +2443,7 @@ bool image_is_vendor(const struct Image *i) {
 bool image_is_host(const struct Image *i) {
         assert(i);
 
-        if (i->name && streq(i->name, ".host"))
+        if (streq_ptr(i->name, ".host"))
                 return true;
 
         if (i->path && path_equal(i->path, "/"))

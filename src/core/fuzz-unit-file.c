@@ -47,7 +47,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                         break;
 
                 ll = startswith(l, UTF8_BYTE_ORDER_MARK) ?: l;
-                ll = ll + strspn(ll, WHITESPACE);
+                ll = skip_leading_chars(ll, WHITESPACE);
 
                 if (HAS_FEATURE_MEMORY_SANITIZER && startswith(ll, "ListenNetlink")) {
                         /* ListenNetlink causes a false positive in msan,

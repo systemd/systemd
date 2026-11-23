@@ -1207,7 +1207,7 @@ int transfer_vacuum(
                  * once we support resuming downloads. */
                 if (instance->is_pending &&
                     (component_version_is_protected(t->context, instance->metadata.version) ||
-                     (extra_protected_version && streq(extra_protected_version, instance->metadata.version)))) {
+                     streq_ptr(extra_protected_version, instance->metadata.version))) {
                         log_debug("Version '%s' is pending but protected, not removing.", instance->metadata.version);
                         i++;
                         continue;
@@ -1297,7 +1297,7 @@ int transfer_vacuum(
 
                         /* If this is listed among the protected versions, then let's not remove it */
                         if (!component_version_is_protected(t->context, oldest->metadata.version) &&
-                            (!extra_protected_version || !streq(extra_protected_version, oldest->metadata.version)))
+                            !streq_ptr(extra_protected_version, oldest->metadata.version))
                                 break;
 
                         log_debug("Version '%s' is protected, not removing.", oldest->metadata.version);
