@@ -60,6 +60,9 @@ static bool verify_gpt(/* const */ GptHeader *h, EFI_LBA lba_expected) {
         if (h->MyLBA != lba_expected)
                 return false;
 
+        if (h->FirstUsableLBA > h->LastUsableLBA)
+                return false;
+
         if (h->SizeOfPartitionEntry < sizeof(EFI_PARTITION_ENTRY) ||
             (h->SizeOfPartitionEntry % sizeof(EFI_PARTITION_ENTRY)) != 0)
                 return false;
