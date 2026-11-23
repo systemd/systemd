@@ -868,9 +868,20 @@ static int pty_forward_query_process(PTYForward *f, size_t *i) {
 
         AnsiSeqState previous_state = f->query_parser.state;
 
-        r = ansi_seq_parser_feed_harder(&f->query_parser, f->out_buffer[*i]);
-        if (r < 0)
-                return r;
+        do {
+                r = ansi_seq_parser_feed(&f->query_parser, f->out_buffer[*i]);
+                if (r < 0)
+                        return r;
+                if (r == ANSI_SEQ_EVENT_RESTART) {
+                        /* A string sequence got aborted by an ESC not followed by '\', and that ESC begins
+                         * a new sequence. It precedes the current character, and is still in the buffer,
+                         * since we held back output from where the aborted sequence began. */
+                        assert(*i > 0);
+                        assert(f->out_buffer[*i - 1] == 0x1B);
+                        f->query_start = *i - 1;
+                }
+        } while (ANSI_SEQ_EVENT_NEEDS_REFEED(r));
+
         if (f->query_parser.state == ANSI_SEQ_STATE_ESC && f->out_buffer[*i] == 0x1B)
                 /* An ESC moving the parser into ESC state always starts a new sequence (possibly after
                  * aborting the previous one): remember where, so that we can hold back output from there */
