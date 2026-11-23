@@ -35,7 +35,7 @@ static void mkdtemp_chdir_chattr(char *path) {
 
 static void test_non_empty_one(void) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
-        dual_timestamp ts;
+        triple_timestamp ts;
         JournalFile *f;
         struct iovec iovec;
         static const char test[] = "TEST1=1", test2[] = "TEST2=2";
@@ -50,7 +50,7 @@ static void test_non_empty_one(void) {
 
         ASSERT_OK_ZERO(journal_file_open(-EBADF, "test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS|JOURNAL_SEAL, 0666, UINT64_MAX, /* metrics= */ NULL, m, /* template= */ NULL, &f));
 
-        ASSERT_NOT_NULL(dual_timestamp_now(&ts));
+        ASSERT_NOT_NULL(triple_timestamp_now(&ts));
         ASSERT_OK_ZERO(sd_id128_randomize(&fake_boot_id));
 
         iovec = IOVEC_MAKE_STRING(test);
@@ -153,7 +153,7 @@ TEST(duplicate_entry_storage) {
         };
         char t[] = "/var/tmp/journal-XXXXXX";
         uint64_t expected_xor = 0, p, n;
-        dual_timestamp ts;
+        triple_timestamp ts;
         Object *o;
 
         ASSERT_NOT_NULL(m = mmap_cache_new());
@@ -161,7 +161,7 @@ TEST(duplicate_entry_storage) {
 
         ASSERT_OK(journal_file_open(-EBADF, "test.journal", O_RDWR|O_CREAT, /* file_flags= */ 0, 0666, UINT64_MAX, /* metrics= */ NULL, m, /* template= */ NULL, &f));
 
-        ASSERT_NOT_NULL(dual_timestamp_now(&ts));
+        ASSERT_NOT_NULL(triple_timestamp_now(&ts));
         FOREACH_ELEMENT(i, iovec)
                 expected_xor ^= jenkins_hash64(i->iov_base, i->iov_len);
 
@@ -254,7 +254,7 @@ TEST(empty) {
 #if HAVE_COMPRESSION
 static bool check_compressed(uint64_t compress_threshold, uint64_t data_size) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
-        dual_timestamp ts;
+        triple_timestamp ts;
         JournalFile *f;
         Object *o;
         uint64_t p;
@@ -278,7 +278,7 @@ static bool check_compressed(uint64_t compress_threshold, uint64_t data_size) {
 
         ASSERT_OK_ZERO(journal_file_open(-EBADF, "test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS|JOURNAL_SEAL, 0666, compress_threshold, /* metrics= */ NULL, m, /* template= */ NULL, &f));
 
-        dual_timestamp_now(&ts);
+        triple_timestamp_now(&ts);
 
         ASSERT_OK_ZERO(journal_file_append_entry(f, &ts, /* boot_id= */ NULL, &iovec, 1, /* seqnum= */ NULL, /* seqnum_id= */ NULL, /* ret_object= */ NULL, /* ret_offset= */ NULL));
 
@@ -413,7 +413,7 @@ static EntryArrayCut find_entry_array_cut(JournalFile *f, uint64_t first) {
 
 static void test_recover_truncated_linear_one(bool zeroed_tail) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
-        dual_timestamp ts;
+        triple_timestamp ts;
         JournalFile *f;
         Object *o;
         EntryArrayCut cut;
@@ -430,7 +430,7 @@ static void test_recover_truncated_linear_one(bool zeroed_tail) {
         ASSERT_OK_ZERO(journal_file_open(
                         -EBADF, "test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX,
                         /* metrics= */ NULL, m, /* template= */ NULL, &f));
-        dual_timestamp_now(&ts);
+        triple_timestamp_now(&ts);
 
         for (unsigned i = 0; i < 200; i++) {
                 struct iovec iovec = IOVEC_MAKE_STRING("LINE=x");
@@ -514,7 +514,7 @@ TEST(recover_truncated_linear) {
 
 static void test_recover_truncated_indexed_one(bool zeroed_tail) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
-        dual_timestamp ts;
+        triple_timestamp ts;
         JournalFile *f;
         Object *o, *d;
         EntryArrayCut cut;
@@ -531,7 +531,7 @@ static void test_recover_truncated_indexed_one(bool zeroed_tail) {
         ASSERT_OK_ZERO(journal_file_open(
                         -EBADF, "test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX,
                         /* metrics= */ NULL, m, /* template= */ NULL, &f));
-        dual_timestamp_now(&ts);
+        triple_timestamp_now(&ts);
 
         for (unsigned i = 0; i < 200; i++) {
                 struct iovec iovec = IOVEC_MAKE_STRING(field);
@@ -600,7 +600,7 @@ TEST(recover_truncated_indexed) {
 
 static void test_recover_truncated_hash_chain_one(bool field, bool zeroed_tail) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
-        dual_timestamp ts;
+        triple_timestamp ts;
         JournalFile *f;
         uint64_t lost_offset, file_size, buckets, bucket;
         char lost_key[64], lost_value[64], t[] = "/var/tmp/journal-XXXXXX";
@@ -618,7 +618,7 @@ static void test_recover_truncated_hash_chain_one(bool field, bool zeroed_tail) 
         ASSERT_OK_ZERO(journal_file_open(
                         -EBADF, "test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX,
                         /* metrics= */ NULL, m, /* template= */ NULL, &f));
-        dual_timestamp_now(&ts);
+        triple_timestamp_now(&ts);
 
         /* journal_file_hash_data() is keyed per-file, so compute the colliding value against the open file. */
         buckets = le64toh(field ? f->header->field_hash_table_size : f->header->data_hash_table_size) / sizeof(HashItem);
@@ -695,7 +695,7 @@ static void test_punch_holes_hash_chain_cycle_one(void) {
         char t[] = "/var/tmp/journal-XXXXXX";
         const char *field = "CYCLE=x";
         struct iovec iovec = IOVEC_MAKE_STRING(field);
-        dual_timestamp ts;
+        triple_timestamp ts;
         JournalFile *f;
         uint64_t p;
         le64_t self;
@@ -711,7 +711,7 @@ static void test_punch_holes_hash_chain_cycle_one(void) {
         ASSERT_OK_ZERO(journal_file_open(
                         -EBADF, "test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX,
                         /* metrics= */ NULL, m, /* template= */ NULL, &f));
-        dual_timestamp_now(&ts);
+        triple_timestamp_now(&ts);
         ASSERT_OK_ZERO(journal_file_append_entry(
                         f, &ts, /* boot_id= */ NULL, &iovec, 1,
                         /* seqnum= */ NULL, /* seqnum_id= */ NULL,
@@ -758,7 +758,7 @@ static void test_enumerate_fields_hash_chain_cycle_one(void) {
         const char *data = "CYCLE=x";
         struct iovec iovec = IOVEC_MAKE_STRING(data);
         const char *field;
-        dual_timestamp ts;
+        triple_timestamp ts;
         JournalFile *f;
         uint64_t p;
         le64_t self;
@@ -773,7 +773,7 @@ static void test_enumerate_fields_hash_chain_cycle_one(void) {
         ASSERT_OK_ZERO(journal_file_open(
                         -EBADF, "test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX,
                         /* metrics= */ NULL, m, /* template= */ NULL, &f));
-        dual_timestamp_now(&ts);
+        triple_timestamp_now(&ts);
         ASSERT_OK_ZERO(journal_file_append_entry(
                         f, &ts, /* boot_id= */ NULL, &iovec, 1,
                         /* seqnum= */ NULL, /* seqnum_id= */ NULL,
@@ -814,7 +814,7 @@ static void test_enumerate_unique_field_list_cycle_one(void) {
         const char *data = "CYCLE=x";
         struct iovec iovec = IOVEC_MAKE_STRING(data);
         const void *value;
-        dual_timestamp ts;
+        triple_timestamp ts;
         JournalFile *f;
         size_t size;
         uint64_t p;
@@ -830,7 +830,7 @@ static void test_enumerate_unique_field_list_cycle_one(void) {
         ASSERT_OK_ZERO(journal_file_open(
                         -EBADF, "test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX,
                         /* metrics= */ NULL, m, /* template= */ NULL, &f));
-        dual_timestamp_now(&ts);
+        triple_timestamp_now(&ts);
         ASSERT_OK_ZERO(journal_file_append_entry(
                         f, &ts, /* boot_id= */ NULL, &iovec, 1,
                         /* seqnum= */ NULL, /* seqnum_id= */ NULL,

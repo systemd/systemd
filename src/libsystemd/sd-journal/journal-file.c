@@ -2565,7 +2565,7 @@ static void write_entry_item(JournalFile *f, Object *o, uint64_t i, const EntryI
         }
 }
 
-static int journal_file_check_entry_order(JournalFile *f, const dual_timestamp *ts, const sd_id128_t *boot_id) {
+static int journal_file_check_entry_order(JournalFile *f, const triple_timestamp *ts, const sd_id128_t *boot_id) {
         assert(f);
         assert(f->header);
         assert(ts);
@@ -2606,7 +2606,7 @@ static int journal_file_check_entry_order(JournalFile *f, const dual_timestamp *
 
 static int journal_file_append_entry_internal(
                 JournalFile *f,
-                const dual_timestamp *ts,
+                const triple_timestamp *ts,
                 const sd_id128_t *boot_id,
                 const sd_id128_t *machine_id,
                 uint64_t xor_hash,
@@ -2799,7 +2799,7 @@ static size_t remove_duplicate_entry_items(EntryItem items[], size_t n) {
 
 int journal_file_append_entry(
                 JournalFile *f,
-                const dual_timestamp *ts,
+                const triple_timestamp *ts,
                 const sd_id128_t *boot_id,
                 const struct iovec iovec[],
                 size_t n_iovec,
@@ -2811,7 +2811,7 @@ int journal_file_append_entry(
         _cleanup_free_ EntryItem *items_alloc = NULL;
         EntryItem *items;
         uint64_t xor_hash = 0;
-        struct dual_timestamp _ts;
+        triple_timestamp _ts;
         sd_id128_t _boot_id, _machine_id, *machine_id;
         int r;
 
@@ -2830,7 +2830,7 @@ int journal_file_append_entry(
                                                "Invalid monotonic timestamp %" PRIu64 ", refusing entry.",
                                                ts->monotonic);
         } else {
-                dual_timestamp_now(&_ts);
+                triple_timestamp_now(&_ts);
                 ts = &_ts;
         }
 
@@ -4745,7 +4745,7 @@ int journal_file_copy_entry(
         EntryItem *items;
         uint64_t n, m = 0, xor_hash = 0;
         sd_id128_t boot_id;
-        dual_timestamp ts;
+        triple_timestamp ts;
         int r;
 
         assert(from);
@@ -4756,9 +4756,10 @@ int journal_file_copy_entry(
         if (!journal_file_writable(to))
                 return -EPERM;
 
-        ts = (dual_timestamp) {
+        ts = (triple_timestamp) {
                 .monotonic = le64toh(o->entry.monotonic),
                 .realtime = le64toh(o->entry.realtime),
+                .boottime = USEC_INFINITY,
         };
         boot_id = o->entry.boot_id;
 
