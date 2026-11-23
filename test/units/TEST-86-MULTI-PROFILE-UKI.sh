@@ -138,6 +138,152 @@ tofu_keys_check() {
     [[ -n "$enrolled" && -n "$switched" && "$enrolled" -lt "$switched" ]]
 }
 
+# The boot manager applies pending fwupd capsules (fwupd-efi protocol) on every boot, before the OS
+# starts: it enumerates the fwupd-* variables of the FWUPDATE GUID, loads the capsules they point to
+# from the ESP, marks the variables as attempted, and calls UpdateCapsule(). This scenario queues one
+# capsule from the OS, reboots, and checks the variable state the boot manager left behind. The helper
+# script is kept on the persistent root so it survives the reboots of the state machine.
+fwupdate_helper() {
+    cat >/root/fwupdate-helper.py <<'PYEOF'
+#!/usr/bin/env python3
+"""Build and check the fwupd-efi capsule fixtures used by the firmware update stages of TEST-86."""
+import fcntl
+import json
+import os
+import re
+import struct
+import subprocess
+import sys
+import uuid
+
+FWUPDATE = "0abba7dc-e516-4167-bbf5-4d9d1c739416"
+# A GUID no firmware (including OVMF) claims, so RT->UpdateCapsule() must reject the capsule and the
+# boot manager must carry on with the normal boot.
+CAPSULE = uuid.UUID("deadbeef-cafe-4a67-9416-8327f5b40ab2")
+DIR = "/boot/fwupd-test"
+# efivarfs marks variables not on the firmware's allow list immutable, and the flag must be lifted
+# before the variable can be removed (cf. efi_set_variable() in src/basic/efivars.c).
+FS_IOC_GETFLAGS = 0x80086601
+FS_IOC_SETFLAGS = 0x40086602
+FS_IMMUTABLE_FL = 0x10
+
+def var(n):
+    return f"/sys/firmware/efi/efivars/{n}-{FWUPDATE}"
+
+def esp():
+    # /boot carries the ESP (vfat) automounted over an autofs placeholder, hence filter to a /dev/
+    # source.
+    lines = subprocess.check_output(["findmnt", "-no", "SOURCE", "/boot"]).decode().splitlines()
+    src = next((l.strip() for l in lines if l.strip().startswith("/dev/")), None)
+    if not src:
+        raise SystemExit(f"could not determine the ESP device from: {lines!r}")
+    disk, part = re.fullmatch(r"(/dev/.+?)(p?\d+)", src).groups()
+    t = json.loads(subprocess.check_output(["sfdisk", "--json", disk]))
+    n = int(part.lstrip("p"))
+    # sfdisk omits "number" where it can be inferred from the position in the array, hence fall
+    # back to the 1-based index and normalize the field for the caller.
+    for i, p in enumerate(t["partitiontable"]["partitions"], 1):
+        if p.get("number", i) == n:
+            p = dict(p, number=p.get("number", i))
+            break
+    else:
+        raise SystemExit(f"partition {n} of {disk} not found in sfdisk output")
+    with open(disk, "rb") as f:
+        f.seek(512)
+        sig = f.read(16)
+    print(f"DIAG-ESP src={src!r} disk={disk} part={part} sig512={sig.hex()}")
+    if sig[:8] != b"EFI PART":
+        raise SystemExit(f"{disk} is not a GPT disk")
+    return p
+
+def dp(p):
+    # HARDDRIVE node byte-identical to the one OVMF's PartitionDxe builds for this partition
+    # (edk2 MdeModulePkg/Universal/Disk/PartitionDxe/Gpt.c): the partition number is the GPT
+    # table index + 1, the signature is the partition's unique GUID — p["uuid"] decoded to the
+    # same mixed-endian byte order the firmware stores — with MBR type 0x02 (EFI partition
+    # table header) and signature type GUID. The boot manager prepends the boot disk's own
+    # device path before matching, matching the layout fwupd writes.
+    hd = struct.pack("<BBHIQQ16sBB", 4, 1, 42, p["number"], p["start"], p["size"],
+                     uuid.UUID(p["uuid"]).bytes_le, 2, 2)
+    # The FILEPATH node is the four-byte device path header followed directly by the
+    # NUL-terminated UTF-16 path name; there is no separate length field.
+    u16 = "\\fwupd-test\\capsule.cap".encode("utf-16-le") + b"\x00\x00"
+    return hd + struct.pack("<BBH", 4, 4, 4 + len(u16)) + u16 + b"\x7f\xff\x04\x00"
+
+def write_var(n, status, p):
+    # FWUP_UPDATE_INFO: version(4), GUID(16), flags(4), hw_inst(8), time_attempted(16), status(4).
+    info = struct.pack("<I16sIQ16sI", 7, CAPSULE.bytes_le, 0, 0, b"\x00" * 16, status)
+    with open(var(n), "wb") as f:
+        f.write(struct.pack("<I", 7))  # NV | BOOTSERVICE_ACCESS | RUNTIME_ACCESS
+        f.write(info + dp(p))
+
+def setup():
+    p = esp()
+    os.makedirs(DIR, exist_ok=True)
+    payload = b"\xaa" * 32
+    with open(DIR + "/capsule.cap", "wb") as f:
+        # EFI_CAPSULE_HEADER: GUID(16), HeaderSize(4), Flags(4), CapsuleImageSize(4).
+        f.write(struct.pack("<16sIII", CAPSULE.bytes_le, 28, 0, 28 + len(payload)) + payload)
+    write_var("fwupd-test", 1, p)  # ATTEMPT_UPDATE
+    write_var("fwupd-skip", 0, p)  # negative control: no ATTEMPT_UPDATE
+    # Print the written variable so the device path can be inspected byte-wise in the log.
+    print("fwupd-test variable:", open(var("fwupd-test"), "rb").read().hex())
+    with open("/root/fwupd-skip.orig", "wb") as f:
+        f.write(open(var("fwupd-skip"), "rb").read())
+
+def assert_attempted():
+    d = open(var("fwupd-test"), "rb").read()
+    # In the efivar file the 4 byte attribute header precedes FWUP_UPDATE_INFO, hence
+    # time_attempted is at 4+4+16+4+8=36 and status at 4+4+16+4+8+16=52.
+    status = struct.unpack_from("<I", d, 52)[0]
+    assert status == 2, f"fwupd-test status is {status}, want ATTEMPTED (2)"
+    assert d[36:52] != b"\x00" * 16, "fwupd-test time_attempted is zero"
+
+def assert_untouched():
+    a = open(var("fwupd-skip"), "rb").read()
+    b = open("/root/fwupd-skip.orig", "rb").read()
+    assert a == b, "fwupd-skip variable was modified by the boot manager"
+    # The processed capsule must keep its attempted status, not be retried.
+    s = struct.unpack_from("<I", open(var("fwupd-test"), "rb").read(), 52)[0]
+    assert s == 2, f"fwupd-test status is {s}, want ATTEMPTED (2)"
+
+def remove_var(n):
+    p = var(n)
+    try:
+        fd = os.open(p, os.O_RDONLY)
+    except FileNotFoundError:
+        return
+    with os.fdopen(fd, "rb") as f:
+        flags = struct.unpack("<I", fcntl.ioctl(f.fileno(), FS_IOC_GETFLAGS, b"\x00" * 4))[0]
+        if flags & FS_IMMUTABLE_FL:
+            fcntl.ioctl(f.fileno(), FS_IOC_SETFLAGS, struct.pack("<I", flags & ~FS_IMMUTABLE_FL))
+    try:
+        os.unlink(p)
+    except FileNotFoundError:
+        pass
+
+def cleanup():
+    for n in ("fwupd-test", "fwupd-skip"):
+        remove_var(n)
+    subprocess.run(["rm", "-rf", DIR], check=True)
+    os.unlink("/root/fwupd-skip.orig")
+
+if __name__ == "__main__":
+    {"setup": setup, "assert-attempted": assert_attempted,
+     "assert-untouched": assert_untouched, "cleanup": cleanup}[sys.argv[1]]()
+PYEOF
+}
+
+# Queue the capsule fixtures and enter the firmware update stages.
+fwupdate_start() {
+    fwupdate_helper
+    python3 /root/fwupdate-helper.py setup
+    echo fwupdate >"$TOFU_STAGE"
+    bootctl set-default "multi-profile.efi@tofu"
+    reboot
+    exit 0
+}
+
 # This function checks which addons the stub trusted on first use on a boot where the modified addon is
 # not on the ESP yet.
 tofu_addons_check() {
@@ -153,14 +299,6 @@ tofu_addons_check() {
 tofu_cleanup() {
     rm -f "$(bootctl --print-esp-path)"/loader/addons/tofu-*.addon.efi "$TOFU_STAGE" \
         "$TOFU_CRT" "$TOFU_PLANTED_CRT"
-}
-
-tofu_done() {
-    tofu_cleanup
-    touch "$TOFU_TESTED"
-    bootctl set-default ""
-    touch /testok
-    exit 0
 }
 
 echo "CURRENT UKI ($CURRENT_UKI):"
@@ -190,7 +328,9 @@ test -f /run/systemd/stub/profile
 
 if [[ "$ID" == "tofu" ]]; then
     grep testprofiletofu=1 /proc/cmdline
-    stub_variable StubTofuState
+    # The state variable is absent when the firmware update stages boot this entry without the TOFU
+    # chain having run (i.e. when the TOFU scenarios were not supported on this system).
+    stub_variable StubTofuState || :
     stub_variable StubTofuAddons || :
 
     case "$(cat "$TOFU_STAGE")" in
@@ -240,7 +380,9 @@ if [[ "$ID" == "tofu" ]]; then
             fi
 
             (! stub_variable StubTofuAddons)
-            tofu_done
+            tofu_cleanup
+            touch "$TOFU_TESTED"
+            fwupdate_start
             ;;
         planted)
             [[ "$(stub_variable StubTofuState)" == verified ]]
@@ -256,7 +398,29 @@ if [[ "$ID" == "tofu" ]]; then
             (! grep tofu- /tmp/tofu-keyring.list)
             rm -f /tmp/tofu-keyring.list
 
-            tofu_done
+            tofu_cleanup
+            touch "$TOFU_TESTED"
+            fwupdate_start
+            ;;
+        fwupdate)
+            # The capsule was processed on this boot, before the OS started: the variable must be
+            # marked as attempted and carry the attempt time, whether the firmware accepted or
+            # rejected the capsule.
+            python3 /root/fwupdate-helper.py assert-attempted
+            # The boot manager must have found the boot disk, i.e. the capsule services are available.
+            [[ -f /sys/firmware/efi/efivars/BootloaderSupportsFwupd-0abba7dc-e516-4167-bbf5-4d9d1c739416 ]]
+            echo fwupdate-neg >"$TOFU_STAGE"
+            bootctl set-default "multi-profile.efi@tofu"
+            reboot
+            exit 0
+            ;;
+        fwupdate-neg)
+            # The variable without the ATTEMPT_UPDATE flag must be left completely untouched.
+            python3 /root/fwupdate-helper.py assert-untouched
+            python3 /root/fwupdate-helper.py cleanup
+            bootctl set-default ""
+            touch /testok
+            exit 0
             ;;
         *)
             exit 1
@@ -398,6 +562,14 @@ elif [[ "$ID" == "Profile2" ]]; then
         test ! -e "${PCRLOCK_UKI%.pcrlock}@2.pcrlock"
     fi
 
+    # The test image is built with secure boot auto-enrollment, hence when this test runs under UEFI
+    # firmware, the boot manager already enrolled the keys on a previous boot. If the firmware exposes
+    # the SecureBoot variable but secure boot is not active, the enrollment did not work and the TOFU
+    # scenarios below would silently skip - fail loudly instead.
+    if [[ -f /sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c ]]; then
+        [[ "$(od -An -tu1 -j4 -N1 /sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c | tr -d ' ')" == 1 ]]
+    fi
+
     if [[ -e "$TOFU_TESTED" ]]; then
         echo "Trusting addons on first use was tested on a previous run already, its record persists, skipping it"
     elif tofu_supported; then
@@ -423,11 +595,9 @@ elif [[ "$ID" == "Profile2" ]]; then
         echo "Trusting addons on first use cannot be tested here, skipping it"
     fi
 
-    # Reset the default boot entry so a subsequent re-run of the test does not
-    # boot straight back into @profile2 (where encrypted.raw is now gone) and fail.
-    bootctl set-default ""
+    # Firmware update scenario: queue a capsule for the next boot and let the boot manager process it.
+    # (Runs also when the TOFU scenarios were skipped, so that it is not gated on Secure Boot.)
+    fwupdate_start
 else
     exit 1
 fi
-
-touch /testok
