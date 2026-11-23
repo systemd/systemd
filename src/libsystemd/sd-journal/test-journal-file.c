@@ -475,9 +475,12 @@ static void assert_boottime_file(JournalFile *f, bool supported) {
 TEST(boottime) {
         _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         JournalFile *f, *g, *old;
-        uint64_t p = 0;
+        sd_id128_t boot_id;
+        uint64_t t, p = 0;
         Object *o;
+        size_t i = 0;
         int r;
 
         if (!journal_test_setup(&directory))
@@ -545,6 +548,27 @@ TEST(boottime) {
                                           /* show_progress= */ false));
                 f = journal_file_close(f);
         }
+
+        /* And via the public API */
+        ASSERT_OK(sd_journal_open_files(&j, (const char*[]) { "test.journal", NULL }, /* flags= */ 0));
+        SD_JOURNAL_FOREACH(j) {
+                ASSERT_LT(i, ELEMENTSOF(boottime_table));
+
+                r = sd_journal_get_boottime_usec(j, &t, &boot_id);
+                if (boottime_table[i].expected == USEC_INFINITY)
+                        ASSERT_ERROR(r, ENODATA);
+                else {
+                        ASSERT_OK(r);
+                        ASSERT_EQ(t, boottime_table[i].expected);
+                        ASSERT_EQ_ID128(boot_id, MODEL_BOOT_A);
+                }
+
+                /* The entries are from a different boot than ours */
+                ASSERT_ERROR(sd_journal_get_boottime_usec(j, &t, /* ret_boot_id= */ NULL), ESTALE);
+
+                i++;
+        }
+        ASSERT_EQ(i, ELEMENTSOF(boottime_table));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
