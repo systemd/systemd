@@ -160,21 +160,32 @@ static const char *const luks2_token_type_table[_ENROLL_TYPE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(luks2_token_type, EnrollType);
 
 EnrollType luks2_token_type_from_json(sd_json_variant *v) {
-        sd_json_variant *w;
+        struct {
+                const char *type;
+                bool tpm2_fido2;
+        } p = {};
         EnrollType t;
+        int r;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "type",       SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, voffsetof(p, type),       SD_JSON_MANDATORY },
+                { "tpm2_fido2", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      voffsetof(p, tpm2_fido2), 0                 },
+                {}
+        };
 
         assert(v);
 
-        w = sd_json_variant_by_key(v, "type");
-        if (!w || !sd_json_variant_is_string(w))
+        r = sd_json_dispatch(v, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to parse LUKS2 token type, ignoring: %m");
                 return _ENROLL_TYPE_INVALID;
+        }
 
-        t = luks2_token_type_from_string(sd_json_variant_string(w));
-        if (t != ENROLL_TPM2)
-                return t;
+        t = luks2_token_type_from_string(p.type);
+        if (t == ENROLL_TPM2 && p.tpm2_fido2)
+                return ENROLL_TPM2_WITH_FIDO2;
 
-        w = sd_json_variant_by_key(v, "tpm2_fido2");
-        return w && sd_json_variant_boolean(w) ? ENROLL_TPM2_WITH_FIDO2 : ENROLL_TPM2;
+        return t;
 }
 
 static int enroll_type_mask_from_string(const char *name) {
