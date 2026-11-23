@@ -1976,10 +1976,12 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_INPUT(cgroup, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("If non-null the invocation ID of a unit"),
                 SD_VARLINK_DEFINE_INPUT(invocationID, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Configuration of the unit"),
-                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(context, UnitContext, 0),
-                SD_VARLINK_FIELD_COMMENT("Runtime information of the unit"),
-                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(runtime, UnitRuntime, 0));
+                SD_VARLINK_FIELD_COMMENT("If non-null and non-empty, only return these fields, each a dot-separated path into the reply, e.g. 'runtime.ActiveState' or 'context'. Paths can't descend into arrays or maps."),
+                SD_VARLINK_DEFINE_INPUT(fields, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Configuration of the unit. Always set, unless 'fields' is."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(context, UnitContext, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Runtime information of the unit. Always set, unless 'fields' is."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(runtime, UnitRuntime, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 EnqueueJob,
