@@ -22,6 +22,7 @@
 #include "measure.h"
 #include "measure-smbios.h"
 #include "memory-util.h"
+#include "next-boot.h"
 #include "part-discovery.h"
 #include "pe.h"
 #include "proto/block-io.h"
@@ -66,6 +67,7 @@ typedef enum LoaderType {
         LOADER_AUTO_WINDOWS,     /* Auto-detected Windows Boot Manager */
         LOADER_AUTO_OSX,         /* Auto-detected macOS boot loader */
         LOADER_EFI,              /* Boot loader spec type #1 entries with "efi" line */
+        LOADER_EFI_NEXT_BOOT,    /* Boot loader spec type #1 entries with "efi-next-boot" line */
         LOADER_LINUX,            /* Boot loader spec type #1 entries with "linux" line */
         LOADER_UKI,              /* Boot loader spec type #1 entries with "uki" line */
         LOADER_UKI_URL,          /* Boot loader spec type #1 entries with "uki-url" line */
@@ -86,7 +88,7 @@ typedef enum LoaderType {
 #define LOADER_TYPE_ALLOW_EDITOR_IN_SB(t) IN_SET(t, LOADER_EFI, LOADER_LINUX)
 
 /* Which loader types shall be considered for automatic selection */
-#define LOADER_TYPE_MAY_AUTO_SELECT(t) IN_SET(t, LOADER_EFI, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_TYPE2_UKI)
+#define LOADER_TYPE_MAY_AUTO_SELECT(t) IN_SET(t, LOADER_EFI, LOADER_EFI_NEXT_BOOT, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_TYPE2_UKI)
 
 /* Whether to do boot attempt counting logic (only works if userspace can actually find the selected option later) */
 #define LOADER_TYPE_BUMP_COUNTERS(t) IN_SET(t, LOADER_LINUX, LOADER_UKI, LOADER_TYPE2_UKI)
@@ -95,12 +97,12 @@ typedef enum LoaderType {
 #define LOADER_TYPE_PROCESS_RANDOM_SEED(t) IN_SET(t, LOADER_LINUX, LOADER_UKI, LOADER_TYPE2_UKI)
 
 /* Whether to persistently save the selected entry in an EFI variable, if that's requested. */
-#define LOADER_TYPE_SAVE_ENTRY(t) IN_SET(t, LOADER_AUTO_EFI_SHELL, LOADER_AUTO_EFI_DEFAULT, LOADER_AUTO_WINDOWS, LOADER_AUTO_OSX, LOADER_EFI, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_TYPE2_UKI)
+#define LOADER_TYPE_SAVE_ENTRY(t) IN_SET(t, LOADER_AUTO_EFI_SHELL, LOADER_AUTO_EFI_DEFAULT, LOADER_AUTO_WINDOWS, LOADER_AUTO_OSX, LOADER_EFI, LOADER_EFI_NEXT_BOOT, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_TYPE2_UKI)
 
 /* Whether this item is an actual operating system to boot into (as opposed to internal items, the EFI shell, …).
  * Note that the EFI default loader is only added if it is not systemd-boot itself, hence it typically is
  * another OS' boot loader or shim, and is hence considered an OS here. */
-#define LOADER_TYPE_IS_OS(t) IN_SET(t, LOADER_AUTO_EFI_DEFAULT, LOADER_AUTO_WINDOWS, LOADER_AUTO_OSX, LOADER_EFI, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_TYPE2_UKI)
+#define LOADER_TYPE_IS_OS(t) IN_SET(t, LOADER_AUTO_EFI_DEFAULT, LOADER_AUTO_WINDOWS, LOADER_AUTO_OSX, LOADER_EFI, LOADER_EFI_NEXT_BOOT, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_TYPE2_UKI)
 
 /* Whether this item is implemented fully inside of systemd-boot */
 #define LOADER_TYPE_IS_INTERNAL(t) IN_SET(t, LOADER_SECURE_BOOT_KEYS, LOADER_REBOOT, LOADER_POWEROFF, LOADER_FWSETUP)
@@ -1404,6 +1406,7 @@ read_only:
 }
 
 static EFI_STATUS call_image_start(const BootEntry *entry, EFI_FILE *root_dir, EFI_HANDLE parent_image);
+static EFI_STATUS call_image_next_boot(const BootEntry *entry, EFI_FILE *root_dir, EFI_HANDLE parent_image);
 
 static void boot_entry_add_type1(
                 Config *config,
@@ -1519,6 +1522,24 @@ static void boot_entry_add_type1(
                         entry->type = LOADER_EFI;
                         free(entry->loader);
                         entry->loader = xstr8_to_path(value);
+
+                        /* do not add an entry for ourselves */
+                        if (strcaseeq16(entry->loader, loaded_image_path)) {
+                                entry->type = LOADER_IGNORE;
+                                break;
+                        }
+
+                } else if (streq8(key, "efi-next-boot")) {
+
+                        if (!IN_SET(entry->type, LOADER_UNDEFINED, LOADER_EFI_NEXT_BOOT)) {
+                                entry->type = LOADER_BAD;
+                                break;
+                        }
+
+                        entry->type = LOADER_EFI_NEXT_BOOT;
+                        free(entry->loader);
+                        entry->loader = xstr8_to_path(value);
+                        entry->call = call_image_next_boot;
 
                         /* do not add an entry for ourselves */
                         if (strcaseeq16(entry->loader, loaded_image_path)) {
@@ -3310,6 +3331,24 @@ static EFI_STATUS call_image_start(
         return log_error_status(err, "Failed to execute %ls (%ls): %m", entry->title_show, entry->loader ?: entry->url);
 }
 
+static EFI_STATUS call_image_next_boot(
+                const BootEntry *entry,
+                EFI_FILE *root_dir,
+                EFI_HANDLE parent_image) {
+
+        EFI_STATUS err;
+
+        assert(entry);
+        assert(entry->device);
+        assert(entry->loader);
+
+        /* Only returns on failure */
+        err = next_boot_image(entry->device, entry->loader, entry->options, entry->title ?: entry->id);
+        log_warning_status(err, "Failed to boot %ls via BootNext, chainloading it instead: %m", entry->loader);
+
+        return call_image_start(entry, root_dir, parent_image);
+}
+
 static void config_free(Config *config) {
         assert(config);
         for (size_t i = 0; i < config->n_entries; i++)
@@ -3463,6 +3502,7 @@ static void export_loader_variables(
                 EFI_LOADER_FEATURE_FACTORY_RESET_VARIABLES |
                 (fwupdate_available ? EFI_LOADER_FEATURE_FIRMWARE_UPDATE : 0) |
                 EFI_LOADER_FEATURE_ENTRY_ADDONS |
+                EFI_LOADER_FEATURE_TYPE1_EFI_NEXT_BOOT |
                 0;
 
         assert(loaded_image);
