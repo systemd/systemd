@@ -1461,7 +1461,8 @@ teardown_polkit_details() (
 )
 
 testcase_polkit_details() {
-    local uid session
+    local uid session seatless_error
+    local VARLINK_SOCKET="/run/systemd/io.systemd.Login"
 
     if ! command -v pkcheck >/dev/null; then
         echo "polkit is not available, skipping test ${FUNCNAME[0]}."
@@ -1491,15 +1492,20 @@ polkit.addRule(function(action, subject) {
     var target_user = action.lookup("uid") == "$uid" && action.lookup("username") == "logind-test-user";
     var target_session = target_user && action.lookup("session") == "$session";
     var no_session = action.lookup("session") == undefined;
+    var no_target = no_session && action.lookup("uid") == undefined && action.lookup("username") == undefined;
 
     if (action.id == "org.freedesktop.login1.set-user-linger" &&
         target_user && action.lookup("verb") == "enable")
         return polkit.Result.YES;
     if (action.id == "org.freedesktop.login1.lock-sessions" &&
-        (target_session || no_session) && action.lookup("verb") == "lock")
+        ((target_session && action.lookup("verb") == "lock") ||
+         (no_target && action.lookup("verb") == "unlock")))
         return polkit.Result.YES;
     if (action.id == "org.freedesktop.login1.chvt" &&
         action.lookup("seat") == "seat0")
+        return polkit.Result.YES;
+    if (action.id == "org.freedesktop.login1.manage" &&
+        target_session && action.lookup("verb") == "kill")
         return polkit.Result.YES;
     if (action.id == "org.freedesktop.login1.manage" &&
         action.lookup("verb") == "terminate" &&
@@ -1515,11 +1521,29 @@ EOF
     runas testuser loginctl lock-session "$session"
     (! runas testuser loginctl unlock-session "$session")
     # lock-sessions on all sessions: verb
-    runas testuser loginctl lock-sessions
-    (! runas testuser loginctl unlock-sessions)
+    (! runas testuser loginctl lock-sessions)
+    runas testuser loginctl unlock-sessions
 
     # chvt: seat
     runas testuser loginctl activate "$session"
+
+    # Varlink authorization needs pidfd subjects.
+    if systemd-analyze compare-versions "$(uname -r)" ge 6.5 &&
+       systemd-analyze compare-versions "$(pkcheck --version | awk '{print $3}')" ge 124; then
+        runas testuser varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.LockSession "{\"id\":\"$session\"}"
+        runas testuser varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.UnlockSession '{}'
+        runas testuser varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ActivateSession "{\"id\":\"$session\"}"
+        runas testuser varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.KillSession \
+            "{\"id\":\"$session\",\"whom\":\"leader\",\"signal\":$(kill -l CONT)}"
+    fi
+
+    # A session without a seat is rejected before the polkit rule can deny the request.
+    if seatless_error=$(systemd-run --wait --pipe -p PAMName=login -p Type=exec -p User=testuser \
+        varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ActivateSession '{}' 2>&1); then
+        echo "Unexpectedly activated a session without a seat"
+        return 1
+    fi
+    assert_in io.systemd.Login.NotSupported "$seatless_error"
 
     # set-user-linger: uid, username, verb
     (! runas testuser loginctl enable-linger root)
@@ -1529,7 +1553,7 @@ EOF
     assert_eq "$(loginctl show-user logind-test-user -P Linger)" yes
 
     # manage: session, uid, username, verb
-    (! runas testuser loginctl kill-session "$session")
+    runas testuser loginctl kill-session --signal=CONT "$session"
     (! runas testuser loginctl kill-user logind-test-user)
     runas testuser loginctl terminate-session "$session"
     # The user is kept around by lingering, so it can be terminated separately.
