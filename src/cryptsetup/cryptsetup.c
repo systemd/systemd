@@ -1997,34 +1997,51 @@ static TokenPinFlags token_pin_flags(struct crypt_device *cd, const char *type) 
 
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-                const char *t;
+                struct {
+                        const char *type;
+                        bool tpm2_pin;
+                        bool tpm2_fido2;
+                        int fido2_pin_required;
+                } p = {
+                        .fido2_pin_required = -1,
+                };
+                int r;
+
+                static const sd_json_dispatch_field dispatch_table[] = {
+                        { "type",                     SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, voffsetof(p, type),               SD_JSON_MANDATORY },
+                        { "tpm2-pin",                 SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      voffsetof(p, tpm2_pin),           0                 },
+                        { "tpm2_fido2",               SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      voffsetof(p, tpm2_fido2),         0                 },
+                        { "fido2-clientPin-required", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,     voffsetof(p, fido2_pin_required), 0                 },
+                        {}
+                };
 
                 if (cryptsetup_get_token_as_json(cd, token, type, &v) < 0)
                         continue;
 
-                t = sd_json_variant_string(sd_json_variant_by_key(v, "type"));
-                if (streq_ptr(t, "systemd-tpm2")) {
-                        bool tpm2_pin, fido2_pin;
+                r = sd_json_dispatch(v, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
+                if (r < 0) {
+                        /* We cannot tell what this token asks for, so do not name a device in the prompt */
+                        log_debug_errno(r, "Failed to parse LUKS2 token %i, ignoring: %m", token);
+                        flags |= TOKEN_PIN_OTHER;
+                        continue;
+                }
 
-                        tpm2_pin = sd_json_variant_boolean(sd_json_variant_by_key(v, "tpm2-pin"));
-                        fido2_pin = sd_json_variant_boolean(sd_json_variant_by_key(v, "tpm2_fido2")) &&
-                                sd_json_variant_boolean(sd_json_variant_by_key(v, "fido2-clientPin-required"));
+                if (streq(p.type, "systemd-tpm2")) {
+                        bool fido2_pin = p.tpm2_fido2 && p.fido2_pin_required > 0;
 
-                        if (tpm2_pin && fido2_pin)
+                        if (p.tpm2_pin && fido2_pin)
                                 flags |= TOKEN_PIN_SHARED;
-                        else if (tpm2_pin)
+                        else if (p.tpm2_pin)
                                 flags |= TOKEN_PIN_TPM2;
                         else if (fido2_pin)
                                 flags |= TOKEN_PIN_FIDO2;
 
-                } else if (streq_ptr(t, "systemd-fido2")) {
-                        sd_json_variant *w = sd_json_variant_by_key(v, "fido2-clientPin-required");
-
+                } else if (streq(p.type, "systemd-fido2")) {
                         /* Without the field (enrolled by v248), a PIN is asked for if the token needs one */
-                        if (!w || sd_json_variant_boolean(w))
+                        if (p.fido2_pin_required != 0)
                                 flags |= TOKEN_PIN_FIDO2;
 
-                } else if (!streq_ptr(t, "systemd-recovery"))
+                } else if (!streq(p.type, "systemd-recovery"))
                         flags |= TOKEN_PIN_OTHER;
         }
 
