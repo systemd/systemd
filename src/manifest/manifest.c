@@ -28,6 +28,7 @@
 
 static ManifestFormat arg_format = _MANIFEST_FORMAT_INVALID;
 static ManifestField arg_fields = _MANIFEST_FIELD_DEFAULT;
+static uint32_t arg_inode_types = MANIFEST_INODE_TYPES_ALL;
 static ManifestHash arg_hash = _MANIFEST_HASH_INVALID;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
@@ -94,6 +95,12 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         r = manifest_fields_from_string(opts.arg, &arg_fields);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse field list: %s", opts.arg);
+                        break;
+
+                OPTION_LONG("filter-type", "TYPES", "Inode types to include (make) or to verify (verify) (reg, dir, lnk, chr, blk, fifo, sock, all, none, or +/- prefixed to adjust)"):
+                        r = manifest_inode_types_from_string(opts.arg, &arg_inode_types);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse inode type list: %s", opts.arg);
                         break;
 
                 OPTION_LONG("hash", "ALGORITHM", "Hash algorithm to use for mtree manifests (sha256, sha512)"):
@@ -267,6 +274,7 @@ static void context_from_args(ManifestContext *c) {
         *c = MANIFEST_CONTEXT_NULL;
         c->format = arg_format;
         c->fields = arg_fields;
+        c->inode_types = arg_inode_types;
         c->hash = arg_hash >= 0 ? arg_hash : MANIFEST_HASH_SHA256;
         c->json_format_flags = arg_json_format_flags;
         c->timestamp_accuracy_nsec = arg_timestamp_accuracy;
@@ -338,6 +346,9 @@ static int verb_make(int argc, char *argv[], uintptr_t _data, void *userdata) {
          * doesn't even cover that is useless. */
         if (!c.top_level_covered)
                 return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN), "Top-level inode not covered by manifest, refusing.");
+
+        if (c.n_filtered > 0)
+                log_info("%" PRIu64 " entries ignored, as inodes of their type are not selected.", c.n_filtered);
 
         uint64_t n_failed = c.n_skipped - c.n_skipped_expected;
         int level = arg_graceful ? LOG_WARNING : LOG_ERR;
@@ -472,6 +483,8 @@ static int verb_verify(int argc, char *argv[], uintptr_t _data, void *userdata) 
         r = manifest_verify(&c, dfd, f);
 
         /* Show this also if verification failed, it might help understanding what was checked */
+        if (c.n_filtered > 0)
+                log_info("%" PRIu64 " entries listed in the manifest not verified, as inodes of their type are not selected.", c.n_filtered);
         if (c.n_not_applicable > 0)
                 log_info("%" PRIu64 " fields listed in the manifest not verified, as they do not apply to the file system.", c.n_not_applicable);
 

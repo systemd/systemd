@@ -310,6 +310,32 @@ TEST(manifest_fields_from_string) {
         ASSERT_EQ(manifest_field_from_uapi16_feature("fat-serial"), MANIFEST_FIELD_FAT_SERIAL);
 }
 
+TEST(manifest_inode_types_from_string) {
+        uint32_t t = MANIFEST_INODE_TYPES_ALL;
+
+        /* A plain list assigns */
+        ASSERT_OK(manifest_inode_types_from_string("reg,dir", &t));
+        ASSERT_EQ(t, (UINT32_C(1) << DT_REG) | (UINT32_C(1) << DT_DIR));
+        ASSERT_OK(manifest_inode_types_from_string("lnk", &t));
+        ASSERT_EQ(t, UINT32_C(1) << DT_LNK);
+
+        /* "+" and "-" adjust */
+        ASSERT_OK(manifest_inode_types_from_string("+sock,+fifo", &t));
+        ASSERT_EQ(t, (UINT32_C(1) << DT_LNK) | (UINT32_C(1) << DT_SOCK) | (UINT32_C(1) << DT_FIFO));
+        ASSERT_OK(manifest_inode_types_from_string("-lnk", &t));
+        ASSERT_EQ(t, (UINT32_C(1) << DT_SOCK) | (UINT32_C(1) << DT_FIFO));
+        ASSERT_OK(manifest_inode_types_from_string("all,-chr,-blk", &t));
+        ASSERT_EQ(t, MANIFEST_INODE_TYPES_ALL & ~((UINT32_C(1) << DT_CHR) | (UINT32_C(1) << DT_BLK)));
+        ASSERT_OK(manifest_inode_types_from_string("none", &t));
+        ASSERT_EQ(t, 0U);
+        ASSERT_OK(manifest_inode_types_from_string("all", &t));
+        ASSERT_EQ(t, MANIFEST_INODE_TYPES_ALL);
+
+        ASSERT_ERROR(manifest_inode_types_from_string("foo", &t), EINVAL);
+        ASSERT_ERROR(manifest_inode_types_from_string("reg,", &t), EINVAL);
+        ASSERT_EQ(t, MANIFEST_INODE_TYPES_ALL); /* unchanged on failure */
+}
+
 TEST(manifest_list) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int tfd = -EBADF;
@@ -769,6 +795,98 @@ TEST(manifest_uapi16) {
         ASSERT_OK(generate(&c, tfd, &buf5, &size5));
         ASSERT_EQ(c.n_skipped, 1U);
         ASSERT_EQ(c.n_metadata_omitted, 0U);
+}
+
+TEST(manifest_inode_types) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF;
+        _cleanup_free_ char *buf = NULL, *buf_all = NULL;
+        size_t size, size_all;
+
+        ASSERT_OK(tfd = make_tree(&t));
+
+        /* Directories are still descended into if they are not listed themselves */
+        _cleanup_(manifest_context_done) ManifestContext c;
+        context_init(&c, MANIFEST_FORMAT_LIST);
+        c.inode_types = MANIFEST_INODE_TYPES_ALL & ~((UINT32_C(1) << DT_DIR) | (UINT32_C(1) << DT_FIFO));
+        ASSERT_OK(generate(&c, tfd, &buf, &size));
+        ASSERT_STREQ(buf,
+                     "empty.txt\n"
+                     "hardlink_a\n"
+                     "hardlink_b\n"
+                     "regular.txt\n"
+                     "subdir/nested.txt\n"
+                     "symlink\n");
+        ASSERT_EQ(c.n_filtered, 2U);
+        buf = mfree(buf);
+
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_LIST);
+        c.inode_types = UINT32_C(1) << DT_DIR;
+        ASSERT_OK(generate(&c, tfd, &buf, &size));
+        ASSERT_STREQ(buf, "subdir/\n");
+        buf = mfree(buf);
+
+        /* The top-level inode is always listed */
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.inode_types = UINT32_C(1) << DT_DIR | UINT32_C(1) << DT_LNK;
+        ASSERT_OK(generate(&c, tfd, &buf, &size));
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *root = find_object(buf, /* name= */ NULL);
+        ASSERT_NOT_NULL(root);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *subdir = find_object(buf, "subdir");
+        ASSERT_NOT_NULL(subdir);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *symlink = find_object(buf, "symlink");
+        ASSERT_NOT_NULL(symlink);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *regular = find_object(buf, "regular.txt");
+        ASSERT_NULL(regular);
+
+        /* UAPI.16 manifests list all directories (other file objects are located in) */
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.inode_types = UINT32_C(1) << DT_REG;
+        _cleanup_free_ char *buf_nodir = NULL;
+        size_t size_nodir;
+        ASSERT_ERROR(generate(&c, tfd, &buf_nodir, &size_nodir), EOPNOTSUPP);
+
+        /* Inodes of types not selected are not verified */
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        ASSERT_OK(generate(&c, tfd, &buf_all, &size_all));
+        ASSERT_OK_ERRNO(unlinkat(tfd, "fifo", 0));
+        ASSERT_OK(write_string_file_at(tfd, "subdir/nested.txt", "changed", WRITE_STRING_FILE_TRUNCATE|WRITE_STRING_FILE_AVOID_NEWLINE));
+
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        ASSERT_ERROR(verify_buffer(&c, tfd, buf_all, size_all), EBADMSG);
+        ASSERT_EQ(c.n_errors, 2U);
+
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.inode_types = MANIFEST_INODE_TYPES_ALL & ~(UINT32_C(1) << DT_FIFO);
+        ASSERT_ERROR(verify_buffer(&c, tfd, buf_all, size_all), EBADMSG);
+        ASSERT_EQ(c.n_errors, 1U);
+        ASSERT_EQ(c.n_filtered, 1U);
+
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.inode_types = MANIFEST_INODE_TYPES_ALL & ~((UINT32_C(1) << DT_FIFO) | (UINT32_C(1) << DT_REG));
+        ASSERT_OK(verify_buffer(&c, tfd, buf_all, size_all));
+
+        /* Same for the list format: directories are filtered by the trailing slash, everything else by what
+         * is found in the tree */
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_LIST);
+        c.inode_types = UINT32_C(1) << DT_REG;
+        static const char list[] = "subdir/\nregular.txt\nsymlink\nmissing/\n";
+        ASSERT_OK(verify_buffer(&c, tfd, list, strlen(list)));
+        ASSERT_EQ(c.n_filtered, 3U);
+
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_LIST);
+        c.inode_types = UINT32_C(1) << DT_DIR;
+        ASSERT_ERROR(verify_buffer(&c, tfd, list, strlen(list)), EBADMSG);
+        ASSERT_EQ(c.n_errors, 1U);
 }
 
 TEST(manifest_omitted) {

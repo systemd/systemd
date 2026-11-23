@@ -80,6 +80,33 @@ systemd-manifest verify --format=list "$ROOT" "$WORK/list"
 (! systemd-manifest verify "$ROOT" "$WORK/tree.mtree")
 (! systemd-manifest verify --format=mtree "$ROOT" <"$WORK/tree.mtree")
 
+: "Inode type filter"
+# Device nodes are dropped, everything else is identical
+systemd-manifest make --filter-type=-chr,-blk "$ROOT" >"$WORK/nodev.Uapi16Manifest"
+jq --seq -s -e '[.[] | select(.type == "chr" or .type == "blk")] | length == 0' "$WORK/nodev.Uapi16Manifest" >/dev/null
+diff <(jq --seq -c 'select(.type != "chr" and .type != "blk")' "$WORK/Uapi16Manifest") <(jq --seq -c . "$WORK/nodev.Uapi16Manifest")
+# Directories not listed are still descended into
+systemd-manifest make --format=list --filter-type=reg "$ROOT" >"$WORK/reg.list"
+grep -Fx "subdir/nested.txt" "$WORK/reg.list"
+(! grep -Fx "subdir/" "$WORK/reg.list")
+systemd-manifest make --format=list --filter-type=dir "$ROOT" | cmp - <(printf 'dir with space/\nsubdir/\n')
+# UAPI.16 manifests list directories
+(! systemd-manifest make --filter-type=-dir "$ROOT")
+(! systemd-manifest make --filter-type=foo "$ROOT")
+# Same semantics as --field=: plain lists assign, "+" and "-" prefixed items adjust
+systemd-manifest make --filter-type=reg,dir,lnk --filter-type=+fifo,+sock "$ROOT" | cmp - "$WORK/nodev.Uapi16Manifest"
+systemd-manifest make --filter-type=chr --filter-type=all "$ROOT" | cmp - "$WORK/Uapi16Manifest"
+# Inode types not selected are not verified
+mv "$ROOT/fifo" "$WORK/fifo"
+(! systemd-manifest verify --verify-signature=no "$ROOT" "$WORK/Uapi16Manifest")
+systemd-manifest verify --verify-signature=no --filter-type=-fifo "$ROOT" "$WORK/Uapi16Manifest"
+# The list format only encodes whether an entry is a directory, hence the type found in the tree is used
+mkdir "$ROOT/fifo"
+(! systemd-manifest verify --format=list "$ROOT" "$WORK/list")
+systemd-manifest verify --format=list --filter-type=-dir "$ROOT" "$WORK/list"
+rmdir "$ROOT/fifo"
+mv "$WORK/fifo" "$ROOT/fifo"
+
 : "Field selection"
 systemd-manifest make --field=size,hash "$ROOT" | tr -d '\036' >"$WORK/minimal.jsonl"
 # No mode/uid/gid/inodeToken anywhere, but sizes and hashes
