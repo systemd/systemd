@@ -753,7 +753,7 @@ int coredump_context_parse_from_peer(CoredumpContext *context) {
                 log_warning_errno(r, "Failed to get crashing TID of process ["PID_FMT"], ignoring: %m", context->pidref.pid);
 
         struct rlimit rl;
-        r = pid_getrlimit(context->pidref.pid, RLIMIT_CORE, &rl);
+        r = pidref_getrlimit(&context->pidref, RLIMIT_CORE, &rl);
         if (r < 0)
                 log_warning_errno(r, "Failed to get coredump size limit of process ["PID_FMT"], ignoring: %m", context->pidref.pid);
         else
