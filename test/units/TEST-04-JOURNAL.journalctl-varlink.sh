@@ -42,9 +42,12 @@ varlinkctl_get_entries '{}' | jq --seq '.entry | {MESSAGE, PRIORITY, _UID}'
 
 # check that default limit works (100), we don't know how many entries we have so we just check
 # bounds
-ENTRIES=$(varlinkctl_get_entries '{}' | wc -l)
-test "$ENTRIES" -gt 0
-test "$ENTRIES" -le 100
+for PARAMETERS in '{}' '{"limit": null}' \
+    '{"units": null, "userUnits": null, "namespace": null, "follow": null}'; do
+    ENTRIES=$(varlinkctl_get_entries "$PARAMETERS" | wc -l)
+    test "$ENTRIES" -gt 0
+    test "$ENTRIES" -le 100
+done
 
 # check explicit limit
 ENTRIES=$(varlinkctl_get_entries '{"limit": 3}' | wc -l)
@@ -52,7 +55,8 @@ test "$ENTRIES" -le 3
 
 # check unit filter: use transient units to get deterministic results
 UNIT_NAME_1="test-journalctl-varlink-1-$RANDOM.service"
-systemd-run --unit="$UNIT_NAME_1" --wait bash -c 'echo hello-from-varlink-test-1'
+systemd-run --unit="$UNIT_NAME_1" --wait --property=SyslogLevel=debug \
+    bash -c 'echo hello-from-varlink-test-1'
 UNIT_NAME_2="test-journalctl-varlink-2-$RANDOM.service"
 systemd-run --unit="$UNIT_NAME_2" --wait bash -c 'echo hello-from-varlink-test-2'
 journalctl --sync
@@ -74,6 +78,10 @@ for LIMIT in 1 $((EXPECTED_ENTRIES - 1)) "$EXPECTED_ENTRIES" 1000; do
          <(journalctl -u "$UNIT_NAME_1" -o json -n "$LIMIT" | jq -r .__CURSOR)
 done
 
+# A null priority leaves debug messages visible.
+varlinkctl_get_entries "{\"units\": [\"$UNIT_NAME_1\"], \"priority\": null}" |
+    jq --seq -es 'any(.[]; .entry.MESSAGE == "hello-from-varlink-test-1" and .entry.PRIORITY == "7")' >/dev/null
+
 # check priority filter: priority 4 (warning) should include our warning message
 varlinkctl_get_entries '{"priority": 4, "limit": 1000}' | grep "varlink-test-warning" >/dev/null
 # check priority filter: priority 3 (error) should NOT include our warning (priority 4)
@@ -82,7 +90,8 @@ varlinkctl_get_entries '{"priority": 4, "limit": 1000}' | grep "varlink-test-war
 # invalid parameter: limit over 10000 should fail
 (! varlinkctl call --more "$VARLINK_SOCKET" io.systemd.JournalAccess.GetEntries '{"limit": 99999}')
 
-# invalid parameter: priority over 7 should fail
+# invalid parameter: priority outside the valid range should fail
+(! varlinkctl call --more "$VARLINK_SOCKET" io.systemd.JournalAccess.GetEntries '{"priority": -1}')
 (! varlinkctl call --more "$VARLINK_SOCKET" io.systemd.JournalAccess.GetEntries '{"priority": 99}')
 
 # NoEntries error is raised if there is no result

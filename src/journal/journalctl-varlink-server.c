@@ -179,16 +179,24 @@ static int follow_state_setup(sd_varlink *link, sd_journal *_j /* donated! */) {
         return 0;
 }
 
+static int json_dispatch_priority(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        /* Leave the priority filter unset if the value is null. */
+        if (sd_json_variant_is_null(variant))
+                return 0;
+
+        return json_dispatch_log_level(name, variant, flags, userdata);
+}
+
 int vl_method_get_entries(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "units",     SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,         offsetof(GetEntriesParameters, units),      0 },
-                { "uid",       _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,      offsetof(GetEntriesParameters, uid),        0 },
-                { "userUnits", SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,         offsetof(GetEntriesParameters, user_units), 0 },
-                { "namespace", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(GetEntriesParameters, namespace),  0 },
-                { "priority",  _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_log_level,       offsetof(GetEntriesParameters, priority),   0 },
-                { "limit",     _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(GetEntriesParameters, limit),      0 },
-                { "follow",    SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,      offsetof(GetEntriesParameters, follow),     0 },
+                { "units",     SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,         offsetof(GetEntriesParameters, units),      SD_JSON_NULLABLE     },
+                { "uid",       _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,      offsetof(GetEntriesParameters, uid),        0                    },
+                { "userUnits", SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,         offsetof(GetEntriesParameters, user_units), SD_JSON_NULLABLE     },
+                { "namespace", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(GetEntriesParameters, namespace),  SD_JSON_NULLABLE     },
+                { "priority",  _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_priority,        offsetof(GetEntriesParameters, priority),   0                    },
+                { "limit",     _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(GetEntriesParameters, limit),      SD_JSON_NULL_TO_ZERO },
+                { "follow",    SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,      offsetof(GetEntriesParameters, follow),     SD_JSON_NULLABLE     },
                 {}
         };
 
