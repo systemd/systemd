@@ -125,10 +125,19 @@
         reported, and the command fails if there was at least one. The <option>mtree</option> format is not
         supported for verification.</para>
 
-        <para>Note that the check only goes one way: every file listed in the manifest must exist in the tree
-        as described, but the tree may contain additional files that the manifest does not list. These are
-        not reported, and do not cause verification to fail. Hence a successful verification shows that the
-        tree contains everything the manifest describes, but not that it contains nothing else.</para>
+        <para>For <option>uapi16</option> manifests, the tree is also checked for inodes the manifest does
+        not list, as far as its completeness, i.e. its <literal>complete</literal> field (see
+        <option>--complete=</option> below), guarantees they are listed: for complete manifests (the
+        default) every inode in the tree must be listed, for manifests declared as <literal>no-dir</literal>
+        every inode other than directories. Unlisted inodes are reported as mismatches too (for unlisted
+        directories only the topmost one). A manifest embedded in the top-level directory of the tree it
+        covers (i.e. a regular file named <filename>Uapi16Manifest</filename> or with that name as prefix)
+        is exempt from this. For <option>uapi16</option> manifests declared as <literal>no</literal> and
+        all other formats the check only goes one way: every file listed in the manifest must exist in the
+        tree as described, but the tree may contain additional files that the manifest does not list. These
+        are not reported, and do not cause verification to fail. Hence a successful verification then shows
+        that the tree contains everything the manifest describes, but not that it contains nothing
+        else.</para>
 
         <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
@@ -395,11 +404,13 @@
         manifest (e.g. <literal>--filter-type=-chr,-blk,-sock</literal>), or to generate a manifest that
         only lists directories (<literal>--filter-type=dir</literal>). Note that directories that are not
         included are still descended into, i.e. the inodes of the selected types below them are included.
-        The top-level inode is always included in formats that list it. The <option>uapi16</option> format
-        requires directories to be included.</para>
+        The top-level inode is always included in formats that list it. For the <option>uapi16</option>
+        format this affects the default of <option>--complete=</option>, see below.</para>
 
         <para>When verifying a manifest with <command>verify</command>, only inodes of the selected types
-        are verified, all others listed in the manifest are ignored. For the <option>list</option> format, whose entries do not encode the inode type other than whether
+        are verified, all others listed in the manifest are ignored, and for <option>uapi16</option>
+        manifests inodes of other types in the tree the manifest does not list are not reported either. For
+        the <option>list</option> format, whose entries do not encode the inode type other than whether
         they refer to a directory, the type of the inode found in the tree is used for entries not
         referring to directories.</para>
 
@@ -429,6 +440,32 @@
         times with a granularity of 2s only. Use <literal>0</literal> to require timestamps to match
         exactly. Only has an effect if the <option>mtime</option> field is enabled with
         <option>--field=</option>, and only for <option>uapi16</option> manifests.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--complete=<replaceable>COMPLETE</replaceable></option></term>
+
+        <listitem><para>Only supported for the <option>uapi16</option> format. Takes one of
+        <option>yes</option>, <option>no-dir</option> or <option>no</option>, matching the values of the
+        <literal>complete</literal> field of the root file object of the manifest: <option>yes</option>
+        means the manifest lists all inodes of the directory tree, <option>no-dir</option> that it lists all
+        inodes except for directories (other than the top-level one), none of which it lists, and
+        <option>no</option> that any inodes might be missing from it.</para>
+
+        <para>When generating a manifest with <command>make</command>, selects the completeness the manifest
+        declares. If not specified, it is derived from <option>--filter-type=</option>:
+        <option>yes</option> if all inode types are selected, <option>no-dir</option> if all but directories
+        are, and <option>no</option> otherwise. Specifying <option>yes</option> while not all inode types are
+        selected, or <option>no-dir</option> while inode types other than directories are not, is refused.
+        With <option>no-dir</option> directories are never included (other than the top-level
+        one).</para>
+
+        <para>When verifying a manifest with <command>verify</command>, overrides the completeness the
+        manifest declares, i.e. selects which inodes in the tree the manifest does not list are reported as
+        mismatches, see above. If not specified, the <literal>complete</literal> field of the manifest is
+        used.</para>
 
         <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>

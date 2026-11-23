@@ -1564,9 +1564,10 @@ EOF
         # FS_IOC_GETFSUUID requires kernel 6.9, fs-uuid is not declared if the UUID cannot be queried
         jq --seq -s -e '.[0] | .features == (["fat-serial","fs-label"] + (if has("fsUUID") then ["fs-uuid"] else [] end) + ["sha256","size"])' <"$root_manifest" >/dev/null
     fi
-    # The manifest is signed with the manifest key, not the verity key
-    systemd-manifest verify --certificate="$defs/manifest.crt" / "$root_manifest"
-    (! systemd-manifest verify --certificate="$defs/verity.crt" / "$root_manifest")
+    # The manifest is signed with the manifest key, not the verity key. (The host's root directory contains
+    # much more than the partition, hence treat the manifest as not complete.)
+    systemd-manifest verify --complete=no --certificate="$defs/manifest.crt" / "$root_manifest"
+    (! systemd-manifest verify --complete=no --certificate="$defs/verity.crt" / "$root_manifest")
     assert_eq "$(jq -r ".[] | select(.type == \"root-${architecture}-verity-sig\") | .manifest_path" <<<"$output")" "-"
 
     gpt_manifest="$imgs/verity.Uapi16Manifest"
@@ -1585,8 +1586,10 @@ EOF
     jq --seq -s -e ".[] | select(.name == \"$(basename "$root_split")\") | (.contents | length) == 1 and .contents[0].file == \"$(basename "$imgs/verity")\" and .contents[0].offset > 0 and .gptLabel != null" <"$gpt_manifest" >/dev/null
     # The verity signature partition is described like its split artifact, i.e. without the NUL padding
     jq --seq -s -e ".[] | select(.name == \"$(basename "$sig_split")\") | (.contents | length) == 1 and .size == $(stat -c %s "$sig_split")" <"$gpt_manifest" >/dev/null
-    systemd-manifest verify --certificate="$defs/manifest.crt" "$imgs" "$gpt_manifest"
-    (! systemd-manifest verify --certificate="$defs/verity.crt" "$imgs" "$gpt_manifest")
+    # The directory contains other images and artifacts too, hence treat the manifest as not complete
+    systemd-manifest verify --complete=no --certificate="$defs/manifest.crt" "$imgs" "$gpt_manifest"
+    (! systemd-manifest verify --complete=yes --certificate="$defs/manifest.crt" "$imgs" "$gpt_manifest")
+    (! systemd-manifest verify --complete=no --certificate="$defs/verity.crt" "$imgs" "$gpt_manifest")
 
     # A verity signature partition without any signature in it (e.g. an empty B slot) is described with
     # its full size, rather than failing
@@ -1638,9 +1641,9 @@ EOF
         done
         jq --seq -s -e '.[] | select(.name == "verity") | .extendedAttributes.user["uapi.match_os_version"].text == ">= 40" and .extendedAttributes.user["uapi.match_hostname"].base64 != null and (.extendedAttributes.user | has("uapi.match_machine_tags") | not)' <"$gpt_manifest" >/dev/null
         jq --seq -s -e ".[] | select(.name == \"$(basename "$root_split")\") | .extendedAttributes.user[\"uapi.match_os_version\"].text == \">= 40\"" <"$gpt_manifest" >/dev/null
-        systemd-manifest verify --field=+user-xattr --certificate="$defs/manifest.crt" "$imgs" "$gpt_manifest"
+        systemd-manifest verify --complete=no --field=+user-xattr --certificate="$defs/manifest.crt" "$imgs" "$gpt_manifest"
         setfattr -n user.uapi.match_os_version -v '>= 41' "$root_split"
-        (! systemd-manifest verify --field=+user-xattr --certificate="$defs/manifest.crt" "$imgs" "$gpt_manifest")
+        (! systemd-manifest verify --complete=no --field=+user-xattr --certificate="$defs/manifest.crt" "$imgs" "$gpt_manifest")
         (! systemd-repart --match-xattr-os-version='>=' "$imgs/invalid" 2>&1) | grep -F "Invalid argument to --match-xattr-os-version=: >=" >/dev/null
     fi
 

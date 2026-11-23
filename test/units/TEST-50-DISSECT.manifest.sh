@@ -81,17 +81,15 @@ systemd-manifest verify --format=list "$ROOT" "$WORK/list"
 (! systemd-manifest verify --format=mtree "$ROOT" <"$WORK/tree.mtree")
 
 : "Inode type filter"
-# Device nodes are dropped, everything else is identical
+# Device nodes are dropped, everything else is identical (except that the manifest is not complete anymore)
 systemd-manifest make --filter-type=-chr,-blk "$ROOT" >"$WORK/nodev.Uapi16Manifest"
 jq --seq -s -e '[.[] | select(.type == "chr" or .type == "blk")] | length == 0' "$WORK/nodev.Uapi16Manifest" >/dev/null
-diff <(jq --seq -c 'select(.type != "chr" and .type != "blk")' "$WORK/Uapi16Manifest") <(jq --seq -c . "$WORK/nodev.Uapi16Manifest")
+diff <(jq --seq -c 'select(.type != "chr" and .type != "blk")' "$WORK/Uapi16Manifest") <(jq --seq -c 'del(.complete)' "$WORK/nodev.Uapi16Manifest")
 # Directories not listed are still descended into
 systemd-manifest make --format=list --filter-type=reg "$ROOT" >"$WORK/reg.list"
 grep -Fx "subdir/nested.txt" "$WORK/reg.list"
 (! grep -Fx "subdir/" "$WORK/reg.list")
 systemd-manifest make --format=list --filter-type=dir "$ROOT" | cmp - <(printf 'dir with space/\nsubdir/\n')
-# UAPI.16 manifests list directories
-(! systemd-manifest make --filter-type=-dir "$ROOT")
 (! systemd-manifest make --filter-type=foo "$ROOT")
 # Same semantics as --field=: plain lists assign, "+" and "-" prefixed items adjust
 systemd-manifest make --filter-type=reg,dir,lnk --filter-type=+fifo,+sock "$ROOT" | cmp - "$WORK/nodev.Uapi16Manifest"
@@ -106,6 +104,64 @@ mkdir "$ROOT/fifo"
 systemd-manifest verify --format=list --filter-type=-dir "$ROOT" "$WORK/list"
 rmdir "$ROOT/fifo"
 mv "$WORK/fifo" "$ROOT/fifo"
+
+: "Completeness"
+# Manifests are complete unless declared otherwise, which only UAPI.16 manifests can do
+jq --seq -s -e '.[0] | has("complete") | not' "$WORK/Uapi16Manifest" >/dev/null
+systemd-manifest make --complete=yes "$ROOT" | cmp - "$WORK/Uapi16Manifest"
+systemd-manifest make --complete=no "$ROOT" >"$WORK/no.Uapi16Manifest"
+jq --seq -s -e '.[0].complete == "no"' "$WORK/no.Uapi16Manifest" >/dev/null
+# The default follows the inode type filter: without device nodes it is "no" …
+jq --seq -s -e '.[0].complete == "no"' "$WORK/nodev.Uapi16Manifest" >/dev/null
+# … but without directories only "no-dir", which lists no directories other than the root
+systemd-manifest make --filter-type=-dir "$ROOT" >"$WORK/nodir.Uapi16Manifest"
+jq --seq -s -e '.[0].complete == "no-dir"' "$WORK/nodir.Uapi16Manifest" >/dev/null
+jq --seq -s -e '[.[] | select(.type == "dir")] | length == 0' "$WORK/nodir.Uapi16Manifest" >/dev/null
+jq --seq -s -e '[.[] | select(.name == "subdir/nested.txt")] | length == 1' "$WORK/nodir.Uapi16Manifest" >/dev/null
+systemd-manifest make --complete=no-dir "$ROOT" | cmp - "$WORK/nodir.Uapi16Manifest"
+(! systemd-manifest make --complete=yes --filter-type=-sock "$ROOT")
+(! systemd-manifest make --complete=no-dir --filter-type=-sock "$ROOT")
+(! systemd-manifest make --complete=foo "$ROOT")
+(! systemd-manifest make --format=sha256sums --complete=no "$ROOT")
+(! systemd-manifest verify --format=sha256sums --complete=no "$ROOT" "$WORK/SHA256SUMS")
+# All of them verify, also with a manifest embedded in the tree it covers, which does not count as unlisted
+cp "$WORK/Uapi16Manifest" "$ROOT/Uapi16Manifest"
+for m in "$ROOT/Uapi16Manifest" "$WORK/no.Uapi16Manifest" "$WORK/nodev.Uapi16Manifest" "$WORK/nodir.Uapi16Manifest"; do
+    systemd-manifest verify --verify-signature=no "$ROOT" "$m"
+done
+rm "$ROOT/Uapi16Manifest"
+# Unlisted files are only refused as far as the completeness guarantees they are listed, and the declaration
+# can be overridden
+mkdir "$ROOT/subdir/unlisted"
+: >"$ROOT/subdir/unlisted/file"
+(! systemd-manifest verify --verify-signature=no "$ROOT" "$WORK/Uapi16Manifest")
+systemd-manifest verify --verify-signature=no --complete=no "$ROOT" "$WORK/Uapi16Manifest"
+systemd-manifest verify --verify-signature=no "$ROOT" "$WORK/no.Uapi16Manifest"
+(! systemd-manifest verify --verify-signature=no --complete=yes "$ROOT" "$WORK/no.Uapi16Manifest")
+set +o pipefail
+systemd-manifest verify --verify-signature=no "$ROOT" "$WORK/Uapi16Manifest" 2>&1 | tee "$WORK/unlisted.log"
+set -o pipefail
+grep -F "subdir/unlisted: Found in tree, but not listed in manifest." "$WORK/unlisted.log"
+(! grep -F "subdir/unlisted/file" "$WORK/unlisted.log")
+# "no-dir" manifests do not list the directory, but must list the file below it
+set +o pipefail
+systemd-manifest verify --verify-signature=no "$ROOT" "$WORK/nodir.Uapi16Manifest" 2>&1 | tee "$WORK/unlisted-nodir.log"
+set -o pipefail
+grep -F "subdir/unlisted/file: Found in tree, but not listed in manifest." "$WORK/unlisted-nodir.log"
+(! grep -F "subdir/unlisted: " "$WORK/unlisted-nodir.log")
+grep -F "Found 1 mismatches between manifest and directory tree." "$WORK/unlisted-nodir.log"
+# … unless regular files are not checked
+systemd-manifest verify --verify-signature=no --filter-type=-reg "$ROOT" "$WORK/nodir.Uapi16Manifest"
+rm -r "$ROOT/subdir/unlisted"
+# "no-dir" manifests must not list directories
+jq --seq -c 'if .mediaType == "application/vnd.uapi.16.manifest" then .complete = "no-dir" else . end' "$WORK/Uapi16Manifest" >"$WORK/bad-nodir.Uapi16Manifest"
+(! systemd-manifest verify --verify-signature=no "$ROOT" "$WORK/bad-nodir.Uapi16Manifest")
+# Manifests that are not complete may lack directory objects, complete ones may not
+jq --seq -c 'select(.name != "subdir")' "$WORK/no.Uapi16Manifest" >"$WORK/sparse.Uapi16Manifest"
+systemd-manifest verify --verify-signature=no "$ROOT" "$WORK/sparse.Uapi16Manifest"
+(! systemd-manifest verify --verify-signature=no --complete=yes "$ROOT" "$WORK/sparse.Uapi16Manifest")
+jq --seq -c 'if .mediaType == "application/vnd.uapi.16.manifest" then del(.complete) else . end' "$WORK/sparse.Uapi16Manifest" >"$WORK/sparse-complete.Uapi16Manifest"
+(! systemd-manifest verify --verify-signature=no --complete=no "$ROOT" "$WORK/sparse-complete.Uapi16Manifest")
 
 : "Field selection"
 systemd-manifest make --field=size,hash "$ROOT" | tr -d '\036' >"$WORK/minimal.jsonl"
@@ -167,21 +223,28 @@ set +o pipefail
 systemd-manifest verify --verify-signature=no "$WORK/broken" "$WORK/Uapi16Manifest" 2>&1 | tee "$WORK/uapi16.log"
 set -o pipefail
 grep -F "empty.txt: Listed in manifest, but missing in tree." "$WORK/uapi16.log"
-# Only what the manifest lists is checked, additional files in the tree are fine
-(! grep -F "extra.txt" "$WORK/uapi16.log")
+# The manifest is complete, hence additional files in the tree are detected too
+grep -F "extra.txt: Found in tree, but not listed in manifest." "$WORK/uapi16.log"
 grep -F "regular.txt: Hash mismatch." "$WORK/uapi16.log"
 grep -F "subdir/nested.txt: Expected access mode 00644, but found 00600." "$WORK/uapi16.log"
 grep -F "hardlink_b: Inode token 1 in manifest already used by a different inode, not a hardlink." "$WORK/uapi16.log"
 grep -F "symlink: Symlink target mismatch." "$WORK/uapi16.log"
 grep -F "fifo: Expected inode type 'fifo', but found 'reg'." "$WORK/uapi16.log"
-grep -F "Found 6 mismatches between manifest and directory tree." "$WORK/uapi16.log"
+grep -F "Found 7 mismatches between manifest and directory tree." "$WORK/uapi16.log"
 (! systemd-manifest verify --verify-signature=no "$WORK/broken" "$WORK/Uapi16Manifest")
+
+# If treated as not complete, only what the manifest lists is checked, additional files in the tree are fine
+set +o pipefail
+systemd-manifest verify --verify-signature=no --complete=no "$WORK/broken" "$WORK/Uapi16Manifest" 2>&1 | tee "$WORK/uapi16-incomplete.log"
+set -o pipefail
+(! grep -F "extra.txt" "$WORK/uapi16-incomplete.log")
+grep -F "Found 6 mismatches between manifest and directory tree." "$WORK/uapi16-incomplete.log"
 
 # Only checking contents ignores the mode change and the hardlink
 set +o pipefail
 systemd-manifest verify --verify-signature=no --field=size,hash "$WORK/broken" "$WORK/Uapi16Manifest" 2>&1 | tee "$WORK/uapi16-content.log"
 set -o pipefail
-grep -F "Found 3 mismatches between manifest and directory tree." "$WORK/uapi16-content.log"
+grep -F "Found 4 mismatches between manifest and directory tree." "$WORK/uapi16-content.log"
 (! grep -F "nested.txt: " "$WORK/uapi16-content.log")
 
 set +o pipefail
