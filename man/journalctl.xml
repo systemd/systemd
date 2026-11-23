@@ -564,6 +564,19 @@
           </varlistentry>
 
           <varlistentry>
+            <term><option>short-boottime</option></term>
+            <listitem><para>is very similar, but shows <constant>CLOCK_BOOTTIME</constant> timestamps
+            instead of wallclock timestamps. Unlike the monotonic timestamps shown by
+            <option>short-monotonic</option>, these include time the system spent suspended. Entries
+            written by older versions of
+            <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            do not carry a <constant>CLOCK_BOOTTIME</constant> timestamp, and are not shown in this
+            mode, except for kernel messages.</para>
+
+            <xi:include href="version-info.xml" xpointer="v264"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
             <term><option>short-unix</option></term>
             <listitem><para>is very similar, but shows seconds passed since January 1st 1970 UTC instead of
             wallclock timestamps ("UNIX time"). The time is shown with microsecond accuracy.</para>

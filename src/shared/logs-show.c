@@ -356,6 +356,15 @@ finish:
         return written_chars;
 }
 
+static int output_timestamp_boottime(FILE *f, usec_t usec) {
+        assert(f);
+
+        if (!VALID_MONOTONIC(usec))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "No valid boottime timestamp available, skipping showing journal entry.");
+
+        return fprintf(f, "[%5"PRI_USEC".%06"PRI_USEC"]", usec / USEC_PER_SEC, usec % USEC_PER_SEC);
+}
+
 static int output_timestamp_realtime(
                 FILE *f,
                 OutputMode mode,
@@ -510,6 +519,44 @@ static void parse_display_realtime(
         *ret = t;
 }
 
+static void parse_display_boottime(
+                sd_journal *j,
+                const char *source_realtime,
+                const char *source_boottime,
+                usec_t *ret) {
+
+        usec_t t, h;
+
+        assert(j);
+        assert(ret);
+
+        /* First, try _SOURCE_BOOTTIME_TIMESTAMP, which needs no conversion. */
+        if (source_boottime && safe_atou64(source_boottime, &t) >= 0 && VALID_MONOTONIC(t)) {
+                *ret = t;
+                return;
+        }
+
+        /* Read the boottime timestamp in the entry header. This is not available for entries written by
+         * older journald versions. */
+        if (sd_journal_get_boottime_usec(j, &h, &(sd_id128_t) {}) < 0) {
+                *ret = USEC_INFINITY;
+                return;
+        }
+
+        /* If _SOURCE_REALTIME_TIMESTAMP is provided, adjust the header timestamp. */
+        if (source_realtime && safe_atou64(source_realtime, &t) >= 0 && VALID_REALTIME(t)) {
+                usec_t rt;
+
+                if (sd_journal_get_realtime_usec(j, &rt) >= 0) {
+                        *ret = map_clock_usec_raw(t, rt, h);
+                        return;
+                }
+        }
+
+        /* Otherwise, use the header timestamp as is. */
+        *ret = h;
+}
+
 static void parse_display_timestamp(
                 sd_journal *j,
                 const char *source_realtime,
@@ -631,6 +678,10 @@ static int output_short(
         if (IN_SET(mode, OUTPUT_SHORT_MONOTONIC, OUTPUT_SHORT_DELTA)) {
                 parse_display_timestamp(j, realtime, boottime, &display_ts, &boot_id);
                 r = output_timestamp_monotonic(f, mode, &display_ts, &boot_id, previous_display_ts, previous_boot_id);
+        } else if (mode == OUTPUT_SHORT_BOOTTIME) {
+                usec_t usec;
+                parse_display_boottime(j, realtime, boottime, &usec);
+                r = output_timestamp_boottime(f, usec);
         } else {
                 usec_t usec;
                 parse_display_realtime(j, realtime, boottime, &usec);
@@ -1524,6 +1575,7 @@ static output_func_t output_funcs[_OUTPUT_MODE_MAX] = {
         [OUTPUT_SHORT_PRECISE]     = output_short,
         [OUTPUT_SHORT_MONOTONIC]   = output_short,
         [OUTPUT_SHORT_DELTA]       = output_short,
+        [OUTPUT_SHORT_BOOTTIME]    = output_short,
         [OUTPUT_SHORT_UNIX]        = output_short,
         [OUTPUT_SHORT_FULL]        = output_short,
         [OUTPUT_VERBOSE]           = output_verbose,
