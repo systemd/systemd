@@ -256,6 +256,14 @@ int kmod_setup(void) {
                  * can rely on all consoles being probed already. */
                 { "virtio_console",             NULL,                           false, false, may_have_virtio           },
 
+                /* The vsock core module registers the net.vsock.* sysctls, among them child_ns_mode,
+                 * which only affects network namespaces created after it is set. If the module is
+                 * loaded lazily later on, all network namespaces existing at that time are
+                 * initialized in "global" mode and sysctl.d/ settings are not applied. Hence load
+                 * it early, before systemd-sysctl.service runs and before any unit can create a
+                 * network namespace. */
+                { "vsock",                      "/proc/sys/net/vsock",          false, false, NULL                      },
+
                 /* Make sure we can send sd-notify messages over vsock as early as possible. */
                 { "vmw_vsock_virtio_transport", NULL,                           false, false, may_have_virtio           },
                 /* vsock_loopback provides VMADDR_CID_LOCAL and is not a hard dep of any transport module */
