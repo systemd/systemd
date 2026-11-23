@@ -684,10 +684,12 @@ systemd-run -P \
             --property ExtensionImages="/tmp/app0.raw /tmp/conf0.raw" \
             veritysetup status "$(cat /tmp/conf0.roothash)-verity" | grep "$(cat /tmp/conf0.roothash)" >/dev/null
 
-# Check that two identical verity images at different paths do not fail with -ELOOP from OverlayFS
+# Check that two identical verity images at different paths do not fail with -ELOOP from OverlayFS.
+# SHA-512 makes the hex-encoded root hash too long for a device-mapper name, so this also checks
+# that verity devices are still shared when the name falls back to base64.
 mkdir -p /tmp/loop
 cp /tmp/app0.raw /tmp/loop/app0.raw
-veritysetup format /tmp/loop/app0.raw /tmp/loop/app0.verity --hash=sha256 --root-hash-file /tmp/loop/app0.roothash
+veritysetup format /tmp/loop/app0.raw /tmp/loop/app0.verity --hash=sha512 --root-hash-file /tmp/loop/app0.roothash
 cp /tmp/loop/app0.raw /tmp/loop/app0_copy.raw
 cp /tmp/loop/app0.verity /tmp/loop/app0_copy.verity
 cp /tmp/loop/app0.roothash /tmp/loop/app0_copy.roothash

@@ -634,6 +634,47 @@ ssize_t base64mem_full(
         return z - b;
 }
 
+/* Same as base64mem(), but uses the "url and filename safe" alphabet (see urlsafe_base64char())
+ * and no '=' padding, so that the result can be embedded in file, device, or interface names. */
+ssize_t base64urlmem(const void *p, size_t l, char **ret) {
+        const uint8_t *x;
+        char *b, *z;
+
+        assert(p || l == 0);
+        assert(ret);
+
+        z = b = new(char, DIV_ROUND_UP(l * 4, 3) + 1);
+        if (!b)
+                return -ENOMEM;
+
+        for (x = p; x && x < (const uint8_t*) p + (l / 3) * 3; x += 3) {
+                /* x[0] == XXXXXXXX; x[1] == YYYYYYYY; x[2] == ZZZZZZZZ */
+                *(z++) = urlsafe_base64char(x[0] >> 2);                    /* 00XXXXXX */
+                *(z++) = urlsafe_base64char((x[0] & 3) << 4 | x[1] >> 4);  /* 00XXYYYY */
+                *(z++) = urlsafe_base64char((x[1] & 15) << 2 | x[2] >> 6); /* 00YYYYZZ */
+                *(z++) = urlsafe_base64char(x[2] & 63);                    /* 00ZZZZZZ */
+        }
+
+        switch (l % 3) {
+        case 2:
+                *(z++) = urlsafe_base64char(x[0] >> 2);                   /* 00XXXXXX */
+                *(z++) = urlsafe_base64char((x[0] & 3) << 4 | x[1] >> 4); /* 00XXYYYY */
+                *(z++) = urlsafe_base64char((x[1] & 15) << 2);            /* 00YYYY00 */
+                break;
+
+        case 1:
+                *(z++) = urlsafe_base64char(x[0] >> 2);       /* 00XXXXXX */
+                *(z++) = urlsafe_base64char((x[0] & 3) << 4); /* 00XX0000 */
+                break;
+        }
+
+        *z = 0;
+        *ret = b;
+
+        assert(z >= b); /* Let static analyzers know that the answer is non-negative. */
+        return z - b;
+}
+
 static ssize_t base64_append_width(
                 char **prefix,
                 size_t plen,

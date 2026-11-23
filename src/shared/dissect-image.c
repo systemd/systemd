@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fnmatch.h>
+#include <linux/dm-ioctl.h>
 #include <linux/loop.h>
 #include <sys/file.h>
 #include <sys/mount.h>
@@ -2008,6 +2009,32 @@ static int dissect_image(
 }
 #endif
 
+#if HAVE_BLKID || HAVE_LIBCRYPTSETUP
+/* Encode the root hash for the name of a shared verity device, which is derived from the root hash
+ * so that the device can be reused for identical images. Device-mapper names are limited to
+ * DM_NAME_LEN-1 characters (127), so together with the "-verity" suffix there is room for at most
+ * 120 characters, while the hex encoding of a SHA-512 root hash alone is 128 characters long. Keep
+ * the hex encoding when it fits, so that the names of existing setups do not change, and fall back
+ * to the more compact unpadded URL-safe base64 otherwise (SHA-512: 86 characters). */
+static int verity_dm_name_base(const struct iovec *root_hash, char **ret) {
+        _cleanup_free_ char *hex = NULL;
+
+        assert(iovec_is_set(root_hash));
+        assert(ret);
+
+        hex = hexmem(root_hash->iov_base, root_hash->iov_len);
+        if (!hex)
+                return -ENOMEM;
+
+        if (strlen(hex) <= DM_NAME_LEN - 1 - STRLEN("-verity")) {
+                *ret = TAKE_PTR(hex);
+                return 0;
+        }
+
+        return base64urlmem(root_hash->iov_base, root_hash->iov_len, ret);
+}
+#endif
+
 #if HAVE_LIBCRYPTSETUP
 static bool verity_use_signature(const VeritySettings *verity, PartitionPolicyFlags policy_flags) {
         int r;
@@ -2115,7 +2142,13 @@ int dissected_image_new_from_existing_verity(
         if (!root_hash_encoded)
                 return -ENOMEM;
 
-        node = strjoin("/dev/mapper/", root_hash_encoded, "-verity");
+        _cleanup_free_ char *root_hash_dm_name = NULL;
+
+        r = verity_dm_name_base(&verity->root_hash, &root_hash_dm_name);
+        if (r < 0)
+                return r;
+
+        node = strjoin("/dev/mapper/", root_hash_dm_name, "-verity");
         if (!node)
                 return -ENOMEM;
 
@@ -3331,6 +3364,10 @@ static int make_dm_name_and_node(
                 return -ENOMEM;
         if (!filename_is_valid(name))
                 return -EINVAL;
+        /* The device-mapper interface is stricter than filename_is_valid() above: it also rejects
+         * names longer than DM_NAME_LEN-1 characters. */
+        if (strlen(name) >= DM_NAME_LEN)
+                return -ENAMETOOLONG;
 
         _cleanup_free_ char *node = path_join(sym_crypt_get_dir(), name);
         if (!node)
@@ -3755,13 +3792,13 @@ static int verity_partition(
 
         if (FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE)) {
                 /* Use the roothash, which is unique per volume, as the device node name, so that it can be reused */
-                _cleanup_free_ char *root_hash_encoded = NULL;
+                _cleanup_free_ char *root_hash_dm_name = NULL;
 
-                root_hash_encoded = hexmem(verity->root_hash.iov_base, verity->root_hash.iov_len);
-                if (!root_hash_encoded)
-                        return -ENOMEM;
+                r = verity_dm_name_base(&verity->root_hash, &root_hash_dm_name);
+                if (r < 0)
+                        return r;
 
-                r = make_dm_name_and_node(root_hash_encoded, /* diskseq= */ 0, "-verity", &name, &node);
+                r = make_dm_name_and_node(root_hash_dm_name, /* diskseq= */ 0, "-verity", &name, &node);
         } else
                 r = make_dm_name_and_node_from_node(m->node, dissected_image_diskseq(di), "-verity", &name, &node);
         if (r < 0)

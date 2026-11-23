@@ -279,6 +279,49 @@ TEST(base64mem) {
         free(b64);
 }
 
+/* https://tools.ietf.org/html/rfc4648#section-10, without padding and with the "url and filename
+ * safe" alphabet of section 5 */
+TEST(base64urlmem) {
+        char *b64;
+
+        ASSERT_OK_EQ(base64urlmem("", STRLEN(""), &b64), 0);
+        ASSERT_STREQ(b64, "");
+        free(b64);
+
+        ASSERT_OK_EQ(base64urlmem("f", STRLEN("f"), &b64), 2);
+        ASSERT_STREQ(b64, "Zg");
+        free(b64);
+
+        ASSERT_OK_EQ(base64urlmem("fo", STRLEN("fo"), &b64), 3);
+        ASSERT_STREQ(b64, "Zm8");
+        free(b64);
+
+        ASSERT_OK_EQ(base64urlmem("foo", STRLEN("foo"), &b64), 4);
+        ASSERT_STREQ(b64, "Zm9v");
+        free(b64);
+
+        ASSERT_OK_EQ(base64urlmem("foob", STRLEN("foob"), &b64), 6);
+        ASSERT_STREQ(b64, "Zm9vYg");
+        free(b64);
+
+        ASSERT_OK_EQ(base64urlmem("fooba", STRLEN("fooba"), &b64), 7);
+        ASSERT_STREQ(b64, "Zm9vYmE");
+        free(b64);
+
+        ASSERT_OK_EQ(base64urlmem("foobar", STRLEN("foobar"), &b64), 8);
+        ASSERT_STREQ(b64, "Zm9vYmFy");
+        free(b64);
+
+        /* 62 and 63 are encoded as '-' and '_' instead of '+' and '/' */
+        ASSERT_OK_EQ(base64urlmem("\xfb\xef\xbe", STRLEN("\xfb\xef\xbe"), &b64), 4);
+        ASSERT_STREQ(b64, "----");
+        free(b64);
+
+        ASSERT_OK_EQ(base64urlmem("\xff\xff\xff", STRLEN("\xff\xff\xff"), &b64), 4);
+        ASSERT_STREQ(b64, "____");
+        free(b64);
+}
+
 TEST(base64mem_linebreak) {
         uint8_t data[4096];
 
