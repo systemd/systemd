@@ -72,6 +72,11 @@ id-input:modalias:input:b0003v2516p01C9*
  ID_INPUT=0
  ID_INPUT_MOUSE=0
 
+# Focus Lab CTRL87 keyboard (wired) and its 2.4 GHz dongle
+id-input:modalias:input:b0003v36B0p2002*
+id-input:modalias:input:b0003v36B0p2009*
+ ID_INPUT_JOYSTICK=0
+
 # GOLD WARRIOR SIM PhoenixRC 10411R
 id-input:modalias:input:b0003v1781p0898*
  ID_INPUT_ACCELEROMETER=
