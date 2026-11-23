@@ -259,7 +259,7 @@ DnsPacket *dns_packet_ref(DnsPacket *p) {
         assert(!p->on_stack);
 
         assert(p->n_ref > 0);
-        p->n_ref++;
+        ref_counter_inc(&p->n_ref);
         return p;
 }
 

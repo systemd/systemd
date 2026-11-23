@@ -575,7 +575,7 @@ _public_ sd_event* sd_event_ref(sd_event *e) {
         if (event_origin_changed(e))
                 return NULL;
 
-        e->n_ref++;
+        ref_counter_inc(&e->n_ref);
 
         return e;
 }

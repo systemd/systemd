@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <limits.h>
+
 #include "../fundamental/assert-util.h"
 #include "../fundamental/cleanup-util.h" /* IWYU pragma: export */
 
@@ -28,17 +30,27 @@ typedef void* (*mfree_func_t)(void *p);
                 0;                                            \
         })
 
+static inline void ref_counter_inc(unsigned *n) {
+        assert(n);
+
+        /* Increases a reference counter, but refuses to let it overflow. Getting anywhere near UINT_MAX
+         * references to a single object almost certainly means references are leaked somewhere (keeping
+         * that many legitimate references around would require tens of GiB of memory just for the
+         * pointers), i.e. it's a programming error, hence abort instead of returning an error. Note that we
+         * use assert_se() here rather than assert(), so that this check is not compiled out with NDEBUG:
+         * allowing the counter to wrap around would result in the object being freed while it is still
+         * referenced, i.e. in a use-after-free. */
+        assert_se(*n < UINT_MAX);
+        (*n)++;
+}
+
 #define _DEFINE_TRIVIAL_REF_FUNC(type, name, scope)                                     \
         scope type *name##_ref(type *p) {                                               \
                 if (!p)                                                                 \
                         return NULL;                                                    \
                                                                                         \
-                /* For type check. */                                                   \
-                unsigned *q = &p->n_ref;                                                \
-                assert(*q > 0);                                                         \
-                assert_se(*q < UINT_MAX);                                               \
-                                                                                        \
-                (*q)++;                                                                 \
+                assert(p->n_ref > 0);                                                   \
+                ref_counter_inc(&p->n_ref);                                             \
                 return p;                                                               \
         }
 

@@ -2755,7 +2755,7 @@ int exec_shared_runtime_acquire(Manager *m, const ExecContext *c, const char *id
 
 ref:
         /* increment reference counter. */
-        rt->n_ref++;
+        ref_counter_inc(&rt->n_ref);
         *ret = rt;
         return 1;
 }
