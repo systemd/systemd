@@ -87,7 +87,7 @@ int verb_image_policy(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         for (int i = 1; i < argc; i++) {
-                _cleanup_(table_unrefp) Table *table = NULL;
+                _cleanup_(table_unrefp) Table *table = NULL, *vtable = NULL;
                 _cleanup_(image_policy_freep) ImagePolicy *pbuf = NULL;
                 _cleanup_free_ char *as_string = NULL, *as_string_simplified = NULL;
                 const ImagePolicy *p;
@@ -128,13 +128,32 @@ int verb_image_policy(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
                 pager_open(arg_pager_flags);
 
+                vtable = table_new_vertical();
+                if (!vtable)
+                        return log_oom();
+
+                /* Policy strings contain no whitespace to break lines at, hence never ellipsize them */
+                table_set_width(vtable, 0);
+
                 if (streq(as_string, as_string_simplified))
-                        printf("Analyzing policy: %s%s%s\n", ansi_highlight_magenta_underline(), as_string, ansi_normal());
+                        r = table_add_many(vtable,
+                                           TABLE_FIELD, "Analyzing policy",
+                                           TABLE_STRING, as_string,
+                                           TABLE_SET_COLOR, ansi_highlight_magenta_underline());
                 else
-                        printf("Analyzing policy: %s%s%s\n"
-                               "       Long form: %s%s%s\n",
-                               ansi_highlight(), as_string_simplified, ansi_normal(),
-                               ansi_grey(), as_string, ansi_normal());
+                        r = table_add_many(vtable,
+                                           TABLE_FIELD, "Analyzing policy",
+                                           TABLE_STRING, as_string_simplified,
+                                           TABLE_SET_COLOR, ansi_highlight(),
+                                           TABLE_FIELD, "Long form",
+                                           TABLE_STRING, as_string,
+                                           TABLE_SET_COLOR, ansi_grey());
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = table_print_or_warn(vtable);
+                if (r < 0)
+                        return r;
 
                 table = table_new("partition", "mode", "read-only", "growfs", "fstype");
                 if (!table)
