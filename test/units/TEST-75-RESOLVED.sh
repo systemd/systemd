@@ -1763,6 +1763,18 @@ EOF
         }
 ]
 EOF
+    cat >/run/systemd/resolve/static.d/staticdname.rr <<EOF
+[
+        {
+                "key": { "name" : "dname.waldo", "type" : 39 },
+                "name": "target.waldo"
+        },
+        {
+                "key": { "name" : "foo.target.waldo", "type" : 1 },
+                "address" : [ 5, 7, 9, 13 ]
+        }
+]
+EOF
     cat >/run/systemd/resolve/static.d/garbage.rr <<EOF
 [
         {
@@ -1788,7 +1800,18 @@ EOF
     grep -qF 5.7.9.12 "$RUN_OUT"
     grep -qF a0b:a0b:a0b:a0b:a0b:a0b:a0b:a0c "$RUN_OUT"
 
-    rm /run/systemd/resolve/static.d/statictest*.rr /run/systemd/resolve/static.d/garbage*.rr
+    run resolvectl query foo.dname.waldo
+    grep -qF 5.7.9.13 "$RUN_OUT"
+
+    # A DNAME redirects names below its owner, but not the owner itself.
+    (! resolvectl query dname.waldo)
+
+    run resolvectl query --type=DNAME dname.waldo
+    grep -qF target.waldo "$RUN_OUT"
+
+    rm /run/systemd/resolve/static.d/statictest*.rr \
+       /run/systemd/resolve/static.d/staticdname.rr \
+       /run/systemd/resolve/static.d/garbage*.rr
     systemctl reload systemd-resolved
 }
 
