@@ -259,7 +259,7 @@ DnsPacket *dns_packet_ref(DnsPacket *p) {
         assert(!p->on_stack);
 
         assert(p->n_ref > 0);
-        p->n_ref++;
+        ref_counter_inc(&p->n_ref);
         return p;
 }
 
@@ -286,14 +286,11 @@ DnsPacket *dns_packet_unref(DnsPacket *p) {
         if (!p)
                 return NULL;
 
-        assert(p->n_ref > 0);
+        if (ref_counter_dec(&p->n_ref) > 0)
+                return NULL;
 
-        if (p->n_ref == 1) {
-                dns_packet_unref(p->more);
-                dns_packet_free(p);
-        } else
-                p->n_ref--;
-
+        dns_packet_unref(p->more);
+        dns_packet_free(p);
         return NULL;
 }
 

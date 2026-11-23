@@ -122,7 +122,7 @@ static int dynamic_user_acquire(Manager *m, const char *name, DynamicUser** ret)
         if (d) {
                 if (ret) {
                         /* We already have a structure for the dynamic user, let's increase the ref count and reuse it */
-                        d->n_ref++;
+                        ref_counter_inc(&d->n_ref);
                         *ret = d;
                 }
                 return 0;
@@ -141,7 +141,7 @@ static int dynamic_user_acquire(Manager *m, const char *name, DynamicUser** ret)
         storage_socket[0] = storage_socket[1] = -EBADF;
 
         if (ret) {
-                d->n_ref++;
+                ref_counter_inc(&d->n_ref);
                 *ret = d;
         }
 
@@ -488,8 +488,7 @@ static DynamicUser* dynamic_user_unref(DynamicUser *d) {
          * destroyed and its UID released, use dynamic_user_destroy() instead. NB: the dynamic user table may
          * contain entries with no references, which is commonly the case right before a daemon reload. */
 
-        assert(d->n_ref > 0);
-        d->n_ref--;
+        ref_counter_dec(&d->n_ref);
 
         return NULL;
 }
@@ -608,7 +607,7 @@ void dynamic_user_deserialize_one(Manager *m, const char *value, FDSet *fds, Dyn
         TAKE_FD(fd1);
 
         if (ret) /* If the caller uses it directly, increment the refcount */
-                (*ret)->n_ref++;
+                ref_counter_inc(&(*ret)->n_ref);
 }
 
 void dynamic_user_vacuum(Manager *m, bool close_user) {

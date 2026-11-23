@@ -2575,10 +2575,7 @@ ExecSharedRuntime* exec_shared_runtime_destroy(ExecSharedRuntime *rt) {
         if (!rt)
                 return NULL;
 
-        assert(rt->n_ref > 0);
-        rt->n_ref--;
-
-        if (rt->n_ref > 0)
+        if (ref_counter_dec(&rt->n_ref) > 0)
                 return NULL;
 
         rt->tmp_dir = destroy_tree(rt->tmp_dir);
@@ -2755,7 +2752,7 @@ int exec_shared_runtime_acquire(Manager *m, const ExecContext *c, const char *id
 
 ref:
         /* increment reference counter. */
-        rt->n_ref++;
+        ref_counter_inc(&rt->n_ref);
         *ret = rt;
         return 1;
 }
