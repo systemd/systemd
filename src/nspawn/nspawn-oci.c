@@ -489,6 +489,7 @@ static int oci_mounts(const char *name, sd_json_variant *v, sd_json_dispatch_fla
                 _cleanup_free_ char *joined_options = NULL;
                 _cleanup_(oci_mount_data_done) oci_mount_data data = {};
                 CustomMount *m;
+                bool read_only = false, is_bind;
 
                 r = oci_dispatch(e, table, flags, &data);
                 if (r < 0)
@@ -501,13 +502,26 @@ static int oci_mounts(const char *name, sd_json_variant *v, sd_json_dispatch_fla
                 if (oci_exclude_mount(data.destination))
                         continue;
 
+                is_bind = !data.type || streq(data.type, "bind");
+                if (is_bind && data.options) {
+                        STRV_FOREACH(option, data.options) {
+                                if (streq(*option, "ro"))
+                                        read_only = true;
+                                else if (streq(*option, "rw"))
+                                        read_only = false;
+                        }
+
+                        strv_remove(data.options, "ro");
+                        strv_remove(data.options, "rw");
+                }
+
                 if (data.options) {
                         joined_options = strv_join(data.options, ",");
                         if (!joined_options)
                                 return log_oom();
                 }
 
-                if (!data.type || streq(data.type, "bind")) {
+                if (is_bind) {
                         if (data.source && !path_is_absolute(data.source)) {
                                 char *joined;
 
@@ -530,6 +544,7 @@ static int oci_mounts(const char *name, sd_json_variant *v, sd_json_dispatch_fla
                 m->source = TAKE_PTR(data.source);
                 m->options = TAKE_PTR(joined_options);
                 m->type_argument = TAKE_PTR(data.type);
+                m->read_only = read_only;
         }
 
         return 0;
