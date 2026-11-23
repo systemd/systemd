@@ -17,6 +17,7 @@ at_exit() {
     mountpoint -q /var/lib/machines && umount /var/lib/machines
     [[ -n "${DEV:-}" ]] && rm -f "$DEV"
     [[ -n "${NETNS:-}" ]] && umount "$NETNS" && rm -f "$NETNS"
+    [[ -n "${TMPDIR:-}" ]] && umount "$TMPDIR/sub"
     [[ -n "${TMPDIR:-}" ]] && rm -fr "$TMPDIR"
     rm -f /run/systemd/nspawn/*.nspawn
 }
@@ -34,10 +35,13 @@ NETNS="$(mktemp /var/tmp/netns.XXX)"
 mount --bind /proc/self/ns/net "$NETNS"
 TMPDIR="$(mktemp -d)"
 touch "$TMPDIR/hello"
+mkdir "$TMPDIR/sub"
+mount -t tmpfs tmpfs "$TMPDIR/sub"
 OCI="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.oci-bundle.XXX)"
 create_dummy_container "$OCI/rootfs"
 mkdir -p "$OCI/rootfs/opt/var"
 mkdir -p "$OCI/rootfs/opt/readonly"
+mkdir -p "$OCI/rootfs/opt/readonly-bind"
 
 if [[ -e /proc/kcore ]]; then
     HAVE_PROC_KCORE=1
@@ -62,6 +66,44 @@ cat >"$OCI/config.json" <<EOF
 }
 EOF
 systemd-nspawn --oci-bundle="$OCI" bash -xec 'mountpoint /root'
+
+# Bind mounts with additional options use the arbitrary mount path. Make sure the bundle-relative source
+# is resolved correctly, bind is implied by type=bind, and ro is applied after mounting.
+mkdir -p "$OCI/bind-source/sub" \
+         "$OCI/rootfs/opt/oci-bind-type" \
+         "$OCI/rootfs/opt/oci-bind-option"
+touch "$OCI/bind-source/hello"
+cat >"$OCI/config.json" <<EOF
+{
+    "ociVersion" : "1.0.0",
+    "root" : {
+            "path" : "rootfs"
+    },
+    "mounts" : [
+        {
+            "destination" : "/opt/oci-bind-type",
+            "type" : "bind",
+            "source" : "bind-source",
+            "options" : ["ro", "nosuid"]
+        },
+        {
+            "destination" : "/opt/oci-bind-option",
+            "type" : "none",
+            "source" : "bind-source",
+            "options" : ["rbind", "ro", "nosuid"]
+        }
+    ]
+}
+EOF
+systemd-nspawn --oci-bundle="$OCI" bash -xec '
+    mountpoint /opt/oci-bind-type
+    mountpoint /opt/oci-bind-option
+    test -e /opt/oci-bind-type/hello
+    test -e /opt/oci-bind-option/hello
+    test -e /opt/oci-bind-option/sub
+    touch /opt/oci-bind-type/should-fail && exit 1
+    touch /opt/oci-bind-option/should-fail && exit 1
+'
 
 # A negative CPU quota is treated as unlimited, both with and without a period
 cat >"$OCI/config.json" <<EOF
@@ -123,7 +165,13 @@ cat >"$OCI/config.json" <<EOF
             "destination" : "/var",
             "type" : "none",
             "source" : "$TMPDIR",
-            "options" : ["rbind", "rw"]
+            "options" : ["rbind", "rw", "nosuid"]
+        },
+        {
+            "destination" : "/opt/readonly-bind",
+            "type" : "none",
+            "source" : "$TMPDIR",
+            "options" : ["bind", "ro"]
         }
     ],
     "process" : {
@@ -399,7 +447,11 @@ set -e
 # Mounts
 mountpoint /root
 mountpoint /var
+mountpoint /var/sub
 test -e /var/hello
+test -e /opt/readonly-bind/hello
+mountpoint /opt/readonly-bind/sub && exit 1
+touch /opt/readonly-bind/fail && exit 1
 
 # Process
 [[ "\$PWD" == /root ]]
