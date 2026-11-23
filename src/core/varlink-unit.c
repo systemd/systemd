@@ -130,6 +130,7 @@ static int unit_conditions_build_json(sd_json_variant **ret, const char *name, v
 typedef struct UnitFields {
         char ***paths;
         size_t n_paths;
+        bool nested; /* whether a path goes below a field of context or runtime, e.g. runtime.CGroup.ID */
 } UnitFields;
 
 static void unit_fields_done(UnitFields *f) {
@@ -165,6 +166,36 @@ static bool unit_fields_want(const UnitFields *f, const char *output, const char
 #define UNIT_PAIR_CALLBACK_WANTED(output, name, c, u)                   \
         JSON_BUILD_PAIR_CALLBACK_NON_NULL(name, unit_fields_want(fields, output, name) ? (c) : NULL, u)
 
+/* Like the pair macros they're named after, but the field is only added, and its value only computed, if
+ * it's wanted. The _NON_EMPTY/_NON_NULL/... ones get what they leave out otherwise. */
+#define UNIT_FIELD_WANTED(output, name, value, none)                    \
+        (unit_fields_want(fields, output, name) ? (value) : (none))
+#define UNIT_PAIR_BOOLEAN_WANTED(output, name, b)                       \
+        SD_JSON_BUILD_PAIR_CONDITION(unit_fields_want(fields, output, name), name, \
+                                     SD_JSON_BUILD_BOOLEAN(unit_fields_want(fields, output, name) && (b)))
+#define UNIT_PAIR_STRING_WANTED(output, name, s)                        \
+        SD_JSON_BUILD_PAIR_CONDITION(unit_fields_want(fields, output, name), name, SD_JSON_BUILD_STRING(s))
+#define UNIT_PAIR_ENUM_WANTED(output, name, s)                          \
+        SD_JSON_BUILD_PAIR_CONDITION(unit_fields_want(fields, output, name), name, JSON_BUILD_STRING_UNDERSCORIFY(s))
+#define UNIT_PAIR_CONDITION_WANTED(output, condition, name, ...)        \
+        SD_JSON_BUILD_PAIR_CONDITION(unit_fields_want(fields, output, name) && (condition), name, __VA_ARGS__)
+#define UNIT_PAIR_STRING_NON_EMPTY_WANTED(output, name, s)              \
+        JSON_BUILD_PAIR_STRING_NON_EMPTY(name, UNIT_FIELD_WANTED(output, name, s, NULL))
+#define UNIT_PAIR_STRV_NON_EMPTY_WANTED(output, name, l)                \
+        JSON_BUILD_PAIR_STRV_NON_EMPTY(name, UNIT_FIELD_WANTED(output, name, l, NULL))
+#define UNIT_PAIR_DUAL_TIMESTAMP_NON_NULL_WANTED(output, name, t)       \
+        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL(name, UNIT_FIELD_WANTED(output, name, t, NULL))
+#define UNIT_PAIR_RATELIMIT_ENABLED_WANTED(output, name, rl)            \
+        JSON_BUILD_PAIR_RATELIMIT_ENABLED(name, UNIT_FIELD_WANTED(output, name, rl, NULL))
+#define UNIT_PAIR_FINITE_USEC_WANTED(output, name, u)                   \
+        JSON_BUILD_PAIR_FINITE_USEC(name, UNIT_FIELD_WANTED(output, name, u, USEC_INFINITY))
+#define UNIT_PAIR_INTEGER_NON_NEGATIVE_WANTED(output, name, i)          \
+        JSON_BUILD_PAIR_INTEGER_NON_NEGATIVE(name, UNIT_FIELD_WANTED(output, name, i, -1))
+#define UNIT_PAIR_UNSIGNED_NON_ZERO_WANTED(output, name, u)             \
+        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO(name, UNIT_FIELD_WANTED(output, name, u, 0))
+#define UNIT_EMERGENCY_ACTION_NON_EMPTY_WANTED(output, name, v)         \
+        JSON_BUILD_EMERGENCY_ACTION_NON_EMPTY(name, UNIT_FIELD_WANTED(output, name, v, EMERGENCY_ACTION_NONE))
+
 static int unit_context_build_json_full(sd_json_variant **ret, Unit *u, const UnitFields *fields) {
         assert(u);
 
@@ -186,15 +217,15 @@ static int unit_context_build_json_full(sd_json_variant **ret, Unit *u, const Un
 
         return sd_json_buildo(
                         ASSERT_PTR(ret),
-                        SD_JSON_BUILD_PAIR_STRING("Type", unit_type_to_string(u->type)),
-                        SD_JSON_BUILD_PAIR_STRING("ID", u->id),
-                        SD_JSON_BUILD_PAIR_CONDITION(!set_isempty(u->aliases), "Names", JSON_BUILD_STRING_SET(u->aliases)),
+                        UNIT_PAIR_STRING_WANTED("context", "Type", unit_type_to_string(u->type)),
+                        UNIT_PAIR_STRING_WANTED("context", "ID", u->id),
+                        UNIT_PAIR_CONDITION_WANTED("context", !set_isempty(u->aliases), "Names", JSON_BUILD_STRING_SET(u->aliases)),
 
                         /* [Unit] Section Options
                          * https://www.freedesktop.org/software/systemd/man/latest/systemd.unit.html#%5BUnit%5D%20Section%20Options */
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Description", u->description),
-                        JSON_BUILD_PAIR_STRV_NON_EMPTY("Documentation", u->documentation),
-                        JSON_BUILD_PAIR_STRV_NON_EMPTY("Tags", u->tags),
+                        UNIT_PAIR_STRING_NON_EMPTY_WANTED("context", "Description", u->description),
+                        UNIT_PAIR_STRV_NON_EMPTY_WANTED("context", "Documentation", u->documentation),
+                        UNIT_PAIR_STRV_NON_EMPTY_WANTED("context", "Tags", u->tags),
                         UNIT_PAIR_CALLBACK_WANTED("context", "Wants", unit_dependencies_build_json, u),
                         UNIT_PAIR_CALLBACK_WANTED("context", "WantedBy", unit_dependencies_build_json, u),
                         UNIT_PAIR_CALLBACK_WANTED("context", "Requires", unit_dependencies_build_json, u),
@@ -222,27 +253,27 @@ static int unit_context_build_json_full(sd_json_variant **ret, Unit *u, const Un
                         UNIT_PAIR_CALLBACK_WANTED("context", "JoinsNamespaceOf", unit_dependencies_build_json, u),
                         UNIT_PAIR_CALLBACK_WANTED("context", "RequiresMountsFor", unit_mounts_for_build_json, &u->mounts_for),
                         UNIT_PAIR_CALLBACK_WANTED("context", "WantsMountsFor", unit_mounts_for_build_json, &u->mounts_for),
-                        JSON_BUILD_PAIR_ENUM("OnSuccessJobMode", job_mode_to_string(u->on_success_job_mode)),
-                        JSON_BUILD_PAIR_ENUM("OnFailureJobMode", job_mode_to_string(u->on_failure_job_mode)),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("IgnoreOnIsolate", u->ignore_on_isolate),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("StopWhenUnneeded", u->stop_when_unneeded),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("RefuseManualStart", u->refuse_manual_start),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("RefuseManualStop", u->refuse_manual_stop),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("AllowIsolate", u->allow_isolate),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("DefaultDependencies", u->default_dependencies),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("SurviveFinalKillSignal", u->survive_final_kill_signal),
-                        JSON_BUILD_PAIR_ENUM("CollectMode", collect_mode_to_string(u->collect_mode)),
-                        JSON_BUILD_EMERGENCY_ACTION_NON_EMPTY("FailureAction", u->failure_action),
-                        JSON_BUILD_EMERGENCY_ACTION_NON_EMPTY("SuccessAction", u->success_action),
-                        JSON_BUILD_PAIR_INTEGER_NON_NEGATIVE("FailureActionExitStatus", u->failure_action_exit_status),
-                        JSON_BUILD_PAIR_INTEGER_NON_NEGATIVE("SuccessActionExitStatus", u->success_action_exit_status),
-                        JSON_BUILD_PAIR_FINITE_USEC("JobTimeoutUSec", u->job_timeout),
-                        JSON_BUILD_PAIR_FINITE_USEC("JobRunningTimeoutUSec", u->job_running_timeout),
-                        JSON_BUILD_EMERGENCY_ACTION_NON_EMPTY("JobTimeoutAction", u->job_timeout_action),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("JobTimeoutRebootArgument", u->job_timeout_reboot_arg),
-                        JSON_BUILD_PAIR_RATELIMIT_ENABLED("StartLimit", &u->start_ratelimit),
-                        JSON_BUILD_EMERGENCY_ACTION_NON_EMPTY("StartLimitAction", u->start_limit_action),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("RebootArgument", u->reboot_arg),
+                        UNIT_PAIR_ENUM_WANTED("context", "OnSuccessJobMode", job_mode_to_string(u->on_success_job_mode)),
+                        UNIT_PAIR_ENUM_WANTED("context", "OnFailureJobMode", job_mode_to_string(u->on_failure_job_mode)),
+                        UNIT_PAIR_BOOLEAN_WANTED("context", "IgnoreOnIsolate", u->ignore_on_isolate),
+                        UNIT_PAIR_BOOLEAN_WANTED("context", "StopWhenUnneeded", u->stop_when_unneeded),
+                        UNIT_PAIR_BOOLEAN_WANTED("context", "RefuseManualStart", u->refuse_manual_start),
+                        UNIT_PAIR_BOOLEAN_WANTED("context", "RefuseManualStop", u->refuse_manual_stop),
+                        UNIT_PAIR_BOOLEAN_WANTED("context", "AllowIsolate", u->allow_isolate),
+                        UNIT_PAIR_BOOLEAN_WANTED("context", "DefaultDependencies", u->default_dependencies),
+                        UNIT_PAIR_BOOLEAN_WANTED("context", "SurviveFinalKillSignal", u->survive_final_kill_signal),
+                        UNIT_PAIR_ENUM_WANTED("context", "CollectMode", collect_mode_to_string(u->collect_mode)),
+                        UNIT_EMERGENCY_ACTION_NON_EMPTY_WANTED("context", "FailureAction", u->failure_action),
+                        UNIT_EMERGENCY_ACTION_NON_EMPTY_WANTED("context", "SuccessAction", u->success_action),
+                        UNIT_PAIR_INTEGER_NON_NEGATIVE_WANTED("context", "FailureActionExitStatus", u->failure_action_exit_status),
+                        UNIT_PAIR_INTEGER_NON_NEGATIVE_WANTED("context", "SuccessActionExitStatus", u->success_action_exit_status),
+                        UNIT_PAIR_FINITE_USEC_WANTED("context", "JobTimeoutUSec", u->job_timeout),
+                        UNIT_PAIR_FINITE_USEC_WANTED("context", "JobRunningTimeoutUSec", u->job_running_timeout),
+                        UNIT_EMERGENCY_ACTION_NON_EMPTY_WANTED("context", "JobTimeoutAction", u->job_timeout_action),
+                        UNIT_PAIR_STRING_NON_EMPTY_WANTED("context", "JobTimeoutRebootArgument", u->job_timeout_reboot_arg),
+                        UNIT_PAIR_RATELIMIT_ENABLED_WANTED("context", "StartLimit", &u->start_ratelimit),
+                        UNIT_EMERGENCY_ACTION_NON_EMPTY_WANTED("context", "StartLimitAction", u->start_limit_action),
+                        UNIT_PAIR_STRING_NON_EMPTY_WANTED("context", "RebootArgument", u->reboot_arg),
 
                         /* Conditions and Asserts
                          * https://www.freedesktop.org/software/systemd/man/latest/systemd.unit.html#Conditions%20and%20Asserts */
@@ -252,16 +283,14 @@ static int unit_context_build_json_full(sd_json_variant **ret, Unit *u, const Un
                         /* Others */
                         UNIT_PAIR_CALLBACK_WANTED("context", "Triggers", unit_dependencies_build_json, u),
                         UNIT_PAIR_CALLBACK_WANTED("context", "TriggeredBy", unit_dependencies_build_json, u),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("AccessSELinuxContext", u->access_selinux_context),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("FragmentPath", u->fragment_path),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("SourcePath", u->source_path),
-                        JSON_BUILD_PAIR_STRV_NON_EMPTY("DropInPaths", u->dropin_paths),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("UnitFilePreset",
-                                                         unit_fields_want(fields, "context", "UnitFilePreset") ?
-                                                         preset_action_past_tense_to_string(unit_get_unit_file_preset(u)) : NULL),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("Transient", u->transient),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("Perpetual", u->perpetual),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("DebugInvocation", u->debug_invocation),
+                        UNIT_PAIR_STRING_NON_EMPTY_WANTED("context", "AccessSELinuxContext", u->access_selinux_context),
+                        UNIT_PAIR_STRING_NON_EMPTY_WANTED("context", "FragmentPath", u->fragment_path),
+                        UNIT_PAIR_STRING_NON_EMPTY_WANTED("context", "SourcePath", u->source_path),
+                        UNIT_PAIR_STRV_NON_EMPTY_WANTED("context", "DropInPaths", u->dropin_paths),
+                        UNIT_PAIR_STRING_NON_EMPTY_WANTED("context", "UnitFilePreset", preset_action_past_tense_to_string(unit_get_unit_file_preset(u))),
+                        UNIT_PAIR_BOOLEAN_WANTED("context", "Transient", u->transient),
+                        UNIT_PAIR_BOOLEAN_WANTED("context", "Perpetual", u->perpetual),
+                        UNIT_PAIR_BOOLEAN_WANTED("context", "DebugInvocation", u->debug_invocation),
 
                         UNIT_PAIR_CALLBACK_WANTED("context", "CGroup", unit_cgroup_context_build_json, u),
                         UNIT_PAIR_CALLBACK_WANTED("context", "Exec", unit_exec_context_build_json, u),
@@ -365,38 +394,31 @@ static int unit_runtime_build_json_full(sd_json_variant **ret, Unit *u, const Un
 
         return sd_json_buildo(
                         ASSERT_PTR(ret),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Following", f ? f->id : NULL),
-                        SD_JSON_BUILD_PAIR_STRING("LoadState", unit_load_state_to_string(u->load_state)),
-                        SD_JSON_BUILD_PAIR_STRING("ActiveState", unit_active_state_to_string(unit_active_state(u))),
-                        SD_JSON_BUILD_PAIR_STRING("FreezerState", freezer_state_to_string(u->freezer_state)),
-                        SD_JSON_BUILD_PAIR_STRING("SubState", unit_sub_state_to_string(u)),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("UnitFileState",
-                                                         unit_fields_want(fields, "runtime", "UnitFileState") ?
-                                                         unit_file_state_to_string(unit_get_unit_file_state(u)) : NULL),
-                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("StateChangeTimestamp", &u->state_change_timestamp),
-                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("ActiveEnterTimestamp", &u->active_enter_timestamp),
-                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("ActiveExitTimestamp", &u->active_exit_timestamp),
-                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("InactiveEnterTimestamp", &u->inactive_enter_timestamp),
-                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("InactiveExitTimestamp", &u->inactive_exit_timestamp),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("CanStart", unit_can_start_refuse_manual(u)),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("CanStop", unit_can_stop_refuse_manual(u)),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("CanReload", unit_can_reload(u)),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("CanIsolate", unit_can_isolate_refuse_manual(u)),
+                        UNIT_PAIR_STRING_NON_EMPTY_WANTED("runtime", "Following", f ? f->id : NULL),
+                        UNIT_PAIR_STRING_WANTED("runtime", "LoadState", unit_load_state_to_string(u->load_state)),
+                        UNIT_PAIR_STRING_WANTED("runtime", "ActiveState", unit_active_state_to_string(unit_active_state(u))),
+                        UNIT_PAIR_STRING_WANTED("runtime", "FreezerState", freezer_state_to_string(u->freezer_state)),
+                        UNIT_PAIR_STRING_WANTED("runtime", "SubState", unit_sub_state_to_string(u)),
+                        UNIT_PAIR_STRING_NON_EMPTY_WANTED("runtime", "UnitFileState", unit_file_state_to_string(unit_get_unit_file_state(u))),
+                        UNIT_PAIR_DUAL_TIMESTAMP_NON_NULL_WANTED("runtime", "StateChangeTimestamp", &u->state_change_timestamp),
+                        UNIT_PAIR_DUAL_TIMESTAMP_NON_NULL_WANTED("runtime", "ActiveEnterTimestamp", &u->active_enter_timestamp),
+                        UNIT_PAIR_DUAL_TIMESTAMP_NON_NULL_WANTED("runtime", "ActiveExitTimestamp", &u->active_exit_timestamp),
+                        UNIT_PAIR_DUAL_TIMESTAMP_NON_NULL_WANTED("runtime", "InactiveEnterTimestamp", &u->inactive_enter_timestamp),
+                        UNIT_PAIR_DUAL_TIMESTAMP_NON_NULL_WANTED("runtime", "InactiveExitTimestamp", &u->inactive_exit_timestamp),
+                        UNIT_PAIR_BOOLEAN_WANTED("runtime", "CanStart", unit_can_start_refuse_manual(u)),
+                        UNIT_PAIR_BOOLEAN_WANTED("runtime", "CanStop", unit_can_stop_refuse_manual(u)),
+                        UNIT_PAIR_BOOLEAN_WANTED("runtime", "CanReload", unit_can_reload(u)),
+                        UNIT_PAIR_BOOLEAN_WANTED("runtime", "CanIsolate", unit_can_isolate_refuse_manual(u)),
                         UNIT_PAIR_CALLBACK_WANTED("runtime", "CanClean", can_clean_build_json, u),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("CanFreeze", unit_can_freeze(u)),
-                        SD_JSON_BUILD_PAIR_CONDITION(unit_fields_want(fields, "runtime", "CanLiveMount"), "CanLiveMount",
-                                                     SD_JSON_BUILD_BOOLEAN(unit_fields_want(fields, "runtime", "CanLiveMount") &&
-                                                                           unit_can_live_mount(u, /* reterr_error= */ NULL) >= 0)),
-                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("JobId", u->job ? u->job->id : 0),
-                        /* unit_need_daemon_reload() looks for drop-ins on disk */
-                        SD_JSON_BUILD_PAIR_CONDITION(unit_fields_want(fields, "runtime", "NeedDaemonReload"), "NeedDaemonReload",
-                                                     SD_JSON_BUILD_BOOLEAN(unit_fields_want(fields, "runtime", "NeedDaemonReload") &&
-                                                                           unit_need_daemon_reload(u))),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("ConditionResult", u->condition_result),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("AssertResult", u->assert_result),
-                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("ConditionTimestamp", &u->condition_timestamp),
-                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("AssertTimestamp", &u->assert_timestamp),
-                        SD_JSON_BUILD_PAIR_CONDITION(unit_has_invocation_id(u), "InvocationID", SD_JSON_BUILD_UUID(u->invocation_id)),
+                        UNIT_PAIR_BOOLEAN_WANTED("runtime", "CanFreeze", unit_can_freeze(u)),
+                        UNIT_PAIR_BOOLEAN_WANTED("runtime", "CanLiveMount", unit_can_live_mount(u, /* reterr_error= */ NULL) >= 0),
+                        UNIT_PAIR_UNSIGNED_NON_ZERO_WANTED("runtime", "JobId", u->job ? u->job->id : 0),
+                        UNIT_PAIR_BOOLEAN_WANTED("runtime", "NeedDaemonReload", unit_need_daemon_reload(u)),
+                        UNIT_PAIR_BOOLEAN_WANTED("runtime", "ConditionResult", u->condition_result),
+                        UNIT_PAIR_BOOLEAN_WANTED("runtime", "AssertResult", u->assert_result),
+                        UNIT_PAIR_DUAL_TIMESTAMP_NON_NULL_WANTED("runtime", "ConditionTimestamp", &u->condition_timestamp),
+                        UNIT_PAIR_DUAL_TIMESTAMP_NON_NULL_WANTED("runtime", "AssertTimestamp", &u->assert_timestamp),
+                        UNIT_PAIR_CONDITION_WANTED("runtime", unit_has_invocation_id(u), "InvocationID", SD_JSON_BUILD_UUID(u->invocation_id)),
                         UNIT_PAIR_CALLBACK_WANTED("runtime", "Markers", markers_build_json, &u->markers),
                         UNIT_PAIR_CALLBACK_WANTED("runtime", "ActivationDetails", activation_details_build_json, u->activation_details),
                         UNIT_PAIR_CALLBACK_WANTED("runtime", "CGroup", unit_cgroup_runtime_build_json, u),
@@ -435,6 +457,8 @@ static int unit_fields_parse(char * const *fields, UnitFields *ret) {
                 path = f.paths[f.n_paths++] = strv_split(*i, ".");
                 if (!path)
                         return -ENOMEM;
+                if (strv_length(path) > 2)
+                        f.nested = true;
 
                 STRV_FOREACH(component, path) {
                         const sd_varlink_field *field;
@@ -501,9 +525,8 @@ static int list_unit_one(sd_varlink *link, Unit *unit, const UnitFields *fields)
                                 SD_JSON_BUILD_PAIR_CALLBACK("context", unit_context_build_json, unit),
                                 SD_JSON_BUILD_PAIR_CALLBACK("runtime", unit_runtime_build_json, unit));
 
-        /* The builders skip the fields of context and runtime that aren't wanted, but build those that
-         * are whole (e.g. all of runtime.CGroup for runtime.CGroup.MemoryCurrent), so the fields asked for
-         * are then copied out. */
+        /* The builders only build the fields of context and runtime that are wanted, but those whole
+         * (e.g. all of runtime.CGroup for runtime.CGroup.MemoryCurrent). */
         if (unit_fields_want(fields, "context", /* name= */ NULL)) {
                 r = unit_context_build_json_full(&context, unit, fields);
                 if (r < 0)
@@ -516,6 +539,15 @@ static int list_unit_one(sd_varlink *link, Unit *unit, const UnitFields *fields)
                         return r;
         }
 
+        /* So unless a path goes below one of them, that's the reply. Leave out context or runtime if none of
+         * the fields asked for in it are set. */
+        if (!fields->nested)
+                return sd_varlink_replybo(
+                                link,
+                                SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_object(context), "context", SD_JSON_BUILD_VARIANT(context)),
+                                SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_object(runtime), "runtime", SD_JSON_BUILD_VARIANT(runtime)));
+
+        /* Otherwise copy the fields asked for out. */
         r = sd_json_buildo(
                         &full,
                         SD_JSON_BUILD_PAIR_CONDITION(!!context, "context", SD_JSON_BUILD_VARIANT(context)),
