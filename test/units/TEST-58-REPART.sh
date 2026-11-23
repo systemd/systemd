@@ -1672,6 +1672,18 @@ EOF
                    --certificate "$defs/verity.crt" \
                    "$imgs/offline"
 
+    # A type-only verity signature partition (e.g. an empty B slot) must remain empty when a
+    # joined signature is supplied, since it has no data/hash siblings to sign.
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs/empty-sig" \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --empty=create \
+                   --size=auto \
+                   --join-signature="$offline_drh:$imgs/offline.roothash.p7s" \
+                   --certificate="$defs/verity.crt" \
+                   "$imgs/empty-sig-joined"
+
     # Exercise joining a signature while all verity partitions are created in one run. Explicit
     # partition UUIDs ensure the signature lookup uses the actual roothash instead of assuming it
     # is derived from the data and hash partition UUIDs.
