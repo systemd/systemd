@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "cryptenroll.h"
 #include "cryptenroll-wipe.h"
 #include "cryptsetup-util.h"
-#include "json-util.h"
 #include "log.h"
-#include "parse-util.h"
 #include "set.h"
 #include "sort-util.h"
 
@@ -103,7 +103,8 @@ static int find_slots_by_mask(
 
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-                sd_json_variant *w, *z;
+                _cleanup_free_ int *keyslots = NULL;
+                size_t n_keyslots;
                 EnrollType t;
 
                 r = cryptsetup_get_token_as_json(cd, token, /* verify_type= */ NULL, &v);
@@ -114,33 +115,16 @@ static int find_slots_by_mask(
                         continue;
                 }
 
-                w = sd_json_variant_by_key(v, "type");
-                if (!w || !sd_json_variant_is_string(w)) {
-                        log_warning("Token JSON data lacks type field, ignoring.");
+                r = cryptsetup_token_parse_common(v, /* ret_type= */ NULL, &keyslots, &n_keyslots);
+                if (r < 0) {
+                        log_warning_errno(r, "Token JSON data lacks a valid type or keyslots field, ignoring: %m");
                         continue;
                 }
 
                 t = luks2_token_type_from_json(v);
 
-                w = sd_json_variant_by_key(v, "keyslots");
-                if (!w || !sd_json_variant_is_array(w)) {
-                        log_warning("Token JSON data lacks keyslots field, ignoring.");
-                        continue;
-                }
-
-                JSON_VARIANT_ARRAY_FOREACH(z, w) {
-                        int slot;
-
-                        if (!sd_json_variant_is_string(z)) {
-                                log_warning("Token JSON data's keyslot field is not an array of strings, ignoring.");
-                                continue;
-                        }
-
-                        r = safe_atoi(sd_json_variant_string(z), &slot);
-                        if (r < 0) {
-                                log_warning_errno(r, "Token JSON data's keyslot filed is not an integer formatted as string, ignoring.");
-                                continue;
-                        }
+                FOREACH_ARRAY(k, keyslots, n_keyslots) {
+                        int slot = *k;
 
                         if (t >= 0 && (by_mask & (1U << t)) != 0) {
                                 /* Selected by token type */
@@ -203,8 +187,9 @@ static int find_slot_tokens(struct crypt_device *cd, Set *wipe_slots, Set *keep_
 
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_free_ int *keyslots = NULL;
                 bool shall_wipe = false;
-                sd_json_variant *w, *z;
+                size_t n_keyslots;
 
                 r = cryptsetup_get_token_as_json(cd, token, /* verify_type= */ NULL, &v);
                 if (IN_SET(r, -ENOENT, -EINVAL))
@@ -214,26 +199,15 @@ static int find_slot_tokens(struct crypt_device *cd, Set *wipe_slots, Set *keep_
                         continue;
                 }
 
-                w = sd_json_variant_by_key(v, "keyslots");
-                if (!w || !sd_json_variant_is_array(w)) {
-                        log_warning("Token JSON data lacks keyslots field, ignoring.");
+                r = cryptsetup_token_parse_common(v, /* ret_type= */ NULL, &keyslots, &n_keyslots);
+                if (r < 0) {
+                        log_warning_errno(r, "Token JSON data lacks a valid type or keyslots field, ignoring: %m");
                         continue;
                 }
 
                 /* Go through the slots associated with this token: if we shall keep any slot of them, the token shall stay too. */
-                JSON_VARIANT_ARRAY_FOREACH(z, w) {
-                        int slot;
-
-                        if (!sd_json_variant_is_string(z)) {
-                                log_warning("Token JSON data's keyslot field is not an array of strings, ignoring.");
-                                continue;
-                        }
-
-                        r = safe_atoi(sd_json_variant_string(z), &slot);
-                        if (r < 0) {
-                                log_warning_errno(r, "Token JSON data's keyslot filed is not an integer formatted as string, ignoring.");
-                                continue;
-                        }
+                FOREACH_ARRAY(k, keyslots, n_keyslots) {
+                        int slot = *k;
 
                         if (set_contains(keep_slots, INT_TO_PTR(slot))) {
                                 shall_wipe = false;
@@ -248,17 +222,9 @@ static int find_slot_tokens(struct crypt_device *cd, Set *wipe_slots, Set *keep_
                 }
 
                 /* Go through the slots again, and this time add them to the list of slots to keep/remove */
-                JSON_VARIANT_ARRAY_FOREACH(z, w) {
-                        int slot;
-
-                        if (!sd_json_variant_is_string(z))
-                                continue;
-                        if (safe_atoi(sd_json_variant_string(z), &slot) < 0)
-                                continue;
-
-                        if (set_put(shall_wipe ? wipe_slots : keep_slots, INT_TO_PTR(slot)) < 0)
+                FOREACH_ARRAY(k, keyslots, n_keyslots)
+                        if (set_put(shall_wipe ? wipe_slots : keep_slots, INT_TO_PTR(*k)) < 0)
                                 return log_oom();
-                }
 
                 /* And of course, also remember the tokens to remove. */
                 if (shall_wipe)
