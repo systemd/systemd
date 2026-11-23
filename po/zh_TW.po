@@ -10,8 +10,8 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-11-19 10:41+0000\n"
-"PO-Revision-Date: 2026-08-02 00:15+0000\n"
-"Last-Translator: Cheng-Chia Tseng <pswo10680@gmail.com>\n"
+"PO-Revision-Date: 2026-11-23 09:18+0000\n"
+"Last-Translator: hsu zangmen <chzang55@gmail.com>\n"
 "Language-Team: Chinese (Traditional) <https://translate.fedoraproject.org/"
 "projects/systemd/main/zh_TW/>\n"
 "Language: zh_TW\n"
@@ -19,7 +19,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 2026.7.1\n"
+"X-Generator: Weblate 2026.11.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -141,12 +141,11 @@ msgstr "啟動使用者的首頁區域需要驗證。"
 
 #: src/home/org.freedesktop.home1.policy:93
 msgid "Manage Home Directory Signing Keys"
-msgstr ""
+msgstr "管理家目錄簽名金鑰"
 
 #: src/home/org.freedesktop.home1.policy:94
-#, fuzzy
 msgid "Authentication is required to manage signing keys for home directories."
-msgstr "管理系統服務或其他單位需要驗證。"
+msgstr "管理家目錄的簽名金鑰時，必須進行身分驗證。"
 
 #: src/home/pam_systemd_home.c:328
 #, c-format
@@ -795,12 +794,12 @@ msgstr "管理本機虛擬機器及容器需要驗證。"
 
 #: src/machine/org.freedesktop.machine1.policy:95
 msgid "Inspect local virtual machines and containers"
-msgstr ""
+msgstr "檢查本機的虛擬機器和容器"
 
 #: src/machine/org.freedesktop.machine1.policy:96
 msgid ""
 "Authentication is required to inspect local virtual machines and containers."
-msgstr ""
+msgstr "若要檢視本機虛擬機器和容器，必須進行身分驗證。"
 
 #: src/machine/org.freedesktop.machine1.policy:105
 msgid "Create a local virtual machine or container"
@@ -812,15 +811,13 @@ msgid ""
 msgstr "建立本機虛擬機器或容器需要驗證。"
 
 #: src/machine/org.freedesktop.machine1.policy:116
-#, fuzzy
 msgid "Register a local virtual machine or container"
-msgstr "建立本機虛擬機器或容器"
+msgstr "註冊本機虛擬機器或容器"
 
 #: src/machine/org.freedesktop.machine1.policy:117
-#, fuzzy
 msgid ""
 "Authentication is required to register a local virtual machine or container."
-msgstr "建立本機虛擬機器或容器需要驗證。"
+msgstr "要註冊本機虛擬機器或容器，必須進行身分驗證。"
 
 #: src/machine/org.freedesktop.machine1.policy:126
 msgid "Manage local virtual machine and container images"
@@ -834,13 +831,13 @@ msgstr "管理本機虛擬機器及容器映像需要驗證。"
 
 #: src/machine/org.freedesktop.machine1.policy:137
 msgid "Inspect local virtual machine and container images"
-msgstr ""
+msgstr "檢查本機的虛擬機器與容器映像檔"
 
 #: src/machine/org.freedesktop.machine1.policy:138
 msgid ""
 "Authentication is required to inspect local virtual machine and container "
 "images."
-msgstr ""
+msgstr "若要檢視本機虛擬機器和容器映像檔，必須進行身分驗證。"
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
@@ -951,11 +948,10 @@ msgid "DHCP server sends force renew message"
 msgstr "DHCP 服務器發送強制更新訊息"
 
 #: src/network/org.freedesktop.network1.policy:144
-#, fuzzy
 msgid ""
 "Authentication is required to send a force renew message from the DHCP "
 "server."
-msgstr "發送強制更新訊息需要身份驗證。"
+msgstr "若要從 DHCP 伺服器傳送強制更新訊息，必須進行驗證。"
 
 #: src/network/org.freedesktop.network1.policy:154
 msgid "Renew dynamic addresses"
@@ -993,11 +989,11 @@ msgstr "需要身份驗證才能指定systemd-networkd的永久存儲是否可�
 
 #: src/network/org.freedesktop.network1.policy:198
 msgid "Manage network links"
-msgstr ""
+msgstr "管理網路連線"
 
 #: src/network/org.freedesktop.network1.policy:199
 msgid "Authentication is required to manage network links."
-msgstr ""
+msgstr "管理網路連線時，必須進行驗證。"
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
@@ -1059,12 +1055,11 @@ msgstr "訂閱查詢結果需要驗證。"
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
 msgid "Subscribe to DNS configuration"
-msgstr ""
+msgstr "訂閱 DNS 組態設定"
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
-#, fuzzy
 msgid "Authentication is required to subscribe to DNS configuration."
-msgstr "訂閱查詢結果需要驗證。"
+msgstr "訂閱 DNS 設定需經過身份驗證。"
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump cache"
@@ -1100,19 +1095,19 @@ msgstr "重設統計資料需要驗證。"
 
 #: src/resolve/org.freedesktop.resolve1.policy:209
 msgid "Flush DNS caches"
-msgstr ""
+msgstr "清除 DNS 快取"
 
 #: src/resolve/org.freedesktop.resolve1.policy:210
 msgid "Authentication is required to flush DNS caches."
-msgstr ""
+msgstr "清除 DNS 快取需要進行驗證。"
 
 #: src/resolve/org.freedesktop.resolve1.policy:220
 msgid "Reset server features"
-msgstr ""
+msgstr "重設伺服器功能"
 
 #: src/resolve/org.freedesktop.resolve1.policy:221
 msgid "Authentication is required to reset server features."
-msgstr ""
+msgstr "重設伺服器功能時，必須進行驗證。"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:38
 msgid "Check for system updates"
@@ -1124,11 +1119,11 @@ msgstr "檢查系統更新需要驗證。"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:48
 msgid "Cancel checking for system updates"
-msgstr ""
+msgstr "取消檢查系統更新"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:49
 msgid "Authentication is required to cancel checking for system updates."
-msgstr ""
+msgstr "若要取消檢查系統更新，必須進行驗證。"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:58
 msgid "Install system updates"
@@ -1140,11 +1135,11 @@ msgstr "安裝系統更新需要驗證。"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:68
 msgid "Cancel installing system updates"
-msgstr ""
+msgstr "取消安裝系統更新"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:69
 msgid "Authentication is required to cancel installing system updates."
-msgstr ""
+msgstr "若要取消安裝系統更新，必須進行驗證。"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:78
 msgid "Install specific system version"
@@ -1158,29 +1153,29 @@ msgstr "更新系統至特定 (可能是舊) 版本需要驗證。"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:88
 msgid "Cancel installing specific system version"
-msgstr ""
+msgstr "取消安裝特定系統版本"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:89
 msgid ""
 "Authentication is required to cancel updating the system to a specific "
 "(possibly old) version."
-msgstr ""
+msgstr "若要取消將系統更新至特定（可能是舊版）的版本，必須進行身分驗證。"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:98
 msgid "Clean up old system updates"
-msgstr ""
+msgstr "清理舊的系統更新"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:99
 msgid "Authentication is required to clean up old system updates."
-msgstr ""
+msgstr "必須進行驗證，才能清理舊的系統更新。"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:108
 msgid "Cancel cleaning up old system updates"
-msgstr ""
+msgstr "取消清理舊的系統更新"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:109
 msgid "Authentication is required to cancel cleanup of old system updates."
-msgstr ""
+msgstr "若要取消清理舊的系統更新，必須進行驗證。"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:118
 msgid "Manage optional features"
@@ -1249,11 +1244,10 @@ msgid ""
 msgstr "傳送 UNIX 信號至「$(unit)」的程序需要身份驗證。"
 
 #: src/core/dbus-unit.c:647
-#, fuzzy
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
-msgstr "傳送 UNIX 信號至「$(unit)」的程序需要身份驗證。"
+msgstr "若要向「$(unit)」子群組的程序發送 UNIX 訊號，必須進行身分驗證。"
 
 #: src/core/dbus-unit.c:675
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
@@ -1276,21 +1270,21 @@ msgstr "凍結或解凍「$(unit)」的程序需要身份驗證。"
 
 #: src/shared/libfido2-util.c:494 src/shared/libfido2-util.c:551
 msgid "Please confirm presence on security token to unlock."
-msgstr ""
+msgstr "請在安全代碼上確認身分，以解鎖。"
 
 #: src/shared/libfido2-util.c:510
 msgid "Please verify user on security token to unlock."
-msgstr ""
+msgstr "請透過安全憑證驗證使用者身分，以解除鎖定。"
 
 #: src/shared/libfido2-util.c:944
 #, c-format
 msgid ""
 "Please enter security token PIN (remaining attempts before lock-out: %d):"
-msgstr ""
+msgstr "請輸入安全令牌的 PIN 碼（距離鎖定前剩餘嘗試次數：%d）："
 
 #: src/shared/libfido2-util.c:955
 msgid "Please enter security token PIN:"
-msgstr ""
+msgstr "請輸入安全令牌的 PIN 碼："
 
 #~ msgid "Cleanup old system updates"
 #~ msgstr "清理舊有的系統更新"
