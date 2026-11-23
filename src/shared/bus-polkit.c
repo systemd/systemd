@@ -845,7 +845,7 @@ static bool varlink_allow_interactive_authentication(sd_varlink *link) {
 
         sd_json_variant *b;
         b = sd_json_variant_by_key(v, "allowInteractiveAuthentication");
-        if (b) {
+        if (b && !sd_json_variant_is_null(b)) {
                 if (sd_json_variant_is_boolean(b))
                         return sd_json_variant_boolean(b);
 
