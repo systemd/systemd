@@ -9,6 +9,14 @@ _systemd-manifest_fields() {
     _values -s , 'field' $_all
 }
 
+(( $+functions[_systemd-manifest_types] )) ||
+_systemd-manifest_types() {
+    local -a _types _all
+    _types=(reg dir lnk chr blk fifo sock)
+    _all=( $_types ${_types/#/+} ${_types/#/-} all none )
+    _values -s , 'type' $_all
+}
+
 (( $+functions[_systemd-manifest_commands] )) ||
 _systemd-manifest_commands() {
     local -a _commands
@@ -38,6 +46,7 @@ _arguments \
     '--json=[Generate JSON output]:format:(pretty short off)' \
     '--format=[Manifest format]:format:(list sha256sums mtree uapi16)' \
     '--field=[Fields to include]:fields:_systemd-manifest_fields' \
+    '--filter-type=[Inode types to include or verify]:types:_systemd-manifest_types' \
     '--hash=[Hash algorithm to use for mtree manifests]:algorithm:(sha256 sha512)' \
     '--timestamp-accuracy-sec=[Maximum deviation of timestamps to accept when verifying]:timespan' \
     "--graceful[Don't fail if inodes had to be skipped or metadata omitted]" \

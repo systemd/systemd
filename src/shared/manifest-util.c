@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <dirent.h>
 #include <fcntl.h>
 #include <linux/magic.h>
 #include <linux/msdos_fs.h>
@@ -251,6 +252,61 @@ int manifest_fields_to_string(ManifestField f, char **ret) {
         return 0;
 }
 
+int manifest_inode_types_from_string(const char *s, uint32_t *types) {
+        uint32_t mask;
+        bool first = true;
+        int r;
+
+        assert(s);
+        assert(types);
+
+        mask = *types;
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&s, &word, ",", EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                const char *n = word;
+                bool add = true, relative = false;
+                if (n[0] == '+') {
+                        n++;
+                        relative = true;
+                } else if (n[0] == '-') {
+                        n++;
+                        add = false;
+                        relative = true;
+                }
+
+                /* The first non-relative item resets the mask, subsequent items add to it. */
+                if (first && !relative)
+                        mask = 0;
+                first = false;
+
+                uint32_t t;
+                if (streq(n, "all"))
+                        t = MANIFEST_INODE_TYPES_ALL;
+                else if (streq(n, "none"))
+                        t = 0;
+                else {
+                        mode_t m = inode_type_from_string(n);
+                        if (m == MODE_INVALID)
+                                return -EINVAL;
+
+                        t = UINT32_C(1) << IFTODT(m);
+                }
+
+                SET_FLAG(mask, t, add);
+        }
+
+        *types = mask;
+        return 0;
+}
+
 static int sha512_fd(int fd, uint8_t ret[static MANIFEST_HASH_SIZE_MAX]) {
 #if HAVE_OPENSSL
         int r;
@@ -355,6 +411,28 @@ static bool manifest_handle_skip_event(ManifestContext *c, RecurseDirEvent event
         return true;
 }
 
+static bool manifest_inode_filtered(ManifestContext *c, const char *path, const struct statx *sx) {
+        assert(c);
+
+        /* Returns true if the inode shall be ignored, because its type is not included in the inode types
+         * to list. Never ignores the top-level inode, nor inodes of unknown type. Note that ignored
+         * directories shall still be descended into. */
+
+        if (c->inode_types == MANIFEST_INODE_TYPES_ALL || isempty(path))
+                return false;
+
+        /* All callers request the inode type, and recurse_dir() guarantees it */
+        assert(sx);
+        assert(FLAGS_SET(sx->stx_mask, STATX_TYPE));
+
+        if (!inode_type_to_string(sx->stx_mode) || BIT_SET(c->inode_types, IFTODT(sx->stx_mode)))
+                return false;
+
+        log_debug("Ignoring '%s', as inodes of type '%s' are not selected.", path, inode_type_to_string(sx->stx_mode));
+        c->n_filtered++;
+        return true;
+}
+
 static int manifest_list_item(
                 RecurseDirEvent event,
                 const char *path,
@@ -369,6 +447,10 @@ static int manifest_list_item(
         assert(path);
 
         if (manifest_handle_skip_event(c, event, path))
+                return RECURSE_DIR_CONTINUE;
+
+        if (IN_SET(event, RECURSE_DIR_ENTER, RECURSE_DIR_ENTRY) &&
+            manifest_inode_filtered(c, path, sx))
                 return RECURSE_DIR_CONTINUE;
 
         if (event == RECURSE_DIR_ENTER)
@@ -539,6 +621,9 @@ static int manifest_mtree_item(
                 return RECURSE_DIR_CONTINUE;
 
         assert(sx);
+
+        if (manifest_inode_filtered(c, path, sx))
+                return RECURSE_DIR_CONTINUE;
 
         if (isempty(path))
                 path = ".";
@@ -1384,6 +1469,9 @@ static int manifest_uapi16_item(
                 return RECURSE_DIR_SKIP_ENTRY;
         }
 
+        if (manifest_inode_filtered(c, path, sx))
+                return RECURSE_DIR_CONTINUE;
+
         bool is_root = isempty(path);
 
         _cleanup_free_ char *data = NULL;
@@ -1615,6 +1703,9 @@ static int manifest_sha256sums_item(
                 return RECURSE_DIR_CONTINUE;
         }
 
+        if (manifest_inode_filtered(c, path, sx))
+                return RECURSE_DIR_CONTINUE;
+
         /* We ignore this to avoid input-as-output cycles (only on top-level though!) */
         if (streq(path, "SHA256SUMS") || (startswith(path, "SHA256SUMS.") && !strchr(path, '/'))) {
                 log_debug("Skipping directory entry '%s' to avoid recursive manifest generation.", path);
@@ -1771,6 +1862,9 @@ int manifest_make(ManifestContext *c, int dir_fd) {
         switch (c->format) {
 
         case MANIFEST_FORMAT_LIST:
+                /* We need the inode type only for filtering */
+                if (c->inode_types != MANIFEST_INODE_TYPES_ALL)
+                        statx_mask |= STATX_TYPE;
                 item_callback = manifest_list_item;
                 break;
 
@@ -1791,6 +1885,10 @@ int manifest_make(ManifestContext *c, int dir_fd) {
                 break;
 
         case MANIFEST_FORMAT_UAPI16:
+                /* The file objects of all directories other file objects are located in must be listed */
+                if (!BIT_SET(c->inode_types, DT_DIR))
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "UAPI.16 manifests must list directories.");
+
                 statx_mask |= manifest_uapi16_fields_to_statx(c->fields);
                 flags |= RECURSE_DIR_INODE_FD|RECURSE_DIR_TOPLEVEL;
                 item_callback = manifest_uapi16_item;
@@ -2088,6 +2186,12 @@ static int verify_list(ManifestContext *c, int dir_fd, FILE *f) {
                 if (isempty(line) || path_is_absolute(line) || !path_is_normalized(line))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid path specified at manifest line %zu, refusing.", line_nr);
 
+                if (is_dir && !BIT_SET(c->inode_types, DT_DIR)) {
+                        log_debug("Not verifying '%s', as directories are not selected.", line);
+                        c->n_filtered++;
+                        continue;
+                }
+
                 struct statx sx;
                 r = manifest_stat_file(
                                 c,
@@ -2100,6 +2204,11 @@ static int verify_list(ManifestContext *c, int dir_fd, FILE *f) {
                 if (r < 0)
                         return r;
                 if (r == 0) /* check already failed */
+                        continue;
+
+                /* Entries without trailing slash do not tell us their inode type, hence filter by what we
+                 * found in the tree */
+                if (!is_dir && manifest_inode_filtered(c, line, &sx))
                         continue;
 
                 if (is_dir) {
@@ -2178,6 +2287,13 @@ static int verify_sha256sums(ManifestContext *c, int dir_fd, FILE *f) {
                         return r;
                 if (r == 0)
                         return 0;
+
+                /* SHA256SUMS files only list regular files */
+                if (!BIT_SET(c->inode_types, DT_REG)) {
+                        log_debug("Not verifying '%s', as regular files are not selected.", fn);
+                        c->n_filtered++;
+                        continue;
+                }
 
                 r = verify_sha256sums_line(c, dir_fd, fn, &digest);
                 if (r < 0)
@@ -2585,6 +2701,13 @@ static int verify_object_handler(Uapi16Object *o, size_t index, void *userdata) 
                 log_warning_errno(r, "File object has been revoked, processing anyway.");
         else if (r < 0)
                 return log_error_errno(r, "Failed to check file object validity: %m");
+
+        /* The root object is always verified, like it is always generated */
+        if (index > 0 && !BIT_SET(vc->context->inode_types, IFTODT(o->type))) {
+                log_debug("Not verifying '%s', as inodes of type '%s' are not selected.", o->name, strna(inode_type_to_string(o->type)));
+                vc->context->n_filtered++;
+                return 0;
+        }
 
         return verify_object(vc->context, vc->dir_fd, o);
 }

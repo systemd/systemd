@@ -379,6 +379,34 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--filter-type=<replaceable>TYPES</replaceable></option></term>
+
+        <listitem><para>Selects the inode types to include in the manifest when generating, and to check
+        when verifying. Takes a comma-separated list of inode types, i.e. of <option>reg</option>,
+        <option>dir</option>, <option>lnk</option>, <option>chr</option>, <option>blk</option>,
+        <option>fifo</option> and <option>sock</option>. The special values <option>all</option> and
+        <option>none</option> may be used to select all or no inode types. Items may be prefixed with
+        <literal>+</literal> or <literal>-</literal> to add or remove inode types from the current set
+        instead of replacing it. The option may be specified multiple times. Defaults to
+        <option>all</option>.</para>
+
+        <para>When generating a manifest with <command>make</command>, only inodes of the selected types are
+        included in it, all others are ignored. This is useful to exclude device nodes or sockets from a
+        manifest (e.g. <literal>--filter-type=-chr,-blk,-sock</literal>), or to generate a manifest that
+        only lists directories (<literal>--filter-type=dir</literal>). Note that directories that are not
+        included are still descended into, i.e. the inodes of the selected types below them are included.
+        The top-level inode is always included in formats that list it. The <option>uapi16</option> format
+        requires directories to be included.</para>
+
+        <para>When verifying a manifest with <command>verify</command>, only inodes of the selected types
+        are verified, all others listed in the manifest are ignored. For the <option>list</option> format, whose entries do not encode the inode type other than whether
+        they refer to a directory, the type of the inode found in the tree is used for entries not
+        referring to directories.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--hash=<replaceable>ALGORITHM</replaceable></option></term>
 
         <listitem><para>Selects the hash algorithm to use for the <option>hash</option> field of the

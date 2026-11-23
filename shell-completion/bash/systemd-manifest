@@ -29,7 +29,7 @@ _systemd_manifest() {
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
     local -A OPTS=(
         [STANDALONE]='-h --help --version --no-pager --graceful'
-        [ARG]='--json --format --field --hash --timestamp-accuracy-sec --private-key --private-key-source
+        [ARG]='--json --format --field --filter-type --hash --timestamp-accuracy-sec --private-key --private-key-source
                --certificate --certificate-source --verify-signature --voa-context'
     )
 
@@ -50,6 +50,14 @@ _systemd_manifest() {
                     comps+=" $f +$f -$f"
                 done
                 comps+=' all default none'
+                ;;
+            --filter-type)
+                local t
+                comps=''
+                for t in reg dir lnk chr blk fifo sock; do
+                    comps+=" $t +$t -$t"
+                done
+                comps+=' all none'
                 ;;
             --hash)
                 comps='sha256 sha512'
