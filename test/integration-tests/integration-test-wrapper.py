@@ -570,7 +570,15 @@ def main() -> None:
     shell = bool(int(os.getenv('TEST_SHELL', '0')))
     summary = Summary.get(args)
 
-    if shell and not sys.stdin.isatty():
+    # Whether a human is interactively running this test, e.g. via 'meson test --interactive'.
+    # Both stdin and stdout must be connected to a terminal: meson always captures test stdout
+    # (e.g. to parse TAP output) unless run interactively, and while meson 1.5 and newer also
+    # redirect stdin from /dev/null, older versions, e.g. 1.3.2 as shipped by Ubuntu noble,
+    # inherit it from the invoking terminal, e.g. when run via 'mkosi box', which passes its
+    # own stdin through to the invoked command.
+    interactive = sys.stdin.isatty() and sys.stdout.isatty()
+
+    if shell and not interactive:
         print(
             '--interactive must be passed to meson test to use TEST_SHELL=1',
             file=sys.stderr,
@@ -631,7 +639,7 @@ def main() -> None:
 
     journal_file.unlink(missing_ok=True)
 
-    if not sys.stdin.isatty():
+    if not interactive:
         dropin += textwrap.dedent(
             '''
             [Unit]
@@ -657,7 +665,7 @@ def main() -> None:
             '''
         )
 
-    if sys.stdin.isatty():
+    if interactive:
         dropin += textwrap.dedent(
             '''
             [Service]
@@ -781,7 +789,7 @@ def main() -> None:
                 '--credential', f'systemd.extra-unit.emergency-exit.service={shlex.quote(EMERGENCY_EXIT_SERVICE)}',
                 '--credential', f'systemd.unit-dropin.emergency.target={shlex.quote(EMERGENCY_EXIT_DROPIN)}',
             ]
-            if not sys.stdin.isatty()
+            if not interactive
             else []
         ),
         '--credential', f'systemd.unit-dropin.{args.unit}={shlex.quote(dropin)}',
@@ -806,13 +814,13 @@ def main() -> None:
                         'systemd.crash_action=poweroff',
                         'loglevel=6',
                     ]
-                    if not sys.stdin.isatty()
+                    if not interactive
                     else []
                 ),
             ]
         ),
-        '--credential', f"journal.storage={'persistent' if sys.stdin.isatty() else args.storage}",
-        *(['--runtime-build-sources=no', '--register=no'] if not sys.stdin.isatty() else []),
+        '--credential', f"journal.storage={'persistent' if interactive else args.storage}",
+        *(['--runtime-build-sources=no', '--register=no'] if not interactive else []),
         *test_mkosi_args,
         *vm_images_mkosi_args,
         'vm' if vm else 'boot',
