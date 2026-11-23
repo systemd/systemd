@@ -44,6 +44,12 @@ CHANGES WITH 263 in spe:
           as the root, but the settings derived from "a root is configured"
           (MountAPIVFS=, BindLogSockets=, …) suppressed it.
 
+        * The service manager now sets $LISTEN_PID, $LISTEN_PIDFDID,
+          $WATCHDOG_PID and $SYSTEMD_EXEC_PID after setting up the service's
+          PID namespace. This makes socket activation work with
+          PrivatePIDs=yes on systems that check the pidfd ID. PAM modules
+          invoked during service startup no longer receive these variables.
+
         * Empty transient assignments to RuntimeDirectory=, StateDirectory=,
           CacheDirectory= and LogsDirectory= now reset the corresponding
           directory list instead of being ignored. ConfigurationDirectory=
@@ -197,6 +203,13 @@ CHANGES WITH 263 in spe:
           images, or set $SYSTEMD_DISSECT_VALIDATEFS=0 when using them to
           restore the previous behaviour.
 
+        * systemd-gpt-auto-generator no longer adds the "discard" mount
+          option on real disks, and systemd-repart no longer adds it to the
+          /etc/fstab entries it generates. This leaves the choice to the file
+          system: for example, Btrfs can use asynchronous discard. For file
+          systems without automatic discard, fstrim.timer can trim unused
+          space periodically.
+
         * ConditionCredential= and AssertCredential= now also search the
           credential store directories (/etc/credstore/, /run/credstore/,
           /usr/lib/credstore/, their .encrypted counterparts, and the XDG
@@ -289,6 +302,10 @@ CHANGES WITH 263 in spe:
         * "varlinkctl call" now prints an empty JSON object ({}) instead of
           no output for a reply with no parameters.
 
+        * "varlinkctl introspect --json=short" now returns the interface
+          definition as structured JSON, including methods, types, errors
+          and their fields.
+
         * sd-json now refuses JSON objects that contain the same key more
           than once. sd_json_variant_new_object() — and thus also
           sd_json_parse() and related calls, as well as sd_json_build() —
@@ -302,6 +319,26 @@ CHANGES WITH 263 in spe:
           anymore. This is in line with the I-JSON profile of RFC 7493.
 
         Changes in the system and service manager:
+
+        * The [Unit] section gained Tags=, a space-separated list of labels
+          such as "example.role=worker" or "example.batch". Tags may also be
+          set on transient units. "systemctl status" shows them, and the
+          unit's cgroup carries them in the user.tags extended attribute.
+          Polkit rules for manage-units can now match tags of existing units:
+          the examples above set the "tag.example.role" detail to "worker"
+          and "btag.example.batch" to "1".
+
+        * The user service manager now sets the user.invocation_id and
+          user.delegate extended attributes on the cgroups it manages, like
+          the system manager.
+
+        * The new systemd.import_credentials_filter= kernel command line
+          option limits which credentials PID 1 imports from SMBIOS, QEMU
+          fw_cfg, the EFI stub and /.extra/system_credentials/ in the initrd.
+          It takes a comma-separated list of shell-style globs, for example
+          "firstboot.*,ssh.authorized_keys.root". With no filter all names
+          are accepted, as before. Credentials set directly on the kernel
+          command line are not filtered.
 
         * systemd-inhibit gained a new --signal= option. Used together with
           --mode=delay it sends the specified signal to the invoked command
@@ -419,6 +456,11 @@ CHANGES WITH 263 in spe:
           external display is connected but switched off - as long as an external
           keyboard is connected as well.
 
+        * systemd-logind now tells polkit which session, user, seat or device
+          an operation affects. Rules can distinguish locking a session from
+          unlocking it, and enabling lingering for a user from disabling it.
+          Attaching a device to a seat supplies both the seat name and the
+          device's canonical sysfs path.
 
         Changes in systemd-udevd:
 
@@ -490,6 +532,11 @@ CHANGES WITH 263 in spe:
           lifetimes, so that hosts stop using it without having to wait for
           the old advertisement to expire.
 
+        * When an IPv6 Router Advertisement adds, deprecates or withdraws
+          a prefix, the DHCPv6 client now renews its lease or requests
+          fresh information in stateless mode. It does this at most once
+          every 30 seconds instead of waiting for the usual renewal time.
+
         * The [Bond] section of .netdev files gained LACPActive= to select
           active or passive LACP negotiation.
 
@@ -525,6 +572,11 @@ CHANGES WITH 263 in spe:
           tags are started. Use "hostnamectl tags --apply" to reapply the
           files. Removing a drop-in does not undo tags already applied; a
           removal entry such as "-vendor.role=*" clears matching tags.
+
+        * systemd-hostnamed now exposes the UUID of the file system backing
+          /var/ as FileSystemID over D-Bus and Varlink. "hostnamectl status"
+          shows it alongside the machine and boot IDs, and systemd-report
+          exposes it as io.systemd.Basic.FileSystemID.
 
         Changes in systemd-journald, journalctl and coredumpctl:
 
@@ -641,6 +693,17 @@ CHANGES WITH 263 in spe:
         * TPM2PublicKeyPolicyRef= in repart.d can now be set per partition, for
           example to restrict unlocking to the "initrd" signed PCR policy.
 
+        * The new MakeMountNodes= in repart.d files creates empty directories
+          meant to be over-mounted, for example MakeMountNodes=/home /srv.
+          They normally have mode 0000 and are marked immutable when populating
+          a mounted file system that supports it. This helps avoid writing
+          files to the underlying directory if the mount is missing.
+
+        * systemd-repart --join-signature= now matches Verity signatures by
+          root hash. This allows an offline signature to be used when the
+          data and hash partitions are created with explicit UUIDs instead
+          of UUIDs derived from the hash.
+
         * Partition type names now accept "-vty" for "-verity", "-vsig" for
           "-verity-sig", and "2" for "-secondary". The short forms leave
           more room for a version in GPT partition labels and can also be
@@ -666,6 +729,18 @@ CHANGES WITH 263 in spe:
         * systemd-boot will now apply UEFI firmware update capsules staged by
           fwupd on the boot loader's own disk, without requiring the separate
           fwupd signed EFI updater binary.
+
+        * UKI profiles gained CONDITION_TPM=, CONDITION_SECUREBOOT= and
+          CONDITION_NETBOOT= to control when systemd-boot shows them in the
+          menu. For example, CONDITION_NETBOOT=yes shows a profile only
+          when booting over UEFI HTTP. A factory reset profile can use
+          CONFIRM= to display a message and require the user to type "YES"
+          before proceeding.
+
+        * If systemd-boot finds no operating system entries, it now shows
+          the menu without a timeout instead of automatically selecting an
+          EFI shell or a firmware action. An explicitly disabled menu stays
+          disabled.
 
         * Type #1 boot entries that specify a local UKI can now pass PE
           addons to systemd-stub with "extra" lines. This allows multiple
@@ -744,14 +819,22 @@ CHANGES WITH 263 in spe:
           alternative values for a PCR. Nested PolicyOR branches allow up
           to 32768 alternatives per PCR.
 
+        * "systemd-pcrlock lock-uki" can now generate a .pcrlock file for
+          each selected profile of a multi-profile UKI. Only the base profile
+          (@0) is selected by default, set PCRLOCK=yes in another profile's
+          .profile section to include its measurements in the TPM policy.
+          When booted into an excluded profile, "systemd-pcrlock make-policy"
+          leaves an existing policy unchanged if it would otherwise drop a
+          PCR, unless --force is specified.
+
         Changes in systemd-report:
 
         * New metric providers report hardware temperatures, free space on
           writable disk-backed file systems, ATA SMART and NVMe disk health,
-          and per-interface network statistics. An optional GeoIP provider
-          queries a web service for the approximate location of the public
-          IP address. It is off by default, and the endpoint and refresh
-          interval are configurable in report-geoip.conf.
+          power supply status, and per-interface network statistics. An
+          optional GeoIP provider queries a web service for the approximate
+          location of the public IP address. It is off by default, and the
+          endpoint and refresh interval are configurable in report-geoip.conf.
 
         * systemd-journald can report message counts by priority and
           transport, including messages filtered before storage.
@@ -818,6 +901,11 @@ CHANGES WITH 263 in spe:
         * sd_varlink_invoke_and_upgrade() and its JSON builder variants
           request a protocol upgrade asynchronously on an event loop.
 
+        * sd-varlink now rejects unsupported protocol upgrades rather than
+          reporting success while the server continues speaking Varlink.
+          If a call expects a reply but lacks a required flag, the caller
+          now receives ExpectedMore or ExpectedUpgrade.
+
         * sd_journal_get_data_to_fd() writes a journal field directly to a
           file descriptor, optionally omitting the "FIELD=" prefix. This
           lets coredumpctl extract large core dumps without first keeping
@@ -879,6 +967,10 @@ CHANGES WITH 263 in spe:
           polkit authorization. If no device is specified, it operates on the
           device backing /var/.
 
+        * systemd-cryptsetup no longer counts a rejected cached passphrase
+          against tries= in /etc/crypttab. At boot, requests to plug in or
+          touch a FIDO2 token are now shown via Plymouth or on the console.
+
         * systemd-cryptenroll's --fido2-device= and --tpm2-device= switches may
           now be combined, in order to bind a LUKS2 volume to a TPM2 chip and a
           FIDO2 token at the same time: the TPM2 seals a secret from which the
@@ -921,6 +1013,10 @@ CHANGES WITH 263 in spe:
         * systemd-ssh-generator now sets SocketProtocol=mptcp-auto on the
           AF_INET/AF_INET6 sockets it generates for systemd.ssh_listen= and
           the ssh.listen credential, so that MPTCP is used where available.
+
+        * On the client side, "ssh mptcp/HOST" now uses systemd-ssh-proxy to
+          connect over Multipath TCP, falling back to plain TCP when MPTCP
+          is unavailable.
 
         * systemd-timedated gained an io.systemd.Timedate Varlink interface
           to query or set the clock, time zone, RTC mode and network time
