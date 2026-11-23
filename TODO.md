@@ -2585,8 +2585,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   - timer units should get the ability to trigger when DST changes
   - Modulate timer frequency based on battery state
 
-- timesyncd: add ugly bus calls to set NTP servers per-interface, for usage by NM
-
 - timesyncd: when saving/restoring clock try to take boot time into account.
   Specifically, along with the saved clock, store the current boot ID. When
   starting, check if the boot id matches. If so, don't do anything (we are on
@@ -2844,26 +2842,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   mvo's WIP branch:
   <https://github.com/systemd/systemd/compare/main...mvo5:varlink-protocol-upgrade-server-side?expand=1>
 
-- we probably needs .pcrpkeyrd or so as additional PE section in UKIs,
-  which contains a separate public key for PCR values that only apply in the
-  initrd, i.e. in the boot phase "enter-initrd". Then, consumers in userspace
-  can easily bind resources to just the initrd. Similar, maybe one more for
-  "enter-initrd:leave-initrd" for resources that shall be accessible only
-  before unprivileged user code is allowed. (we only need this for .pcrpkey,
-  not for .pcrsig, since the latter is a list of signatures anyway). With that,
-  when you enroll a LUKS volume or similar, pick either the .pcrkey (for
-  coverage through all phases of the boot, but excluding shutdown), the
-  .pcrpkeyrd (for coverage in the initrd only) and .pcrpkeybt (for coverage
-  until users are allowed to log in).
-
-- we probably should have some infrastructure to acquire sysexts with
-  drivers/firmware for local hardware automatically. Idea: reuse the modalias
-  logic of the kernel for this: make the main OS image install a hwdb file
-  that matches against local modalias strings, and adds properties to relevant
-  devices listing names of sysexts needed to support the hw. Then provide some
-  tool that goes through all devices and tries to acquire/download the
-  specified images.
-
 - We should probably replace /etc/rc.d/README with a symlink to doc
   content. After all it is constant vendor data.
 
@@ -2876,8 +2854,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - what to do about udev db binary stability for apps? (raw access is not an option)
 
 - when importing an fs tree with machined, complain if image is not an OS
-
-- when importing an fs tree with machined, optionally apply userns-rec-chown
 
 - when isolating, try to figure out a way how we implicitly can order
   all units we stop before the isolating unit...
