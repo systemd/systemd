@@ -344,6 +344,10 @@ executables += [
                 ],
         },
         test_template + {
+                'sources' : files('test-cryptsetup-fido2.c'),
+                'dependencies' : libfido2_cflags,
+        },
+        test_template + {
                 'sources' : files('test-crypto-util.c'),
                 'dependencies' : libopenssl_cflags,
                 'conditions' : ['HAVE_OPENSSL'],
