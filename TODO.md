@@ -112,7 +112,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
     in bootctl-status.c)
   - `bootctl list` (`show_boot_entry()` in bootspec.c)
   - `bootctl kernel-inspect` (`verb_kernel_inspect()` in bootctl-uki.c)
-  - `systemd-dissect` (`action_dissect()`, the part before the partition table)
   - `journalctl --header` (`journal_file_print_header()`)
   - `systemd-sysupdate list <version>` (`context_show_version()`, the
     State:/Installed:/… block above the existing table)
