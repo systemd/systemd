@@ -538,14 +538,21 @@ static int partition_is_luks2_integrity(int part_fd, uint64_t offset, uint64_t s
         if (r < 0)
                 return log_error_errno(r, "Failed to parse LUKS JSON header.");
 
-        v = sd_json_variant_by_key(v, "segments");
-        if (!v || !sd_json_variant_is_object(v)) {
+        sd_json_variant *segments = NULL;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "segments", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_variant_noref, 0, 0 },
+                {}
+        };
+
+        r = sd_json_dispatch(v, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &segments);
+        if (r < 0 || !segments || !sd_json_variant_is_object(segments)) {
                 log_debug("LUKS JSON header lacks 'segments' information, assuming no integrity.");
                 return 0;
         }
 
         /* Verify that all segments have integrity protection */
-        JSON_VARIANT_OBJECT_FOREACH(key, w, v) {
+        JSON_VARIANT_OBJECT_FOREACH(key, w, segments) {
                 struct luks_integrity_data data = {};
 
                 static const sd_json_dispatch_field dispatch_segment[] = {
@@ -812,29 +819,27 @@ static int acquire_sig_for_roothash(
         if (r < 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to parse signature JSON data: %s", STRERROR(r));
 
-        sd_json_variant *rh = sd_json_variant_by_key(v, "rootHash");
-        if (!rh)
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Signature JSON object lacks 'rootHash' field.");
+        struct {
+                struct iovec root_hash;
+                struct iovec signature;
+        } p = {};
 
-        _cleanup_(iovec_done) struct iovec root_hash = {};
-        r = sd_json_variant_unhex(rh, &root_hash.iov_base, &root_hash.iov_len);
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "rootHash",  SD_JSON_VARIANT_STRING, json_dispatch_unhex_iovec,    voffsetof(p, root_hash), SD_JSON_MANDATORY },
+                { "signature", SD_JSON_VARIANT_STRING, json_dispatch_unbase64_iovec, voffsetof(p, signature), SD_JSON_MANDATORY },
+                {}
+        };
+
+        r = sd_json_dispatch(v, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
+
+        /* Take ownership right away, so that a field decoded before a failure is freed too */
+        _cleanup_(iovec_done) struct iovec root_hash = TAKE_STRUCT(p.root_hash), root_hash_sig = TAKE_STRUCT(p.signature);
         if (r == -ENOMEM)
                 return r;
         if (r < 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to parse root hash field: %s", STRERROR(r));
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to parse signature JSON data: %s", STRERROR(r));
         if (root_hash.iov_len < sizeof(sd_id128_t))
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Root hash field is too short.");
-
-        sd_json_variant *sig = sd_json_variant_by_key(v, "signature");
-        if (!sig)
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Signature JSON object lacks 'signature' field.");
-
-        _cleanup_(iovec_done) struct iovec root_hash_sig = {};
-        r = sd_json_variant_unbase64(sig, &root_hash_sig.iov_base, &root_hash_sig.iov_len);
-        if (r == -ENOMEM)
-                return r;
-        if (r < 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to parse signature field: %s", STRERROR(r));
 
         if (ret_root_hash)
                 *ret_root_hash = TAKE_STRUCT(root_hash);
