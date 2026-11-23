@@ -10,6 +10,7 @@ typedef enum {
         ENTRY_CURSOR = 0,           /* Nothing actually written yet. */
         ENTRY_REALTIME,
         ENTRY_MONOTONIC,
+        ENTRY_BOOTTIME,
         ENTRY_BOOT_ID,
         ENTRY_NEW_FIELD,            /* In between fields. */
         ENTRY_TEXT_FIELD,           /* In the middle of a text field. */
