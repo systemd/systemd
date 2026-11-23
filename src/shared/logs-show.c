@@ -445,13 +445,45 @@ static int output_timestamp_realtime(
         return (int) strlen(buf);
 }
 
+static int parse_source_boottime(sd_journal *j, const char *source_boottime, usec_t *ret_source, usec_t *ret_header) {
+        usec_t s, h;
+        int r;
+
+        assert(j);
+        assert(ret_source);
+        assert(ret_header);
+
+        /* _SOURCE_BOOTTIME_TIMESTAMP= (as written for kernel messages) is in CLOCK_BOOTTIME. To relate it to
+         * the other timestamps of the entry we need the CLOCK_BOOTTIME timestamp of the entry header, which
+         * is only known for entries written by newer journald versions. (Note that we deliberately do not
+         * use _SOURCE_MONOTONIC_TIMESTAMP= here: for kernel messages it is in CLOCK_BOOTTIME too, despite
+         * the name, and we cannot tell the two cases apart.) */
+
+        if (!source_boottime)
+                return -ENODATA;
+
+        r = safe_atou64(source_boottime, &s);
+        if (r < 0)
+                return r;
+        if (!VALID_MONOTONIC(s))
+                return -ERANGE;
+
+        r = sd_journal_get_boottime_usec(j, &h, &(sd_id128_t) {});
+        if (r < 0)
+                return r;
+
+        *ret_source = s;
+        *ret_header = h;
+        return 0;
+}
+
 static void parse_display_realtime(
                 sd_journal *j,
                 const char *source_realtime,
-                const char *source_monotonic,
+                const char *source_boottime,
                 usec_t *ret) {
 
-        usec_t t;
+        usec_t t, s, h;
 
         assert(j);
         assert(ret);
@@ -468,16 +500,11 @@ static void parse_display_realtime(
                 return;
         }
 
-        /* If _SOURCE_MONOTONIC_TIMESTAMP is provided, adjust the header timestamp. */
-        // FIXME: _SOURCE_MONOTONIC_TIMESTAMP is in CLOCK_BOOTTIME, hence we cannot use it for adjusting realtime.
-        /*
-        usec_t s, u;
-        if (source_monotonic && safe_atou64(source_monotonic, &s) >= 0 && VALID_MONOTONIC(s) &&
-            sd_journal_get_monotonic_usec(j, &u, &(sd_id128_t) {}) >= 0) {
-                *ret = map_clock_usec_raw(t, u, s);
+        /* If _SOURCE_BOOTTIME_TIMESTAMP is provided, adjust the header timestamp. */
+        if (parse_source_boottime(j, source_boottime, &s, &h) >= 0) {
+                *ret = map_clock_usec_raw(s, h, t);
                 return;
         }
-        */
 
         /* Otherwise, use the header timestamp as is. */
         *ret = t;
@@ -486,13 +513,13 @@ static void parse_display_realtime(
 static void parse_display_timestamp(
                 sd_journal *j,
                 const char *source_realtime,
-                const char *source_monotonic,
+                const char *source_boottime,
                 dual_timestamp *ret_display_ts,
                 sd_id128_t *ret_boot_id) {
 
         dual_timestamp header_ts = DUAL_TIMESTAMP_INFINITY, source_ts = DUAL_TIMESTAMP_INFINITY;
         sd_id128_t boot_id = SD_ID128_NULL;
-        usec_t t;
+        usec_t t, s, h;
 
         assert(j);
         assert(ret_display_ts);
@@ -501,14 +528,13 @@ static void parse_display_timestamp(
         if (source_realtime && safe_atou64(source_realtime, &t) >= 0 && VALID_REALTIME(t))
                 source_ts.realtime = t;
 
-        // FIXME: _SOURCE_MONOTONIC_TIMESTAMP is in CLOCK_BOOTTIME, hence we cannot use it for adjusting realtime.
-        /*
-        if (source_monotonic && safe_atou64(source_monotonic, &t) >= 0 && VALID_MONOTONIC(t))
-                source_ts.monotonic = t;
-        */
-
         (void) sd_journal_get_realtime_usec(j, &header_ts.realtime);
         (void) sd_journal_get_monotonic_usec(j, &header_ts.monotonic, &boot_id);
+
+        /* Convert _SOURCE_BOOTTIME_TIMESTAMP to CLOCK_MONOTONIC, if possible. */
+        if (header_ts.monotonic != USEC_INFINITY &&
+            parse_source_boottime(j, source_boottime, &s, &h) >= 0)
+                source_ts.monotonic = map_clock_usec_raw(s, h, header_ts.monotonic);
 
         /* Adjust timestamp if possible. */
         if (header_ts.realtime != USEC_INFINITY && header_ts.monotonic != USEC_INFINITY) {
@@ -540,7 +566,7 @@ static int output_short(
         _cleanup_free_ char *hostname = NULL, *identifier = NULL, *comm = NULL, *pid = NULL, *fake_pid = NULL,
                 *message = NULL, *priority = NULL, *transport = NULL,
                 *config_file = NULL, *unit = NULL, *user_unit = NULL, *documentation_url = NULL,
-                *realtime = NULL, *monotonic = NULL;
+                *realtime = NULL, *boottime = NULL;
         size_t hostname_len = 0, identifier_len = 0, comm_len = 0, pid_len = 0, fake_pid_len = 0, message_len = 0,
                 priority_len = 0, transport_len = 0, config_file_len = 0,
                 unit_len = 0, user_unit_len = 0, documentation_url_len = 0;
@@ -562,7 +588,7 @@ static int output_short(
                 PARSE_FIELD_VEC_ENTRY("_SYSTEMD_USER_UNIT=",          &user_unit,         &user_unit_len        ),
                 PARSE_FIELD_VEC_ENTRY("DOCUMENTATION=",               &documentation_url, &documentation_url_len),
                 PARSE_FIELD_VEC_ENTRY("_SOURCE_REALTIME_TIMESTAMP=",  &realtime,          NULL                  ),
-                PARSE_FIELD_VEC_ENTRY("_SOURCE_MONOTONIC_TIMESTAMP=", &monotonic,         NULL                  ),
+                PARSE_FIELD_VEC_ENTRY("_SOURCE_BOOTTIME_TIMESTAMP=",  &boottime,          NULL                  ),
         };
         size_t highlight_shifted[] = {highlight ? highlight[0] : 0, highlight ? highlight[1] : 0};
 
@@ -603,11 +629,11 @@ static int output_short(
         audit = streq_ptr(transport, "audit");
 
         if (IN_SET(mode, OUTPUT_SHORT_MONOTONIC, OUTPUT_SHORT_DELTA)) {
-                parse_display_timestamp(j, realtime, monotonic, &display_ts, &boot_id);
+                parse_display_timestamp(j, realtime, boottime, &display_ts, &boot_id);
                 r = output_timestamp_monotonic(f, mode, &display_ts, &boot_id, previous_display_ts, previous_boot_id);
         } else {
                 usec_t usec;
-                parse_display_realtime(j, realtime, monotonic, &usec);
+                parse_display_realtime(j, realtime, boottime, &usec);
                 r = output_timestamp_realtime(f, mode, flags, usec);
         }
         if (r == -EINVAL)
@@ -742,11 +768,11 @@ static int output_short(
 
 static int get_display_realtime(sd_journal *j, usec_t *ret) {
         const void *data;
-        _cleanup_free_ char *realtime = NULL, *monotonic = NULL;
+        _cleanup_free_ char *realtime = NULL, *boottime = NULL;
         size_t length;
         const ParseFieldVec message_fields[] = {
                 PARSE_FIELD_VEC_ENTRY("_SOURCE_REALTIME_TIMESTAMP=",  &realtime,  NULL),
-                PARSE_FIELD_VEC_ENTRY("_SOURCE_MONOTONIC_TIMESTAMP=", &monotonic, NULL),
+                PARSE_FIELD_VEC_ENTRY("_SOURCE_BOOTTIME_TIMESTAMP=",  &boottime,  NULL),
         };
         int r;
 
@@ -758,13 +784,13 @@ static int get_display_realtime(sd_journal *j, usec_t *ret) {
                 if (r < 0)
                         return r;
 
-                if (realtime && monotonic)
+                if (realtime && boottime)
                         break;
         }
         if (r < 0)
                 return r;
 
-        parse_display_realtime(j, realtime, monotonic, ret);
+        parse_display_realtime(j, realtime, boottime, ret);
 
         /* Restart all data before */
         sd_journal_restart_data(j);
