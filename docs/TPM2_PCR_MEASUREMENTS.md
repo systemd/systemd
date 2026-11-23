@@ -187,8 +187,9 @@ below for details on PE section measurements done by `systemd-stub`.)
 → **Description** in the event log record is the literal kernel command line in
 UTF-16.
 
-→ **Measured hash** covers the literal kernel command line in UTF-16 (without any
-trailing NUL bytes).
+→ **Measured hash** covers the literal kernel command line in UTF-16LE, *including*
+its single terminating U+0000 character (i.e. the hashed data ends in exactly
+two 0x00 bytes). The event log record data is identical.
 
 ## PCR Measurements Made by `systemd-stub` (UEFI)
 
@@ -237,8 +238,9 @@ Might happen up to three times, for kernel command lines from:
 → **Description** in the event log record is the literal kernel command line in
 UTF-16.
 
-→ **Measured hash** covers the literal kernel command line in UTF-16 (without any
-trailing NUL bytes).
+→ **Measured hash** covers the literal kernel command line in UTF-16LE, *including*
+its single terminating U+0000 character (i.e. the hashed data ends in exactly
+two 0x00 bytes). The event log record data is identical.
 
 ### PCR 12, `EV_EVENT_TAG`, DeviceTrees
 
