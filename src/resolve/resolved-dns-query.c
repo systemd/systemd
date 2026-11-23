@@ -912,7 +912,7 @@ static int dns_query_try_etc_hosts(DnsQuery *q) {
 }
 
 static int dns_query_try_static_records(DnsQuery *q) {
-        int r;
+        int r, rcode;
 
         assert(q);
 
@@ -923,14 +923,15 @@ static int dns_query_try_static_records(DnsQuery *q) {
         r = manager_static_records_lookup(
                         q->manager,
                         q->question_bypass ? q->question_bypass->question : q->question_utf8,
-                        &answer);
+                        &answer,
+                        &rcode);
         if (r <= 0)
                 return r;
 
         dns_query_reset_answer(q);
 
         q->answer = TAKE_PTR(answer);
-        q->answer_rcode = DNS_RCODE_SUCCESS;
+        q->answer_rcode = rcode;
         q->answer_protocol = dns_synthesize_protocol(q->flags);
         q->answer_family = dns_synthesize_family(q->flags);
         q->answer_query_flags = SD_RESOLVED_AUTHENTICATED|SD_RESOLVED_CONFIDENTIAL|SD_RESOLVED_SYNTHETIC;
@@ -1070,7 +1071,7 @@ int dns_query_go(DnsQuery *q) {
         if (r < 0)
                 return r;
         if (r > 0) {
-                dns_query_complete(q, DNS_TRANSACTION_SUCCESS);
+                dns_query_complete(q, q->answer_rcode == DNS_RCODE_SUCCESS ? DNS_TRANSACTION_SUCCESS : DNS_TRANSACTION_RCODE_FAILURE);
                 return 1;
         }
 
