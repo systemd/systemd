@@ -160,7 +160,6 @@ int sd_dhcp_duid_set_ll(
 int sd_dhcp_duid_set_en(sd_dhcp_duid *duid) {
         sd_id128_t machine_id;
         bool test_mode;
-        uint64_t hash;
         int r;
 
         assert_return(duid, -EINVAL);
@@ -180,12 +179,10 @@ int sd_dhcp_duid_set_en(sd_dhcp_duid *duid) {
         unaligned_write_be16(&duid->duid.type, SD_DUID_TYPE_EN);
         unaligned_write_be32(&duid->duid.en.pen, SYSTEMD_PEN);
 
-        /* a bit of snake-oil perhaps, but no need to expose the machine-id
-         * directly; duid->en.id might not be aligned, so we need to copy */
-        hash = htole64(siphash24(&machine_id, sizeof(machine_id), HASH_KEY.bytes));
-        memcpy(duid->duid.en.id, &hash, sizeof(hash));
+        /* a bit of snake-oil perhaps, but no need to expose the machine-id directly */
+        unaligned_write_le64(duid->duid.en.id, siphash24(&machine_id, sizeof(machine_id), HASH_KEY.bytes));
 
-        duid->size = offsetof(struct duid, en.id) + sizeof(hash);
+        duid->size = offsetof(struct duid, en.id) + sizeof(uint64_t);
 
         if (test_mode)
                 assert_se(memcmp(&duid->duid, (const uint8_t[]) { 0x00, 0x02, 0x00, 0x00, 0xab, 0x11, 0x61, 0x77, 0x40, 0xde, 0x13, 0x42, 0xc3, 0xa2 }, duid->size) == 0);
