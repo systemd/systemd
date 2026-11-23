@@ -2872,6 +2872,48 @@ _public_ int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret_monotoni
         return 0;
 }
 
+_public_ int sd_journal_get_boottime_usec(sd_journal *j, uint64_t *ret_boottime, sd_id128_t *ret_boot_id) {
+        JournalFile *f;
+        Object *o;
+        int r;
+
+        assert_return(j, -EINVAL);
+        assert_return(!journal_origin_changed(j), -ECHILD);
+
+        f = j->current_file;
+        if (!f)
+                return -EADDRNOTAVAIL;
+        if (f->current_offset <= 0)
+                return -EADDRNOTAVAIL;
+
+        r = journal_file_move_to_object(f, OBJECT_ENTRY, f->current_offset, &o);
+        if (r < 0)
+                return r;
+
+        if (!ret_boot_id) {
+                sd_id128_t id;
+
+                r = sd_id128_get_boot(&id);
+                if (r < 0)
+                        return r;
+
+                if (!sd_id128_equal(id, o->entry.boot_id))
+                        return -ESTALE;
+        }
+
+        uint64_t t;
+        r = journal_file_entry_boottime(f, o, &t);
+        if (r < 0)
+                return r;
+
+        if (ret_boottime)
+                *ret_boottime = t;
+        if (ret_boot_id)
+                *ret_boot_id = o->entry.boot_id;
+
+        return 0;
+}
+
 _public_ int sd_journal_get_seqnum(
                 sd_journal *j,
                 uint64_t *ret_seqnum,
