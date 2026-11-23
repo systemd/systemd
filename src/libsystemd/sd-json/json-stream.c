@@ -31,6 +31,7 @@
 #define JSON_STREAM_READ_SIZE_DEFAULT  (64U * 1024U)
 #define JSON_STREAM_QUEUE_MAX_DEFAULT  (64U * 1024U)
 #define JSON_STREAM_FDS_MAX            (16U * 1024U)
+#define JSON_STREAM_PARTIAL_MESSAGE_TIMEOUT_DEFAULT_USEC (2U * USEC_PER_MINUTE)
 
 struct JsonStreamQueueItem {
         LIST_FIELDS(JsonStreamQueueItem, queue);
@@ -43,6 +44,10 @@ struct JsonStreamQueueItem {
  * delimiters (e.g. "\r\n"), or 1 for the default NUL-byte delimiter (delimiter == NULL). */
 static size_t json_stream_delimiter_size(const JsonStream *s) {
         return strlen_ptr(s->delimiter) ?: 1;
+}
+
+static const char* json_stream_delimiter_bytes(const JsonStream *s) {
+        return s->delimiter ?: "\0";
 }
 
 static usec_t json_stream_now(const JsonStream *s) {
@@ -95,15 +100,25 @@ int json_stream_init(JsonStream *s, const JsonStreamParams *params) {
         assert(params->phase);
         assert(params->dispatch);
 
-        char *delimiter = NULL;
+        _cleanup_free_ char *delimiter = NULL;
+        _cleanup_free_ void *tail = NULL;
         if (params->delimiter) {
                 delimiter = strdup(params->delimiter);
                 if (!delimiter)
                         return -ENOMEM;
+
+                /* Room for the last strlen(delimiter) - 1 bytes written, see json_stream_scan_output() */
+                size_t k = strlen(delimiter);
+                if (k > 1) {
+                        tail = malloc(k - 1);
+                        if (!tail)
+                                return -ENOMEM;
+                }
         }
 
         *s = (JsonStream) {
-                .delimiter = delimiter,
+                .delimiter = TAKE_PTR(delimiter),
+                .output_delimiter_tail.iov_base = TAKE_PTR(tail),
                 .buffer_max = params->buffer_max > 0 ? params->buffer_max : JSON_STREAM_BUFFER_MAX_DEFAULT,
                 .read_chunk = params->read_chunk > 0 ? params->read_chunk : JSON_STREAM_READ_SIZE_DEFAULT,
                 .queue_max = params->queue_max > 0 ? params->queue_max : JSON_STREAM_QUEUE_MAX_DEFAULT,
@@ -114,6 +129,9 @@ int json_stream_init(JsonStream *s, const JsonStreamParams *params) {
                 .output_fd = -EBADF,
                 .timeout = USEC_INFINITY,
                 .last_activity = USEC_INFINITY,
+                .partial_message_timeout = params->partial_message_timeout > 0 ? params->partial_message_timeout : JSON_STREAM_PARTIAL_MESSAGE_TIMEOUT_DEFAULT_USEC,
+                .input_partial_since = USEC_INFINITY,
+                .output_partial_since = USEC_INFINITY,
                 .ucred = UCRED_INVALID,
                 .peer_pidfd = -EBADF,
                 .af = -1,
@@ -127,6 +145,7 @@ static void json_stream_free_input_buffer(JsonStream *s) {
 
         s->input_buffer = FLAGS_SET(s->flags, JSON_STREAM_INPUT_SENSITIVE) ? erase_and_free(s->input_buffer) : mfree(s->input_buffer);
         s->input_buffer_index = s->input_buffer_size = s->input_buffer_unscanned = 0;
+        s->input_partial_since = USEC_INFINITY;
 }
 
 static void json_stream_clear(JsonStream *s) {
@@ -158,6 +177,8 @@ static void json_stream_clear(JsonStream *s) {
         s->output_buffer = FLAGS_SET(s->flags, JSON_STREAM_OUTPUT_BUFFER_SENSITIVE) ? erase_and_free(s->output_buffer) : mfree(s->output_buffer);
         s->output_buffer_index = s->output_buffer_size = 0;
         s->flags &= ~JSON_STREAM_OUTPUT_BUFFER_SENSITIVE;
+        s->output_partial_since = USEC_INFINITY;
+        iovec_done_erase(&s->output_delimiter_tail);
 
         s->input_control_buffer = mfree(s->input_control_buffer);
         s->input_control_buffer_size = 0;
@@ -425,7 +446,7 @@ static void json_stream_handle_revents(JsonStream *s, int revents) {
         }
 }
 
-int json_stream_wait(JsonStream *s, usec_t timeout) {
+static int json_stream_wait_until(JsonStream *s, usec_t timeout, usec_t deadline) {
         int events, r;
 
         assert(s);
@@ -434,9 +455,7 @@ int json_stream_wait(JsonStream *s, usec_t timeout) {
         if (events < 0)
                 return events;
 
-        /* MIN the caller's timeout with our own deadline (if any) so that we wake up to
-         * fire the idle timeout. */
-        usec_t deadline = json_stream_get_timeout(s);
+        /* MIN the caller's timeout with the specified deadline (if any) so that we wake up to fire it. */
         if (deadline != USEC_INFINITY)
                 timeout = MIN(timeout, usec_sub_unsigned(deadline, now(CLOCK_MONOTONIC)));
 
@@ -475,6 +494,13 @@ int json_stream_wait(JsonStream *s, usec_t timeout) {
         return 1;
 }
 
+int json_stream_wait(JsonStream *s, usec_t timeout) {
+        assert(s);
+
+        /* Wake up for any of our own deadlines too, so that the caller can act on them. */
+        return json_stream_wait_until(s, timeout, json_stream_get_timeout(s));
+}
+
 /* ===== Timeout management ===== */
 
 static usec_t json_stream_get_deadline(const JsonStream *s) {
@@ -483,7 +509,7 @@ static usec_t json_stream_get_deadline(const JsonStream *s) {
         return usec_add(s->last_activity, s->timeout);
 }
 
-usec_t json_stream_get_timeout(const JsonStream *s) {
+usec_t json_stream_get_idle_deadline(const JsonStream *s) {
         assert(s);
 
         /* The deadline is in force only when the consumer is in PHASE_AWAITING_REPLY. In
@@ -493,6 +519,37 @@ usec_t json_stream_get_timeout(const JsonStream *s) {
                 return USEC_INFINITY;
 
         return json_stream_get_deadline(s);
+}
+
+static usec_t json_stream_get_input_partial_deadline(const JsonStream *s) {
+        assert(s);
+
+        /* Only in force while the consumer actually wants to read: if it doesn't, the rest of the message
+         * might already be sitting in the socket buffer, and it's not the peer's fault we don't read it. */
+        if (s->input_partial_since == USEC_INFINITY ||
+            FLAGS_SET(s->flags, JSON_STREAM_READ_DISCONNECTED) ||
+            !phase_is_reading(json_stream_current_phase(s)))
+                return USEC_INFINITY;
+
+        return usec_add(s->input_partial_since, s->partial_message_timeout);
+}
+
+static usec_t json_stream_get_output_partial_deadline(const JsonStream *s) {
+        assert(s);
+
+        if (s->output_partial_since == USEC_INFINITY ||
+            FLAGS_SET(s->flags, JSON_STREAM_WRITE_DISCONNECTED))
+                return USEC_INFINITY;
+
+        return usec_add(s->output_partial_since, s->partial_message_timeout);
+}
+
+usec_t json_stream_get_timeout(const JsonStream *s) {
+        assert(s);
+
+        return MIN3(json_stream_get_idle_deadline(s),
+                    json_stream_get_input_partial_deadline(s),
+                    json_stream_get_output_partial_deadline(s));
 }
 
 static void json_stream_rearm_time_source(JsonStream *s) {
@@ -524,6 +581,13 @@ void json_stream_set_timeout(JsonStream *s, usec_t timeout) {
         /* If the configured timeout changes mid-flight, rearm the time source so the new
          * deadline takes effect immediately rather than waiting for the next mark_activity
          * or successful write. */
+        json_stream_rearm_time_source(s);
+}
+
+void json_stream_set_partial_message_timeout(JsonStream *s, usec_t timeout) {
+        assert(s);
+
+        s->partial_message_timeout = timeout > 0 ? timeout : JSON_STREAM_PARTIAL_MESSAGE_TIMEOUT_DEFAULT_USEC;
         json_stream_rearm_time_source(s);
 }
 
@@ -752,8 +816,9 @@ static int json_stream_time_callback(sd_event_source *source, uint64_t usec, voi
         int r;
 
         /* Disable the source: it must not fire again until activity is marked. The consumer
-         * notices the timeout by comparing now() to json_stream_get_timeout() in its dispatch
-         * callback. */
+         * notices the timeout by comparing now() to json_stream_get_idle_deadline() in its dispatch
+         * callback, or by json_stream_read()/json_stream_write() failing with -ETIMEDOUT if a
+         * partial message timed out. */
         (void) sd_event_source_set_enabled(s->time_event_source, SD_EVENT_OFF);
 
         r = s->dispatch_cb(s->userdata);
@@ -904,12 +969,15 @@ int json_stream_flush(JsonStream *s) {
                         continue;
                 }
 
-                r = json_stream_wait(s, USEC_INFINITY);
+                /* Only wait for the output partial message deadline here: the other deadlines cannot be
+                 * cleared by writing, hence once elapsed we'd busy loop on them. If this one elapsed, this
+                 * returns 0 and json_stream_write() then fails with -ETIMEDOUT, since the peer stopped
+                 * reading in the middle of a message. */
+                r = json_stream_wait_until(s, USEC_INFINITY, json_stream_get_output_partial_deadline(s));
                 if (ERRNO_IS_NEG_TRANSIENT(r))
                         continue;
                 if (r < 0)
                         return json_stream_log_errno(s, r, "Poll failed on fd: %m");
-                assert(r > 0);
         }
 
         return ret;
@@ -1107,6 +1175,57 @@ int json_stream_enqueue_full(JsonStream *s, sd_json_variant *m, const int fds[],
 
 /* ===== Write side ===== */
 
+/* Called with the bytes just written out. Returns true if they contain at least one complete message
+ * delimiter, and sets *ret_ends_at_boundary if they end exactly with one. Delimiters that straddle
+ * multiple writes are recognized too, since we keep the last strlen(delimiter) - 1 bytes written in
+ * output_delimiter_tail. */
+static bool json_stream_scan_output(JsonStream *s, const char *p, size_t n, bool *ret_ends_at_boundary) {
+        assert(s);
+        assert(p || n == 0);
+        assert(ret_ends_at_boundary);
+
+        const char *d = json_stream_delimiter_bytes(s);
+        size_t dsz = json_stream_delimiter_size(s);
+        size_t k = dsz - 1;
+        struct iovec *tail = &s->output_delimiter_tail;
+
+        assert(tail->iov_len <= k);
+
+        /* The previously written tail, followed by the beginning of the new data: any delimiter that
+         * straddles the two is fully contained in this. If n < dsz all new data is in here. */
+        size_t m = MIN(n, k);
+        size_t elen = tail->iov_len + m;
+        char *edge = newa(char, MAX(elen, 1U));
+        memcpy_safe(mempcpy_safe(edge, tail->iov_base, tail->iov_len), p, m);
+
+        bool found = memmem_safe(edge, elen, d, dsz) || memmem_safe(p, n, d, dsz);
+
+        bool ends;
+        if (n >= dsz)
+                ends = memcmp(p + n - dsz, d, dsz) == 0;
+        else
+                ends = elen >= dsz && memcmp(edge + elen - dsz, d, dsz) == 0;
+
+        if (ends || k == 0)
+                /* The delimiter is consumed, it must not be matched again together with the next data */
+                tail->iov_len = 0;
+        else if (n >= k) {
+                memcpy(tail->iov_base, p + n - k, k);
+                tail->iov_len = k;
+        } else {
+                /* Keep the last k - n bytes of the old tail, and append the new data */
+                size_t keep = MIN(tail->iov_len, k - n);
+                memmove(tail->iov_base, (char*) tail->iov_base + tail->iov_len - keep, keep);
+                memcpy((char*) tail->iov_base + keep, p, n);
+                tail->iov_len = keep + n;
+        }
+
+        explicit_bzero_safe(edge, elen);
+
+        *ret_ends_at_boundary = ends;
+        return found;
+}
+
 int json_stream_write(JsonStream *s) {
         ssize_t n;
         int r;
@@ -1153,8 +1272,17 @@ int json_stream_write(JsonStream *s) {
         else
                 n = send(s->output_fd, s->output_buffer + s->output_buffer_index, s->output_buffer_size, MSG_DONTWAIT|MSG_NOSIGNAL);
         if (n < 0) {
-                if (ERRNO_IS_TRANSIENT(errno))
+                if (ERRNO_IS_TRANSIENT(errno)) {
+                        if (json_stream_get_output_partial_deadline(s) <= json_stream_now(s)) {
+                                /* Consider the write side dead from now on, so that the elapsed deadline
+                                 * doesn't stay in force (and wake us up over and over again) if the
+                                 * consumer keeps the stream around. */
+                                s->flags |= JSON_STREAM_WRITE_DISCONNECTED;
+                                return json_stream_log_errno(s, SYNTHETIC_ERRNO(ETIMEDOUT),
+                                                             "Peer did not read the rest of a partially written message in time, giving up.");
+                        }
                         return 0;
+                }
 
                 if (ERRNO_IS_DISCONNECT(errno)) {
                         s->flags |= JSON_STREAM_WRITE_DISCONNECTED;
@@ -1163,6 +1291,15 @@ int json_stream_write(JsonStream *s) {
 
                 return -errno;
         }
+
+        /* Determine whether we stopped in the middle of a message. If we did, and we didn't complete any
+         * message with this write, the old timestamp remains in force. */
+        bool ends_at_boundary;
+        bool completed = json_stream_scan_output(s, s->output_buffer + s->output_buffer_index, n, &ends_at_boundary);
+        if (ends_at_boundary)
+                s->output_partial_since = USEC_INFINITY;
+        else if (s->output_partial_since == USEC_INFINITY || completed)
+                s->output_partial_since = json_stream_now(s);
 
         if (FLAGS_SET(s->flags, JSON_STREAM_OUTPUT_BUFFER_SENSITIVE))
                 explicit_bzero_safe(s->output_buffer + s->output_buffer_index, n);
@@ -1223,7 +1360,7 @@ static ssize_t json_stream_peek_message_boundary(JsonStream *s, void *p, size_t 
         size_t dsz = json_stream_delimiter_size(s);
         /* Include the buffered suffix in case the delimiter straddles the old and new data. */
         size_t rescan = MIN(s->input_buffer_size, dsz - 1);
-        void *delim = memmem_safe((char*) p - rescan, rescan + peeked, s->delimiter ?: "\0", dsz);
+        void *delim = memmem_safe((char*) p - rescan, rescan + peeked, json_stream_delimiter_bytes(s), dsz);
         if (delim)
                 return (char*) delim + dsz - (char*) p;
 
@@ -1328,6 +1465,13 @@ int json_stream_read(JsonStream *s) {
                  * returned no data, so we free the buffer again, like json_stream_parse() does. */
                 if (s->input_buffer_size == 0)
                         json_stream_free_input_buffer(s);
+
+                if (json_stream_get_input_partial_deadline(s) <= json_stream_now(s)) {
+                        /* Same as on the write side: the read side is dead from now on. */
+                        s->flags |= JSON_STREAM_READ_DISCONNECTED;
+                        return json_stream_log_errno(s, SYNTHETIC_ERRNO(ETIMEDOUT),
+                                                     "Peer did not send the rest of a partially received message in time, giving up.");
+                }
                 return 0;
         }
         if (ERRNO_IS_NEG_DISCONNECT(n)) {
@@ -1405,9 +1549,15 @@ int json_stream_parse(JsonStream *s, sd_json_variant **ret) {
         begin = s->input_buffer + s->input_buffer_index;
 
         size_t dsz = json_stream_delimiter_size(s);
-        e = memmem_safe(begin + s->input_buffer_size - s->input_buffer_unscanned, s->input_buffer_unscanned, s->delimiter ?: "\0", dsz);
+        e = memmem_safe(begin + s->input_buffer_size - s->input_buffer_unscanned, s->input_buffer_unscanned, json_stream_delimiter_bytes(s), dsz);
         if (!e) {
                 s->input_buffer_unscanned = 0;
+
+                /* We have the beginning of a message, but not its end. Start the clock, unless it is
+                 * already running for this message. */
+                if (s->input_partial_since == USEC_INFINITY)
+                        s->input_partial_since = json_stream_now(s);
+
                 *ret = NULL;
                 return 0;
         }
@@ -1426,6 +1576,7 @@ int json_stream_parse(JsonStream *s, sd_json_variant **ret) {
         if (r < 0) {
                 /* Unrecoverable parse failure: drop all buffered data. */
                 s->input_buffer_index = s->input_buffer_size = s->input_buffer_unscanned = 0;
+                s->input_partial_since = USEC_INFINITY;
                 return json_stream_log_errno(s, r, "Failed to parse JSON object: %m");
         }
 
@@ -1439,6 +1590,7 @@ int json_stream_parse(JsonStream *s, sd_json_variant **ret) {
         }
 
         s->input_buffer_size -= sz;
+        s->input_partial_since = USEC_INFINITY;
 
         /* The read buffer has room for read_chunk bytes (64K by default). An empty buffer that stays
          * allocated uses that memory until the connection closes. A server like PID 1 keeps many connections
@@ -1526,7 +1678,7 @@ static int json_stream_serialize_buffer(const char *buffer, size_t index, size_t
 int json_stream_serialize(const JsonStream *s, sd_json_variant **ret, int **fds, size_t *n_fds) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant
                 *input_fd = NULL, *output_fd = NULL,
-                *input_buffer = NULL, *output_buffer = NULL,
+                *input_buffer = NULL, *output_buffer = NULL, *output_delimiter_tail = NULL,
                 *input_fds = NULL, *output_fds = NULL,
                 *peer_pidfd = NULL, *queue = NULL;
         int r;
@@ -1578,6 +1730,15 @@ int json_stream_serialize(const JsonStream *s, sd_json_variant **ret, int **fds,
         if (r < 0)
                 return r;
 
+        r = json_stream_serialize_buffer(
+                        s->output_delimiter_tail.iov_base,
+                        /* index= */ 0,
+                        s->output_delimiter_tail.iov_len,
+                        /* sensitive= */ FLAGS_SET(s->flags, JSON_STREAM_OUTPUT_BUFFER_SENSITIVE),
+                        &output_delimiter_tail);
+        if (r < 0)
+                return r;
+
         r = json_stream_serialize_fd_array(s->input_fds, s->n_input_fds, fds, n_fds, &input_fds);
         if (r < 0)
                 return r;
@@ -1613,6 +1774,8 @@ int json_stream_serialize(const JsonStream *s, sd_json_variant **ret, int **fds,
                         JSON_BUILD_PAIR_CONDITION_BOOLEAN(FLAGS_SET(s->flags, JSON_STREAM_GOT_POLLHUP), "gotPollHup", true),
                         JSON_BUILD_PAIR_CONDITION_BOOLEAN(FLAGS_SET(s->flags, JSON_STREAM_OUTPUT_BUFFER_SENSITIVE), "outputBufferSensitive", true),
                         JSON_BUILD_PAIR_FINITE_USEC("lastActivityUSec", s->last_activity),
+                        JSON_BUILD_PAIR_FINITE_USEC("inputPartialSinceUSec", s->input_partial_since),
+                        JSON_BUILD_PAIR_FINITE_USEC("outputPartialSinceUSec", s->output_partial_since),
                         SD_JSON_BUILD_PAIR_CONDITION(
                                         s->ucred_acquired && s->ucred_overridden,
                                         "overrideUcred",
@@ -1624,6 +1787,7 @@ int json_stream_serialize(const JsonStream *s, sd_json_variant **ret, int **fds,
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("inputBuffer", input_buffer),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("inputFds", input_fds),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("outputBuffer", output_buffer),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("outputDelimiterTail", output_delimiter_tail),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("outputFds", output_fds),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("outputQueue", queue));
 }
@@ -1793,38 +1957,46 @@ typedef struct JsonStreamSerialization {
         bool got_pollhup;
         bool output_buffer_sensitive;
         usec_t last_activity;
+        usec_t input_partial_since;
+        usec_t output_partial_since;
         sd_json_variant *override_ucred;
         sd_json_variant *peer_pidfd;
         sd_json_variant *input_buffer;
         sd_json_variant *input_fds;
         sd_json_variant *output_buffer;
+        sd_json_variant *output_delimiter_tail;
         sd_json_variant *output_fds;
         sd_json_variant *output_queue;
 } JsonStreamSerialization;
 
 int json_stream_deserialize(JsonStream *s, sd_json_variant *v, const int *fds, size_t n_fds) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "inputFd",               _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_variant_noref, offsetof(JsonStreamSerialization, input_fd),                SD_JSON_MANDATORY },
-                { "outputFd",              _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_variant_noref, offsetof(JsonStreamSerialization, output_fd),               SD_JSON_MANDATORY },
-                { "connecting",            SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       offsetof(JsonStreamSerialization, connecting),              0                 },
-                { "readDisconnected",      SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       offsetof(JsonStreamSerialization, read_disconnected),       0                 },
-                { "writeDisconnected",     SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       offsetof(JsonStreamSerialization, write_disconnected),      0                 },
-                { "gotPollHup",            SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       offsetof(JsonStreamSerialization, got_pollhup),             0                 },
-                { "outputBufferSensitive", SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       offsetof(JsonStreamSerialization, output_buffer_sensitive), 0                 },
-                { "lastActivityUSec",      _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,        offsetof(JsonStreamSerialization, last_activity),           0                 },
-                { "overrideUcred",         SD_JSON_VARIANT_OBJECT,        sd_json_dispatch_variant_noref, offsetof(JsonStreamSerialization, override_ucred),          0                 },
-                { "peerPidfd",             SD_JSON_VARIANT_UNSIGNED,      sd_json_dispatch_variant_noref, offsetof(JsonStreamSerialization, peer_pidfd),              0                 },
-                { "inputBuffer",           SD_JSON_VARIANT_STRING,        sd_json_dispatch_variant_noref, offsetof(JsonStreamSerialization, input_buffer),            0                 },
-                { "inputFds",              SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant_noref, offsetof(JsonStreamSerialization, input_fds),               0                 },
-                { "outputBuffer",          SD_JSON_VARIANT_STRING,        sd_json_dispatch_variant_noref, offsetof(JsonStreamSerialization, output_buffer),           0                 },
-                { "outputFds",             SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant_noref, offsetof(JsonStreamSerialization, output_fds),              0                 },
-                { "outputQueue",           SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant_noref, offsetof(JsonStreamSerialization, output_queue),            0                 },
+                { "inputFd",                _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_variant_noref, offsetof(JsonStreamSerialization, input_fd),                SD_JSON_MANDATORY },
+                { "outputFd",               _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_variant_noref, offsetof(JsonStreamSerialization, output_fd),               SD_JSON_MANDATORY },
+                { "connecting",             SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       offsetof(JsonStreamSerialization, connecting),              0                 },
+                { "readDisconnected",       SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       offsetof(JsonStreamSerialization, read_disconnected),       0                 },
+                { "writeDisconnected",      SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       offsetof(JsonStreamSerialization, write_disconnected),      0                 },
+                { "gotPollHup",             SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       offsetof(JsonStreamSerialization, got_pollhup),             0                 },
+                { "outputBufferSensitive",  SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       offsetof(JsonStreamSerialization, output_buffer_sensitive), 0                 },
+                { "lastActivityUSec",       _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,        offsetof(JsonStreamSerialization, last_activity),           0                 },
+                { "inputPartialSinceUSec",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,        offsetof(JsonStreamSerialization, input_partial_since),     0                 },
+                { "outputPartialSinceUSec", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,        offsetof(JsonStreamSerialization, output_partial_since),    0                 },
+                { "overrideUcred",          SD_JSON_VARIANT_OBJECT,        sd_json_dispatch_variant_noref, offsetof(JsonStreamSerialization, override_ucred),          0                 },
+                { "peerPidfd",              SD_JSON_VARIANT_UNSIGNED,      sd_json_dispatch_variant_noref, offsetof(JsonStreamSerialization, peer_pidfd),              0                 },
+                { "inputBuffer",            SD_JSON_VARIANT_STRING,        sd_json_dispatch_variant_noref, offsetof(JsonStreamSerialization, input_buffer),            0                 },
+                { "inputFds",               SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant_noref, offsetof(JsonStreamSerialization, input_fds),               0                 },
+                { "outputBuffer",           SD_JSON_VARIANT_STRING,        sd_json_dispatch_variant_noref, offsetof(JsonStreamSerialization, output_buffer),           0                 },
+                { "outputDelimiterTail",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_variant_noref, offsetof(JsonStreamSerialization, output_delimiter_tail),   0                 },
+                { "outputFds",              SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant_noref, offsetof(JsonStreamSerialization, output_fds),              0                 },
+                { "outputQueue",            SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant_noref, offsetof(JsonStreamSerialization, output_queue),            0                 },
                 {}
         };
 
-        _cleanup_(iovec_done_erase) struct iovec input_buffer = {}, output_buffer = {};
+        _cleanup_(iovec_done_erase) struct iovec input_buffer = {}, output_buffer = {}, output_delimiter_tail = {};
         JsonStreamSerialization p = {
                 .last_activity = USEC_INFINITY,
+                .input_partial_since = USEC_INFINITY,
+                .output_partial_since = USEC_INFINITY,
         };
         int r;
 
@@ -1844,6 +2016,10 @@ int json_stream_deserialize(JsonStream *s, sd_json_variant *v, const int *fds, s
                 return r;
 
         r = json_stream_deserialize_buffer(p.output_buffer, s->buffer_max, &output_buffer);
+        if (r < 0)
+                return r;
+
+        r = json_stream_deserialize_buffer(p.output_delimiter_tail, json_stream_delimiter_size(s) - 1, &output_delimiter_tail);
         if (r < 0)
                 return r;
 
@@ -1929,12 +2105,19 @@ int json_stream_deserialize(JsonStream *s, sd_json_variant *v, const int *fds, s
         if (input_buffer.iov_len > 0) {
                 s->input_buffer = TAKE_PTR(input_buffer.iov_base);
                 s->input_buffer_size = s->input_buffer_unscanned = TAKE_GENERIC(input_buffer.iov_len, size_t, 0);
+                s->input_partial_since = p.input_partial_since;
         }
 
         if (output_buffer.iov_len > 0) {
                 s->output_buffer = TAKE_PTR(output_buffer.iov_base);
                 s->output_buffer_size = TAKE_GENERIC(output_buffer.iov_len, size_t, 0);
                 SET_FLAG(s->flags, JSON_STREAM_OUTPUT_BUFFER_SENSITIVE, p.output_buffer_sensitive);
+                s->output_partial_since = p.output_partial_since;
+
+                /* The tail only matters while we are in the middle of the output buffer. Note that the
+                 * buffer for it has been allocated by json_stream_init() already, with the right size. */
+                memcpy_safe(s->output_delimiter_tail.iov_base, output_delimiter_tail.iov_base, output_delimiter_tail.iov_len);
+                s->output_delimiter_tail.iov_len = output_delimiter_tail.iov_len;
         }
 
         return json_stream_deserialize_queue(s, p.output_queue, fds, n_fds);
