@@ -1763,6 +1763,22 @@ EOF
         }
 ]
 EOF
+    cat >/run/systemd/resolve/static.d/statictest-dname.rr <<EOF
+[
+        {
+                "key": { "name" : "dname.waldo", "type" : 39 },
+                "name": "target.waldo"
+        },
+        {
+                "key": { "name" : "foo.target.waldo", "type" : 1 },
+                "address" : [ 5, 7, 9, 13 ]
+        },
+        {
+                "key": { "name" : "target.waldo", "type" : 1 },
+                "address" : [ 5, 7, 9, 14 ]
+        }
+]
+EOF
     cat >/run/systemd/resolve/static.d/garbage.rr <<EOF
 [
         {
@@ -1787,6 +1803,28 @@ EOF
     run resolvectl query statictest2.waldo
     grep -qF 5.7.9.12 "$RUN_OUT"
     grep -qF a0b:a0b:a0b:a0b:a0b:a0b:a0b:a0c "$RUN_OUT"
+
+    run resolvectl query foo.dname.waldo
+    grep -qF 5.7.9.13 "$RUN_OUT"
+
+    run dig @127.0.0.53 foo.dname.waldo
+    grep -qF "foo.dname.waldo." "$RUN_OUT"
+    grep -qF "CNAME" "$RUN_OUT"
+    grep -qF "foo.target.waldo." "$RUN_OUT"
+    grep -qF "DNAME" "$RUN_OUT"
+    grep -qF "5.7.9.13" "$RUN_OUT"
+
+    run getent hosts -s dns foo.dname.waldo
+    grep -qF "5.7.9.13" "$RUN_OUT"
+
+    run resolvectl query target.waldo
+    grep -qF "5.7.9.14" "$RUN_OUT"
+
+    # A DNAME redirects names below its owner, but not the owner itself.
+    (! resolvectl query dname.waldo)
+
+    run resolvectl query --type=DNAME dname.waldo
+    grep -qF target.waldo "$RUN_OUT"
 
     rm /run/systemd/resolve/static.d/statictest*.rr /run/systemd/resolve/static.d/garbage*.rr
     systemctl reload systemd-resolved
