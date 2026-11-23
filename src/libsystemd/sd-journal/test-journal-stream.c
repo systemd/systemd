@@ -66,7 +66,7 @@ static void run_test(void) {
         char *z;
         const void *data;
         size_t l;
-        dual_timestamp previous_ts = DUAL_TIMESTAMP_NULL;
+        triple_timestamp previous_ts = TRIPLE_TIMESTAMP_NULL;
 
         ASSERT_NOT_NULL(m = mmap_cache_new());
 
@@ -80,10 +80,10 @@ static void run_test(void) {
 
         for (i = 0; i < N_ENTRIES; i++) {
                 char *p, *q;
-                dual_timestamp ts;
+                triple_timestamp ts;
                 struct iovec iovec[2];
 
-                dual_timestamp_now(&ts);
+                triple_timestamp_now(&ts);
 
                 if (ts.monotonic <= previous_ts.monotonic)
                         ts.monotonic = previous_ts.monotonic + 1;

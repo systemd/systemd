@@ -104,9 +104,9 @@ static int run_test(const char *verification_key, ssize_t max_iterations) {
         for (size_t n = 0; n < N_ENTRIES; n++) {
                 _cleanup_free_ char *test = NULL;
                 struct iovec iovec;
-                struct dual_timestamp ts;
+                struct triple_timestamp ts;
 
-                dual_timestamp_now(&ts);
+                triple_timestamp_now(&ts);
                 ASSERT_OK_ERRNO(asprintf(&test, "RANDOM=%li", random() % RANDOM_RANGE));
                 iovec = IOVEC_MAKE_STRING(test);
                 ASSERT_OK_ZERO(journal_file_append_entry(
@@ -178,7 +178,7 @@ static void test_hash_chain_cycle(void) {
         char t[] = "/var/tmp/journal-XXXXXX", second[64];
         const char *first = "CYCLE=first";
         uint64_t buckets, bucket, head, tail;
-        struct dual_timestamp ts;
+        struct triple_timestamp ts;
         JournalFile *f;
         le64_t back;
         int fd;
@@ -204,7 +204,7 @@ static void test_hash_chain_cycle(void) {
                                 m,
                                 /* template= */ NULL,
                                 &f));
-        dual_timestamp_now(&ts);
+        triple_timestamp_now(&ts);
 
         /* We need two data objects in the same hash chain. journal_file_hash_data() is keyed per-file, so
          * compute the colliding value against the open file. */
@@ -295,9 +295,9 @@ static void test_entry_reference_one(bool in_data_object) {
         /* Three entries with the same field, i.e. one data object that references all of them */
         for (size_t k = 0; k < 3; k++) {
                 struct iovec iovec = IOVEC_MAKE_STRING(field);
-                struct dual_timestamp ts;
+                struct triple_timestamp ts;
 
-                dual_timestamp_now(&ts);
+                triple_timestamp_now(&ts);
                 ASSERT_OK_ZERO(journal_file_append_entry(
                                         f,
                                         &ts,
