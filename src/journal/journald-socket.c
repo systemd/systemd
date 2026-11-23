@@ -94,8 +94,9 @@ int manager_forward_socket(
                 return r;
 
         /* We need a newline after each iovec + 4 for each we have to serialize in a binary safe way
-         * + 2 for the final __REALTIME_TIMESTAMP and __MONOTONIC_TIMESTAMP metadata fields. */
-        size_t n = n_iovec * 5 + 2;
+         * + 3 for the final __REALTIME_TIMESTAMP, __MONOTONIC_TIMESTAMP and __BOOTTIME_TIMESTAMP metadata
+         * fields + 1 for the final empty line. */
+        size_t n = n_iovec * 5 + 4;
 
         if (n < ALLOCA_MAX / (sizeof(struct iovec) + sizeof(le64_t)) / 2) {
                 iov = newa(struct iovec, n);
@@ -143,15 +144,24 @@ int manager_forward_socket(
                 iov[iov_idx++] = nl;
         }
 
-        /* Synthesise __REALTIME_TIMESTAMP and __MONOTONIC_TIMESTAMP as the last arguments so
-         * systemd-journal-upload can receive these export messages. */
+        /* Synthesise __REALTIME_TIMESTAMP, __MONOTONIC_TIMESTAMP and __BOOTTIME_TIMESTAMP as the last
+         * arguments so systemd-journal-upload can receive these export messages. */
         char realtime_buf[STRLEN("__REALTIME_TIMESTAMP=") + DECIMAL_STR_MAX(usec_t) + 1];
         xsprintf(realtime_buf, "__REALTIME_TIMESTAMP="USEC_FMT"\n", ts->realtime);
         iov[iov_idx++] = IOVEC_MAKE_STRING(realtime_buf);
 
-        char monotonic_buf[STRLEN("__MONOTONIC_TIMESTAMP=") + DECIMAL_STR_MAX(usec_t) + 2];
-        xsprintf(monotonic_buf, "__MONOTONIC_TIMESTAMP="USEC_FMT"\n\n", ts->monotonic);
+        char monotonic_buf[STRLEN("__MONOTONIC_TIMESTAMP=") + DECIMAL_STR_MAX(usec_t) + 1];
+        xsprintf(monotonic_buf, "__MONOTONIC_TIMESTAMP="USEC_FMT"\n", ts->monotonic);
         iov[iov_idx++] = IOVEC_MAKE_STRING(monotonic_buf);
+
+        char boottime_buf[STRLEN("__BOOTTIME_TIMESTAMP=") + DECIMAL_STR_MAX(usec_t) + 1];
+        if (timestamp_is_set(ts->boottime)) {
+                xsprintf(boottime_buf, "__BOOTTIME_TIMESTAMP="USEC_FMT"\n", ts->boottime);
+                iov[iov_idx++] = IOVEC_MAKE_STRING(boottime_buf);
+        }
+
+        /* Terminate the entry with an empty line */
+        iov[iov_idx++] = nl;
 
         if (writev(m->forward_socket_fd, iov, iov_idx) < 0) {
                 log_debug_errno(errno, "Failed to forward log message over socket: %m");
