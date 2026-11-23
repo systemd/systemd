@@ -19,6 +19,7 @@
 #include "sparse-endian.h"
 #include "string-util.h"
 #include "strv.h"
+#include "unaligned.h"
 
 #define SHORTEN_IFNAME_HASH_KEY SD_ID128_MAKE(e1,90,a4,04,a8,ef,4b,51,8c,cc,c3,3a,9f,11,fc,a2)
 
@@ -237,10 +238,8 @@ int net_generate_mac(
         /* combine with some data unique (on this host) to this
          * container instance */
         i = mempcpy(v + sizeof(sd_id128_t), machine_name, l);
-        if (idx > 0) {
-                idx = htole64(idx);
-                memcpy(i, &idx, sizeof(idx));
-        }
+        if (idx > 0)
+                unaligned_write_le64(i, idx);
 
         /* Let's hash the host machine ID plus the container name. We
          * use a fixed, but originally randomly created hash key here. */

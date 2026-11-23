@@ -9,6 +9,7 @@
 #include "log.h"
 #include "string-util.h"
 #include "time-util.h"
+#include "unaligned.h"
 #include "utf8.h"
 
 /**
@@ -228,20 +229,16 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
 
                         _fallthrough_;
                 }
-                case ENTRY_BINARY_FIELD_SIZE: {
-                        uint64_t le64;
-
+                case ENTRY_BINARY_FIELD_SIZE:
                         /* need space for uint64_t */
-                        if (size - pos < 8)
+                        if (size - pos < sizeof(uint64_t))
                                 return pos;
 
-                        le64 = htole64(u->field_length - u->field_pos);
-                        memcpy(buf + pos, &le64, 8);
-                        pos += 8;
+                        unaligned_write_le64(buf + pos, u->field_length - u->field_pos);
+                        pos += sizeof(uint64_t);
 
                         u->entry_state++;
                         continue;
-                }
 
                 case ENTRY_OUTRO:
                         /* need space for '\n' */
