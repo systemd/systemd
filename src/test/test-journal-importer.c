@@ -5,6 +5,8 @@
 #include "alloc-util.h"
 #include "fs-util.h"
 #include "journal-importer.h"
+#include "memfd-util.h"
+#include "time-util.h"
 #include "tests.h"
 
 static void assert_iovec_entry(const struct iovec *iovec, const char* content) {
@@ -58,6 +60,46 @@ TEST(bad_input) {
         ASSERT_OK_ZERO(r); /* If we don't have enough input, 0 is returned */
 
         ASSERT_TRUE(journal_importer_eof(&imp));
+}
+
+static void process_one(JournalImporter *imp) {
+        int r;
+
+        do
+                r = journal_importer_process_data(imp);
+        while (r == 0 && !journal_importer_eof(imp));
+        ASSERT_OK_EQ(r, 1);
+}
+
+TEST(boottime) {
+        _cleanup_(journal_importer_cleanup) JournalImporter imp = JOURNAL_IMPORTER_INIT(-EBADF);
+        static const char data[] =
+                "__REALTIME_TIMESTAMP=1478389147837970\n"
+                "__MONOTONIC_TIMESTAMP=643741389288\n"
+                "__BOOTTIME_TIMESTAMP=643741400000\n"
+                "MESSAGE=one\n"
+                "\n"
+                "__REALTIME_TIMESTAMP=1478389147837971\n"
+                "__MONOTONIC_TIMESTAMP=643741389289\n"
+                "MESSAGE=two\n"
+                "\n";
+
+        imp.fd = ASSERT_OK(memfd_new_and_seal_string("journal-export", data));
+
+        process_one(&imp);
+        ASSERT_EQ(imp.iovw.count, 1U);
+        assert_iovec_entry(&imp.iovw.iovec[0], "MESSAGE=one");
+        ASSERT_EQ(imp.ts.monotonic, UINT64_C(643741389288));
+        ASSERT_EQ(imp.ts.boottime, UINT64_C(643741400000));
+        journal_importer_drop_iovw(&imp);
+
+        /* The boottime timestamp of the previous entry must not be inherited */
+        process_one(&imp);
+        ASSERT_EQ(imp.iovw.count, 1U);
+        assert_iovec_entry(&imp.iovw.iovec[0], "MESSAGE=two");
+        ASSERT_EQ(imp.ts.monotonic, UINT64_C(643741389289));
+        ASSERT_EQ(imp.ts.boottime, USEC_INFINITY);
+        journal_importer_drop_iovw(&imp);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

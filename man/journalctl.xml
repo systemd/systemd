@@ -564,6 +564,19 @@
           </varlistentry>
 
           <varlistentry>
+            <term><option>short-boottime</option></term>
+            <listitem><para>is very similar, but shows <constant>CLOCK_BOOTTIME</constant> timestamps
+            instead of wallclock timestamps. Unlike the monotonic timestamps shown by
+            <option>short-monotonic</option>, these include time the system spent suspended. Entries
+            written by older versions of
+            <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            do not carry a <constant>CLOCK_BOOTTIME</constant> timestamp, and are not shown in this
+            mode, except for kernel messages.</para>
+
+            <xi:include href="version-info.xml" xpointer="v264"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
             <term><option>short-unix</option></term>
             <listitem><para>is very similar, but shows seconds passed since January 1st 1970 UTC instead of
             wallclock timestamps ("UNIX time"). The time is shown with microsecond accuracy.</para>
@@ -679,8 +692,9 @@
         (<option>verbose</option>, <option>export</option>, <option>json</option>,
         <option>json-pretty</option>, <option>json-sse</option> and <option>json-seq</option>), as well as
         on <option>cat</option>. For the former, the <literal>__CURSOR</literal>,
-        <literal>__REALTIME_TIMESTAMP</literal>, <literal>__MONOTONIC_TIMESTAMP</literal>, and
-        <literal>_BOOT_ID</literal> fields are always printed.</para>
+        <literal>__REALTIME_TIMESTAMP</literal>, <literal>__MONOTONIC_TIMESTAMP</literal>,
+        <literal>__BOOTTIME_TIMESTAMP</literal> (if known), and <literal>_BOOT_ID</literal> fields are always
+        printed.</para>
 
         <xi:include href="version-info.xml" xpointer="v236"/></listitem>
       </varlistentry>

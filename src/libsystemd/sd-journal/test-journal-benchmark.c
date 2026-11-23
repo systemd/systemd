@@ -76,7 +76,7 @@ static const Format formats[] = {
 };
 
 typedef struct Entry {
-        dual_timestamp ts;
+        triple_timestamp ts;
         sd_id128_t boot_id;
         size_t first_iovec;
         size_t n_iovec;
