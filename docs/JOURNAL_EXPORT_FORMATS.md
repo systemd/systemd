@@ -28,7 +28,8 @@ The format is like this:
 * Other journal fields are serialized in a special binary safe way:
   field name, followed by newline, followed by a binary 64-bit little endian size value, followed by the binary field data, followed by a newline as separator to the next field.
 * Entry metadata that is not actually a field is serialized like it was a field, but beginning with two underscores.
-  More specifically, `__CURSOR=`, `__REALTIME_TIMESTAMP=`, `__MONOTONIC_TIMESTAMP=`, `__SEQNUM=`, `__SEQNUM_ID` are introduced this way.
+  More specifically, `__CURSOR=`, `__REALTIME_TIMESTAMP=`, `__MONOTONIC_TIMESTAMP=`, `__BOOTTIME_TIMESTAMP=`, `__SEQNUM=`, `__SEQNUM_ID` are introduced this way.
+  `__BOOTTIME_TIMESTAMP=` is optional, and only included if the boottime timestamp of an entry is known.
   Note that these meta-fields are only generated when actual journal files are serialized.
   They are omitted for entries that do not originate from a journal file (for example because they are transferred for the first time to be stored in one).
   Or in other words: if you are generating this format you shouldn't care about these special double-underscore fields.
@@ -152,8 +153,9 @@ In most cases the Journal JSON serialization is the obvious mapping of the entry
   The serializer will hence create a single JSON field only for these cases, and assign it an array of values
   (which the can be strings, _null_ or number arrays, see above).
 * If the JSON data originates from a journal file it may include the special addressing fields
-  `__CURSOR`, `__REALTIME_TIMESTAMP`, `__MONOTONIC_TIMESTAMP`, `__SEQNUM`, `__SEQNUM_ID`, which contain the cursor string of this entry as string,
-  the realtime/monotonic timestamps of this entry as formatted numeric string of usec since the respective epoch,
+  `__CURSOR`, `__REALTIME_TIMESTAMP`, `__MONOTONIC_TIMESTAMP`, `__BOOTTIME_TIMESTAMP`, `__SEQNUM`, `__SEQNUM_ID`, which contain the cursor string of this entry as string,
+  the realtime/monotonic/boottime timestamps of this entry as formatted numeric string of usec since the respective epoch
+  (the boottime timestamp is optional, and only included if it is known for the entry),
   and the sequence number and associated sequence number ID, both formatted as strings.
 
 Here's an example, illustrating all cases mentioned above. Consider this entry:

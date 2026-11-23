@@ -676,6 +676,23 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>__BOOTTIME_TIMESTAMP=</varname></term>
+        <listitem>
+          <para>The boottime clock (<constant>CLOCK_BOOTTIME</constant>) at the point in time the entry was
+          received by the journal in microseconds, formatted as a decimal. This clock is like
+          <constant>CLOCK_MONOTONIC</constant>, but also includes time the system spent in suspend. Like
+          <varname>__MONOTONIC_TIMESTAMP=</varname> this should be combined with the boot ID in
+          <literal>_BOOT_ID=</literal> to be useful as an address of the entry. This field is only included
+          if the boottime timestamp is known for the entry, which is not the case for entries written by
+          older versions of systemd. See
+          <citerefentry><refentrytitle>sd_journal_get_boottime_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+          for details.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>__SEQNUM=</varname></term>
         <term><varname>__SEQNUM_ID=</varname></term>
 
