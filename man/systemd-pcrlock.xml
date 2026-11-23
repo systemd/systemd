@@ -246,6 +246,18 @@
         <filename>/var/lib/pcrlock.d/250-firmware-code-early.pcrlock.d/generated.pcrlock</filename> and
         <filename>/var/lib/pcrlock.d/550-firmware-code-late.pcrlock.d/generated.pcrlock</filename>.</para>
 
+        <para>The <function>Lock()</function> method of the
+        <interfacename>io.systemd.PCRLock</interfacename> Varlink interface accepts an optional
+        <varname>filename</varname> parameter for the <literal>firmwareCode</literal>,
+        <literal>firmwareConfig</literal>, <literal>secureBootPolicy</literal>, and
+        <literal>secureBootAuthority</literal> categories. It selects an alternative filename, such as
+        <filename>fwupd.pcrlock</filename>, in the corresponding component directories. Firmware categories
+        use the same filename in both the early and late directories. The name must end in
+        <literal>.pcrlock</literal> and must not contain a directory path. Setting <varname>lock</varname>
+        to false removes only the selected alternative file, leaving the default file and Secure Boot
+        predictions untouched. If <varname>filename</varname> is omitted,
+        <filename>generated.pcrlock</filename> is used.</para>
+
         <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>
       </varlistentry>
@@ -290,7 +302,7 @@
         automatically generate a pcrlock file from the policy discovered.</para>
 
         <para>This writes/removes the file
-        <filename>/var/lib/pcrlock.d/230-secureboot-policy.pcrlock.d/generated.pcrlock</filename>.</para>
+        <filename>/var/lib/pcrlock.d/240-secureboot-policy.pcrlock.d/generated.pcrlock</filename>.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>
@@ -658,6 +670,67 @@
     <title>Exit status</title>
 
     <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Secure Boot Update Prediction</title>
+
+    <para>The <interfacename>io.systemd.PCRLock</interfacename> Varlink interface provides the privileged
+    <function>Lock()</function> method for software that updates Secure Boot variables.</para>
+
+    <para>The measurement categories <literal>firmwareCode</literal>, <literal>firmwareConfig</literal>,
+    <literal>secureBootPolicy</literal>, and <literal>secureBootAuthority</literal> are coarse-grained and
+    can be used to generate or remove records for the current boot, without attempting to make predictions,
+    as the intended workflow is to unlock, reboot, and lock again based on the observed boot state.</para>
+
+    <para>On the other hand, since v263, callers can select the target with the <varname>category</varname>
+    parameter: <literal>secureBootPk</literal> for <varname>PK</varname>,
+    <literal>secureBootKek</literal> for <varname>KEK</varname>, <literal>secureBootDb</literal> for
+    <varname>db</varname>, <literal>secureBootDbx</literal> for <varname>dbx</varname>,
+    <literal>secureBootDbt</literal> for <varname>dbt</varname>, or <literal>secureBootDbr</literal> for
+    <varname>dbr</varname>. For these categories, <varname>lock</varname> must be true, which is the
+    default. The method is to be called after the EFI variable write was performed. It returns
+    <literal>io.systemd.PCRLock.UpdateNotApplied</literal> if the requested write is not yet reflected in
+    the EFI variable. For <literal>secureBootDb</literal> and <literal>secureBootDbx</literal>, the
+    <varname>data</varname> parameter must contain the raw authenticated-variable update bytes encoded in
+    Base64, limited to 1 MiB. The update bytes are optional and ignored for the other variable
+    categories.</para>
+
+    <para>The resulting Secure Boot variables and the event log are used to derive host-specific variants
+    for the policy and, where possible, authority measurements of the next boot. Only automatically
+    generated Secure Boot components that are already active are updated. The resulting files are installed
+    alongside the current variants. The optional <varname>regenerate</varname> parameter controls whether the
+    TPM policy is regenerated before the method returns and defaults to true. If false, the component files
+    are updated but the TPM policy remains unchanged and must be regenerated separately.</para>
+
+    <para>For Secure Boot variable update categories, the optional <varname>filename</varname> parameter
+    is appended as a suffix to each generated prediction name, after its boot identifier, update identifier,
+    and content hash, separated by a hyphen. For example, <filename>fwupd.pcrlock</filename> produces files
+    matching <filename>generated-prediction-*-fwupd.pcrlock</filename>, so multiple variants retain distinct
+    names. The filename must end in <literal>.pcrlock</literal>, must not contain a directory path, and is
+    limited to 103 bytes to leave room for the generated prefix. If omitted, prediction names end with the
+    content hash followed by <literal>.pcrlock</literal>.</para>
+
+    <para>Prediction files in
+    <filename>/var/lib/pcrlock.d/240-secureboot-policy.pcrlock.d/</filename> and
+    <filename>/var/lib/pcrlock.d/620-secureboot-authority.pcrlock.d/</filename> use the reserved
+    <filename>generated-prediction-*.pcrlock</filename> pattern and include the current boot identifier, a
+    random update identifier, and a content hash in their names. Files matching this pattern are managed
+    exclusively by <command>systemd-pcrlock</command>, other variant names are left untouched. A subsequent
+    update in the same boot replaces earlier policy predictions with the current variable state. Authority
+    predictions are retained across policy-only updates, and replaced or removed by updates that affect the
+    authority component. Predictions from previous boots are removed before policy generation and when the
+    default Secure Boot components are regenerated. Unlocking the default <filename>generated.pcrlock</filename>
+    file of a component removes all of its prediction files, including those with a caller-supplied
+    suffix.</para>
+
+    <para>If the update format or authority outcome cannot be predicted safely, the method falls back by
+    removing the generated file and prediction variants for only the affected automatically generated
+    component. If <varname>regenerate</varname> is true, the TPM policy is then regenerated without that
+    component. Operational failures while changing files or regenerating the policy fail the method and
+    restore the previous state.</para>
+
+    <xi:include href="version-info.xml" xpointer="v262"/>
   </refsect1>
 
   <refsect1>
