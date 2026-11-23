@@ -274,13 +274,13 @@ finish:
         return r;
 }
 
-static int drop_from_file(const char *fn, uint64_t keep) {
+static int drop_from_sysctl(const char *property, uint64_t keep) {
         _cleanup_free_ char *p = NULL;
         uint64_t current, after;
         uint32_t hi, lo;
         int r, k;
 
-        r = read_one_line_file(fn, &p);
+        r = sysctl_read(property, &p);
         if (r < 0)
                 return r;
 
@@ -297,17 +297,17 @@ static int drop_from_file(const char *fn, uint64_t keep) {
         lo = after & UINT32_MAX;
         hi = (after >> 32) & UINT32_MAX;
 
-        return write_string_filef(fn, /* flags= */ 0, "%" PRIu32 " %" PRIu32, lo, hi);
+        return sysctl_writef(property, "%" PRIu32 " %" PRIu32, lo, hi);
 }
 
 int capability_bounding_set_drop_usermode(uint64_t keep) {
         int r;
 
-        r = drop_from_file("/proc/sys/kernel/usermodehelper/inheritable", keep);
+        r = drop_from_sysctl("kernel/usermodehelper/inheritable", keep);
         if (r < 0)
                 return r;
 
-        r = drop_from_file("/proc/sys/kernel/usermodehelper/bset", keep);
+        r = drop_from_sysctl("kernel/usermodehelper/bset", keep);
         if (r < 0)
                 return r;
 
