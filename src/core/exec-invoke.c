@@ -1691,9 +1691,16 @@ static int setup_pam(
 
         barrier_set_role(&barrier, BARRIER_PARENT);
 
-        /* If the child was forked off successfully it will do all the cleanups, so forget about the handle
-         * here. */
-        pamh = NULL;
+        /* If the child was forked off successfully it will do all the cleanups, including the final
+         * pam_end(). We are the process that is going to execute the payload, hence follow the PAM
+         * convention and let the modules know about that by calling pam_end() with PAM_DATA_SILENT (see
+         * pam_end(3)). This is needed for example by pam_cap's "defer" option, which applies the configured
+         * capabilities at this point, after all session modules have run. Do this here rather than right
+         * before execve(), as the fds opened by the PAM modules are still valid at this point, and we
+         * change the UID later anyway, carrying over the ambient capabilities set by PAM modules (see
+         * exec_invoke()). Pass plain PAM_SUCCESS, i.e. without PAM_SILENT from 'flags', since modules
+         * such as pam_cap only act if the status is PAM_SUCCESS. */
+        (void) sym_pam_end(TAKE_PTR(pamh), PAM_SUCCESS | PAM_DATA_SILENT);
 
         /* Unblock SIGTERM again in the parent */
         assert_se(sigprocmask(SIG_SETMASK, &old_ss, NULL) >= 0);
