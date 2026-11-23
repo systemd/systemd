@@ -398,8 +398,15 @@ static int tpm2_generate_report_try(
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *event_log = NULL;
         sd_json_variant *i;
         JSON_VARIANT_ARRAY_FOREACH(i, reply) {
-                sd_json_variant *record = sd_json_variant_by_key(i, "record");
-                if (!record)
+                sd_json_variant *record = NULL;
+
+                static const sd_json_dispatch_field dispatch_table[] = {
+                        { "record", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_variant_noref, 0, SD_JSON_MANDATORY },
+                        {}
+                };
+
+                r = sd_json_dispatch(i, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &record);
+                if (r < 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Reply from io.systemd.PCRLock.ReadEventLog lacks 'record' field.");
 
                 r = sd_json_variant_append_array(&event_log, record);
