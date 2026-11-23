@@ -353,7 +353,7 @@ uint64_t journal_file_hash_table_n_items(Object *o) _pure_;
 int journal_file_append_object(JournalFile *f, ObjectType type, uint64_t size, Object **ret_object, uint64_t *ret_offset);
 int journal_file_append_entry(
                 JournalFile *f,
-                const dual_timestamp *ts,
+                const triple_timestamp *ts,
                 const sd_id128_t *boot_id,
                 const struct iovec iovec[],
                 size_t n_iovec,
