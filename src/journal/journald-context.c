@@ -808,11 +808,9 @@ ClientContext *client_context_release(Manager *m, ClientContext *c) {
         if (!c)
                 return NULL;
 
-        assert(c->n_ref > 0);
         assert(!c->in_lru);
 
-        c->n_ref--;
-        if (c->n_ref > 0)
+        if (ref_counter_dec(&c->n_ref) > 0)
                 return NULL;
 
         /* The entry is not pinned anymore, let's add it to the LRU prioq if we can. If we can't we'll drop it

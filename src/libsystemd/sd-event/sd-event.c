@@ -586,8 +586,7 @@ _public_ sd_event* sd_event_unref(sd_event *e) {
         if (event_origin_changed(e))
                 return NULL;
 
-        assert(e->n_ref > 0);
-        if (--e->n_ref > 0)
+        if (ref_counter_dec(&e->n_ref) > 0)
                 return NULL;
 
         return event_free(e);

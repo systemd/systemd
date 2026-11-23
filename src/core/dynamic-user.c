@@ -488,8 +488,7 @@ static DynamicUser* dynamic_user_unref(DynamicUser *d) {
          * destroyed and its UID released, use dynamic_user_destroy() instead. NB: the dynamic user table may
          * contain entries with no references, which is commonly the case right before a daemon reload. */
 
-        assert(d->n_ref > 0);
-        d->n_ref--;
+        ref_counter_dec(&d->n_ref);
 
         return NULL;
 }

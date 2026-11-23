@@ -44,6 +44,15 @@ static inline void ref_counter_inc(unsigned *n) {
         (*n)++;
 }
 
+static inline unsigned ref_counter_dec(unsigned *n) {
+        assert(n);
+
+        /* Decreases a reference counter, and returns the new value. Dropping a reference that was never
+         * taken is a programming error, hence assert on that. */
+        assert(*n > 0);
+        return --(*n);
+}
+
 #define _DEFINE_TRIVIAL_REF_FUNC(type, name, scope)                                     \
         scope type *name##_ref(type *p) {                                               \
                 if (!p)                                                                 \
@@ -59,9 +68,7 @@ static inline void ref_counter_inc(unsigned *n) {
                 if (!p)                                                                 \
                         return NULL;                                                    \
                                                                                         \
-                assert(p->n_ref > 0);                                                   \
-                p->n_ref--;                                                             \
-                if (p->n_ref > 0)                                                       \
+                if (ref_counter_dec(&p->n_ref) > 0)                                     \
                         return NULL;                                                    \
                                                                                         \
                 return free_func(p);                                                    \

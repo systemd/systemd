@@ -2575,10 +2575,7 @@ ExecSharedRuntime* exec_shared_runtime_destroy(ExecSharedRuntime *rt) {
         if (!rt)
                 return NULL;
 
-        assert(rt->n_ref > 0);
-        rt->n_ref--;
-
-        if (rt->n_ref > 0)
+        if (ref_counter_dec(&rt->n_ref) > 0)
                 return NULL;
 
         rt->tmp_dir = destroy_tree(rt->tmp_dir);
