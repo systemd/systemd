@@ -687,10 +687,7 @@ def main() -> None:
 
     # Whenever possible, boot without an initrd. This requires the target distribution kernel to have the
     # necessary modules (virtio-blk, ext4) builtin.
-    if args.firmware == 'linux-noinitrd' and (summary.distribution, summary.release) not in (
-        ('fedora', 'rawhide'),
-        ('arch', 'rolling'),
-    ):
+    if args.firmware == 'linux-noinitrd' and summary.distribution not in ('fedora', 'arch'):
         firmware = 'linux'
     else:
         firmware = args.firmware
