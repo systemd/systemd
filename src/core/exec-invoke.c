@@ -1233,7 +1233,8 @@ static int set_securebits(unsigned bits, unsigned mask) {
 static int enforce_user(
                 const ExecContext *context,
                 uid_t uid,
-                uint64_t capability_ambient_set) {
+                uint64_t capability_ambient_set,
+                bool keep_caps) {
 
         int r;
 
@@ -1244,9 +1245,9 @@ static int enforce_user(
 
         /* Sets (but doesn't look up) the UIS and makes sure we keep the capabilities while doing so. For
          * setting secure bits the capability CAP_SETPCAP is required, so we also need keep-caps in this
-         * case. */
+         * case. The caller may request this explicitly too, via 'keep_caps'. */
 
-        if ((capability_ambient_set != 0 || context->secure_bits != 0) && uid != 0) {
+        if ((capability_ambient_set != 0 || context->secure_bits != 0 || keep_caps) && uid != 0) {
 
                 /* First step: If we need to keep capabilities but drop privileges we need to make sure we
                  * keep our caps, while we drop privileges. Add KEEP_CAPS to the securebits */
@@ -1401,6 +1402,16 @@ static int pam_close_session_and_delete_credentials(pam_handle_t *pamh, int flag
 
         return r != PAM_SUCCESS ? r : s;
 }
+
+static int null_conv(
+                int num_msg,
+                const struct pam_message *msg[],
+                struct pam_response **ret,
+                void *userdata) {
+
+        /* A conversation function that refuses any conversation. */
+        return PAM_CONV_ERR;
+}
 #endif
 
 static int attach_to_subcgroup(
@@ -1506,7 +1517,6 @@ static int exec_context_get_tty_for_pam(const ExecContext *context, char **ret) 
         *ret = TAKE_PTR(tty);
         return 1;
 }
-#endif
 
 static int setup_pam(
                 const ExecContext *context,
@@ -1515,11 +1525,11 @@ static int setup_pam(
                 const char *user,
                 uid_t uid,
                 gid_t gid,
-                char ***env, /* updated on success */
+                char ***env,                    /* input/output, updated on success */
+                pam_handle_t **ret_pam_handle,  /* output only, set on success */
                 bool needs_sandboxing,
                 int exec_fd) {
 
-#if HAVE_PAM
         AskPasswordConvData conv_data = {
                 .context = context,
                 .params = params,
@@ -1547,6 +1557,7 @@ static int setup_pam(
         assert(uid_is_valid(uid));
         assert(gid_is_valid(gid));
         assert(env);
+        assert(ret_pam_handle);
 
         /* We set up PAM in the parent process, then fork. The child will then stay around until killed via
          * PR_GET_PDEATHSIG or systemd via the cgroup logic. It will then remove the PAM session again. The
@@ -1615,7 +1626,7 @@ static int setup_pam(
         if (r < 0)
                 goto fail;
         if (r == 0) {
-                int ret = EXIT_PAM;
+                int ret = EXIT_PAM, end_flags = PAM_DATA_SILENT;
 
                 if (needs_sandboxing && exec_needs_cgroup_namespace(context) && params->cgroup_path) {
                         /* Move PAM process into subgroup immediately if the main process hasn't been moved
@@ -1675,6 +1686,7 @@ static int setup_pam(
 
                 /* If our parent died we'll end the session */
                 if (getppid() != parent_pid) {
+                        end_flags = 0;
                         pam_code = pam_close_session_and_delete_credentials(pamh, flags);
                         if (pam_code != PAM_SUCCESS)
                                 goto child_finish;
@@ -1683,24 +1695,38 @@ static int setup_pam(
                 ret = 0;
 
         child_finish:
-                /* NB: pam_end() when called in child processes should set PAM_DATA_SILENT to let the module
-                 * know about this. See pam_end(3) */
-                (void) sym_pam_end(pamh, pam_code | flags | PAM_DATA_SILENT);
+                /* Note that the roles are swapped compared to what pam_end(3) describes: we are the forked
+                 * off process, but it is our parent that executes the payload and hence calls pam_end() with
+                 * PAM_DATA_SILENT (see finish_pam()), while we stay around for the lifetime of the session. Hence,
+                 * if we ended the session, call pam_end() without PAM_DATA_SILENT here, so that the modules
+                 * do their full cleanup, including of external state. If we get here while our parent is
+                 * still around (i.e. we failed early, or we got SIGTERM from the cgroup kill logic before
+                 * the payload exited), the session was not closed and might still be in use, hence leave
+                 * external state alone and pass PAM_DATA_SILENT.
+                 *
+                 * In either case, pass the status without PAM_SILENT from 'flags': it is not a flag
+                 * pam_end() knows, and it would be passed on to the cleanup handlers of the modules as part
+                 * of the status. */
+                (void) sym_pam_end(pamh, pam_code | end_flags);
                 _exit(ret);
         }
 
         barrier_set_role(&barrier, BARRIER_PARENT);
 
         /* If the child was forked off successfully it will do all the cleanups, including the final
-         * pam_end(). We are the process that is going to execute the payload, hence follow the PAM
-         * convention and let the modules know about that by calling pam_end() with PAM_DATA_SILENT (see
-         * pam_end(3)). This is needed for example by pam_cap's "defer" option, which applies the configured
-         * capabilities at this point, after all session modules have run. Do this here rather than right
-         * before execve(), as the fds opened by the PAM modules are still valid at this point, and we
-         * change the UID later anyway, carrying over the ambient capabilities set by PAM modules (see
-         * exec_invoke()). Pass plain PAM_SUCCESS, i.e. without PAM_SILENT from 'flags', since modules
-         * such as pam_cap only act if the status is PAM_SUCCESS. */
-        (void) sym_pam_end(TAKE_PTR(pamh), PAM_SUCCESS | PAM_DATA_SILENT);
+         * pam_end(). We are the process that is going to execute the payload, hence we follow the PAM
+         * convention and call pam_end() with PAM_DATA_SILENT, but only after we changed the UID, see
+         * finish_pam(). Until then we need to keep the handle around. It references our conversation
+         * function, whose data lives on our stack, and which shouldn't be used at that point anyway,
+         * hence replace it by one that refuses any conversation. */
+        pam_code = sym_pam_set_item(pamh, PAM_CONV, &(const struct pam_conv) { .conv = null_conv });
+        if (pam_code != PAM_SUCCESS) {
+                /* We cannot let the handle outlive the conversation data, and the child is already
+                 * running, hence call pam_end() right away, even though it is too early. */
+                pam_syslog_pam_error(pamh, LOG_WARNING, pam_code,
+                                     "Failed to reset PAM conversation function, calling pam_end() early: @PAMERR@");
+                (void) sym_pam_end(TAKE_PTR(pamh), PAM_SUCCESS | PAM_DATA_SILENT);
+        }
 
         /* Unblock SIGTERM again in the parent */
         assert_se(sigprocmask(SIG_SETMASK, &old_ss, NULL) >= 0);
@@ -1714,7 +1740,9 @@ static int setup_pam(
         if (!barrier_place_and_sync(&barrier))
                 log_error("PAM initialization failed");
 
-        return strv_free_and_replace(*env, e);
+        strv_free_and_replace(*env, e);
+        *ret_pam_handle = TAKE_PTR(pamh);
+        return 0;
 
 fail:
         if (pam_code != PAM_SUCCESS) {
@@ -1727,15 +1755,67 @@ fail:
                 if (close_session)
                         pam_code = pam_close_session_and_delete_credentials(pamh, flags);
 
-                (void) sym_pam_end(pamh, pam_code | flags);
+                /* The pam_code argument here communicates to the session end logic how to do the cleanup.
+                 * See the comment for the sym_pam_end() call above. */
+                (void) sym_pam_end(pamh, pam_code);
         }
 
         closelog();
         return r;
-#else
-        return 0;
-#endif
 }
+
+static int finish_pam(
+                pam_handle_t *pam_handle,
+                uint64_t context_ambient_set,
+                uint64_t *capability_ambient_set) {
+
+        uint64_t ambient_after_pam;
+        int r;
+
+        assert(capability_ambient_set);
+
+        if (!pam_handle)
+                return 0;
+
+        /* Called in the process that is going to execute the payload, after the UID was changed.
+         *
+         * setresuid() cleared the ambient capabilities. Raise the ones we want to carry over again first,
+         * so that modules which act in pam_end() find (and possibly replace) what earlier modules set up. */
+        if (*capability_ambient_set != 0) {
+                r = capability_ambient_set_apply(*capability_ambient_set, /* also_inherit= */ false);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to apply ambient capabilities (before pam_end()): %m");
+        }
+
+        /* Follow the PAM convention and let the modules know that we are about to execute the payload by
+         * calling pam_end() with PAM_DATA_SILENT (see pam_end(3)), with the credentials of the target user
+         * already in place. This is needed for example by pam_cap's "defer" option, which applies the
+         * configured capabilities at this point. Note that by now all fds not passed to the payload are
+         * closed, including the ones the PAM modules keep in their data, hence the cleanup handlers must
+         * not touch them if PAM_DATA_SILENT is set. Pass plain PAM_SUCCESS, i.e. without PAM_SILENT,
+         * since modules such as pam_cap only act if the status is PAM_SUCCESS. */
+        (void) sym_pam_end(pam_handle, PAM_SUCCESS | PAM_DATA_SILENT);
+
+        /* The PAM modules might have opened the log again, but we don't want this fd around. */
+        closelog();
+
+        /* The modules might have changed the ambient capabilities, and replaced the inheritable set too.
+         * What they left in the ambient set replaces what PAM contributed before, and both sets are
+         * (re)applied. */
+        r = capability_get_ambient(&ambient_after_pam);
+        if (r < 0)
+                return log_error_errno(r, "Failed to query ambient caps: %m");
+
+        *capability_ambient_set = context_ambient_set | ambient_after_pam;
+        if (*capability_ambient_set != 0) {
+                r = capability_ambient_set_apply(*capability_ambient_set, /* also_inherit= */ true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to apply ambient capabilities (after pam_end()): %m");
+        }
+
+        return 0;
+}
+#endif
 
 static void rename_process_from_path(const char *path) {
         int r;
@@ -6678,6 +6758,9 @@ int exec_invoke(
         needs_setuid = needs_sandboxing && !FLAGS_SET(command->flags, EXEC_COMMAND_NO_SETUID);
 
         uint64_t capability_ambient_set = context->capability_ambient_set;
+#if HAVE_PAM
+        pam_handle_t *pam_handle = NULL;
+#endif
 
         /* Check CAP_SYS_ADMIN before we enter user namespace to see if we can mount /proc even though its masked. */
         have_cap_sys_admin = have_effective_cap(CAP_SYS_ADMIN) > 0;
@@ -6715,13 +6798,16 @@ int exec_invoke(
                 /* Let's call into PAM after we set up our own idea of resource limits so that pam_limits
                  * wins here. (See above.) */
 
+#if HAVE_PAM
                 /* All fds passed in the fds array will be closed in the pam child process. */
-                r = setup_pam(context, cgroup_context, params, username, uid, gid, &accum_env,
+                r = setup_pam(context, cgroup_context, params, username, uid, gid,
+                              &accum_env, &pam_handle,
                               needs_sandboxing, params->exec_fd);
                 if (r < 0) {
                         *exit_status = EXIT_PAM;
                         return log_error_errno(r, "Failed to set up PAM session: %m");
                 }
+#endif
 
                 /* PAM modules might have set some ambient caps. Query them here and merge them into
                  * the caps we want to set in the end, so that we don't end up unsetting them. */
@@ -7158,11 +7244,31 @@ int exec_invoke(
 
         if (needs_setuid) {
                 if (uid_is_valid(uid)) {
-                        r = enforce_user(context, uid, capability_ambient_set);
+                        bool keep_caps = false;
+
+#if HAVE_PAM
+                        /* If we have a PAM session, the modules might want to set capabilities in pam_end(),
+                         * which we call after the UID change, see below. This is only possible if the
+                         * permitted set survives the UID change. (pam_cap with the "defer" option doesn't
+                         * enable keep-caps on its own, but expects this from the application.) */
+                        keep_caps = !!pam_handle;
+#endif
+
+                        r = enforce_user(context, uid, capability_ambient_set, keep_caps);
                         if (r < 0) {
                                 *exit_status = EXIT_USER;
                                 return log_error_errno(r, "Failed to change UID to " UID_FMT ": %m", uid);
                         }
+
+#if HAVE_PAM
+                        /* Now that the UID is changed, tell the PAM modules that we are about to execute
+                         * the payload. This might update the set of ambient capabilities. */
+                        r = finish_pam(TAKE_PTR(pam_handle), context->capability_ambient_set, &capability_ambient_set);
+                        if (r < 0) {
+                                *exit_status = EXIT_PAM;
+                                return r;
+                        }
+#endif
 
                         if (keep_seccomp_privileges) {
                                 if (!BIT_SET(capability_ambient_set, CAP_SETUID)) {
