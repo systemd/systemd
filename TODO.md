@@ -118,7 +118,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
     State:/Installed:/… block above the existing table)
   - `updatectl describe` (Version:/State:/ChangeLog: block)
   - `portablectl inspect` (Image:/Extension: headers)
-  - `systemd-analyze image-policy` (Analyzing policy:/Long form:)
   - `udevadm test` event dump (`dump_event()` in udev-dump.c)
 
 ## Deprecations and Removals
