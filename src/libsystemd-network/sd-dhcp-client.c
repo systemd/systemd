@@ -1295,19 +1295,29 @@ static int client_send_release(sd_dhcp_client *client) {
         if (!sd_dhcp_client_is_running(client) || !client->lease || client->bootp)
                 return 0; /* there is nothing to release */
 
+        /* In SELECTING or REQUESTING, client->lease holds an OFFER that has not been acknowledged
+         * yet, so there is nothing to release. */
+        if (!IN_SET(client->state, DHCP_STATE_BOUND, DHCP_STATE_RENEWING, DHCP_STATE_REBINDING))
+                return 0;
+
         return dhcp_client_send_message(client, DHCP_RELEASE);
 }
 
-int sd_dhcp_client_stop(sd_dhcp_client *client) {
+int dhcp_client_stop_full(sd_dhcp_client *client, bool send_release) {
         if (!client)
                 return 0;
 
         DHCP_CLIENT_DONT_DESTROY(client);
 
-        (void) client_send_release(client);
+        if (send_release)
+                (void) client_send_release(client);
 
         client_stop(client, SD_DHCP_CLIENT_EVENT_STOP);
         return 0;
+}
+
+int sd_dhcp_client_stop(sd_dhcp_client *client) {
+        return dhcp_client_stop_full(client, /* send_release= */ true);
 }
 
 int sd_dhcp_client_is_waiting_for_ipv6_connectivity(sd_dhcp_client *client) {

@@ -2146,6 +2146,12 @@ update_ipv6:
         return 1;
 }
 
+int dhcp4_stop_full(Link *link, bool send_release) {
+        assert(link);
+
+        return dhcp_client_stop_full(link->dhcp_client, send_release);
+}
+
 int dhcp4_renew(Link *link) {
         assert(link);
 
