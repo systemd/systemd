@@ -62,7 +62,7 @@ mv "$MINIMAL_IMAGE.foohash" "$MINIMAL_IMAGE.roothash"
 # Verity device is still held by another mount then times out waiting for the device node
 # symlink, and falls back to a Verity device with a unique name. Hence, the tests below that
 # verify that a shared Verity device is reused do not work there.
-if ( . /etc/os-release && [[ "${ID_LIKE:-}" == "alpine" ]] ); then
+if os_release_id_like alpine; then
     echo "Skipping the Verity sharing tests on Alpine/Nura"
     exit 0
 fi

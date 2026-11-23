@@ -3,9 +3,21 @@
 set -eux
 set -o pipefail
 
-. /etc/os-release
-if ! [[ "$ID" =~ centos|fedora|opensuse ]]; then
-    echo "Skipping because only CentOS, Fedora and openSUSE support SELinux tests" >>/skipped
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
+if ! systemctl --version | grep -F -- "+SELINUX" >/dev/null; then
+    echo "Skipping because systemd is built without SELinux support" >>/skipped
+    exit 77
+fi
+
+if ! kernel_supports_lsm selinux; then
+    echo "Skipping because SELinux is not enabled in the kernel" >>/skipped
+    exit 77
+fi
+
+if ! command -v sestatus >/dev/null || ! command -v getenforce >/dev/null; then
+    echo "Skipping because sestatus and getenforce are not installed" >>/skipped
     exit 77
 fi
 

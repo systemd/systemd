@@ -139,7 +139,7 @@ testcase_kill_user_processes() {
     fi
 
     # Arch does not use pam_systemd.so in su-l pam setting.
-    if ( . /etc/os-release; [[ "$ID" == "arch" ]] ); then
+    if os_release_id_is arch; then
         su="runuser"
     fi
 

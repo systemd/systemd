@@ -33,7 +33,7 @@ manager_env="SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC=30"
 # a Verity device is deleted when deferred removal is armed. Reusing such a device while it is
 # still held open then times out waiting for the device node symlink. Let's disable sharing of
 # Verity devices there, so that each activation gets its own device.
-if ( . /etc/os-release && [[ "${ID_LIKE:-}" == "alpine" ]] ); then
+if os_release_id_like alpine; then
     manager_env+=" SYSTEMD_VERITY_SHARING=0"
 fi
 
