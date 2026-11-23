@@ -244,6 +244,16 @@ dual_timestamp* event_dual_timestamp_now(sd_event *e, dual_timestamp *ts) {
         return ts;
 }
 
+triple_timestamp* event_triple_timestamp_now(sd_event *e, triple_timestamp *ts) {
+        assert(e);
+        assert(ts);
+
+        assert_se(sd_event_now(e, CLOCK_REALTIME, &ts->realtime) >= 0);
+        assert_se(sd_event_now(e, CLOCK_MONOTONIC, &ts->monotonic) >= 0);
+        assert_se(sd_event_now(e, CLOCK_BOOTTIME, &ts->boottime) >= 0);
+        return ts;
+}
+
 void event_source_unref_many(sd_event_source **array, size_t n) {
         FOREACH_ARRAY(v, array, n)
                 sd_event_source_unref(*v);
