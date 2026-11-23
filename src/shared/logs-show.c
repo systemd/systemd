@@ -913,7 +913,7 @@ static int output_export(
 
         sd_id128_t journal_boot_id, seqnum_id;
         _cleanup_free_ char *cursor = NULL;
-        usec_t monotonic, realtime;
+        usec_t monotonic, realtime, boottime = USEC_INFINITY;
         const void *data;
         uint64_t seqnum;
         size_t length;
@@ -945,6 +945,12 @@ static int output_export(
         if (r < 0)
                 return log_error_errno(r, "Failed to get monotonic timestamp: %m");
 
+        r = sd_journal_get_boottime_usec(j, &boottime, &(sd_id128_t) {});
+        if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r) || r == -ENODATA)
+                log_debug_errno(r, "Boottime timestamp of entry not available, not including it: %m");
+        else if (r < 0)
+                return log_error_errno(r, "Failed to get boottime timestamp: %m");
+
         r = sd_journal_get_seqnum(j, &seqnum, &seqnum_id);
         if (r == -EBADMSG) {
                 log_debug_errno(r, "Unable to read sequence number of entry, assuming bad or partially written entry: %m");
@@ -956,13 +962,18 @@ static int output_export(
         fprintf(f,
                 "__CURSOR=%s\n"
                 "__REALTIME_TIMESTAMP=" USEC_FMT "\n"
-                "__MONOTONIC_TIMESTAMP=" USEC_FMT "\n"
+                "__MONOTONIC_TIMESTAMP=" USEC_FMT "\n",
+                cursor,
+                realtime,
+                monotonic);
+
+        if (timestamp_is_set(boottime))
+                fprintf(f, "__BOOTTIME_TIMESTAMP=" USEC_FMT "\n", boottime);
+
+        fprintf(f,
                 "__SEQNUM=%" PRIu64 "\n"
                 "__SEQNUM_ID=%s\n"
                 "_BOOT_ID=%s\n",
-                cursor,
-                realtime,
-                monotonic,
                 seqnum,
                 SD_ID128_TO_STRING(seqnum_id),
                 SD_ID128_TO_STRING(journal_boot_id));
@@ -1195,7 +1206,7 @@ int journal_entry_to_json(
         char usecbuf[CONST_MAX(DECIMAL_STR_MAX(usec_t), DECIMAL_STR_MAX(uint64_t))];
         sd_id128_t journal_boot_id, seqnum_id;
         _cleanup_free_ char *cursor = NULL;
-        usec_t realtime, monotonic;
+        usec_t realtime, monotonic, boottime = USEC_INFINITY;
         uint64_t seqnum;
         const char *corrupted_what = NULL;
         _cleanup_hashmap_free_ Hashmap *h = NULL;
@@ -1230,6 +1241,12 @@ int journal_entry_to_json(
         if (r < 0)
                 return log_error_errno(r, "Failed to get monotonic timestamp: %m");
 
+        r = sd_journal_get_boottime_usec(j, &boottime, &(sd_id128_t) {});
+        if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r) || r == -ENODATA)
+                log_debug_errno(r, "Boottime timestamp of entry not available, not including it: %m");
+        else if (r < 0)
+                return log_error_errno(r, "Failed to get boottime timestamp: %m");
+
         r = sd_journal_get_seqnum(j, &seqnum, &seqnum_id);
         if (r == -EBADMSG) {
                 corrupted_what = "sequence number";
@@ -1261,6 +1278,13 @@ int journal_entry_to_json(
         r = update_json_data(h, flags, "__MONOTONIC_TIMESTAMP", usecbuf, SIZE_MAX);
         if (r < 0)
                 return r;
+
+        if (timestamp_is_set(boottime)) {
+                xsprintf(usecbuf, USEC_FMT, boottime);
+                r = update_json_data(h, flags, "__BOOTTIME_TIMESTAMP", usecbuf, SIZE_MAX);
+                if (r < 0)
+                        return r;
+        }
 
         r = update_json_data(h, flags, "_BOOT_ID", SD_ID128_TO_STRING(journal_boot_id), SIZE_MAX);
         if (r < 0)
