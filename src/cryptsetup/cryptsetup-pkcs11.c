@@ -106,7 +106,7 @@ int find_pkcs11_auto_data(
 
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-                sd_json_variant *w;
+                _cleanup_(pkcs11_luks2_token_done) Pkcs11Luks2Token t = {};
                 int ks;
 
                 r = cryptsetup_get_token_as_json(cd, token, "systemd-pkcs11", &v);
@@ -130,45 +130,14 @@ int find_pkcs11_auto_data(
                 assert(keyslot < 0);
                 keyslot = ks;
 
-                w = sd_json_variant_by_key(v, "pkcs11-uri");
-                if (!w || !sd_json_variant_is_string(w))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "PKCS#11 token data lacks 'pkcs11-uri' field.");
-
-                uri = strdup(sd_json_variant_string(w));
-                if (!uri)
-                        return log_oom();
-
-                if (!pkcs11_uri_valid(uri))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "PKCS#11 token data contains invalid PKCS#11 URI.");
-
-                w = sd_json_variant_by_key(v, "pkcs11-key");
-                if (!w)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "PKCS#11 token data lacks 'pkcs11-key' field.");
-
-                assert(!key);
-                assert(key_size == 0);
-                r = sd_json_variant_unbase64(w, &key, &key_size);
+                r = pkcs11_luks2_token_parse(v, &t);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to decode base64 encoded key: %m");
+                        return log_error_errno(r, "Failed to parse PKCS#11 JSON data token %i: %m", token);
 
-                /* Optional padding-scheme tag. Absent in legacy tokens (which used PKCS#1 v1.5). */
-                w = sd_json_variant_by_key(v, "pkcs11-padding");
-                if (w) {
-                        Pkcs11RsaPadding p;
-
-                        if (!sd_json_variant_is_string(w))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "PKCS#11 token field 'pkcs11-padding' is not a string.");
-                        p = pkcs11_rsa_padding_from_string(sd_json_variant_string(w));
-                        if (p < 0)
-                                return log_error_errno(p,
-                                                       "PKCS#11 token field 'pkcs11-padding' has unsupported value '%s'.",
-                                                       sd_json_variant_string(w));
-                        rsa_padding = p;
-                }
+                uri = TAKE_PTR(t.uri);
+                key_size = t.key.iov_len;
+                key = TAKE_PTR(t.key.iov_base);
+                rsa_padding = t.rsa_padding;
         }
 
         if (!uri)
