@@ -15,6 +15,7 @@
 #include "set.h"
 #include "siphash24.h"
 #include "string-util.h"
+#include "unaligned.h"
 
 #define DAD_CONFLICTS_IDGEN_RETRIES_RFC7217 3
 
@@ -215,7 +216,6 @@ static void generate_stable_private_address_one(
                 struct in6_addr *ret) {
 
         struct siphash state;
-        uint64_t rid;
 
         assert(link);
         assert(secret_key);
@@ -240,10 +240,8 @@ static void generate_stable_private_address_one(
 
         siphash24_compress_typesafe(dad_counter, &state);
 
-        rid = htole64(siphash24_finalize(&state));
-
         memcpy(ret->s6_addr, prefix->s6_addr, 8);
-        memcpy(ret->s6_addr + 8, &rid, 8);
+        unaligned_write_le64(ret->s6_addr + 8, siphash24_finalize(&state));
 }
 
 static int generate_stable_private_address(
