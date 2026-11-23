@@ -964,20 +964,15 @@ static DnsCacheItem *dns_cache_get_by_key_follow_cname_dname_nsec(
                 if (i && i->type != DNS_CACHE_NODATA)
                         return i;
 
-                /* OK, let's look for cached DNAME records. */
-                for (;;) {
-                        if (isempty(n))
-                                return NULL;
-
+                /* DNAME redirects names below its owner, but not the owner itself. Hence, start looking at
+                 * the parent of the queried name. */
+                while ((r = dns_name_parent(&n)) > 0) {
                         i = hashmap_get(c->by_key, &DNS_RESOURCE_KEY_CONST(k->class, DNS_TYPE_DNAME, n));
                         if (i && i->type != DNS_CACHE_NODATA)
                                 return i;
-
-                        /* Jump one label ahead */
-                        r = dns_name_parent(&n);
-                        if (r <= 0)
-                                return NULL;
                 }
+
+                return NULL;
         }
 
         if (k->type != DNS_TYPE_NSEC) {
