@@ -1515,7 +1515,8 @@ static int setup_pam(
                 const char *user,
                 uid_t uid,
                 gid_t gid,
-                char ***env, /* updated on success */
+                char ***env,              /* updated on success */
+                pam_handle_t **ret_pamh,  /* set on success */
                 bool needs_sandboxing,
                 int exec_fd) {
 
@@ -1538,7 +1539,6 @@ static int setup_pam(
         int pam_code = PAM_SUCCESS, r;
         bool close_session = false;
         pid_t parent_pid;
-        int flags = 0;
 
         assert(context);
         assert(cgroup_context);
@@ -1547,6 +1547,7 @@ static int setup_pam(
         assert(uid_is_valid(uid));
         assert(gid_is_valid(gid));
         assert(env);
+        assert(ret_pamh);
 
         /* We set up PAM in the parent process, then fork. The child will then stay around until killed via
          * PR_GET_PDEATHSIG or systemd via the cgroup logic. It will then remove the PAM session again. The
@@ -1561,8 +1562,7 @@ static int setup_pam(
         if (r < 0)
                 goto fail;
 
-        if (log_get_max_level() < LOG_DEBUG)
-                flags |= PAM_SILENT;
+        int flags = log_get_max_level() < LOG_DEBUG ? PAM_SILENT : 0;
 
         pam_code = sym_pam_start(context->pam_name, user, &conv, &pamh);
         if (pam_code != PAM_SUCCESS) {
@@ -1683,24 +1683,13 @@ static int setup_pam(
                 ret = 0;
 
         child_finish:
-                /* NB: pam_end() when called in child processes should set PAM_DATA_SILENT to let the module
-                 * know about this. See pam_end(3) */
-                (void) sym_pam_end(pamh, pam_code | flags | PAM_DATA_SILENT);
+                /* NB: pam_end() in the process that does _not_ exec should be called _without_
+                 * PAM_DATA_SILENT to clean up resources. */
+                (void) sym_pam_end(pamh, pam_code | flags);
                 _exit(ret);
         }
 
         barrier_set_role(&barrier, BARRIER_PARENT);
-
-        /* If the child was forked off successfully it will do all the cleanups, including the final
-         * pam_end(). We are the process that is going to execute the payload, hence follow the PAM
-         * convention and let the modules know about that by calling pam_end() with PAM_DATA_SILENT (see
-         * pam_end(3)). This is needed for example by pam_cap's "defer" option, which applies the configured
-         * capabilities at this point, after all session modules have run. Do this here rather than right
-         * before execve(), as the fds opened by the PAM modules are still valid at this point, and we
-         * change the UID later anyway, carrying over the ambient capabilities set by PAM modules (see
-         * exec_invoke()). Pass plain PAM_SUCCESS, i.e. without PAM_SILENT from 'flags', since modules
-         * such as pam_cap only act if the status is PAM_SUCCESS. */
-        (void) sym_pam_end(TAKE_PTR(pamh), PAM_SUCCESS | PAM_DATA_SILENT);
 
         /* Unblock SIGTERM again in the parent */
         assert_se(sigprocmask(SIG_SETMASK, &old_ss, NULL) >= 0);
@@ -1714,6 +1703,7 @@ static int setup_pam(
         if (!barrier_place_and_sync(&barrier))
                 log_error("PAM initialization failed");
 
+        *ret_pamh = pamh;
         return strv_free_and_replace(*env, e);
 
 fail:
@@ -1733,6 +1723,7 @@ fail:
         closelog();
         return r;
 #else
+        *ASSERT_PTR(ret_pamh) = NULL;
         return 0;
 #endif
 }
@@ -5888,6 +5879,7 @@ int exec_invoke(
         int named_iofds[3] = EBADF_TRIPLET;
         _cleanup_close_ int socket_fd = -EBADF, broker_fd = -EBADF, bpffs_socket_fd = -EBADF, bpffs_errno_pipe = -EBADF;
         _cleanup_(pidref_done_sigkill_wait) PidRef bpffs_pidref = PIDREF_NULL;
+        pam_handle_t *pamh = NULL;
 
         assert(command);
         assert(context);
@@ -6716,7 +6708,7 @@ int exec_invoke(
                  * wins here. (See above.) */
 
                 /* All fds passed in the fds array will be closed in the pam child process. */
-                r = setup_pam(context, cgroup_context, params, username, uid, gid, &accum_env,
+                r = setup_pam(context, cgroup_context, params, username, uid, gid, &accum_env, &pamh,
                               needs_sandboxing, params->exec_fd);
                 if (r < 0) {
                         *exit_status = EXIT_PAM;
@@ -7197,6 +7189,11 @@ int exec_invoke(
                         }
                 }
         }
+
+        /* NB: pam_end() in the process that will do exec must be called with PAM_DATA_SILENT.
+         * The call must happen after setuid() and (obviously) before the actual exec. */
+        int pam_flags = log_get_max_level() < LOG_DEBUG ? PAM_SILENT : 0;
+        (void) sym_pam_end(pamh, PAM_SUCCESS | pam_flags);
 
         /* Apply working directory here, because the working directory might be on NFS and only the user
          * running this service might have the correct privilege to change to the working directory. Also, it
