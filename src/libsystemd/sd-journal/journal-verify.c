@@ -176,6 +176,13 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                 return -EBADMSG;
         }
 
+        if ((o->object.type != OBJECT_ENTRY || !JOURNAL_HEADER_BOOTTIME(f->header)) &&
+            (o->object.boottime_offset_hi != 0 || o->object.boottime_offset_lo != 0)) {
+                error(offset, "Reserved boottime offset field of %s object is non-zero.",
+                      journal_object_type_to_string(o->object.type));
+                return -EBADMSG;
+        }
+
         switch (o->object.type) {
 
         case OBJECT_DATA: {
@@ -293,6 +300,14 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                         error(offset,
                               "Invalid entry monotonic timestamp: %"PRIu64,
                               le64toh(o->entry.monotonic));
+                        return -EBADMSG;
+                }
+
+                if (journal_file_entry_boottime(f, o, /* ret= */ NULL) == -EBADMSG) {
+                        error(offset,
+                              "Invalid entry boottime offset: %"PRIu64,
+                              ((uint64_t) le16toh(o->object.boottime_offset_hi) << 32) |
+                              (uint64_t) le32toh(o->object.boottime_offset_lo));
                         return -EBADMSG;
                 }
 
@@ -1084,7 +1099,7 @@ int journal_file_verify(
         int r;
         Object *o;
         uint64_t p = 0;
-        uint64_t entry_seqnum = 0, entry_monotonic = 0;
+        uint64_t entry_seqnum = 0, entry_monotonic = 0, entry_boottime = 0;
         VerifyTagState tag = {
                 .min_entry_realtime = USEC_INFINITY,
         };
@@ -1257,6 +1272,10 @@ int journal_file_verify(
                         entry_boot_id = o->entry.boot_id;
                         entry_monotonic_set = true;
 
+                        /* Zero if not known, like in the header */
+                        if (journal_file_entry_boottime(f, o, &entry_boottime) < 0)
+                                entry_boottime = 0;
+
                         if (!entry_realtime_set &&
                             le64toh(o->entry.realtime) != le64toh(f->header->head_entry_realtime)) {
                                 error(p,
@@ -1413,6 +1432,17 @@ int journal_file_verify(
                       "Invalid tail monotonic timestamp (%"PRIu64" != %"PRIu64")",
                       entry_monotonic,
                       le64toh(f->header->tail_entry_monotonic));
+                r = -EBADMSG;
+                goto fail;
+        }
+
+        if (entry_monotonic_set &&
+            JOURNAL_HEADER_CONTAINS(f->header, tail_entry_boottime) &&
+            entry_boottime != le64toh(f->header->tail_entry_boottime)) {
+                error(offsetof(Header, tail_entry_boottime),
+                      "Invalid tail boottime timestamp (%"PRIu64" != %"PRIu64")",
+                      entry_boottime,
+                      le64toh(f->header->tail_entry_boottime));
                 r = -EBADMSG;
                 goto fail;
         }

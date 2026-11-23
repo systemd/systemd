@@ -5,6 +5,8 @@
 
 #include "sd-journal.h"
 
+#include "alloc-util.h"
+#include "iovec-util.h"
 #include "journal-file-util.h"
 #include "journal-test-util.h"
 #include "journal-verify.h"
@@ -391,6 +393,158 @@ TEST(seqnum_id) {
 
         g = journal_file_offline_close(g);
         f = journal_file_offline_close(f);
+}
+
+static void append_boottime_entry(JournalFile *f, unsigned i, usec_t monotonic, usec_t boottime) {
+        _cleanup_free_ char *s = NULL;
+        struct iovec iovec;
+
+        triple_timestamp ts = {
+                .realtime = MODEL_REALTIME_BASE + i,
+                .monotonic = monotonic,
+                .boottime = boottime,
+        };
+
+        ASSERT_OK(asprintf(&s, "NUMBER=%u", i));
+        iovec = IOVEC_MAKE_STRING(s);
+
+        ASSERT_OK(journal_file_append_entry(
+                                  f,
+                                  &ts,
+                                  &MODEL_BOOT_A,
+                                  &iovec, 1,
+                                  /* seqnum= */ NULL,
+                                  /* seqnum_id= */ NULL,
+                                  /* ret_object= */ NULL,
+                                  /* ret_offset= */ NULL));
+}
+
+#define BOOTTIME_MONOTONIC_BASE (1000 * USEC_PER_SEC)
+
+static const struct {
+        usec_t monotonic;
+        usec_t boottime; /* as passed in */
+        usec_t expected; /* as read back, USEC_INFINITY if not available */
+} boottime_table[] = {
+        /* Time spent in suspend */
+        { BOOTTIME_MONOTONIC_BASE,      BOOTTIME_MONOTONIC_BASE + 5 * USEC_PER_SEC,    BOOTTIME_MONOTONIC_BASE + 5 * USEC_PER_SEC },
+        /* No suspend so far, offset zero */
+        { BOOTTIME_MONOTONIC_BASE + 1,  BOOTTIME_MONOTONIC_BASE + 1,                    BOOTTIME_MONOTONIC_BASE + 1 },
+        /* Boottime not known */
+        { BOOTTIME_MONOTONIC_BASE + 2,  USEC_INFINITY,                                  USEC_INFINITY },
+        { BOOTTIME_MONOTONIC_BASE + 3,  0,                                              USEC_INFINITY },
+        /* Boottime before monotonic, which makes no sense */
+        { BOOTTIME_MONOTONIC_BASE + 4,  BOOTTIME_MONOTONIC_BASE,                        USEC_INFINITY },
+        /* Largest offset we can store */
+        { BOOTTIME_MONOTONIC_BASE + 5,  BOOTTIME_MONOTONIC_BASE + 5 + ENTRY_BOOTTIME_OFFSET_MAX,     BOOTTIME_MONOTONIC_BASE + 5 + ENTRY_BOOTTIME_OFFSET_MAX },
+        /* Too large an offset */
+        { BOOTTIME_MONOTONIC_BASE + 6,  BOOTTIME_MONOTONIC_BASE + 6 + ENTRY_BOOTTIME_OFFSET_MAX + 1, USEC_INFINITY },
+};
+
+static void assert_boottime_file(JournalFile *f, bool supported) {
+        uint64_t p = 0;
+        size_t i = 0;
+        Object *o;
+
+        for (;;) {
+                uint64_t t;
+                int r;
+
+                r = journal_file_next_entry(f, p, DIRECTION_DOWN, &o, &p);
+                ASSERT_OK(r);
+                if (r == 0)
+                        break;
+
+                ASSERT_LT(i, ELEMENTSOF(boottime_table));
+                ASSERT_EQ(le64toh(o->entry.monotonic), boottime_table[i].monotonic);
+
+                r = journal_file_entry_boottime(f, o, &t);
+                if (!supported || boottime_table[i].expected == USEC_INFINITY)
+                        ASSERT_ERROR(r, ENODATA);
+                else {
+                        ASSERT_OK(r);
+                        ASSERT_EQ(t, boottime_table[i].expected);
+                }
+
+                i++;
+        }
+
+        ASSERT_EQ(i, ELEMENTSOF(boottime_table));
+}
+
+TEST(boottime) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        JournalFile *f, *g, *old;
+        uint64_t p = 0;
+        Object *o;
+        int r;
+
+        if (!journal_test_setup(&directory))
+                return;
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+
+        f = journal_test_open(m, "test.journal", O_RDWR|O_CREAT, 2 * U64_MB);
+        ASSERT_TRUE(JOURNAL_HEADER_BOOTTIME(f->header));
+
+        /* A file created by an older version, which doesn't know about the boottime offset */
+        old = journal_test_open(m, "old.journal", O_RDWR|O_CREAT, 2 * U64_MB);
+        old->header->compatible_flags = htole32(le32toh(old->header->compatible_flags) & ~HEADER_COMPATIBLE_BOOTTIME);
+        ASSERT_FALSE(JOURNAL_HEADER_BOOTTIME(old->header));
+
+        FOREACH_ELEMENT(e, boottime_table) {
+                append_boottime_entry(f, e - boottime_table, e->monotonic, e->boottime);
+                append_boottime_entry(old, e - boottime_table, e->monotonic, e->boottime);
+        }
+
+        assert_boottime_file(f, /* supported= */ true);
+        assert_boottime_file(old, /* supported= */ false);
+
+        /* Copying entries retains the boottime timestamp */
+        g = journal_test_open(m, "copy.journal", O_RDWR|O_CREAT, 2 * U64_MB);
+        for (;;) {
+                r = journal_file_next_entry(f, p, DIRECTION_DOWN, &o, &p);
+                ASSERT_OK(r);
+                if (r == 0)
+                        break;
+
+                ASSERT_OK(journal_file_copy_entry(f, g, o, p, /* seqnum= */ NULL, /* seqnum_id= */ NULL));
+        }
+        assert_boottime_file(g, /* supported= */ true);
+
+        /* Copying entries from a file without boottime into one with it marks them as unknown */
+        p = 0;
+        g = journal_file_offline_close(g);
+        ASSERT_OK_ERRNO(unlink("copy.journal"));
+        g = journal_test_open(m, "copy.journal", O_RDWR|O_CREAT, 2 * U64_MB);
+        for (;;) {
+                r = journal_file_next_entry(old, p, DIRECTION_DOWN, &o, &p);
+                ASSERT_OK(r);
+                if (r == 0)
+                        break;
+
+                ASSERT_OK(journal_file_copy_entry(old, g, o, p, /* seqnum= */ NULL, /* seqnum_id= */ NULL));
+        }
+        assert_boottime_file(g, /* supported= */ false);
+
+        g = journal_file_offline_close(g);
+        old = journal_file_offline_close(old);
+        f = journal_file_offline_close(f);
+
+        /* The files pass verification, i.e. the boottime offset field is accepted where it is defined */
+        FOREACH_STRING(path, "test.journal", "old.journal", "copy.journal") {
+                f = journal_test_open(m, path, O_RDONLY, /* max_size= */ 0);
+                /* copy.journal at this point contains the entries copied from old.journal */
+                assert_boottime_file(f, /* supported= */ streq(path, "test.journal"));
+                ASSERT_OK(journal_file_verify(
+                                          f,
+                                          /* key= */ NULL,
+                                          /* ret_first_contained= */ NULL,
+                                          /* ret_last_validated= */ NULL,
+                                          /* ret_last_contained= */ NULL,
+                                          /* show_progress= */ false));
+                f = journal_file_close(f);
+        }
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
