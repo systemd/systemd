@@ -10,6 +10,7 @@
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
 #include "memstream-util.h"
+#include "string-util.h"
 
 void hexdump(FILE *f, const void *p, size_t s) {
         const uint8_t *b = p;
@@ -172,7 +173,7 @@ char* hexdump_iovw_compare(const struct iovec_wrapper *a, const struct iovec_wra
 
                 _cleanup_free_ char *d = hexdump_memcmp(ia ? ia->iov_base : NULL, ia ? ia->iov_len : 0,
                                                         ib ? ib->iov_base : NULL, ib ? ib->iov_len : 0);
-                fprintf(f, "element %zu differs:\n%s", i, d ?: "");
+                fprintf(f, "element %zu differs:\n%s", i, strempty(d));
         }
 
         char *ret;
