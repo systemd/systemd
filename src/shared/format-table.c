@@ -2724,7 +2724,9 @@ int table_print_full(Table *t, FILE *f, bool flush) {
 int table_print_or_warn(Table *t) {
         int r;
 
-        r = table_print(t);
+        /* Flush, so that the table is not reordered with log messages written to stderr afterwards, if both
+         * end up in the same place (e.g. the pager). */
+        r = table_print_full(t, /* f= */ NULL, /* flush= */ true);
         if (r < 0)
                 return table_log_print_error(r);
         return 0;
