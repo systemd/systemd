@@ -100,6 +100,27 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - use CHASE_MUST_BE_DIRECTORY and CHASE_MUST_BE_REGULAR at more places (the
   majority of places that currently employ chase() probably should use this)
 
+- port remaining hand-rolled "Field: value" outputs (aligned via printf() with
+  manual padding) to table_new_vertical():
+  - `systemctl status` (`print_status_info()` in systemctl-show.c)
+  - `homectl inspect`/`userdbctl user`/`userdbctl group` (`user_record_show()`
+    + `group_record_show()` in user-record-show.c)
+  - `machinectl status`, `machinectl image-status`, pool info
+    (`print_machine_status_info()`, `print_image_status_info()`,
+    `print_image_machine_id()` + os-release part, `print_pool_status_info()`)
+  - `bootctl status` (`verb_status()`, `status_entries()`, `status_binaries()`
+    in bootctl-status.c)
+  - `bootctl list` (`show_boot_entry()` in bootspec.c)
+  - `bootctl kernel-inspect` (`verb_kernel_inspect()` in bootctl-uki.c)
+  - `systemd-dissect` (`action_dissect()`, the part before the partition table)
+  - `journalctl --header` (`journal_file_print_header()`)
+  - `systemd-sysupdate list <version>` (`context_show_version()`, the
+    State:/Installed:/… block above the existing table)
+  - `updatectl describe` (Version:/State:/ChangeLog: block)
+  - `portablectl inspect` (Image:/Extension: headers)
+  - `systemd-analyze image-policy` (Analyzing policy:/Long form:)
+  - `udevadm test` event dump (`dump_event()` in udev-dump.c)
+
 ## Deprecations and Removals
 
 - Remove any support for booting without /usr pre-mounted in the initrd entirely.
