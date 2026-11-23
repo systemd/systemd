@@ -17,6 +17,7 @@
 #include "string-table.h"
 #include "strv.h"
 #include "sysctl-util.h"
+#include "unaligned.h"
 
 bool link_ipv6ll_enabled(Link *link) {
         assert(link);
@@ -194,7 +195,6 @@ int link_set_ipv6ll_stable_secret(Link *link) {
                 a = link->network->ipv6ll_stable_secret;
         else {
                 sd_id128_t key;
-                le64_t v;
 
                 /* Generate a stable secret address from machine-ID and the interface name. */
 
@@ -202,16 +202,14 @@ int link_set_ipv6ll_stable_secret(Link *link) {
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Failed to generate key: %m");
 
-                v = htole64(siphash24_string(link->ifname, key.bytes));
-                memcpy(a.s6_addr, &v, sizeof(v));
+                unaligned_write_le64(a.s6_addr, siphash24_string(link->ifname, key.bytes));
 
                 r = sd_id128_get_machine_app_specific(STABLE_SECRET_APP_ID_2, &key);
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Failed to generate key: %m");
 
-                v = htole64(siphash24_string(link->ifname, key.bytes));
-                assert_cc(sizeof(v) * 2 == sizeof(a.s6_addr));
-                memcpy(a.s6_addr + sizeof(v), &v, sizeof(v));
+                assert_cc(sizeof(uint64_t) * 2 == sizeof(a.s6_addr));
+                unaligned_write_le64(a.s6_addr + sizeof(uint64_t), siphash24_string(link->ifname, key.bytes));
         }
 
         return sysctl_write_ip_property(AF_INET6, link->ifname, "stable_secret",
