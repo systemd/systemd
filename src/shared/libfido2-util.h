@@ -39,6 +39,7 @@ extern DLSYM_PROTOTYPE(fido_assert_set_hmac_salt);
 extern DLSYM_PROTOTYPE(fido_assert_set_rp);
 extern DLSYM_PROTOTYPE(fido_assert_set_up);
 extern DLSYM_PROTOTYPE(fido_assert_set_uv);
+extern DLSYM_PROTOTYPE(fido_assert_verify);
 extern DLSYM_PROTOTYPE(fido_cbor_info_extensions_len);
 extern DLSYM_PROTOTYPE(fido_cbor_info_extensions_ptr);
 extern DLSYM_PROTOTYPE(fido_cbor_info_free);
@@ -50,6 +51,8 @@ extern DLSYM_PROTOTYPE(fido_cred_free);
 extern DLSYM_PROTOTYPE(fido_cred_id_len);
 extern DLSYM_PROTOTYPE(fido_cred_id_ptr);
 extern DLSYM_PROTOTYPE(fido_cred_new);
+extern DLSYM_PROTOTYPE(fido_cred_pubkey_len);
+extern DLSYM_PROTOTYPE(fido_cred_pubkey_ptr);
 extern DLSYM_PROTOTYPE(fido_cred_set_clientdata_hash);
 extern DLSYM_PROTOTYPE(fido_cred_set_extensions);
 extern DLSYM_PROTOTYPE(fido_cred_set_prot);
@@ -107,6 +110,8 @@ int fido2_use_hmac_hash(
                 size_t salt_size,
                 const void *cid,
                 size_t cid_size,
+                const struct iovec *public_key,
+                const char *public_key_algorithm,
                 char **pins,
                 Fido2EnrollFlags required,
                 void **ret_hmac,
@@ -129,9 +134,11 @@ int fido2_generate_hmac_hash(
                 const struct iovec *salt,
                 void **ret_cid, size_t *ret_cid_size,
                 void **ret_secret, size_t *ret_secret_size,
+                struct iovec *ret_public_key,
                 char **ret_usedpin,
                 Fido2EnrollFlags *ret_locked_with);
 
+const char* fido2_algorithm_to_string(int alg);
 int parse_fido2_algorithm(const char *s, int *ret);
 #else
 static inline int parse_fido2_algorithm(const char *s, int *ret) {
@@ -156,3 +163,4 @@ void fido2_device_info_free_many(Fido2DeviceInfo *a, size_t n);
 int fido2_enumerate_devices(Fido2DeviceInfo **ret, size_t *ret_n);
 
 int fido2_have_device(const char *device);
+int fido2_have_credential(const char *device, const char *rp_id, const void *cid, size_t cid_size, Fido2EnrollFlags required);
