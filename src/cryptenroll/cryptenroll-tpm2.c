@@ -42,8 +42,14 @@ static int search_policy_hash(
 
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                sd_json_variant *w = NULL;
                 int keyslot;
-                sd_json_variant *w;
+
+                static const sd_json_dispatch_field dispatch_table[] = {
+                        /* Either an array of strings (for sharded enrollments), or a single string */
+                        { "tpm2-policy-hash", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_variant_noref, 0, SD_JSON_MANDATORY },
+                        {}
+                };
 
                 r = cryptsetup_get_token_as_json(cd, token, "systemd-tpm2", &v);
                 if (ERRNO_IS_NEG_CRYPTSETUP_TOKEN_SKIP(r))
@@ -62,13 +68,12 @@ static int search_policy_hash(
                         continue;
                 }
 
-                w = sd_json_variant_by_key(v, "tpm2-policy-hash");
-                if (!w) {
-                        log_warning("TPM2 token %i lacks 'tpm2-policy-hash' field, skipping.", token);
+                r = sd_json_dispatch(v, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &w);
+                if (r < 0) {
+                        log_warning_errno(r, "TPM2 token %i lacks 'tpm2-policy-hash' field, skipping: %m", token);
                         continue;
                 }
 
-                /* This is either an array of strings (for sharded enrollments), or a single string */
                 if (sd_json_variant_is_array(w)) {
 
                         if (sd_json_variant_elements(w) == n_policy_hash) {

@@ -102,6 +102,7 @@ int cryptsetup_get_volume_key_id(struct crypt_device *cd, const char *volume_nam
 
 int dlopen_cryptsetup(int log_level) _dlopen_loader_;
 
+int cryptsetup_token_parse_common(sd_json_variant *v, const char **ret_type, int **ret_keyslots, size_t *ret_n_keyslots);
 int cryptsetup_get_keyslot_from_token(sd_json_variant *v);
 
 const char* mangle_none(const char *s);
