@@ -382,6 +382,15 @@ TEST(dns_name_endswith) {
         test_dns_name_endswith_one("x.y\001.z", "waldo", -EINVAL);
 }
 
+TEST(dns_name_endswith_strict) {
+        ASSERT_FALSE(dns_name_endswith_strict("", ""));
+        ASSERT_FALSE(dns_name_endswith_strict("x", "x"));
+        ASSERT_TRUE(dns_name_endswith_strict("x", ""));
+        ASSERT_TRUE(dns_name_endswith_strict("x.y", "y"));
+        ASSERT_FALSE(dns_name_endswith_strict("x.y", "x"));
+        ASSERT_ERROR(dns_name_endswith_strict("x.y\001.z", "z"), EINVAL);
+}
+
 static void test_dns_name_startswith_one(const char *a, const char *b, int ret) {
         ASSERT_EQ(dns_name_startswith(a, b), ret);
 }

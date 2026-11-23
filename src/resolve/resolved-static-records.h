@@ -4,4 +4,4 @@
 #include "resolved-forward.h"
 
 void manager_static_records_flush(Manager *m);
-int manager_static_records_lookup(Manager *m, DnsQuestion* q, DnsAnswer **answer);
+int manager_static_records_lookup(Manager *m, DnsQuestion *q, DnsAnswer **answer, int *ret_rcode);

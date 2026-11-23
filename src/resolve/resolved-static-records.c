@@ -25,11 +25,11 @@
  * Note that this deliberately doesn't use the (probably more user-friendly) classic DNS zone file format,
  * to keep things a bit simpler, and symmetric to the places we currently already generate JSON
  * serializations of DNS RRs. Also note the semantics are different from DNS zone file format, for example
- * regarding delegation (i.e. the RRs defined here have no effect on subdomains), which is probably nicer for
- * one-off mappings of domains to specific resources. Or in other words, this is supposed to be a drop-in
- * based alternative to /etc/hosts, not one to DNS zone files. (The JSON format is also a lot more
- * extensible to us, for example we could teach it to map certain lookups to specific DNS errors, or extend
- * it so that subdomains always get NXDOMAIN or similar).
+ * regarding delegation (i.e. except for DNAME records, the RRs defined here have no effect on subdomains),
+ * which is probably nicer for one-off mappings of domains to specific resources. Or in other words, this is
+ * supposed to be a drop-in based alternative to /etc/hosts, not one to DNS zone files. (The JSON format is
+ * also a lot more extensible to us, for example we could teach it to map certain lookups to specific DNS
+ * errors, or extend it so that subdomains always get NXDOMAIN or similar).
  *
  * (That said, if there's a good reason, we can also support *.zone files too one day).
  */
@@ -183,31 +183,104 @@ static int manager_static_records_read(Manager *m) {
         return 0;
 }
 
-int manager_static_records_lookup(Manager *m, DnsQuestion *q, DnsAnswer **answer) {
+/* RFC 6672 requires an authoritative server to include a synthesized CNAME alongside the DNAME, unless the
+ * resulting name is too long, in which case it must return the DNAME with YXDOMAIN. */
+static int answer_add_dname_redirect(
+                DnsAnswer **answer,
+                DnsResourceKey *key,
+                DnsResourceRecord *dname,
+                DnsAnswerFlags flags,
+                int *ret_rcode) {
+
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *cname = NULL;
+        _cleanup_free_ char *target = NULL;
+        int r;
+
+        assert(answer);
+        assert(key);
+        assert(dname);
+        assert(dname->key->type == DNS_TYPE_DNAME);
+        assert(ret_rcode);
+
+        r = dns_answer_add_extend(answer, dname, /* ifindex= */ 0, flags, /* rrsig= */ NULL);
+        if (r < 0)
+                return r;
+
+        r = dns_resource_record_get_cname_target(key, dname, &target);
+        if (r == -EINVAL) {
+                *ret_rcode = DNS_RCODE_YXDOMAIN;
+                return 0;
+        }
+        if (r < 0)
+                return r;
+
+        cname = dns_resource_record_new_full(dname->key->class, DNS_TYPE_CNAME, dns_resource_key_name(key));
+        if (!cname)
+                return -ENOMEM;
+
+        cname->cname.name = TAKE_PTR(target);
+        cname->ttl = dname->ttl;
+
+        r = dns_answer_add_extend(answer, cname, /* ifindex= */ 0, flags, /* rrsig= */ NULL);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+int manager_static_records_lookup(Manager *m, DnsQuestion *q, DnsAnswer **answer, int *ret_rcode) {
         int r;
 
         assert(m);
         assert(q);
         assert(answer);
+        assert(ret_rcode);
+
+        *ret_rcode = DNS_RCODE_SUCCESS;
 
         if (!m->read_static_records)
                 return 0;
 
         (void) manager_static_records_read(m);
 
-        const char *n = dns_question_first_name(q);
-        if (!n)
+        DnsResourceKey *key = dns_question_first_key(q);
+        if (!key)
                 return 0;
 
+        const char *n = dns_resource_key_name(key);
         DnsAnswer *f = hashmap_get(m->static_records, n);
-        if (!f)
+        if (f) {
+                r = dns_answer_extend(answer, f);
+                if (r < 0)
+                        return r;
+                return 1;
+        }
+
+        if (!dns_type_may_redirect(key->type))
                 return 0;
 
-        r = dns_answer_extend(answer, f);
-        if (r < 0)
-                return r;
+        /* Look for a DNAME at the closest enclosing name. */
+        while ((r = dns_name_parent(&n)) > 0) {
+                f = hashmap_get(m->static_records, n);
+                if (!f)
+                        continue;
 
-        return 1;
+                DnsResourceRecord *dname;
+                DnsAnswerFlags flags;
+                r = dns_answer_find_cname_or_dname(f, key, &dname, &flags);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                r = answer_add_dname_redirect(answer, key, dname, flags, ret_rcode);
+                if (r < 0)
+                        return r;
+
+                return 1;
+        }
+
+        return r;
 }
 
 void manager_static_records_flush(Manager *m) {
