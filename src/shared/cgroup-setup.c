@@ -426,7 +426,7 @@ int cg_enable(
                         r = write_string_stream(f, s, WRITE_STRING_FILE_DISABLE_BUFFER);
                         if (r < 0) {
                                 log_debug_errno(r, "Failed to %s controller %s for %s (%s): %m",
-                                                FLAGS_SET(mask, bit) ? "enable" : "disable", n, p, fs);
+                                                enable_disable(FLAGS_SET(mask, bit)), n, p, fs);
                                 clearerr(f);
 
                                 /* If we can't turn off a controller, leave it on in the reported resulting mask. This

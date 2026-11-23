@@ -801,7 +801,7 @@ static int maybe_enable_disable(sd_bus *bus, const char *path, bool enable) {
         r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
         if (r < 0)
                 return log_error_errno(r, "Failed to %s the portable service %s: %s",
-                        enable ? "enable" : "disable", path, bus_error_message(&error, r));
+                        enable_disable(enable), path, bus_error_message(&error, r));
 
         if (enable) {
                 r = sd_bus_message_skip(reply, "b");
