@@ -12,6 +12,7 @@
 #include "path-util.h"
 #include "recurse-dir.h"
 #include "sort-util.h"
+#include "string-util.h"
 
 #define DEFAULT_RECURSION_MAX 100
 
@@ -63,10 +64,22 @@ static bool ignore_dirent(const struct dirent *de, RecurseDirFlags flags) {
 
 int readdir_all(int dir_fd, RecurseDirFlags flags, DirectoryEntries **ret) {
         _cleanup_free_ DirectoryEntries *de = NULL;
+        _cleanup_close_ int reopened_fd = -EBADF;
         DirectoryEntries *nde;
         int r;
 
-        assert(dir_fd >= 0);
+        assert(dir_fd >= 0 || (dir_fd == AT_FDCWD && FLAGS_SET(flags, RECURSE_DIR_REOPEN)));
+
+        /* If requested, operate on a new fd for the same directory instead of the one passed in. This allows
+         * passing O_PATH fds, and leaves the file offset of the original fd untouched, i.e. the directory is
+         * always enumerated from the beginning. */
+        if (FLAGS_SET(flags, RECURSE_DIR_REOPEN)) {
+                reopened_fd = fd_reopen(dir_fd, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+                if (reopened_fd < 0)
+                        return reopened_fd;
+
+                dir_fd = reopened_fd;
+        }
 
         if ((flags & _RECURSE_DIR_MUST_BE_MASK) != 0) /* We need the type to validate it */
                 flags |= RECURSE_DIR_ENSURE_TYPE;
@@ -175,11 +188,16 @@ int readdir_all_at(int fd, const char *path, RecurseDirFlags flags, DirectoryEnt
 
         assert(fd >= 0 || fd == AT_FDCWD);
 
+        /* With RECURSE_DIR_REOPEN an empty path refers to the fd itself, which readdir_all() reopens */
+        if (isempty(path) && FLAGS_SET(flags, RECURSE_DIR_REOPEN))
+                return readdir_all(fd, flags, ret);
+
         dir_fd = xopenat(fd, path, O_DIRECTORY);
         if (dir_fd < 0)
                 return dir_fd;
 
-        return readdir_all(dir_fd, flags, ret);
+        /* We just opened a new fd, no need to reopen it again */
+        return readdir_all(dir_fd, flags & ~RECURSE_DIR_REOPEN, ret);
 }
 
 int recurse_dir(
