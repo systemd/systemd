@@ -572,6 +572,10 @@ executables += [
                 'timeout' : 120,
         },
         test_template + {
+                'sources' : files('test-pkcs11-util.c'),
+                'dependencies' : libp11kit_cflags,
+        },
+        test_template + {
                 'sources' : files('test-tpm2.c'),
                 'dependencies' : [
                         libfido2_cflags,
