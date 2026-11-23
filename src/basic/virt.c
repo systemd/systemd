@@ -24,6 +24,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "sysctl-util.h"
 #include "virt.h"
 
 enum {
@@ -657,9 +658,9 @@ Virtualization detect_container(void) {
         }
 
         /* "Official" way of detecting WSL https://github.com/Microsoft/WSL/issues/423#issuecomment-221627364 */
-        r = read_one_line_file("/proc/sys/kernel/osrelease", &o);
+        r = sysctl_read("kernel/osrelease", &o);
         if (r < 0)
-                log_debug_errno(r, "Failed to read /proc/sys/kernel/osrelease, ignoring: %m");
+                log_debug_errno(r, "Failed to read kernel.osrelease sysctl, ignoring: %m");
         else if (strstr(o, "Microsoft") || strstr(o, "WSL")) {
                 v = VIRTUALIZATION_WSL;
                 goto finish;
