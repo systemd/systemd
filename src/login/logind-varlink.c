@@ -707,6 +707,29 @@ static int lookup_session_for_action(Manager *m, sd_varlink *link, const char *i
         return r;
 }
 
+static int session_verify_polkit_async(Session *session, sd_varlink *link, const char *action, const char *verb) {
+        assert(session);
+
+        const UserRecord *record = session->user->user_record;
+        const char *details[] = {
+                "session", session->id,
+                "uid", FORMAT_UID(record->uid),
+                "username", record->user_name,
+                "verb", verb,
+                NULL
+        };
+
+        return varlink_verify_polkit_async_full(
+                        link,
+                        session->manager->bus,
+                        action,
+                        details,
+                        record->uid,
+                        /* flags= */ 0,
+                        &session->manager->polkit_registry,
+                        /* ret_admin= */ NULL);
+}
+
 static int vl_method_activate_session(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         int r;
@@ -730,12 +753,20 @@ static int vl_method_activate_session(sd_varlink *link, sd_json_variant *paramet
         if (r < 0)
                 return r;
 
+        if (!session->seat)
+                return sd_varlink_error(link, "io.systemd.Login.NotSupported", /* parameters= */ NULL);
+
 #if ENABLE_POLKIT
+        const char *details[] = {
+                "seat", session->seat->id,
+                NULL
+        };
+
         r = varlink_verify_polkit_async(
                         link,
                         m->bus,
                         "org.freedesktop.login1.chvt",
-                        /* details= */ NULL,
+                        details,
                         &m->polkit_registry);
         if (r <= 0)
                 return r;
@@ -777,15 +808,22 @@ static int vl_method_lock_or_unlock_session(sd_varlink *link, sd_json_variant *p
                         return r;
         }
 
-        r = varlink_verify_polkit_async_full(
-                        link,
-                        m->bus,
-                        "org.freedesktop.login1.lock-sessions",
-                        /* details= */ NULL,
-                        session ? session->user->user_record->uid : UID_INVALID,
-                        /* flags= */ 0,
-                        &m->polkit_registry,
-                        /* ret_admin= */ NULL);
+        const char *verb = lock ? "lock" : "unlock";
+        if (session)
+                r = session_verify_polkit_async(session, link, "org.freedesktop.login1.lock-sessions", verb);
+        else {
+                const char *details[] = {
+                        "verb", verb,
+                        NULL
+                };
+
+                r = varlink_verify_polkit_async(
+                                link,
+                                m->bus,
+                                "org.freedesktop.login1.lock-sessions",
+                                details,
+                                &m->polkit_registry);
+        }
         if (r <= 0)
                 return r;
 
@@ -829,15 +867,7 @@ static int vl_method_terminate_session(sd_varlink *link, sd_json_variant *parame
         if (r < 0)
                 return r;
 
-        r = varlink_verify_polkit_async_full(
-                        link,
-                        m->bus,
-                        "org.freedesktop.login1.manage",
-                        /* details= */ NULL,
-                        session->user->user_record->uid,
-                        /* flags= */ 0,
-                        &m->polkit_registry,
-                        /* ret_admin= */ NULL);
+        r = session_verify_polkit_async(session, link, "org.freedesktop.login1.manage", "terminate");
         if (r <= 0)
                 return r;
 
@@ -879,15 +909,7 @@ static int vl_method_kill_session(sd_varlink *link, sd_json_variant *parameters,
         if (r < 0)
                 return r;
 
-        r = varlink_verify_polkit_async_full(
-                        link,
-                        m->bus,
-                        "org.freedesktop.login1.manage",
-                        /* details= */ NULL,
-                        session->user->user_record->uid,
-                        /* flags= */ 0,
-                        &m->polkit_registry,
-                        /* ret_admin= */ NULL);
+        r = session_verify_polkit_async(session, link, "org.freedesktop.login1.manage", "kill");
         if (r <= 0)
                 return r;
 
