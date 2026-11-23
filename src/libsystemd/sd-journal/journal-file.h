@@ -200,6 +200,9 @@ static inline bool VALID_MONOTONIC(uint64_t u) {
         return u < (1ULL << 55);
 }
 
+/* CLOCK_BOOTTIME timestamps have the same range as CLOCK_MONOTONIC ones */
+#define VALID_BOOTTIME(u) VALID_MONOTONIC(u)
+
 static inline bool VALID_EPOCH(uint64_t u) {
         /* This allows changing the key for 1142 years, every usec. */
         return u < (1ULL << 55);
@@ -216,6 +219,9 @@ static inline bool VALID_EPOCH(uint64_t u) {
 
 #define JOURNAL_HEADER_TAIL_ENTRY_BOOT_ID(h) \
         FLAGS_SET(le32toh((h)->compatible_flags), HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID)
+
+#define JOURNAL_HEADER_BOOTTIME(h) \
+        FLAGS_SET(le32toh((h)->compatible_flags), HEADER_COMPATIBLE_BOOTTIME)
 
 #define JOURNAL_HEADER_COMPRESSED_XZ(h) \
         FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_COMPRESSED_XZ)
@@ -259,6 +265,7 @@ static inline size_t journal_file_entry_item_size(JournalFile *f) {
 }
 
 uint64_t journal_file_entry_n_items(JournalFile *f, Object *o) _pure_;
+int journal_file_entry_boottime(JournalFile *f, Object *o, uint64_t *ret);
 
 int journal_file_data_payload_full(
                 JournalFile *f,
