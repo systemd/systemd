@@ -937,10 +937,7 @@ _public_ sd_json_variant *sd_json_variant_unref(sd_json_variant *v) {
         if (v->is_embedded)
                 sd_json_variant_unref(v->parent);
         else {
-                assert(v->n_ref > 0);
-                v->n_ref--;
-
-                if (v->n_ref == 0) {
+                if (ref_counter_dec(&v->n_ref) == 0) {
                         json_variant_free_inner(v, /* force_sensitive= */ false);
                         free(v);
                 }

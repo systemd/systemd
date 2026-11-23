@@ -1869,8 +1869,7 @@ _public_ sd_bus* sd_bus_unref(sd_bus *bus) {
         if (bus_origin_changed(bus))
                 return NULL;
 
-        assert(bus->n_ref > 0);
-        if (--bus->n_ref > 0)
+        if (ref_counter_dec(&bus->n_ref) > 0)
                 return NULL;
 
         return bus_free(bus);

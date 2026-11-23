@@ -286,14 +286,11 @@ DnsPacket *dns_packet_unref(DnsPacket *p) {
         if (!p)
                 return NULL;
 
-        assert(p->n_ref > 0);
+        if (ref_counter_dec(&p->n_ref) > 0)
+                return NULL;
 
-        if (p->n_ref == 1) {
-                dns_packet_unref(p->more);
-                dns_packet_free(p);
-        } else
-                p->n_ref--;
-
+        dns_packet_unref(p->more);
+        dns_packet_free(p);
         return NULL;
 }
 

@@ -109,7 +109,7 @@ int socket_broadcast_group_unref(sd_netlink *nl, unsigned group) {
         if (n_ref == 0)
                 return 0;
 
-        n_ref--;
+        ref_counter_dec(&n_ref);
 
         r = broadcast_group_set_ref(nl, group, n_ref);
         if (r < 0)
