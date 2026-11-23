@@ -310,6 +310,32 @@ TEST(manifest_fields_from_string) {
         ASSERT_EQ(manifest_field_from_uapi16_feature("fat-serial"), MANIFEST_FIELD_FAT_SERIAL);
 }
 
+TEST(manifest_inode_types_from_string) {
+        uint32_t t = MANIFEST_INODE_TYPES_ALL;
+
+        /* A plain list assigns */
+        ASSERT_OK(manifest_inode_types_from_string("reg,dir", &t));
+        ASSERT_EQ(t, (UINT32_C(1) << DT_REG) | (UINT32_C(1) << DT_DIR));
+        ASSERT_OK(manifest_inode_types_from_string("lnk", &t));
+        ASSERT_EQ(t, UINT32_C(1) << DT_LNK);
+
+        /* "+" and "-" adjust */
+        ASSERT_OK(manifest_inode_types_from_string("+sock,+fifo", &t));
+        ASSERT_EQ(t, (UINT32_C(1) << DT_LNK) | (UINT32_C(1) << DT_SOCK) | (UINT32_C(1) << DT_FIFO));
+        ASSERT_OK(manifest_inode_types_from_string("-lnk", &t));
+        ASSERT_EQ(t, (UINT32_C(1) << DT_SOCK) | (UINT32_C(1) << DT_FIFO));
+        ASSERT_OK(manifest_inode_types_from_string("all,-chr,-blk", &t));
+        ASSERT_EQ(t, MANIFEST_INODE_TYPES_ALL & ~((UINT32_C(1) << DT_CHR) | (UINT32_C(1) << DT_BLK)));
+        ASSERT_OK(manifest_inode_types_from_string("none", &t));
+        ASSERT_EQ(t, 0U);
+        ASSERT_OK(manifest_inode_types_from_string("all", &t));
+        ASSERT_EQ(t, MANIFEST_INODE_TYPES_ALL);
+
+        ASSERT_ERROR(manifest_inode_types_from_string("foo", &t), EINVAL);
+        ASSERT_ERROR(manifest_inode_types_from_string("reg,", &t), EINVAL);
+        ASSERT_EQ(t, MANIFEST_INODE_TYPES_ALL); /* unchanged on failure */
+}
+
 TEST(manifest_list) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int tfd = -EBADF;
@@ -771,6 +797,239 @@ TEST(manifest_uapi16) {
         ASSERT_EQ(c.n_metadata_omitted, 0U);
 }
 
+TEST(manifest_inode_types) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF;
+        _cleanup_free_ char *buf = NULL, *buf_all = NULL;
+        size_t size, size_all;
+
+        ASSERT_OK(tfd = make_tree(&t));
+
+        /* Directories are still descended into if they are not listed themselves */
+        _cleanup_(manifest_context_done) ManifestContext c;
+        context_init(&c, MANIFEST_FORMAT_LIST);
+        c.inode_types = MANIFEST_INODE_TYPES_ALL & ~((UINT32_C(1) << DT_DIR) | (UINT32_C(1) << DT_FIFO));
+        ASSERT_OK(generate(&c, tfd, &buf, &size));
+        ASSERT_STREQ(buf,
+                     "empty.txt\n"
+                     "hardlink_a\n"
+                     "hardlink_b\n"
+                     "regular.txt\n"
+                     "subdir/nested.txt\n"
+                     "symlink\n");
+        ASSERT_EQ(c.n_filtered, 2U);
+        buf = mfree(buf);
+
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_LIST);
+        c.inode_types = UINT32_C(1) << DT_DIR;
+        ASSERT_OK(generate(&c, tfd, &buf, &size));
+        ASSERT_STREQ(buf, "subdir/\n");
+        buf = mfree(buf);
+
+        /* The top-level inode is always listed */
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.inode_types = UINT32_C(1) << DT_DIR | UINT32_C(1) << DT_LNK;
+        ASSERT_OK(generate(&c, tfd, &buf, &size));
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *root = find_object(buf, /* name= */ NULL);
+        ASSERT_NOT_NULL(root);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *subdir = find_object(buf, "subdir");
+        ASSERT_NOT_NULL(subdir);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *symlink = find_object(buf, "symlink");
+        ASSERT_NOT_NULL(symlink);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *regular = find_object(buf, "regular.txt");
+        ASSERT_NULL(regular);
+
+        /* Inodes of types not selected are not verified */
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        ASSERT_OK(generate(&c, tfd, &buf_all, &size_all));
+        ASSERT_OK_ERRNO(unlinkat(tfd, "fifo", 0));
+        ASSERT_OK(write_string_file_at(tfd, "subdir/nested.txt", "changed", WRITE_STRING_FILE_TRUNCATE|WRITE_STRING_FILE_AVOID_NEWLINE));
+
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        ASSERT_ERROR(verify_buffer(&c, tfd, buf_all, size_all), EBADMSG);
+        ASSERT_EQ(c.n_errors, 2U);
+
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.inode_types = MANIFEST_INODE_TYPES_ALL & ~(UINT32_C(1) << DT_FIFO);
+        ASSERT_ERROR(verify_buffer(&c, tfd, buf_all, size_all), EBADMSG);
+        ASSERT_EQ(c.n_errors, 1U);
+        ASSERT_EQ(c.n_filtered, 1U);
+
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.inode_types = MANIFEST_INODE_TYPES_ALL & ~((UINT32_C(1) << DT_FIFO) | (UINT32_C(1) << DT_REG));
+        ASSERT_OK(verify_buffer(&c, tfd, buf_all, size_all));
+
+        /* Same for the list format: directories are filtered by the trailing slash, everything else by what
+         * is found in the tree */
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_LIST);
+        c.inode_types = UINT32_C(1) << DT_REG;
+        static const char list[] = "subdir/\nregular.txt\nsymlink\nmissing/\n";
+        ASSERT_OK(verify_buffer(&c, tfd, list, strlen(list)));
+        ASSERT_EQ(c.n_filtered, 3U);
+
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_LIST);
+        c.inode_types = UINT32_C(1) << DT_DIR;
+        ASSERT_ERROR(verify_buffer(&c, tfd, list, strlen(list)), EBADMSG);
+        ASSERT_EQ(c.n_errors, 1U);
+}
+
+static const char* root_complete(const char *manifest) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *root = find_object(manifest, /* name= */ NULL);
+        ASSERT_NOT_NULL(root);
+
+        sd_json_variant *v = sd_json_variant_by_key(root, "complete");
+        if (!v)
+                return NULL;
+
+        Uapi16Complete c = uapi16_complete_from_string(sd_json_variant_string(v));
+        ASSERT_OK(c);
+        return uapi16_complete_to_string(c); /* static string, survives the variant */
+}
+
+static void generate_complete(int tfd, uint32_t inode_types, Uapi16Complete complete, char **ret, size_t *ret_size) {
+        _cleanup_(manifest_context_done) ManifestContext c;
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.inode_types = inode_types;
+        c.complete = complete;
+        ASSERT_OK(generate(&c, tfd, ret, ret_size));
+}
+
+static int verify_complete(int tfd, uint32_t inode_types, Uapi16Complete complete, const char *buf, size_t size, uint64_t *ret_n_errors) {
+        _cleanup_(manifest_context_done) ManifestContext c;
+        int r;
+
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.inode_types = inode_types;
+        c.complete = complete;
+        r = verify_buffer(&c, tfd, buf, size);
+        if (ret_n_errors)
+                *ret_n_errors = c.n_errors;
+        return r;
+}
+
+TEST(manifest_uapi16_complete) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF;
+        _cleanup_free_ char *buf = NULL, *buf_no = NULL, *buf_nodir = NULL, *buf_reg = NULL;
+        size_t size, size_no, size_nodir, size_reg;
+        uint64_t n;
+
+        uint32_t all_but_dir = MANIFEST_INODE_TYPES_ALL & ~(UINT32_C(1) << DT_DIR);
+
+        ASSERT_OK(tfd = make_tree(&t));
+
+        /* Manifests are complete by default, and do not say so explicitly */
+        generate_complete(tfd, MANIFEST_INODE_TYPES_ALL, _UAPI16_COMPLETE_INVALID, &buf, &size);
+        ASSERT_NULL(root_complete(buf));
+
+        generate_complete(tfd, MANIFEST_INODE_TYPES_ALL, UAPI16_COMPLETE_NO, &buf_no, &size_no);
+        ASSERT_STREQ(root_complete(buf_no), "no");
+
+        /* Without directories the manifest defaults to "no-dir", and lists no directories other than the
+         * root */
+        generate_complete(tfd, all_but_dir, _UAPI16_COMPLETE_INVALID, &buf_nodir, &size_nodir);
+        ASSERT_STREQ(root_complete(buf_nodir), "no-dir");
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *subdir = find_object(buf_nodir, "subdir");
+        ASSERT_NULL(subdir);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *nested = find_object(buf_nodir, "subdir/nested.txt");
+        ASSERT_NOT_NULL(nested);
+
+        /* … which is also what "no-dir" implies on its own */
+        _cleanup_free_ char *buf_nodir2 = NULL;
+        size_t size_nodir2;
+        generate_complete(tfd, MANIFEST_INODE_TYPES_ALL, UAPI16_COMPLETE_NO_DIR, &buf_nodir2, &size_nodir2);
+        ASSERT_STREQ(buf_nodir2, buf_nodir);
+
+        /* If other types are missing too it defaults to "no" */
+        generate_complete(tfd, UINT32_C(1) << DT_REG, _UAPI16_COMPLETE_INVALID, &buf_reg, &size_reg);
+        ASSERT_STREQ(root_complete(buf_reg), "no");
+
+        /* Declaring more completeness than the inode types allow is refused */
+        _cleanup_(manifest_context_done) ManifestContext c;
+        _cleanup_free_ char *dummy = NULL;
+        size_t dummy_size;
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.inode_types = all_but_dir;
+        c.complete = UAPI16_COMPLETE_YES;
+        ASSERT_ERROR(generate(&c, tfd, &dummy, &dummy_size), EINVAL);
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.inode_types = UINT32_C(1) << DT_REG | UINT32_C(1) << DT_DIR;
+        c.complete = UAPI16_COMPLETE_NO_DIR;
+        ASSERT_ERROR(generate(&c, tfd, &dummy, &dummy_size), EINVAL);
+
+        /* All of them verify against the tree, also with a manifest embedded in it, which is not
+         * considered unlisted */
+        ASSERT_OK(write_string_file_at(tfd, UAPI16_MANIFEST_FILENAME, "", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(verify_complete(tfd, MANIFEST_INODE_TYPES_ALL, _UAPI16_COMPLETE_INVALID, buf, size, NULL));
+        ASSERT_OK(verify_complete(tfd, MANIFEST_INODE_TYPES_ALL, _UAPI16_COMPLETE_INVALID, buf_no, size_no, NULL));
+        ASSERT_OK(verify_complete(tfd, MANIFEST_INODE_TYPES_ALL, _UAPI16_COMPLETE_INVALID, buf_nodir, size_nodir, NULL));
+        ASSERT_OK(verify_complete(tfd, MANIFEST_INODE_TYPES_ALL, _UAPI16_COMPLETE_INVALID, buf_reg, size_reg, NULL));
+
+        /* Inodes the manifest does not list are detected for complete manifests, but only reported for
+         * the topmost unlisted directory, not for what is below it */
+        ASSERT_OK(write_string_file_at(tfd, "subdir/extra.txt", "extra", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK_ERRNO(mkdirat(tfd, "newdir", 0755));
+        ASSERT_OK(write_string_file_at(tfd, "newdir/x", "x", WRITE_STRING_FILE_CREATE));
+        ASSERT_ERROR(verify_complete(tfd, MANIFEST_INODE_TYPES_ALL, _UAPI16_COMPLETE_INVALID, buf, size, &n), EBADMSG);
+        ASSERT_EQ(n, 2U);
+
+        /* … unless we are told to treat it as not complete, or not to check these inode types … */
+        ASSERT_OK(verify_complete(tfd, MANIFEST_INODE_TYPES_ALL, UAPI16_COMPLETE_NO, buf, size, NULL));
+        ASSERT_ERROR(verify_complete(tfd, all_but_dir, _UAPI16_COMPLETE_INVALID, buf, size, &n), EBADMSG);
+        ASSERT_EQ(n, 2U); /* newdir is not reported, but newdir/x is */
+        ASSERT_ERROR(verify_complete(tfd, UINT32_C(1) << DT_DIR, _UAPI16_COMPLETE_INVALID, buf, size, &n), EBADMSG);
+        ASSERT_EQ(n, 1U); /* only newdir */
+
+        /* … or it declares itself not complete, which in turn can be overridden */
+        ASSERT_OK(verify_complete(tfd, MANIFEST_INODE_TYPES_ALL, _UAPI16_COMPLETE_INVALID, buf_no, size_no, NULL));
+        ASSERT_ERROR(verify_complete(tfd, MANIFEST_INODE_TYPES_ALL, UAPI16_COMPLETE_YES, buf_no, size_no, &n), EBADMSG);
+        ASSERT_EQ(n, 2U);
+
+        /* "no-dir" manifests report all unlisted non-directories, also below directories it lists nothing
+         * below, but no directories */
+        ASSERT_ERROR(verify_complete(tfd, MANIFEST_INODE_TYPES_ALL, _UAPI16_COMPLETE_INVALID, buf_nodir, size_nodir, &n), EBADMSG);
+        ASSERT_EQ(n, 2U); /* subdir/extra.txt, newdir/x */
+        /* Treated as complete, the directories are reported too: subdir, newdir (but not newdir/x) and
+         * subdir/extra.txt */
+        ASSERT_ERROR(verify_complete(tfd, MANIFEST_INODE_TYPES_ALL, UAPI16_COMPLETE_YES, buf_nodir, size_nodir, &n), EBADMSG);
+        ASSERT_EQ(n, 3U);
+
+        /* Treating a "no" manifest that only lists regular files as "no-dir" finds the unlisted symlink and
+         * fifo, as well as the extra files */
+        ASSERT_ERROR(verify_complete(tfd, MANIFEST_INODE_TYPES_ALL, UAPI16_COMPLETE_NO_DIR, buf_reg, size_reg, &n), EBADMSG);
+        ASSERT_EQ(n, 4U);
+        ASSERT_ERROR(verify_complete(tfd, UINT32_C(1) << DT_REG, UAPI16_COMPLETE_NO_DIR, buf_reg, size_reg, &n), EBADMSG);
+        ASSERT_EQ(n, 2U);
+
+        ASSERT_OK(rm_rf_child(tfd, "newdir", REMOVE_PHYSICAL));
+        ASSERT_OK_ERRNO(unlinkat(tfd, "subdir/extra.txt", 0));
+
+        /* A manifest that is not complete, lacking directory objects */
+        static const char sparse[] =
+                "\x1e{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"complete\":\"no\"}\n"
+                "\x1e{\"name\":\"subdir/nested.txt\"}\n"
+                "\x1e{\"mediaType\":\"" UAPI16_TRAILER_MEDIA_TYPE "\"}\n";
+        ASSERT_OK(verify_complete(tfd, MANIFEST_INODE_TYPES_ALL, _UAPI16_COMPLETE_INVALID, sparse, strlen(sparse), NULL));
+
+        /* If treated as complete, everything but subdir/nested.txt (and the embedded manifest) is
+         * unlisted, including the directory itself: regular.txt, empty.txt, subdir, symlink, fifo,
+         * hardlink_a, hardlink_b */
+        ASSERT_ERROR(verify_complete(tfd, MANIFEST_INODE_TYPES_ALL, UAPI16_COMPLETE_YES, sparse, strlen(sparse), &n), EBADMSG);
+        ASSERT_EQ(n, 7U);
+        /* … and as "no-dir" all of these but the directory */
+        ASSERT_ERROR(verify_complete(tfd, MANIFEST_INODE_TYPES_ALL, UAPI16_COMPLETE_NO_DIR, sparse, strlen(sparse), &n), EBADMSG);
+        ASSERT_EQ(n, 6U);
+}
+
 TEST(manifest_omitted) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int tfd = -EBADF;
@@ -1118,6 +1377,27 @@ TEST(uapi16_dispatch_features) {
         uapi16_object_done(&o);
         ASSERT_OK(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\"}", 0, &o));
         ASSERT_EQ(o.order, _UAPI16_ORDER_INVALID);
+        ASSERT_EQ(o.complete, _UAPI16_COMPLETE_INVALID);
+        uapi16_object_done(&o);
+        ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"complete\":\"no\"}", 1, &o), EBADMSG);
+        ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"complete\":\"yes\"}", 1, &o), EBADMSG);
+        ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"complete\":\"frobnicate\"}", 1, &o), EBADMSG);
+        ASSERT_OK(dispatch_one("{\"name\":\"a\",\"complete\":null}", 1, &o));
+        uapi16_object_done(&o);
+        ASSERT_OK(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"complete\":\"yes\"}", 0, &o));
+        ASSERT_EQ(o.complete, UAPI16_COMPLETE_YES);
+        uapi16_object_done(&o);
+        ASSERT_OK(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"complete\":\"no-dir\"}", 0, &o));
+        ASSERT_EQ(o.complete, UAPI16_COMPLETE_NO_DIR);
+        uapi16_object_done(&o);
+        ASSERT_OK(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"complete\":\"no\"}", 0, &o));
+        ASSERT_EQ(o.complete, UAPI16_COMPLETE_NO);
+        uapi16_object_done(&o);
+        /* Unknown values are treated like "no" */
+        ASSERT_OK(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"complete\":\"frobnicate\"}", 0, &o));
+        ASSERT_EQ(o.complete, UAPI16_COMPLETE_NO);
+        uapi16_object_done(&o);
+        ASSERT_ERROR(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"complete\":false}", 0, &o), EINVAL);
         uapi16_object_done(&o);
 
         /* Other objects inherit the features of the root object */
@@ -1276,6 +1556,35 @@ TEST(uapi16_manifest_read_placement) {
         ASSERT_OK(read_records(",\"order\":\"frobnicate\"", STRV_MAKE("b", "a")));
         ASSERT_OK(read_records(",\"order\":null", STRV_MAKE("b", "a")));
         ASSERT_ERROR(read_records(",\"order\":4711", STRV_MAKE("b", "a")), EINVAL);
+
+        /* Manifests that are not complete may lack the file objects of directories … */
+        ASSERT_OK(read_records(",\"complete\":\"no\"", STRV_MAKE("a/x")));
+        ASSERT_OK(read_records(",\"complete\":\"no\"", STRV_MAKE("a/b/c/d", "a/b/e", "a/f", "g")));
+        ASSERT_OK(read_records(",\"complete\":\"no\"", STRV_MAKE("a/", "a/b/c", "a/x")));
+        ASSERT_OK(read_records(",\"complete\":\"no\",\"order\":\"codepoint\"", STRV_MAKE("a/b/c", "a/b/d", "a/x", "b/y")));
+        ASSERT_OK(read_records(",\"complete\":\"no\",\"order\":\"codepoint\"", STRV_MAKE("a/", "a/b/c", "a/x")));
+        ASSERT_OK(read_records(",\"complete\":\"frobnicate\"", STRV_MAKE("a/x"))); /* Unknown → "no" */
+        ASSERT_OK(read_records(",\"complete\":\"no-dir\"", STRV_MAKE("a/b/c/d", "a/b/e", "a/f", "g")));
+        ASSERT_OK(read_records(",\"complete\":\"no-dir\",\"order\":\"codepoint\"", STRV_MAKE("a/b/c", "a/b/d", "a/x", "b/y")));
+        /* … but "no-dir" ones must lack all of them … */
+        ASSERT_ERROR(read_records(",\"complete\":\"no-dir\"", STRV_MAKE("a/", "a/x")), EBADMSG);
+        ASSERT_ERROR(read_records(",\"complete\":\"no-dir\"", STRV_MAKE("a/")), EBADMSG);
+        /* … and complete ones (also if declared explicitly) may not lack any */
+        ASSERT_ERROR(read_records(",\"complete\":\"yes\"", STRV_MAKE("a/x")), EBADMSG);
+        ASSERT_ERROR(read_records(",\"complete\":null", STRV_MAKE("a/x")), EBADMSG);
+        ASSERT_ERROR(read_records(",\"complete\":\"yes\"", STRV_MAKE("a/", "a/b/c")), EBADMSG);
+        ASSERT_OK(read_records(",\"complete\":\"yes\"", STRV_MAKE("a/", "a/x")));
+        /* All other placement rules still apply */
+        ASSERT_ERROR(read_records(",\"complete\":\"no\"", STRV_MAKE("a", "a/x")), EBADMSG); /* Not a directory */
+        ASSERT_ERROR(read_records(",\"complete\":\"no-dir\"", STRV_MAKE("a", "a/x")), EBADMSG);
+        /* Reopening a directory is only detected if the ordering is declared, since without it we'd have to
+         * remember all names of manifests that are not complete */
+        ASSERT_OK(read_records(",\"complete\":\"no\"", STRV_MAKE("a/", "a/x", "b", "a/y")));
+        ASSERT_ERROR(read_records(",\"complete\":\"no\",\"order\":\"codepoint\"", STRV_MAKE("a/", "a/x", "b", "a/y")), EBADMSG);
+        ASSERT_ERROR(read_records(",\"complete\":\"no\",\"order\":\"codepoint\"", STRV_MAKE("a/x", "b", "a/y")), EBADMSG);
+        ASSERT_ERROR(read_records(",\"complete\":\"no-dir\",\"order\":\"codepoint\"", STRV_MAKE("a/x", "b", "a/y")), EBADMSG);
+        ASSERT_ERROR(read_records(",\"complete\":\"no\",\"order\":\"codepoint\"", STRV_MAKE("a/x", "a/x")), EBADMSG);
+        ASSERT_ERROR(read_records(",\"complete\":4711", STRV_EMPTY), EINVAL);
 }
 
 static bool try_set_special_xattr(int dir_fd, const char *name) {

@@ -74,6 +74,23 @@ typedef enum ManifestField {
         _MANIFEST_FIELD_INVALID         = -EINVAL,
 } ManifestField;
 
+/* All inode types, as mask of 1U << DT_REG, 1U << DT_DIR, … (i.e. the same encoding as PickFilter.type_mask) */
+#define MANIFEST_INODE_TYPES_ALL                                        \
+        ((UINT32_C(1) << DT_REG) | (UINT32_C(1) << DT_DIR) |            \
+         (UINT32_C(1) << DT_LNK) | (UINT32_C(1) << DT_CHR) |            \
+         (UINT32_C(1) << DT_BLK) | (UINT32_C(1) << DT_FIFO) |           \
+         (UINT32_C(1) << DT_SOCK))
+
+/* Which file objects of the directory tree a UAPI.16 manifest lists, as declared in the "complete" field of
+ * its root file object. Defined here rather than in uapi16-manifest.h, as ManifestContext needs it. */
+typedef enum Uapi16Complete {
+        UAPI16_COMPLETE_YES,    /* All file objects are listed (the default) */
+        UAPI16_COMPLETE_NO_DIR, /* All file objects except for those of directories (other than the root) */
+        UAPI16_COMPLETE_NO,     /* Any file objects may be missing */
+        _UAPI16_COMPLETE_MAX,
+        _UAPI16_COMPLETE_INVALID = -EINVAL,
+} Uapi16Complete;
+
 /* The hash algorithm to use for MANIFEST_FIELD_HASH. Only the mtree format supports anything but SHA256. */
 typedef enum ManifestHash {
         MANIFEST_HASH_SHA256,
@@ -88,6 +105,10 @@ typedef enum ManifestHash {
 typedef struct ManifestContext {
         ManifestFormat format;
         ManifestField fields;
+        /* The inode types to include in a manifest (and to verify), as mask of 1U << DT_REG, 1U << DT_DIR,
+         * …. Inodes of other types are ignored, but directories are still descended into. The top-level
+         * inode is never ignored. */
+        uint32_t inode_types;
         ManifestHash hash;
         FILE *output;           /* not owned */
         bool color;
@@ -98,6 +119,9 @@ typedef struct ManifestContext {
         /* Of the above, how many were skipped because the format does not list inodes of their type by
          * design (i.e. anything but regular files in SHA256SUMS). This is expected, hence not a failure. */
         uint64_t n_skipped_expected;
+
+        /* Track how many inodes we ignored, because their type is not included in inode_types */
+        uint64_t n_filtered;
 
         /* Track how many times we omitted some metadata of an inode we did serialize, because we couldn't
          * read it or it is not representable in this manifest format */
@@ -117,6 +141,13 @@ typedef struct ManifestContext {
         uint64_t counter;
 
         sd_json_format_flags_t json_format_flags;
+
+        /* UAPI.16 only. When generating, the completeness to declare. If unset, it is derived from
+         * inode_types: "yes" if all types are selected, "no-dir" if only directories are not, "no"
+         * otherwise. When verifying, overrides the completeness the manifest declares, if set. Inodes in
+         * the tree the manifest does not list are mismatches, as far as the completeness guarantees they
+         * are listed (and their type is selected in inode_types). */
+        Uapi16Complete complete;
 
         /* When verifying, the maximum deviation of timestamps (currently only the modification time) from
          * the manifest we accept */
@@ -139,9 +170,11 @@ typedef struct ManifestContext {
         (const ManifestContext) {                                                        \
                 .format = _MANIFEST_FORMAT_INVALID,                                      \
                 .fields = _MANIFEST_FIELD_DEFAULT,                                       \
+                .inode_types = MANIFEST_INODE_TYPES_ALL,                                 \
                 .hash = MANIFEST_HASH_SHA256,                                            \
                 .db_fd = -EBADF,                                                         \
                 .json_format_flags = SD_JSON_FORMAT_OFF,                                 \
+                .complete = _UAPI16_COMPLETE_INVALID,                                    \
                 .timestamp_accuracy_nsec = MANIFEST_TIMESTAMP_ACCURACY_DEFAULT_NSEC,     \
         }
 
@@ -164,12 +197,18 @@ ManifestField manifest_field_from_uapi16_feature(const char *s) _pure_;
 int manifest_fields_from_string(const char *s, ManifestField *fields);
 int manifest_fields_to_string(ManifestField f, char **ret);
 
+/* Parses a comma separated list of inode type names ("reg", "dir", "lnk", "chr", "blk", "fifo", "sock") into a
+ * mask of 1U << DT_REG, 1U << DT_DIR, …, with the same semantics as manifest_fields_from_string(): items
+ * prefixed with "+" or "-" add or remove the type from the mask passed in in *types, otherwise the mask is
+ * reset with the first item. "all" and "none" are accepted as special values. */
+int manifest_inode_types_from_string(const char *s, uint32_t *types);
+
 const char* manifest_hash_to_string(ManifestHash i) _const_;
 ManifestHash manifest_hash_from_string(const char *s) _pure_;
 size_t manifest_hash_size(ManifestHash h) _const_;
 
 /* Generates a manifest of the directory tree the specified fd refers to, in the format and with the fields
- * configured in the context. */
+ * and inode types configured in the context. */
 int manifest_make(ManifestContext *c, int dir_fd);
 
 /* Low-level UAPI.16 stream writer, for callers that generate the objects themselves rather than via
@@ -192,7 +231,10 @@ int manifest_parse_sums(FILE *f, size_t *line_nr, char **ret_filename, struct io
 /* Verifies the directory tree the specified fd refers to against the manifest read from the specified
  * stream. The manifest is processed entry by entry, and never loaded into memory as a whole. Every mismatch is
  * logged and counted, and once the whole manifest is processed -EBADMSG is returned if there was at least
- * one. Only the list, sha256sums and uapi16 formats are supported. */
+ * one. Only the list, sha256sums and uapi16 formats are supported. Inodes whose type is not included in the
+ * inode types configured in the context are not verified. For UAPI.16 manifests, inodes in the tree the
+ * manifest does not list are mismatches too, as far as its completeness (see ManifestContext.complete)
+ * guarantees they are listed. */
 int manifest_verify(ManifestContext *c, int dir_fd, FILE *f);
 
 /* Calculates the hash of the file the specified fd refers to, with the algorithm configured in the context.

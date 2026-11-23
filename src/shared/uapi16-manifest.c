@@ -412,6 +412,35 @@ static int json_dispatch_order(const char *name, sd_json_variant *variant, sd_js
         return 0;
 }
 
+static const char* const uapi16_complete_table[_UAPI16_COMPLETE_MAX] = {
+        [UAPI16_COMPLETE_YES]    = "yes",
+        [UAPI16_COMPLETE_NO_DIR] = "no-dir",
+        [UAPI16_COMPLETE_NO]     = "no",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(uapi16_complete, Uapi16Complete);
+
+static int json_dispatch_complete(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        Uapi16Complete *c = ASSERT_PTR(userdata);
+
+        if (sd_json_variant_is_null(variant)) {
+                *c = _UAPI16_COMPLETE_INVALID;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+
+        /* The specification requires treating unknown values like "no" */
+        *c = uapi16_complete_from_string(sd_json_variant_string(variant));
+        if (*c < 0) {
+                json_log(variant, flags|SD_JSON_DEBUG, 0, "Unknown completeness '%s', treating like 'no'.", sd_json_variant_string(variant));
+                *c = UAPI16_COMPLETE_NO;
+        }
+
+        return 0;
+}
+
 static int json_dispatch_inode_type(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         mode_t *t = ASSERT_PTR(userdata);
 
@@ -1113,6 +1142,7 @@ int dispatch_uapi16_object(sd_json_variant *v, const Uapi16Object *root, sd_json
                 { "mediaType",             SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,           offsetof(Uapi16Object, media_type),       SD_JSON_NULLABLE },
                 { "features",              SD_JSON_VARIANT_ARRAY,         json_dispatch_features,            offsetof(Uapi16Object, features),         SD_JSON_NULLABLE },
                 { "order",                 SD_JSON_VARIANT_STRING,        json_dispatch_order,               offsetof(Uapi16Object, order),            SD_JSON_NULLABLE },
+                { "complete",              SD_JSON_VARIANT_STRING,        json_dispatch_complete,            offsetof(Uapi16Object, complete),         SD_JSON_NULLABLE },
                 { "type",                  SD_JSON_VARIANT_STRING,        json_dispatch_inode_type,          offsetof(Uapi16Object, type),             SD_JSON_NULLABLE },
                 { "size",                  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,           offsetof(Uapi16Object, size),             0                },
                 { "mode",                  _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode,         offsetof(Uapi16Object, mode),             0                },
@@ -1194,6 +1224,9 @@ int dispatch_uapi16_object(sd_json_variant *v, const Uapi16Object *root, sd_json
 
                 if (object.order != _UAPI16_ORDER_INVALID)
                         return json_log(v, flags, SYNTHETIC_ERRNO(EBADMSG), "Field 'order' is only permitted on the root object, refusing.");
+
+                if (object.complete >= 0)
+                        return json_log(v, flags, SYNTHETIC_ERRNO(EBADMSG), "Field 'complete' is only permitted on the root object, refusing.");
 
                 /* Inherit the manifest's features, so that users of the object know what it records */
                 assert(root->features >= 0);
@@ -1785,7 +1818,8 @@ static int uapi16_manifest_next_record(
 typedef struct Uapi16Placement {
         char **dirs;          /* The directories still open, i.e. whose entries may still follow */
         size_t n_dirs;
-        char *previous_name;  /* Only tracked if the manifest declares an ordering */
+        char *previous_name;  /* The name of the previous file object … */
+        bool previous_is_dir; /* … and whether it is a directory */
 } Uapi16Placement;
 
 static void uapi16_placement_done(Uapi16Placement *p) {
@@ -1809,34 +1843,80 @@ static int uapi16_placement_check(Uapi16Placement *p, const Uapi16Object *root, 
          * directories that are still open. If the manifest declares the code point ordering, also check
          * that the names strictly increase, which also refuses names listed twice. As names are normalized,
          * path_compare() implements the code point ordering of the specification: it compares component by
-         * component, byte by byte, and orders a component before others it is a prefix of. */
+         * component, byte by byte, and orders a component before others it is a prefix of.
+         *
+         * If the manifest declares itself not complete ("no" or "no-dir"), the file objects of the
+         * directories other file objects are located in may be missing (and for "no-dir" must be, except
+         * for the root). Such directories are opened implicitly, i.e. put on the stack when the first file
+         * object below them is read. Note that without the code point ordering declared we cannot detect
+         * all misplaced file objects of such manifests without remembering all names: an implicitly opened
+         * directory that is reopened later on, or that has the name of a non-directory file object listed
+         * earlier (but not immediately before) goes unnoticed. */
 
-        if (root->order == UAPI16_ORDER_CODEPOINT) {
-                if (p->previous_name && path_compare(p->previous_name, o->name) >= 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                               "Manifest declares code point ordering, but file object '%s' does not sort after '%s', refusing.",
-                                               o->name, p->previous_name);
+        Uapi16Complete complete = root->complete >= 0 ? root->complete : UAPI16_COMPLETE_YES;
 
-                r = free_and_strdup(&p->previous_name, o->name);
-                if (r < 0)
-                        return log_oom();
-        }
+        if (complete == UAPI16_COMPLETE_NO_DIR && o->type == S_IFDIR)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Manifest declares to lack all directory file objects, but lists directory '%s', refusing.",
+                                       o->name);
+
+        if (root->order == UAPI16_ORDER_CODEPOINT &&
+            p->previous_name &&
+            path_compare(p->previous_name, o->name) >= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Manifest declares code point ordering, but file object '%s' does not sort after '%s', refusing.",
+                                       o->name, p->previous_name);
+
+        /* File objects cannot be located below a non-directory. (For complete manifests the stack check
+         * below catches that too.) */
+        if (p->previous_name && !p->previous_is_dir && path_startswith(o->name, p->previous_name))
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "File object '%s' is located below non-directory file object '%s', refusing.",
+                                       o->name, p->previous_name);
+
+        r = free_and_strdup(&p->previous_name, o->name);
+        if (r < 0)
+                return log_oom();
+        p->previous_is_dir = o->type == S_IFDIR;
 
         _cleanup_free_ char *parent = NULL;
         r = path_extract_directory(o->name, &parent);
         if (r < 0 && r != -EDESTADDRREQ) /* EDESTADDRREQ → in the root directory */
                 return log_error_errno(r, "Failed to extract directory of '%s': %m", o->name);
 
-        /* Close all directories the object is not located in */
-        while (p->n_dirs > 0 && !streq_ptr(p->dirs[p->n_dirs - 1], parent)) {
+        /* Close all directories the object is not located in, directly or indirectly */
+        while (p->n_dirs > 0 && !(parent && path_startswith(parent, p->dirs[p->n_dirs - 1]))) {
                 p->n_dirs--;
                 p->dirs[p->n_dirs] = mfree(p->dirs[p->n_dirs]);
         }
 
-        if (parent && p->n_dirs == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "File object '%s' is not listed right after the directory it is located in, refusing.",
-                                       o->name);
+        if (parent && !streq_ptr(p->n_dirs > 0 ? p->dirs[p->n_dirs - 1] : NULL, parent)) {
+                if (complete == UAPI16_COMPLETE_YES)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "File object '%s' is not listed right after the directory it is located in, refusing.",
+                                               o->name);
+
+                /* Open the directories whose file objects are missing implicitly, one by one, from the
+                 * innermost one still open down to the one the object is located in */
+                const char *rest = p->n_dirs > 0 ? path_startswith(parent, p->dirs[p->n_dirs - 1]) : parent;
+                assert(rest);
+
+                for (const char *q = rest;;) {
+                        const char *e;
+                        r = path_find_first_component(&q, /* accept_dot_dot= */ false, &e);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse path '%s': %m", parent);
+                        if (r == 0)
+                                break;
+
+                        _cleanup_free_ char *d = strndup(parent, e + r - parent);
+                        if (!d)
+                                return log_oom();
+
+                        if (strv_consume_with_size(&p->dirs, &p->n_dirs, TAKE_PTR(d)) < 0)
+                                return log_oom();
+                }
+        }
 
         if (o->type == S_IFDIR && strv_extend_with_size(&p->dirs, &p->n_dirs, o->name) < 0)
                 return log_oom();
