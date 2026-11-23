@@ -1120,12 +1120,6 @@ testcase_iscsi_lvm() {
         /dev/disk/by-id/scsi-0systemd_foobar_deadbeefiscsi{0..3}
     )
 
-    . /etc/os-release
-    if [[ "$ID" == "ubuntu" ]]; then
-        echo "LVM on Ubuntu is broken, skipping the test" | tee --append /skipped
-        exit 77
-    fi
-
     ls -l "${devices[@]}"
 
     # Start the target daemon (debian names it tgt.service so make sure we handle that)
