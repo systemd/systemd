@@ -184,6 +184,16 @@ def property_grammar():
     xkb_setting = Optional(Word(alphanums + '+-/@._'))
     id_input_setting = Optional(Or((Literal('0'), Literal('1'))))
     zero_one = Or((Literal('0'), Literal('1')))
+    tpm2_ek_template = Or(
+        (
+            Literal('rsa-2048-legacy'),
+            Literal('ecc-nist-p256-legacy'),
+            Literal('rsa-2048'),
+            Literal('ecc-nist-p256'),
+            Literal('ecc-nist-p384'),
+            Literal('rsa-3072'),
+        )
+    )
 
     # Although this set doesn't cover all of characters in database entries, it's enough for test targets.
     name_literal = Word(printables + ' ')
@@ -278,6 +288,7 @@ def property_grammar():
         ('ID_NET_NAME_FROM_DATABASE', name_literal),
         ('ID_NET_NAME_INCLUDE_DOMAIN', zero_one),
         ('TPM2_BROKEN_NVPCR', zero_one),
+        ('TPM2_EK_TEMPLATES', Group(OneOrMore(tpm2_ek_template))),
         ('IMDS_VENDOR', name_literal),
         ('IMDS_TOKEN_URL', name_literal),
         ('IMDS_REFRESH_HEADER_NAME', name_literal),
