@@ -411,7 +411,8 @@ static int journal_file_init_header(
                                 compact_mode_requested() * HEADER_INCOMPATIBLE_COMPACT),
                 .compatible_flags = htole32(
                                 (seal * (HEADER_COMPATIBLE_SEALED | HEADER_COMPATIBLE_SEALED_CONTINUOUS) ) |
-                                HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID),
+                                HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID |
+                                HEADER_COMPATIBLE_BOOTTIME),
         };
 
         assert_cc(sizeof(h.signature) == sizeof(HEADER_SIGNATURE));
@@ -2604,6 +2605,69 @@ static int journal_file_check_entry_order(JournalFile *f, const triple_timestamp
         return 0;
 }
 
+static void entry_set_boottime_offset(Object *o, uint64_t offset) {
+        assert(o);
+        assert(offset <= ENTRY_BOOTTIME_OFFSET_UNKNOWN);
+
+        o->object.boottime_offset_hi = htole16((uint16_t) (offset >> 32));
+        o->object.boottime_offset_lo = htole32((uint32_t) offset);
+}
+
+static uint64_t entry_get_boottime_offset(Object *o) {
+        assert(o);
+
+        return ((uint64_t) le16toh(READ_NOW(o->object.boottime_offset_hi)) << 32) |
+                (uint64_t) le32toh(READ_NOW(o->object.boottime_offset_lo));
+}
+
+static uint64_t boottime_offset_from_timestamp(const triple_timestamp *ts) {
+        assert(ts);
+
+        /* CLOCK_BOOTTIME is CLOCK_MONOTONIC plus the time spent in suspend, hence never smaller than
+         * CLOCK_MONOTONIC if both were taken at the same time. If the caller didn't provide a boottime
+         * timestamp, or one that doesn't make sense, or one whose offset we cannot store, mark the
+         * boottime as unknown. */
+
+        if (!timestamp_is_set(ts->boottime) || ts->boottime < ts->monotonic)
+                return ENTRY_BOOTTIME_OFFSET_UNKNOWN;
+
+        uint64_t offset = ts->boottime - ts->monotonic;
+        if (offset > ENTRY_BOOTTIME_OFFSET_MAX)
+                return ENTRY_BOOTTIME_OFFSET_UNKNOWN;
+
+        return offset;
+}
+
+int journal_file_entry_boottime(JournalFile *f, Object *o, uint64_t *ret) {
+        assert(f);
+        assert(f->header);
+        assert(o);
+
+        if (o->object.type != OBJECT_ENTRY)
+                return -EINVAL;
+
+        if (!JOURNAL_HEADER_BOOTTIME(f->header))
+                return -ENODATA;
+
+        uint64_t offset = entry_get_boottime_offset(o);
+        if (offset == ENTRY_BOOTTIME_OFFSET_UNKNOWN)
+                return -ENODATA;
+
+        uint64_t monotonic = le64toh(READ_NOW(o->entry.monotonic));
+        if (!VALID_MONOTONIC(monotonic))
+                return -EBADMSG;
+
+        /* Both summands are below 2^55, hence this cannot overflow */
+        uint64_t t = monotonic + offset;
+        if (!VALID_MONOTONIC(t))
+                return -EBADMSG;
+
+        if (ret)
+                *ret = t;
+
+        return 0;
+}
+
 static int journal_file_append_entry_internal(
                 JournalFile *f,
                 const triple_timestamp *ts,
@@ -2662,6 +2726,8 @@ static int journal_file_append_entry_internal(
         o->entry.realtime = htole64(ts->realtime);
         o->entry.monotonic = htole64(ts->monotonic);
         o->entry.xor_hash = htole64(xor_hash);
+        if (JOURNAL_HEADER_BOOTTIME(f->header))
+                entry_set_boottime_offset(o, boottime_offset_from_timestamp(ts));
         o->entry.boot_id = f->header->tail_entry_boot_id = *boot_id;
 
         for (size_t i = 0; i < n_items; i++)
@@ -4761,6 +4827,7 @@ int journal_file_copy_entry(
                 .realtime = le64toh(o->entry.realtime),
                 .boottime = USEC_INFINITY,
         };
+        (void) journal_file_entry_boottime(from, o, &ts.boottime);
         boot_id = o->entry.boot_id;
 
         r = journal_file_entry_n_fields(from, o, p, &n);

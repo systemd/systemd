@@ -288,6 +288,8 @@ enum {
 enum {
         HEADER_COMPATIBLE_SEALED             = 1 << 0,
         HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID = 1 << 1,
+        HEADER_COMPATIBLE_SEALED_CONTINUOUS  = 1 << 2,
+        HEADER_COMPATIBLE_BOOTTIME           = 1 << 3,
 };
 ```
 
@@ -313,6 +315,12 @@ file and whenever an entry is updated (in which case the flag is set), or also
 when the file is archived (in which case it is unset). New files should always
 set this flag (and thus not update **tail_entry_boot_id** except when
 creating the file and when appending an entry to it.
+
+`HEADER_COMPATIBLE_BOOTTIME` indicates that ENTRY objects carry a
+`CLOCK_BOOTTIME` timestamp, encoded as offset to the monotonic timestamp in the
+object header, see below. This flag is set when the file is created, and only
+writers that know about it may append to the file (as for all compatible
+flags), hence all ENTRY objects in a file with this flag set carry the field.
 
 ## Dirty Detection
 
@@ -399,7 +407,8 @@ enum {
 _packed_ struct ObjectHeader {
         uint8_t type;
         uint8_t flags;
-        uint8_t reserved[6];
+        le16_t boottime_offset_hi;
+        le32_t boottime_offset_lo;
         le64_t size;
         uint8_t payload[];
 };
@@ -414,6 +423,12 @@ the data payload is compressed with XZ/LZ4/ZSTD. If one of the
 flag must be set for the file as well. At most one of these three bits may be
 set. The **size** field encodes the size of the object including all its
 headers and payload.
+
+The **boottime_offset_hi** and **boottime_offset_lo** fields are only defined
+for ENTRY objects in files that have the `HEADER_COMPATIBLE_BOOTTIME` flag set,
+and must be zero otherwise. See the ENTRY object description below for details.
+(These fields were reserved and always zero in older versions of this
+specification.)
 
 
 ## Data Objects
@@ -528,6 +543,21 @@ includes other metadata such as various timestamps.
 The **seqnum** field contains the sequence number of the entry, **realtime**
 the realtime timestamp, and **monotonic** the monotonic timestamp for the boot
 identified by **boot_id**.
+
+If the `HEADER_COMPATIBLE_BOOTTIME` flag is set, the **boottime_offset_hi** and
+**boottime_offset_lo** fields of the object header encode the difference
+between the boottime timestamp (`CLOCK_BOOTTIME`) and the monotonic timestamp
+of the entry in µs, i.e. the time the system spent in suspend so far during the
+boot, as a 48-bit unsigned integer: `(boottime_offset_hi << 32) |
+boottime_offset_lo`. The boottime timestamp of the entry is the sum of
+**monotonic** and this offset. If all 48 bits are set (i.e. the value is
+`0xffffffffffff`) the boottime timestamp of the entry is not known, for example
+because the entry was copied from a file without the
+`HEADER_COMPATIBLE_BOOTTIME` flag. Storing the boottime timestamp in the object
+header (which was previously reserved) rather than in a new field of the ENTRY
+object keeps the format compatible with older readers, which derive the number
+of **items[]** from the object size. Since the object header is covered by the
+Forward Secure Sealing HMAC, so is the boottime offset.
 
 The **xor_hash** field contains a binary XOR of the hashes of the payload of
 all DATA objects referenced by this ENTRY. This value is usable to check the

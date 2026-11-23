@@ -176,6 +176,13 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                 return -EBADMSG;
         }
 
+        if ((o->object.type != OBJECT_ENTRY || !JOURNAL_HEADER_BOOTTIME(f->header)) &&
+            (o->object.boottime_offset_hi != 0 || o->object.boottime_offset_lo != 0)) {
+                error(offset, "Reserved boottime offset field of %s object is non-zero.",
+                      journal_object_type_to_string(o->object.type));
+                return -EBADMSG;
+        }
+
         switch (o->object.type) {
 
         case OBJECT_DATA: {
@@ -293,6 +300,14 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                         error(offset,
                               "Invalid entry monotonic timestamp: %"PRIu64,
                               le64toh(o->entry.monotonic));
+                        return -EBADMSG;
+                }
+
+                if (journal_file_entry_boottime(f, o, /* ret= */ NULL) == -EBADMSG) {
+                        error(offset,
+                              "Invalid entry boottime offset: %"PRIu64,
+                              ((uint64_t) le16toh(o->object.boottime_offset_hi) << 32) |
+                              (uint64_t) le32toh(o->object.boottime_offset_lo));
                         return -EBADMSG;
                 }
 
