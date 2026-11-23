@@ -53,25 +53,25 @@ TEST(tempfn) {
         ASSERT_OK(tempfn_random("/foo/bar/waldo", /* extra= */ NULL, &ret));
         ASSERT_NOT_NULL(p = startswith(ret, "/foo/bar/.#waldo"));
         ASSERT_EQ(strlen(p), 16U);
-        ASSERT_TRUE(in_charset(p, "0123456789abcdef"));
+        ASSERT_TRUE(in_charset(p, LOWERCASE_HEXDIGITS));
         free(ret);
 
         ASSERT_OK(tempfn_random("/foo/bar/waldo", "[wuff]", &ret));
         ASSERT_NOT_NULL(p = startswith(ret, "/foo/bar/.#[wuff]waldo"));
         ASSERT_EQ(strlen(p), 16U);
-        ASSERT_TRUE(in_charset(p, "0123456789abcdef"));
+        ASSERT_TRUE(in_charset(p, LOWERCASE_HEXDIGITS));
         free(ret);
 
         ASSERT_OK(tempfn_random_child("/foo/bar/waldo", /* extra= */ NULL, &ret));
         ASSERT_NOT_NULL(p = startswith(ret, "/foo/bar/waldo/.#"));
         ASSERT_EQ(strlen(p), 16U);
-        ASSERT_TRUE(in_charset(p, "0123456789abcdef"));
+        ASSERT_TRUE(in_charset(p, LOWERCASE_HEXDIGITS));
         free(ret);
 
         ASSERT_OK(tempfn_random_child("/foo/bar/waldo", "[kikiriki]", &ret));
         ASSERT_NOT_NULL(p = startswith(ret, "/foo/bar/waldo/.#[kikiriki]"));
         ASSERT_EQ(strlen(p), 16U);
-        ASSERT_TRUE(in_charset(p, "0123456789abcdef"));
+        ASSERT_TRUE(in_charset(p, LOWERCASE_HEXDIGITS));
         free(ret);
 }
 
