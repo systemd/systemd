@@ -771,6 +771,85 @@ TEST(manifest_uapi16) {
         ASSERT_EQ(c.n_metadata_omitted, 0U);
 }
 
+TEST(manifest_uapi16_incomplete) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF;
+        _cleanup_free_ char *buf = NULL, *buf_incomplete = NULL;
+        size_t size, size_incomplete;
+
+        ASSERT_OK(tfd = make_tree(&t));
+
+        /* Manifests are complete by default, and do not say so explicitly */
+        _cleanup_(manifest_context_done) ManifestContext c;
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        ASSERT_OK(generate(&c, tfd, &buf, &size));
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *root = find_object(buf, /* name= */ NULL);
+        ASSERT_NOT_NULL(root);
+        ASSERT_NULL(sd_json_variant_by_key(root, "incomplete"));
+
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.incomplete = true;
+        ASSERT_OK(generate(&c, tfd, &buf_incomplete, &size_incomplete));
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *root_incomplete = find_object(buf_incomplete, /* name= */ NULL);
+        ASSERT_NOT_NULL(root_incomplete);
+        ASSERT_TRUE(sd_json_variant_boolean(sd_json_variant_by_key(root_incomplete, "incomplete")));
+
+        /* A manifest embedded in the tree is not considered unlisted */
+        ASSERT_OK(write_string_file_at(tfd, UAPI16_MANIFEST_FILENAME, "", WRITE_STRING_FILE_CREATE));
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        ASSERT_OK(verify_buffer(&c, tfd, buf, size));
+
+        /* Inodes the manifest does not list are detected for complete manifests, but only reported for
+         * the topmost unlisted directory, not for what is below it */
+        ASSERT_OK(write_string_file_at(tfd, "subdir/extra.txt", "extra", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK_ERRNO(mkdirat(tfd, "newdir", 0755));
+        ASSERT_OK(write_string_file_at(tfd, "newdir/x", "x", WRITE_STRING_FILE_CREATE));
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        ASSERT_ERROR(verify_buffer(&c, tfd, buf, size), EBADMSG);
+        ASSERT_EQ(c.n_errors, 2U);
+
+        /* … unless we are told to treat it as incomplete … */
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.incomplete = true;
+        ASSERT_OK(verify_buffer(&c, tfd, buf, size));
+
+        /* … or it declares itself incomplete, which in turn can be overridden */
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        ASSERT_OK(verify_buffer(&c, tfd, buf_incomplete, size_incomplete));
+
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.incomplete = false;
+        ASSERT_ERROR(verify_buffer(&c, tfd, buf_incomplete, size_incomplete), EBADMSG);
+        ASSERT_EQ(c.n_errors, 2U);
+
+        ASSERT_OK(rm_rf_child(tfd, "newdir", REMOVE_PHYSICAL));
+        ASSERT_OK_ERRNO(unlinkat(tfd, "subdir/extra.txt", 0));
+
+        /* An incomplete manifest lacking directory objects */
+        static const char sparse[] =
+                "\x1e{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"incomplete\":true}\n"
+                "\x1e{\"name\":\"subdir/nested.txt\"}\n"
+                "\x1e{\"mediaType\":\"" UAPI16_TRAILER_MEDIA_TYPE "\"}\n";
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        ASSERT_OK(verify_buffer(&c, tfd, sparse, strlen(sparse)));
+
+        /* If treated as complete, everything but subdir/nested.txt (and the embedded manifest) is
+         * unlisted, including the directory itself: regular.txt, empty.txt, subdir, symlink, fifo,
+         * hardlink_a, hardlink_b */
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.incomplete = false;
+        ASSERT_ERROR(verify_buffer(&c, tfd, sparse, strlen(sparse)), EBADMSG);
+        ASSERT_EQ(c.n_errors, 7U);
+}
+
 TEST(manifest_omitted) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int tfd = -EBADF;
@@ -1118,6 +1197,17 @@ TEST(uapi16_dispatch_features) {
         uapi16_object_done(&o);
         ASSERT_OK(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\"}", 0, &o));
         ASSERT_EQ(o.order, _UAPI16_ORDER_INVALID);
+        ASSERT_EQ(o.incomplete, -1);
+        uapi16_object_done(&o);
+        ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"incomplete\":true}", 1, &o), EBADMSG);
+        ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"incomplete\":false}", 1, &o), EBADMSG);
+        ASSERT_OK(dispatch_one("{\"name\":\"a\",\"incomplete\":null}", 1, &o));
+        uapi16_object_done(&o);
+        ASSERT_OK(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"incomplete\":true}", 0, &o));
+        ASSERT_EQ(o.incomplete, 1);
+        uapi16_object_done(&o);
+        ASSERT_OK(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"incomplete\":false}", 0, &o));
+        ASSERT_EQ(o.incomplete, 0);
         uapi16_object_done(&o);
 
         /* Other objects inherit the features of the root object */
@@ -1276,6 +1366,26 @@ TEST(uapi16_manifest_read_placement) {
         ASSERT_OK(read_records(",\"order\":\"frobnicate\"", STRV_MAKE("b", "a")));
         ASSERT_OK(read_records(",\"order\":null", STRV_MAKE("b", "a")));
         ASSERT_ERROR(read_records(",\"order\":4711", STRV_MAKE("b", "a")), EINVAL);
+
+        /* Incomplete manifests may lack the file objects of directories … */
+        ASSERT_OK(read_records(",\"incomplete\":true", STRV_MAKE("a/x")));
+        ASSERT_OK(read_records(",\"incomplete\":true", STRV_MAKE("a/b/c/d", "a/b/e", "a/f", "g")));
+        ASSERT_OK(read_records(",\"incomplete\":true", STRV_MAKE("a/", "a/b/c", "a/x")));
+        ASSERT_OK(read_records(",\"incomplete\":true,\"order\":\"codepoint\"", STRV_MAKE("a/b/c", "a/b/d", "a/x", "b/y")));
+        ASSERT_OK(read_records(",\"incomplete\":true,\"order\":\"codepoint\"", STRV_MAKE("a/", "a/b/c", "a/x")));
+        /* … but complete ones (also if declared explicitly) may not */
+        ASSERT_ERROR(read_records(",\"incomplete\":false", STRV_MAKE("a/x")), EBADMSG);
+        ASSERT_ERROR(read_records(",\"incomplete\":null", STRV_MAKE("a/x")), EBADMSG);
+        ASSERT_ERROR(read_records(",\"incomplete\":false", STRV_MAKE("a/", "a/b/c")), EBADMSG);
+        /* All other placement rules still apply */
+        ASSERT_ERROR(read_records(",\"incomplete\":true", STRV_MAKE("a", "a/x")), EBADMSG); /* Not a directory */
+        /* Reopening a directory is only detected if the ordering is declared, since without it we'd have to
+         * remember all names of incomplete manifests */
+        ASSERT_OK(read_records(",\"incomplete\":true", STRV_MAKE("a/", "a/x", "b", "a/y")));
+        ASSERT_ERROR(read_records(",\"incomplete\":true,\"order\":\"codepoint\"", STRV_MAKE("a/", "a/x", "b", "a/y")), EBADMSG);
+        ASSERT_ERROR(read_records(",\"incomplete\":true,\"order\":\"codepoint\"", STRV_MAKE("a/x", "b", "a/y")), EBADMSG);
+        ASSERT_ERROR(read_records(",\"incomplete\":true,\"order\":\"codepoint\"", STRV_MAKE("a/x", "a/x")), EBADMSG);
+        ASSERT_ERROR(read_records(",\"incomplete\":4711", STRV_EMPTY), EINVAL);
 }
 
 static bool try_set_special_xattr(int dir_fd, const char *name) {

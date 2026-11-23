@@ -125,10 +125,16 @@
         reported, and the command fails if there was at least one. The <option>mtree</option> format is not
         supported for verification.</para>
 
-        <para>Note that the check only goes one way: every file listed in the manifest must exist in the tree
-        as described, but the tree may contain additional files that the manifest does not list. These are
-        not reported, and do not cause verification to fail. Hence a successful verification shows that the
-        tree contains everything the manifest describes, but not that it contains nothing else.</para>
+        <para>For <option>uapi16</option> manifests that are complete, i.e. do not declare themselves
+        incomplete via the <literal>incomplete</literal> field (see <option>--incomplete=</option> below),
+        every inode in the tree must also be listed in the manifest: inodes the manifest does not list are
+        reported as mismatches too. A manifest embedded in the top-level directory of the tree it covers
+        (i.e. a regular file named <filename>Uapi16Manifest</filename> or with that name as prefix) is
+        exempt from this. For incomplete <option>uapi16</option> manifests and all other formats the check
+        only goes one way: every file listed in the manifest must exist in the tree as described, but the
+        tree may contain additional files that the manifest does not list. These are not reported, and do
+        not cause verification to fail. Hence a successful verification then shows that the tree contains
+        everything the manifest describes, but not that it contains nothing else.</para>
 
         <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
@@ -401,6 +407,25 @@
         times with a granularity of 2s only. Use <literal>0</literal> to require timestamps to match
         exactly. Only has an effect if the <option>mtime</option> field is enabled with
         <option>--field=</option>, and only for <option>uapi16</option> manifests.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--incomplete=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>Only supported for the <option>uapi16</option> format. When generating a manifest
+        with <command>make</command>, controls whether the manifest declares itself incomplete, i.e. sets
+        the <literal>incomplete</literal> field on its root file object. Incomplete manifests may lack the
+        file objects of the directories other file objects are located in, and consumers do not expect them
+        to list all inodes of a directory tree, which is useful if the manifest is only going to be used
+        for a subset of the tree. Note that <command>make</command> always lists the whole tree regardless
+        of this setting. Defaults to off.</para>
+
+        <para>When verifying a manifest with <command>verify</command>, overrides whether the manifest is
+        treated as incomplete, regardless of what it declares. If false, inodes in the tree the manifest
+        does not list are reported as mismatches, if true they are not. If not specified, the
+        <literal>incomplete</literal> field of the manifest is used.</para>
 
         <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>

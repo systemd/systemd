@@ -39,6 +39,7 @@ static char *arg_certificate_source = NULL;
 static CertificateSourceType arg_certificate_source_type = OPENSSL_CERTIFICATE_SOURCE_FILE;
 static bool arg_graceful = false;
 static int arg_verify_signature = -1;
+static int arg_incomplete = -1;
 static nsec_t arg_timestamp_accuracy = MANIFEST_TIMESTAMP_ACCURACY_DEFAULT_NSEC;
 static char *arg_voa_context = NULL;
 
@@ -116,6 +117,13 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("graceful", NULL, "Don't fail if inodes had to be skipped or metadata omitted"):
                         arg_graceful = true;
+                        break;
+
+                OPTION_LONG("incomplete", "BOOL", "Declare the manifest incomplete (make), or treat it as such (verify)"):
+                        r = parse_boolean_argument("--incomplete=", opts.arg, /* ret= */ NULL);
+                        if (r < 0)
+                                return r;
+                        arg_incomplete = r;
                         break;
 
                 OPTION_COMMON_PRIVATE_KEY("Private key to sign the manifest with (if not specified, it is not signed)"):
@@ -270,6 +278,7 @@ static void context_from_args(ManifestContext *c) {
         c->hash = arg_hash >= 0 ? arg_hash : MANIFEST_HASH_SHA256;
         c->json_format_flags = arg_json_format_flags;
         c->timestamp_accuracy_nsec = arg_timestamp_accuracy;
+        c->incomplete = arg_incomplete;
         c->color = colors_enabled();
 }
 
@@ -291,6 +300,9 @@ static int verb_make(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (arg_format == MANIFEST_FORMAT_UAPI16 &&
             FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
                 arg_json_format_flags = SD_JSON_FORMAT_COLOR_AUTO;
+
+        if (arg_incomplete >= 0 && arg_format != MANIFEST_FORMAT_UAPI16)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--incomplete= is only supported for UAPI.16 manifests.");
 
         /* We sign if a private key is specified, and only then. A certificate on its own is hence most likely
          * a mistake, refuse it rather than silently generating an unsigned manifest. */
@@ -401,6 +413,9 @@ static int verb_verify(int argc, char *argv[], uintptr_t _data, void *userdata) 
                 if (arg_format < 0)
                         arg_format = MANIFEST_FORMAT_UAPI16;
         }
+
+        if (arg_incomplete >= 0 && arg_format != MANIFEST_FORMAT_UAPI16)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--incomplete= is only supported for UAPI.16 manifests.");
 
         /* Only UAPI.16 manifests carry signatures. These are verified by default, either against the
          * certificate specified explicitly, or against the ones found in the VOA hierarchy. */
