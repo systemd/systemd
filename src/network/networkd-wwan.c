@@ -238,7 +238,7 @@ int link_get_modem(Link *link, Modem **ret) {
         assert(ret);
 
         HASHMAP_FOREACH(modem, link->manager->modems_by_path)
-                if (modem->port_name && streq(modem->port_name, link->ifname)) {
+                if (streq_ptr(modem->port_name, link->ifname)) {
                         *ret = modem;
                         return 0;
                 }

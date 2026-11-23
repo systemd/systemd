@@ -516,7 +516,7 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
                 return table_log_add_error(r);
 
         r = table_add_cell_stringf(table, NULL, "%s%s",
-                                   offset_sign ? "+" : "-",
+                                   plus_minus(offset_sign),
                                    FORMAT_TIMESPAN(offset, 0));
         if (r < 0)
                 return table_log_add_error(r);

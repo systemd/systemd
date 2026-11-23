@@ -1502,7 +1502,7 @@ static int bus_append_numa_mask(sd_bus_message *m, const char *field, const char
         size_t allocated;
         int r;
 
-        if (eq && streq(eq, "all")) {
+        if (streq_ptr(eq, "all")) {
                 r = numa_mask_add_all(&nodes);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create NUMA mask representing \"all\" NUMA nodes: %m");

@@ -131,7 +131,7 @@ int introspect_write_child_nodes(BusIntrospect *i, OrderedSet *s, const char *pr
                 const char *e;
 
                 e = object_path_startswith(node, prefix);
-                if (e && e[0])
+                if (!isempty(e))
                         fprintf(i->m.f, " <node name=\"%s\"/>\n", e);
 
                 free(node);

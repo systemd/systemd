@@ -746,16 +746,16 @@ _public_ int sd_bus_query_sender_privilege(sd_bus_message *m, int capability) {
         strjoina(                                               \
                 "type='signal'",                                \
                 sender ? ",sender='" : "",                      \
-                sender ?: "",                                   \
+                strempty(sender),                               \
                 sender ? "'" : "",                              \
                 path ? ",path='" : "",                          \
-                path ?: "",                                     \
+                strempty(path),                                 \
                 path ? "'" : "",                                \
                 interface ? ",interface='" : "",                \
-                interface ?: "",                                \
+                strempty(interface),                            \
                 interface ? "'" : "",                           \
                 member ? ",member='" : "",                      \
-                member ?: "",                                   \
+                strempty(member),                               \
                 member ? "'" : ""                               \
         )
 

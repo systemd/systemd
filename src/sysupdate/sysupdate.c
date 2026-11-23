@@ -4031,7 +4031,7 @@ static int verb_enable_component(int argc, char *argv[], uintptr_t _data, void *
                 if (r < 0)
                         return log_error_errno(r, "Failed to write drop-in for component '%s': %m", *name);
 
-                log_info("Component '%s' %s.", *name, enable ? "enabled" : "disabled");
+                log_info("Component '%s' %s.", *name, enabled_disabled(enable));
         }
 
         return 0;

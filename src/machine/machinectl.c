@@ -1069,7 +1069,7 @@ static int verb_shell_machine(int argc, char *argv[], uintptr_t _data, void *use
         if (r < 0)
                 return bus_log_create_error(r);
 
-        path = argc < 3 || isempty(argv[2]) ? NULL : argv[2];
+        path = argc >= 3 ? empty_to_null(argv[2]) : NULL;
 
         r = sd_bus_message_append(m, "sss", machine, uid, path);
         if (r < 0)
