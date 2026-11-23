@@ -514,6 +514,18 @@ int dns_name_endswith(const char *name, const char *suffix) {
         }
 }
 
+int dns_name_endswith_strict(const char *name, const char *suffix) {
+        int r;
+
+        r = dns_name_equal(name, suffix);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return false;
+
+        return dns_name_endswith(name, suffix);
+}
+
 int dns_name_startswith(const char *name, const char *prefix) {
         const char *n, *p;
         int r, q;

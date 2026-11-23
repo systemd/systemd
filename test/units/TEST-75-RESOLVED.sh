@@ -1744,6 +1744,14 @@ testcase_dot_strict_per_link_verify() {
 }
 
 testcase_static_record() {
+    local long_label short_label long_target
+
+    printf -v long_label "%63s" ""
+    long_label="${long_label// /a}"
+    printf -v short_label "%60s" ""
+    short_label="${short_label// /a}"
+    long_target="$long_label.$long_label.$long_label.$short_label"
+
     mkdir -p /run/systemd/resolve/static.d/
     cat >/run/systemd/resolve/static.d/statictest.rr <<EOF
 {
@@ -1760,6 +1768,34 @@ EOF
         {
                 "key": { "name" : "statictest2.waldo", "type" : 28 },
                 "address" : [ 10, 11, 10, 11, 10, 11, 10, 11, 10, 11, 10, 11, 10, 11, 10, 12 ]
+        }
+]
+EOF
+    cat >/run/systemd/resolve/static.d/statictest-dname.rr <<EOF
+[
+        {
+                "key": { "name" : "dname.waldo", "type" : 39 },
+                "name": "target.waldo"
+        },
+        {
+                "key": { "name" : "foo.dname.waldo", "type" : 1 },
+                "address" : [ 1, 2, 3, 4 ]
+        },
+        {
+                "key": { "name" : "foo.target.waldo", "type" : 1 },
+                "address" : [ 5, 7, 9, 13 ]
+        },
+        {
+                "key": { "name" : "bar.foo.target.waldo", "type" : 1 },
+                "address" : [ 5, 7, 9, 15 ]
+        },
+        {
+                "key": { "name" : "target.waldo", "type" : 1 },
+                "address" : [ 5, 7, 9, 14 ]
+        },
+        {
+                "key": { "name" : "long-dname.waldo", "type" : 39 },
+                "name": "$long_target"
         }
 ]
 EOF
@@ -1787,6 +1823,36 @@ EOF
     run resolvectl query statictest2.waldo
     grep -qF 5.7.9.12 "$RUN_OUT"
     grep -qF a0b:a0b:a0b:a0b:a0b:a0b:a0b:a0c "$RUN_OUT"
+
+    run resolvectl query foo.dname.waldo
+    grep -qF 5.7.9.13 "$RUN_OUT"
+
+    run dig @127.0.0.53 foo.dname.waldo +noall +answer
+    grep -qEx 'dname\.waldo\.\s+[0-9]+\s+IN\s+DNAME\s+target\.waldo\.' "$RUN_OUT"
+    grep -qEx 'foo\.dname\.waldo\.\s+[0-9]+\s+IN\s+CNAME\s+foo\.target\.waldo\.' "$RUN_OUT"
+    grep -qEx 'foo\.target\.waldo\.\s+[0-9]+\s+IN\s+A\s+5\.7\.9\.13' "$RUN_OUT"
+    (! grep -qF "1.2.3.4" "$RUN_OUT")
+
+    run getent hosts -s dns foo.dname.waldo
+    grep -qF "5.7.9.13" "$RUN_OUT"
+
+    run resolvectl query bar.foo.dname.waldo
+    grep -qF "5.7.9.15" "$RUN_OUT"
+
+    run resolvectl query target.waldo
+    grep -qF "5.7.9.14" "$RUN_OUT"
+
+    # A DNAME redirects names below its owner, but not the owner itself.
+    (! run resolvectl query dname.waldo)
+    grep -qF "does not have any RR of the requested type" "$RUN_OUT"
+
+    run resolvectl query --type=DNAME dname.waldo
+    grep -qF target.waldo "$RUN_OUT"
+
+    run dig @127.0.0.53 foo.long-dname.waldo +noall +comments +answer
+    grep -qF "status: YXDOMAIN" "$RUN_OUT"
+    grep -qEx 'long-dname\.waldo\.\s+[0-9]+\s+IN\s+DNAME\s+[a.]+\.' "$RUN_OUT"
+    (! grep -qF "CNAME" "$RUN_OUT")
 
     rm /run/systemd/resolve/static.d/statictest*.rr /run/systemd/resolve/static.d/garbage*.rr
     systemctl reload systemd-resolved
