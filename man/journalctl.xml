@@ -679,8 +679,9 @@
         (<option>verbose</option>, <option>export</option>, <option>json</option>,
         <option>json-pretty</option>, <option>json-sse</option> and <option>json-seq</option>), as well as
         on <option>cat</option>. For the former, the <literal>__CURSOR</literal>,
-        <literal>__REALTIME_TIMESTAMP</literal>, <literal>__MONOTONIC_TIMESTAMP</literal>, and
-        <literal>_BOOT_ID</literal> fields are always printed.</para>
+        <literal>__REALTIME_TIMESTAMP</literal>, <literal>__MONOTONIC_TIMESTAMP</literal>,
+        <literal>__BOOTTIME_TIMESTAMP</literal> (if known), and <literal>_BOOT_ID</literal> fields are always
+        printed.</para>
 
         <xi:include href="version-info.xml" xpointer="v236"/></listitem>
       </varlistentry>
