@@ -68,6 +68,13 @@ struct sd_dhcp6_client {
         OrderedHashmap *extra_options;
         OrderedSet *vendor_options;
         bool rapid_commit;
+        bool register_addresses;
+
+        /* RFC 9686 DHCPv6 address registration. */
+        Hashmap *addr_registrations; /* struct in6_addr* -> DHCP6AddrRegistration* */
+        double addr_reg_desync_multiplier;
+        int addr_reg_fd;
+        sd_event_source *addr_reg_receive;
 
         struct sd_dhcp6_lease *lease;
 
@@ -82,6 +89,7 @@ int dhcp6_network_bind_udp_socket(int ifindex, const struct in6_addr *address);
 int dhcp6_network_send_udp_socket(int s, const struct in6_addr *address, const void *packet, size_t len);
 
 int dhcp6_client_send_message(sd_dhcp6_client *client);
+usec_t dhcp6_client_timeout_compute_random(usec_t val);
 int dhcp6_client_set_transaction_id(sd_dhcp6_client *client, uint32_t transaction_id);
 
 #define log_dhcp6_client_errno(client, error, fmt, ...)         \

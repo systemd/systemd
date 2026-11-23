@@ -4,11 +4,13 @@
 ***/
 
 #include <linux/if_addr.h>
+#include <linux/rtnetlink.h>
 #include <stdio.h>
 
 #include "sd-dhcp6-protocol.h"
 
 #include "conf-parser.h"
+#include "dhcp6-addr-reg.h"
 #include "dhcp6-client-internal.h"
 #include "dhcp6-lease-internal.h"
 #include "errno-util.h"
@@ -334,6 +336,120 @@ static int dhcp6_request_timezone(Link *link) {
         return 0;
 }
 
+static bool link_dhcp6_addr_reg_enabled(Link *link) {
+        bool enable;
+
+        assert(link);
+
+        if (!link->dhcp6_client)
+                return false;
+
+        /* RFC 9686 section 4.4: once the registration process has started, keep registering addresses
+         * until we disconnect from the link, even if subsequent replies no longer carry
+         * OPTION_ADDR_REG_ENABLE, or the lease is lost. */
+        if (dhcp6_client_addr_reg_is_active(link->dhcp6_client))
+                return true;
+
+        /* RFC 9686 section 4.2 says: "The client SHOULD NOT send the ADDR-REG-INFORM message
+         * unless it has received a Router Advertisement (RA) message with either the M or O
+         * flags set to 1". We don't explicitly check for the flags, but only that a lease is
+         * present. If the user forced enabled DHCPv6 with "DHCP=WithoutRA" and the DHCPv6
+         * server supports registration, it seems acceptable to send the ADDR-REG-INFORM.
+         */
+        if (!link->dhcp6_lease)
+                return false;
+
+        if (dhcp6_lease_get_register_addresses(link->dhcp6_lease, &enable) < 0)
+                return false;
+
+        return enable;
+}
+
+static int dhcp6_register_address_with_lifetimes(
+                Link *link,
+                Address *address,
+                usec_t lifetime_valid_usec,
+                usec_t lifetime_preferred_usec) {
+
+        assert(link);
+        assert(address);
+
+        if (!link->network || !link->network->dhcp6_register_addresses)
+                return 0;
+
+        if (address->family != AF_INET6)
+                return 0;
+
+        if (address->scope != RT_SCOPE_UNIVERSE)
+                return 0;
+
+        if (address->source == NETWORK_CONFIG_SOURCE_DHCP6)
+                return 0;
+
+        if (lifetime_valid_usec > 0 && !address_is_ready(address)) {
+                /* E.g. DAD failed. The address can't be used as source address anymore, hence we can't
+                 * de-register it either. Just forget about any existing registration. */
+                dhcp6_drop_address_registration(link, address);
+                return 0;
+        }
+
+        if (!link_dhcp6_addr_reg_enabled(link))
+                return 0;
+
+        return dhcp6_client_register_address(link->dhcp6_client, &address->in_addr.in6,
+                                             lifetime_valid_usec, lifetime_preferred_usec);
+}
+
+int dhcp6_register_address(Link *link, Address *address) {
+        return dhcp6_register_address_with_lifetimes(
+                        link, address, address->lifetime_valid_usec, address->lifetime_preferred_usec);
+}
+
+int dhcp6_unregister_address(Link *link, Address *address) {
+        return dhcp6_register_address_with_lifetimes(link, address, 0, 0);
+}
+
+void dhcp6_drop_address_registration(Link *link, Address *address) {
+        assert(link);
+        assert(address);
+
+        if (address->family != AF_INET6)
+                return;
+
+        if (!link->dhcp6_client)
+                return;
+
+        dhcp6_client_drop_address_registration(link->dhcp6_client, &address->in_addr.in6);
+}
+
+void link_dhcp6_addr_reg_flush(Link *link) {
+        assert(link);
+
+        if (link->dhcp6_client)
+                dhcp6_client_addr_reg_flush(link->dhcp6_client);
+}
+
+static void dhcp6_register_existing_addresses(Link *link) {
+        Address *address;
+        int r;
+
+        assert(link);
+
+        /* Note: if the new lease does not advertise address registration support, existing
+         * registrations are intentionally kept: RFC 9686 section 4.4 forbids stopping the registration
+         * process until we disconnect from the link. */
+        if (!link_dhcp6_addr_reg_enabled(link))
+                return;
+
+        SET_FOREACH(address, link->addresses) {
+                r = dhcp6_register_address(link, address);
+                if (r < 0)
+                        log_link_debug_errno(link, r,
+                                             "Could not start the registration of %s via DHCPv6, ignoring: %m",
+                                             IN6_ADDR_TO_STRING(&address->in_addr.in6));
+        }
+}
+
 static int dhcp6_lease_ip_acquired(sd_dhcp6_client *client, Link *link) {
         _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease_old = NULL;
         sd_dhcp6_lease *lease;
@@ -347,6 +463,8 @@ static int dhcp6_lease_ip_acquired(sd_dhcp6_client *client, Link *link) {
 
         lease_old = TAKE_PTR(link->dhcp6_lease);
         link->dhcp6_lease = sd_dhcp6_lease_ref(lease);
+
+        dhcp6_register_existing_addresses(link);
 
         r = dhcp6_request_hostname(link);
         if (r < 0)
@@ -396,6 +514,8 @@ static int dhcp6_lease_information_acquired(sd_dhcp6_client *client, Link *link)
                 return log_link_error_errno(link, r, "Failed to get DHCPv6 lease: %m");
 
         unref_and_replace_new_ref(link->dhcp6_lease, lease, sd_dhcp6_lease_ref, sd_dhcp6_lease_unref);
+
+        dhcp6_register_existing_addresses(link);
 
         r = dhcp6_request_timezone(link);
         if (r < 0)
@@ -819,6 +939,12 @@ static int dhcp6_configure(Link *link) {
                                             "DHCPv6 CLIENT: Failed to %s sending release message on stop: %m",
                                             enable_disable(link->network->dhcp6_send_release));
 
+        r = sd_dhcp6_client_set_register_addresses(client, link->network->dhcp6_register_addresses);
+        if (r < 0)
+                return log_link_debug_errno(link, r,
+                                            "DHCPv6 CLIENT: Failed to %s address registration: %m",
+                                            enable_disable(link->network->dhcp6_register_addresses));
+
         link->dhcp6_client = TAKE_PTR(client);
 
         return 0;
@@ -835,6 +961,7 @@ int dhcp6_update_mac(Link *link) {
 
         restart = sd_dhcp6_client_is_running(link->dhcp6_client) > 0;
 
+        /* Address registrations survive the restart; refreshes will carry the new DUID, if it changed. */
         if (restart) {
                 r = sd_dhcp6_client_stop(link->dhcp6_client);
                 if (r < 0)

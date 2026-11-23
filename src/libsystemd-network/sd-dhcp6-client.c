@@ -12,6 +12,7 @@
 #include "alloc-util.h"
 #include "device-util.h"
 #include "dhcp-duid-internal.h"
+#include "dhcp6-addr-reg.h"
 #include "dhcp6-client-internal.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
@@ -517,6 +518,14 @@ int sd_dhcp6_client_set_rapid_commit(sd_dhcp6_client *client, int enable) {
         return 0;
 }
 
+int sd_dhcp6_client_set_register_addresses(sd_dhcp6_client *client, int enable) {
+        assert_return(client, -EINVAL);
+        assert_return(!sd_dhcp6_client_is_running(client), -EBUSY);
+
+        client->register_addresses = enable;
+        return 0;
+}
+
 int sd_dhcp6_client_set_send_release(sd_dhcp6_client *client, int enable) {
         assert_return(client, -EINVAL);
 
@@ -683,8 +692,9 @@ static DHCP6MessageType client_message_type_from_state(sd_dhcp6_client *client) 
 
 static int client_append_oro(sd_dhcp6_client *client, uint8_t **buf, size_t *offset) {
         _cleanup_free_ be16_t *p = NULL;
+        be16_t extra[3];
+        size_t n_extra = 0, n;
         be16_t *req_opts;
-        size_t n;
 
         assert(client);
         assert(buf);
@@ -692,38 +702,42 @@ static int client_append_oro(sd_dhcp6_client *client, uint8_t **buf, size_t *off
         assert(offset);
 
         switch (client->state) {
-        case DHCP6_STATE_INFORMATION_REQUEST:
-                n = client->n_req_opts;
-                p = new(be16_t, n + 2);
-                if (!p)
-                        return -ENOMEM;
-
-                memcpy_safe(p, client->req_opts, n * sizeof(be16_t));
-                p[n++] = htobe16(SD_DHCP6_OPTION_INFORMATION_REFRESH_TIME); /* RFC 8415 section 21.23 */
-                p[n++] = htobe16(SD_DHCP6_OPTION_INF_MAX_RT); /* RFC 8415 section 21.25 */
-
-                typesafe_qsort(p, n, be16_compare_func);
-                req_opts = p;
-                break;
-
-        case DHCP6_STATE_SOLICITATION:
-                n = client->n_req_opts;
-                p = new(be16_t, n + 1);
-                if (!p)
-                        return -ENOMEM;
-
-                memcpy_safe(p, client->req_opts, n * sizeof(be16_t));
-                p[n++] = htobe16(SD_DHCP6_OPTION_SOL_MAX_RT); /* RFC 8415 section 21.24 */
-
-                typesafe_qsort(p, n, be16_compare_func);
-                req_opts = p;
-                break;
-
         case DHCP6_STATE_STOPPING:
                 return 0;
 
+        case DHCP6_STATE_INFORMATION_REQUEST:
+                extra[n_extra++] = htobe16(
+                                SD_DHCP6_OPTION_INFORMATION_REFRESH_TIME); /* RFC 8415 section 21.23 */
+                extra[n_extra++] = htobe16(SD_DHCP6_OPTION_INF_MAX_RT);    /* RFC 8415 section 21.25 */
+                break;
+
+        case DHCP6_STATE_SOLICITATION:
+                extra[n_extra++] = htobe16(SD_DHCP6_OPTION_SOL_MAX_RT); /* RFC 8415 section 21.24 */
+                break;
+
         default:
-                n = client->n_req_opts;
+                break;
+        }
+
+        if (client->register_addresses) {
+                assert(n_extra < ELEMENTSOF(extra));
+                extra[n_extra++] = htobe16(SD_DHCP6_OPTION_ADDR_REG_ENABLE);
+        }
+
+        n = client->n_req_opts;
+
+        if (n_extra > 0) {
+                p = new(be16_t, n + n_extra);
+                if (!p)
+                        return -ENOMEM;
+
+                memcpy_safe(p, client->req_opts, n * sizeof(be16_t));
+                memcpy(p + n, extra, n_extra * sizeof(be16_t));
+                n += n_extra;
+
+                typesafe_qsort(p, n, be16_compare_func);
+                req_opts = p;
+        } else {
                 req_opts = client->req_opts;
         }
 
@@ -854,7 +868,7 @@ int dhcp6_client_send_message(sd_dhcp6_client *client) {
         return 0;
 }
 
-static usec_t client_timeout_compute_random(usec_t val) {
+usec_t dhcp6_client_timeout_compute_random(usec_t val) {
         return usec_sub_unsigned(val, random_u64_range(val / 10));
 }
 
@@ -921,15 +935,15 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
                 client->retransmit_count++;
 
         if (client->retransmit_time == 0) {
-                client->retransmit_time = client_timeout_compute_random(init_retransmit_time);
+                client->retransmit_time = dhcp6_client_timeout_compute_random(init_retransmit_time);
 
                 if (client->state == DHCP6_STATE_SOLICITATION)
                         client->retransmit_time += init_retransmit_time / 10;
 
         } else if (client->retransmit_time > max_retransmit_time / 2)
-                client->retransmit_time = client_timeout_compute_random(max_retransmit_time);
+                client->retransmit_time = dhcp6_client_timeout_compute_random(max_retransmit_time);
         else
-                client->retransmit_time += client_timeout_compute_random(client->retransmit_time);
+                client->retransmit_time += dhcp6_client_timeout_compute_random(client->retransmit_time);
 
         log_dhcp6_client(client, "Next retransmission in %s",
                          FORMAT_TIMESPAN(client->retransmit_time, USEC_PER_SEC));
@@ -1074,8 +1088,8 @@ static int client_enter_bound_state(sd_dhcp6_client *client) {
         if (r < 0)
                 goto error;
 
-        lifetime_t2 = client_timeout_compute_random(lifetime_t2);
-        lifetime_t1 = client_timeout_compute_random(MIN(lifetime_t1, lifetime_t2));
+        lifetime_t2 = dhcp6_client_timeout_compute_random(lifetime_t2);
+        lifetime_t1 = dhcp6_client_timeout_compute_random(MIN(lifetime_t1, lifetime_t2));
 
         if (lifetime_t1 == USEC_INFINITY) {
                 log_dhcp6_client(client, "Infinite T1");
@@ -1420,6 +1434,10 @@ int sd_dhcp6_client_stop(sd_dhcp6_client *client) {
         client->receive_message = sd_event_source_unref(client->receive_message);
         client->fd = safe_close(client->fd);
 
+        /* Address registrations are kept: the client may be restarted while the link stays up, and
+         * RFC 9686 section 4.4 requires to keep registering until we disconnect from the link. The
+         * caller drops them with dhcp6_client_addr_reg_flush(). */
+
         return 0;
 }
 
@@ -1567,6 +1585,8 @@ static sd_dhcp6_client *dhcp6_client_free(sd_dhcp6_client *client) {
 
         sd_dhcp6_lease_unref(client->lease);
 
+        dhcp6_client_addr_reg_flush(client);
+
         sd_event_source_disable_unref(client->receive_message);
         sd_event_source_disable_unref(client->timeout_resend);
         sd_event_source_disable_unref(client->timeout_expire);
@@ -1610,6 +1630,7 @@ int sd_dhcp6_client_new(sd_dhcp6_client **ret) {
                 .request_ia = DHCP6_REQUEST_IA_NA | DHCP6_REQUEST_IA_PD,
                 .fd = -EBADF,
                 .rapid_commit = true,
+                .addr_reg_fd = -EBADF,
         };
 
         *ret = TAKE_PTR(client);
