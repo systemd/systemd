@@ -1871,6 +1871,16 @@ static int fallback_shutdown(ManagerObjective objective, int retval) {
          * This skips the cleanup systemd-shutdown normally does (unmounting file systems, detaching storage,
          * killing remaining processes, switching into the exitrd). */
 
+        bool in_container = detect_container() > 0;
+
+        /* In a container, prefer exiting over reboot(RB_POWER_OFF/RB_HALT_SYSTEM) when shutting down, so
+         * that our exit status is propagated to the container manager. (For reboots we stick to reboot(),
+         * since that is how the container manager learns that a reboot was requested.) */
+        if (in_container && IN_SET(objective, MANAGER_EXIT, MANAGER_POWEROFF, MANAGER_HALT)) {
+                log_info("Exiting container.");
+                exit(retval);
+        }
+
         switch (objective) {
 
         case MANAGER_KEXEC:
@@ -1885,13 +1895,7 @@ static int fallback_shutdown(ManagerObjective objective, int retval) {
                 cmd = RB_AUTOBOOT;
                 break;
 
-        case MANAGER_EXIT:
-                if (detect_container() > 0) {
-                        log_info("Exiting container.");
-                        exit(retval);
-                }
-                _fallthrough_;
-
+        case MANAGER_EXIT: /* We cannot exit() on the host, fallback on another method. */
         case MANAGER_POWEROFF:
                 log_info("Powering off.");
                 cmd = RB_POWER_OFF;
@@ -1907,6 +1911,13 @@ static int fallback_shutdown(ManagerObjective objective, int retval) {
         }
 
         (void) reboot(cmd);
+        if (ERRNO_IS_PRIVILEGE(errno) && in_container) {
+                /* If we are in a container, and we lacked CAP_SYS_BOOT just exit, this will kill our
+                 * container for good. */
+                log_info("Exiting container.");
+                exit(retval);
+        }
+
         return log_error_errno(errno, "Failed to shut down: %m");
 }
 
