@@ -63,6 +63,7 @@ typedef struct BootEntry {
         const BootEntryExtras *global_extras; /* Backpointer into the BootConfig; we don't own this here */
         char *kernel;        /* linux is #defined to 1, yikes! */
         char *efi;
+        char *efi_next_boot;
         char *uki;
         char *uki_url;
         char **initrd;
