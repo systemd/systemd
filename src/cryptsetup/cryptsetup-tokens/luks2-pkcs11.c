@@ -244,13 +244,9 @@ int parse_luks2_pkcs11_data(
                 size_t *ret_encrypted_key_size,
                 Pkcs11RsaPadding *ret_rsa_padding) {
 
-        int r;
-        size_t key_size;
-        _cleanup_free_ char *uri = NULL;
-        _cleanup_free_ void *key = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        sd_json_variant *w;
-        Pkcs11RsaPadding rsa_padding = PKCS11_RSA_PADDING_PKCS1V15;
+        _cleanup_(pkcs11_luks2_token_done) Pkcs11Luks2Token t = {};
+        int r;
 
         assert(json);
         assert(ret_uri);
@@ -261,43 +257,15 @@ int parse_luks2_pkcs11_data(
         if (r < 0)
                 return r;
 
-        w = sd_json_variant_by_key(v, "pkcs11-uri");
-        if (!w)
-                return -EINVAL;
-
-        uri = strdup(sd_json_variant_string(w));
-        if (!uri)
-                return -ENOMEM;
-
-        w = sd_json_variant_by_key(v, "pkcs11-key");
-        if (!w)
-                return -EINVAL;
-
-        r = sd_json_variant_unbase64(w, &key, &key_size);
+        r = pkcs11_luks2_token_parse(v, &t);
         if (r < 0)
-                return crypt_log_debug_errno(cd, r, "Failed to decode base64 encoded key: %m.");
+                return crypt_log_debug_errno(cd, r, "Failed to parse PKCS#11 token data: %m");
 
-        /* Optional padding-scheme tag. Absent in legacy tokens (which used PKCS#1 v1.5). */
-        w = sd_json_variant_by_key(v, "pkcs11-padding");
-        if (w) {
-                Pkcs11RsaPadding p;
-
-                if (!sd_json_variant_is_string(w))
-                        return crypt_log_debug_errno(cd, -EINVAL,
-                                                     "LUKS2 token field 'pkcs11-padding' is not a string.");
-                p = pkcs11_rsa_padding_from_string(sd_json_variant_string(w));
-                if (p < 0)
-                        return crypt_log_debug_errno(cd, p,
-                                                     "LUKS2 token field 'pkcs11-padding' has unsupported value '%s'.",
-                                                     sd_json_variant_string(w));
-                rsa_padding = p;
-        }
-
-        *ret_uri = TAKE_PTR(uri);
-        *ret_encrypted_key = TAKE_PTR(key);
-        *ret_encrypted_key_size = key_size;
+        *ret_uri = TAKE_PTR(t.uri);
+        *ret_encrypted_key_size = t.key.iov_len;
+        *ret_encrypted_key = TAKE_PTR(t.key.iov_base);
         if (ret_rsa_padding)
-                *ret_rsa_padding = rsa_padding;
+                *ret_rsa_padding = t.rsa_padding;
 
         return 0;
 }
