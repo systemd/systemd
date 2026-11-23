@@ -72,7 +72,7 @@ int manager_forward_socket(
                 Manager *m,
                 const struct iovec *iovec,
                 size_t n_iovec,
-                const dual_timestamp *ts,
+                const triple_timestamp *ts,
                 int priority) {
 
         _cleanup_free_ struct iovec *iov_alloc = NULL;
