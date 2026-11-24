@@ -104,14 +104,12 @@ static char16_t *file_path_node_to_path(const EFI_DEVICE_PATH *node) {
         if (n < sizeof(char16_t) || n % sizeof(char16_t) != 0)
                 return NULL;
 
-        char16_t *p = xmemdup(((const FILEPATH_DEVICE_PATH *) node)->PathName, n);
-        if (p[n / sizeof(char16_t) - 1] != '\0') {
-                free(p);
+        _cleanup_free_ char16_t *p = xmemdup(((const FILEPATH_DEVICE_PATH *) node)->PathName, n);
+        if (p[n / sizeof(char16_t) - 1] != '\0')
                 return NULL;
-        }
 
         convert_efi_path(p);
-        return p;
+        return TAKE_PTR(p);
 }
 
 typedef struct LoadOption {
