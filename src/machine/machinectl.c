@@ -2503,9 +2503,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION('o', "output", "STRING",
-                       "Change journal output mode (short, short-precise, short-iso, "
-                       "short-iso-precise, short-full, short-monotonic, short-unix, short-delta, "
-                       "json, json-pretty, json-sse, json-seq, cat, verbose, export, with-unit)"):
+                       "Change journal output mode (short, short-precise, short-iso, short-iso-precise, "
+                       "short-full, short-monotonic, short-boottime, short-unix, short-delta, json, "
+                       "json-pretty, json-sse, json-seq, cat, verbose, export, with-unit)"):
                         if (streq(opts.arg, "help"))
                                 return DUMP_STRING_TABLE(output_mode, OutputMode, _OUTPUT_MODE_MAX);
 
