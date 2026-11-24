@@ -59,10 +59,6 @@ static inline bool set_isempty(const Set *s) {
         return set_size(s) == 0;
 }
 
-static inline unsigned set_buckets(const Set *s) {
-        return _hashmap_buckets(HASHMAP_BASE((Set *) s));
-}
-
 static inline bool set_iterate(const Set *s, Iterator *i, void **value) {
         return _hashmap_iterate(HASHMAP_BASE((Set*) s), i, value, /* key= */ NULL);
 }
