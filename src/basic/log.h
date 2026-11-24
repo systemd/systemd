@@ -63,7 +63,6 @@ void log_show_time(bool b);
 bool log_get_show_time(void) _pure_;
 void log_show_tid(bool b);
 void log_show_executable(bool b);
-bool log_get_show_executable(void) _pure_;
 
 int log_show_color_from_string(const char *e);
 int log_show_location_from_string(const char *e);
