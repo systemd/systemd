@@ -221,8 +221,11 @@ int sync_req_new(Manager *m, sd_varlink *link, SyncReq **ret) {
          *    there was an easier, quicker way!). Once we accept()ed that many connections we know all
          *    further connections are definitely more recent than the sync request.
          *
-         * 4. For /dev/kmsg we look at the log message timestamps, similar to the AF_UNIX/SOCK_DGRAM case,
-         *    and they are in CLOCK_BOOTTIME clock.
+         * 4. For /dev/kmsg we look at the log message timestamps, similar to the AF_UNIX/SOCK_DGRAM case.
+         *    They are in a kernel-internal clock that behaves roughly like either CLOCK_BOOTTIME or
+         *    CLOCK_MONOTONIC (see dev_kmsg_classify_timestamp()). We compare them with CLOCK_BOOTTIME,
+         *    which is correct for the former, and for the latter means we'll check for pending input
+         *    once, which is safe too.
          *
          * 5. Finally, as safety net we install an idle handler with a very low priority (lower than the
          *    syslog/native/stream IO handlers). If this handler is called we know that there's no pending
