@@ -252,6 +252,7 @@ int socket_get_mtu(int fd, int af, size_t *ret);
 #define UCRED_INVALID { .pid = 0, .uid = UID_INVALID, .gid = GID_INVALID }
 
 int connect_unix_path(int fd, int dir_fd, const char *path);
+int bind_unix_path(int fd, int dir_fd, const char *path);
 
 static inline bool VSOCK_CID_IS_REGULAR(unsigned cid) {
         /* Refuse special CID values */
