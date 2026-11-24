@@ -40,12 +40,6 @@ typedef struct DissectedPartition {
                 .mount_node_fd = -EBADF,                                \
                 .fsmount_fd = -EBADF,                                   \
         })
-#define TAKE_PARTITION(p)                                       \
-        ({                                                      \
-                DissectedPartition *_pp = &(p), _p = *_pp;      \
-                *_pp = DISSECTED_PARTITION_NULL;                \
-                _p;                                             \
-        })
 
 typedef enum DissectImageFlags {
         DISSECT_IMAGE_DEVICE_READ_ONLY          = 1 << 0,  /* Make device read-only */
