@@ -30,6 +30,7 @@
 #include "recurse-dir.h"
 #include "set.h"
 #include "signal-util.h"
+#include "socket-label.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -39,7 +40,6 @@
 #include "unaligned.h"
 #include "userns-registry.h"
 #include "userns-restrict.h"
-#include "xattr-util.h"
 
 #define LISTEN_TIMEOUT_USEC (25 * USEC_PER_SEC)
 
@@ -519,10 +519,13 @@ static int manager_make_listen_socket(Manager *m) {
         xsprintf(text, UID_FMT "-" UID_FMT "," UID_FMT "-" UID_FMT,
                  CONTAINER_UID_MIN, CONTAINER_UID_MAX,
                  (uid_t) DYNAMIC_UID_MIN, (uid_t) DYNAMIC_UID_MAX);
-        FOREACH_STRING(xattr, "user.userdb.uid", "user.userdb.gid")
-                (void) xsetxattr(AT_FDCWD, sockaddr.un.sun_path, /* at_flags= */ 0, xattr, text);
-        (void) xsetxattr(AT_FDCWD, sockaddr.un.sun_path, /* at_flags= */ 0, "user.userdb.username", "ns-*");
-        (void) xsetxattr(AT_FDCWD, sockaddr.un.sun_path, /* at_flags= */ 0, "user.userdb.groupname", "ns-*");
+        (void) socket_set_xattrs(
+                        AT_FDCWD,
+                        sockaddr.un.sun_path,
+                        STRV_MAKE("user.userdb.uid",       text,
+                                  "user.userdb.gid",       text,
+                                  "user.userdb.username",  "ns-*",
+                                  "user.userdb.groupname", "ns-*"));
 
         if (listen(m->listen_fd, SOMAXCONN_DELUXE) < 0)
                 return log_error_errno(errno, "Failed to listen on socket: %m");
