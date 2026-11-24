@@ -330,11 +330,6 @@ static inline int ordered_hashmap_dump_keys_sorted(OrderedHashmap *h, void ***re
  * the entries were inserted.
  * It is safe to remove the current entry.
  */
-#define _HASHMAP_BASE_FOREACH(e, h, i) \
-        for (Iterator i = ITERATOR_FIRST; _hashmap_iterate((h), &i, (void**)&(e), NULL); )
-#define HASHMAP_BASE_FOREACH(e, h) \
-        _HASHMAP_BASE_FOREACH(e, h, UNIQ_T(i, UNIQ))
-
 #define _HASHMAP_FOREACH(e, h, i) \
         for (Iterator i = ITERATOR_FIRST; hashmap_iterate((h), &i, (void**)&(e), NULL); )
 #define HASHMAP_FOREACH(e, h) \
