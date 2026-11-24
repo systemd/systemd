@@ -38,7 +38,6 @@ int fchmod_opath(int fd, mode_t m);
 
 int futimens_opath(int fd, const struct timespec ts[2]);
 
-int fd_warn_permissions(const char *path, int fd);
 int stat_warn_permissions(const char *path, const struct stat *st);
 
 int access_nofollow(const char *path, int mode);
