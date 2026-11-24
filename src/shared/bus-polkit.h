@@ -30,11 +30,12 @@ static inline int varlink_verify_polkit_async(sd_varlink *link, sd_bus *bus, con
 }
 
 /* A sd_json_dispatch_field initializer that makes sure the allowInteractiveAuthentication boolean field we want for
- * polkit support in Varlink calls is ignored while regular dispatching (and does not result in errors
+ * polkit support in Varlink calls is nullable and ignored while regular dispatching (and does not result in errors
  * regarding unexpected fields) */
 #define VARLINK_DISPATCH_POLKIT_FIELD {                          \
                 .name = "allowInteractiveAuthentication",        \
                 .type = SD_JSON_VARIANT_BOOLEAN,                 \
+                .flags = SD_JSON_NULLABLE,                       \
         }
 
 /* A dispatch table that only accepts (but ignores) the Polkit field, and refuses everything else. This can
