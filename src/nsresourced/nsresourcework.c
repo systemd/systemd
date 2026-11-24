@@ -1294,10 +1294,9 @@ static int validate_userns(sd_varlink *link, int userns_fd) {
         return 0;
 }
 
-static int validate_userns_is_empty(sd_varlink *link, int userns_fd) {
+static int userns_is_empty(int userns_fd) {
         int r;
 
-        assert(link);
         assert(userns_fd >= 0);
 
         _cleanup_(uid_range_freep) UIDRange *range = NULL;
@@ -1306,14 +1305,26 @@ static int validate_userns_is_empty(sd_varlink *link, int userns_fd) {
                 return log_debug_errno(r, "Failed to read userns UID range: %m");
 
         if (!uid_range_is_empty(range))
-                return sd_varlink_error_invalid_parameter_name(link, "userNamespaceFileDescriptor");
+                return false;
 
         range = uid_range_free(range);
         r = uid_range_load_userns_by_fd(userns_fd, GID_RANGE_USERNS_OUTSIDE, &range);
         if (r < 0)
                 return log_debug_errno(r, "Failed to read userns GID range: %m");
 
-        if (!uid_range_is_empty(range))
+        return uid_range_is_empty(range);
+}
+
+static int validate_userns_is_empty(sd_varlink *link, int userns_fd) {
+        int r;
+
+        assert(link);
+        assert(userns_fd >= 0);
+
+        r = userns_is_empty(userns_fd);
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return sd_varlink_error_invalid_parameter_name(link, "userNamespaceFileDescriptor");
 
         return 0;
@@ -1541,8 +1552,25 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
         }
 
         r = write_userns(userns_fd, parent_userns_fd, userns_info, p.map_foreign);
-        if (r < 0)
-                goto fail;
+        if (r < 0) {
+                /* The kernel keeps a uid_map that was written before the gid_map write failed. If the
+                 * registration of a user namespace that has a map were removed, the next client could
+                 * allocate the range that this user namespace still maps. The manager removes the
+                 * registration when the kernel frees the user namespace. The user namespace fd is not sent
+                 * to the fd store here, because an fd in the fd store prevents the kernel from freeing the
+                 * user namespace after the client closed its own fd. */
+                int q = userns_is_empty(userns_fd);
+                if (q > 0)
+                        goto fail;
+                if (q < 0)
+                        log_warning_errno(q, "Failed to check if user namespace '%s' has mappings, keeping its registration: %m",
+                                          userns_info->name);
+                else
+                        log_warning("User namespace '%s' has mappings after a failed allocation, keeping its registration.",
+                                    userns_info->name);
+
+                return r;
+        }
 
         lock_fd = safe_close(lock_fd);
 
@@ -1554,7 +1582,8 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
                         "FDSTORE=1\n"
                         "FDNAME=userns-" INO_FMT "\n", userns_info->userns_inode);
         if (r < 0)
-                goto fail;
+                /* The registration is not removed, because the user namespace maps the range now. */
+                return log_debug_errno(r, "Failed to send user namespace fd to manager: %m");
 
         /* Note, we'll not return UID values from the host, since the child might not run in the same
          * user namespace as us. If they want to know the ranges they should read them off the userns fd, so
