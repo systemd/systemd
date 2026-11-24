@@ -23,9 +23,7 @@ void fido2_luks2_token_done(Fido2Luks2Token *t) {
 }
 
 typedef struct Fido2Luks2TokenFields {
-        struct iovec cid;
-        struct iovec salt;
-        char *rp_id;
+        Fido2Luks2Token token;
         int pin_required;
         int up_required;
         int uv_required;
@@ -34,9 +32,7 @@ typedef struct Fido2Luks2TokenFields {
 static void fido2_luks2_token_fields_done(Fido2Luks2TokenFields *f) {
         assert(f);
 
-        iovec_done(&f->cid);
-        iovec_done(&f->salt);
-        f->rp_id = mfree(f->rp_id);
+        fido2_luks2_token_done(&f->token);
 }
 
 int fido2_luks2_token_parse(sd_json_variant *v, Fido2Luks2Token *ret) {
@@ -45,16 +41,15 @@ int fido2_luks2_token_parse(sd_json_variant *v, Fido2Luks2Token *ret) {
                 .up_required = -1,
                 .uv_required = -1,
         };
-        Fido2EnrollFlags required = 0;
         int r;
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "fido2-credential",         SD_JSON_VARIANT_STRING,  json_dispatch_unbase64_iovec, offsetof(Fido2Luks2TokenFields, cid),          SD_JSON_MANDATORY },
-                { "fido2-salt",               SD_JSON_VARIANT_STRING,  json_dispatch_unbase64_iovec, offsetof(Fido2Luks2TokenFields, salt),         SD_JSON_MANDATORY },
-                { "fido2-rp",                 SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,      offsetof(Fido2Luks2TokenFields, rp_id),        0                 },
-                { "fido2-clientPin-required", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,    offsetof(Fido2Luks2TokenFields, pin_required), 0                 },
-                { "fido2-up-required",        SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,    offsetof(Fido2Luks2TokenFields, up_required),  0                 },
-                { "fido2-uv-required",        SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,    offsetof(Fido2Luks2TokenFields, uv_required),  0                 },
+                { "fido2-credential",         SD_JSON_VARIANT_STRING,  json_dispatch_unbase64_iovec, voffsetof(f, token.cid),    SD_JSON_MANDATORY },
+                { "fido2-salt",               SD_JSON_VARIANT_STRING,  json_dispatch_unbase64_iovec, voffsetof(f, token.salt),   SD_JSON_MANDATORY },
+                { "fido2-rp",                 SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,      voffsetof(f, token.rp_id),  0                 },
+                { "fido2-clientPin-required", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,    voffsetof(f, pin_required), 0                 },
+                { "fido2-up-required",        SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,    voffsetof(f, up_required),  0                 },
+                { "fido2-uv-required",        SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,    voffsetof(f, uv_required),  0                 },
                 {}
         };
 
@@ -70,26 +65,21 @@ int fido2_luks2_token_parse(sd_json_variant *v, Fido2Luks2Token *ret) {
                 return r;
 
         if (f.pin_required >= 0)
-                SET_FLAG(required, FIDO2ENROLL_PIN, f.pin_required);
+                SET_FLAG(f.token.required, FIDO2ENROLL_PIN, f.pin_required);
         else
-                required |= FIDO2ENROLL_PIN_IF_NEEDED;
+                f.token.required |= FIDO2ENROLL_PIN_IF_NEEDED;
 
         if (f.up_required >= 0)
-                SET_FLAG(required, FIDO2ENROLL_UP, f.up_required);
+                SET_FLAG(f.token.required, FIDO2ENROLL_UP, f.up_required);
         else
-                required |= FIDO2ENROLL_UP_IF_NEEDED;
+                f.token.required |= FIDO2ENROLL_UP_IF_NEEDED;
 
         if (f.uv_required >= 0)
-                SET_FLAG(required, FIDO2ENROLL_UV, f.uv_required);
+                SET_FLAG(f.token.required, FIDO2ENROLL_UV, f.uv_required);
         else
-                required |= FIDO2ENROLL_UV_OMIT;
+                f.token.required |= FIDO2ENROLL_UV_OMIT;
 
-        *ret = (Fido2Luks2Token) {
-                .cid = TAKE_STRUCT(f.cid),
-                .salt = TAKE_STRUCT(f.salt),
-                .rp_id = TAKE_PTR(f.rp_id),
-                .required = required,
-        };
+        *ret = TAKE_STRUCT(f.token);
 
         return 0;
 }
