@@ -133,6 +133,9 @@ int find_pkcs11_auto_data(
                 keyslot = ks;
 
                 r = pkcs11_luks2_token_parse(v, &t);
+                if (r == -ENXIO) /* A mandatory field is missing, i.e. the token is broken */
+                        r = -EBADMSG; /* Do not return -ENXIO here, as callers use it to indicate that no
+                                       * PKCS#11 token is enrolled at all. */
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse PKCS#11 JSON data token %i: %m", token);
 
