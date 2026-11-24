@@ -65,3 +65,17 @@ __pycache__/
 opencode.json
 opencode.jsonc
 repomix-output.*
+
+# tine
+/.buck
+/.buckconfig.*.tmp
+/.buckconfig.local
+/.buckconfig.local.*
+/.tine.local.toml
+/.tine.local.toml.*.tmp
+/tine.local.toml
+/tine.local.toml.*.tmp
+**/buck-out
+
+# bin/tine keeps the tine checkout at the commit that tine.lock.json pins.
+/tine/

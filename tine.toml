@@ -1,0 +1,4 @@
+[buckconfig.cells]
+root = "."
+tine = "tine"
+settings = "tine-settings"
