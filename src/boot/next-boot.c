@@ -113,6 +113,7 @@ static char16_t *file_path_node_to_path(const EFI_DEVICE_PATH *node) {
 }
 
 typedef struct LoadOption {
+        uint32_t attributes;
         char16_t *description;              /* aligned copy */
         const EFI_DEVICE_PATH *device_path; /* points into the parsed buffer */
         const uint8_t *optional_data;       /* ditto */
@@ -154,6 +155,7 @@ static bool load_option_parse(const void *data, size_t size, LoadOption *ret) {
                 return false;
 
         *ret = (LoadOption) {
+                .attributes = h->Attributes,
                 .description = xmemdup(d, p - d),
                 .device_path = dp,
                 .optional_data = p + h->FilePathListLength,
@@ -186,6 +188,11 @@ static bool load_option_matches(
          * invoked binary as load options) must match them too. If no options are specified, the optional
          * data is not checked, so that we can reuse boot options OS installers created for themselves
          * (e.g. the one Windows creates for its boot manager carries some opaque optional data). */
+
+        /* Skip inactive load options: the firmware does not honor BootNext if it points to one, but
+         * falls back to BootOrder, i.e. back into the boot loader. */
+        if (!FLAGS_SET(o->attributes, LOAD_OPTION_ACTIVE))
+                return false;
 
         if (options) {
                 size_t l = strsize16(options);
