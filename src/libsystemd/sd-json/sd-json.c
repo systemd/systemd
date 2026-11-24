@@ -5512,7 +5512,7 @@ _public_ int sd_json_dispatch_int64(const char *name, sd_json_variant *variant, 
 }
 
 _public_ int sd_json_dispatch_uint64(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        uint64_t *u = userdata;
+        uint64_t v, *u = userdata;
 
         assert_return(variant, -EINVAL);
         assert_return(userdata, -EINVAL);
@@ -5527,13 +5527,23 @@ _public_ int sd_json_dispatch_uint64(const char *name, sd_json_variant *variant,
          * sd_json_dispatch_field to SD_JSON_UNSIGNED rather than _SD_JSON_VARIANT_TYPE_INVALID, so that
          * json_dispatch() already filters out the non-matching type. */
 
-        if (sd_json_variant_is_string(variant) && safe_atou64(sd_json_variant_string(variant), u) >= 0)
-                return 0;
+        if (sd_json_variant_is_string(variant)) {
+                if (safe_atou64(sd_json_variant_string(variant), &v) < 0)
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an unsigned integer, nor one formatted as decimal string.", strna(name));
+        } else {
+                if (!sd_json_variant_is_unsigned(variant))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an unsigned integer, nor one formatted as decimal string.", strna(name));
 
-        if (!sd_json_variant_is_unsigned(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an unsigned integer, nor one formatted as decimal string.", strna(name));
+                v = sd_json_variant_unsigned(variant);
+        }
 
-        *u = sd_json_variant_unsigned(variant);
+        /* If SD_JSON_STRICT is set, refuse the value that a null field is mapped to. It is commonly used as
+         * an indicator for an unset field, hence shall not be usable as literal value then. */
+        if (FLAGS_SET(flags, SD_JSON_STRICT) &&
+            v == (FLAGS_SET(flags, SD_JSON_NULL_TO_ZERO) ? 0 : UINT64_MAX))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE), "JSON field '%s' has the value reserved for null.", strna(name));
+
+        *u = v;
         return 0;
 }
 

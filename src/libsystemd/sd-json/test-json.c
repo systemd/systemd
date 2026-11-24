@@ -1165,6 +1165,54 @@ TEST(json_dispatch_null_to_zero) {
         ASSERT_EQ(foobar.p, -1);
 }
 
+TEST(json_dispatch_uint64_strict) {
+        struct foobar {
+                uint64_t a, b;
+        } foobar = {};
+
+        sd_json_dispatch_field table[] = {
+                { "a", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(struct foobar, a), SD_JSON_STRICT                      },
+                { "b", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(struct foobar, b), SD_JSON_STRICT|SD_JSON_NULL_TO_ZERO },
+                {}
+        };
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+        /* Null fields are mapped to the reserved values. */
+        ASSERT_OK(sd_json_build(&v, SD_JSON_BUILD_OBJECT(
+                                             SD_JSON_BUILD_PAIR_NULL("a"),
+                                             SD_JSON_BUILD_PAIR_NULL("b"))));
+        ASSERT_OK(sd_json_dispatch(v, table, SD_JSON_LOG, &foobar));
+        ASSERT_EQ(foobar.a, UINT64_MAX);
+        ASSERT_EQ(foobar.b, 0U);
+
+        sd_json_variant_unref(v);
+        foobar = (struct foobar) {};
+
+        /* The reserved values are refused as literals. */
+        ASSERT_OK(sd_json_build(&v, SD_JSON_BUILD_OBJECT(
+                                             SD_JSON_BUILD_PAIR_UNSIGNED("a", UINT64_MAX))));
+        ASSERT_ERROR(sd_json_dispatch(v, table, SD_JSON_LOG, &foobar), ERANGE);
+
+        sd_json_variant_unref(v);
+        v = NULL;
+
+        ASSERT_OK(sd_json_build(&v, SD_JSON_BUILD_OBJECT(
+                                             SD_JSON_BUILD_PAIR_UNSIGNED("b", 0))));
+        ASSERT_ERROR(sd_json_dispatch(v, table, SD_JSON_LOG, &foobar), ERANGE);
+
+        sd_json_variant_unref(v);
+        v = NULL;
+
+        /* Everything else is accepted. */
+        ASSERT_OK(sd_json_build(&v, SD_JSON_BUILD_OBJECT(
+                                             SD_JSON_BUILD_PAIR_UNSIGNED("a", 42),
+                                             SD_JSON_BUILD_PAIR_UNSIGNED("b", UINT64_MAX))));
+        ASSERT_OK(sd_json_dispatch(v, table, SD_JSON_LOG, &foobar));
+        ASSERT_EQ(foobar.a, 42U);
+        ASSERT_EQ(foobar.b, UINT64_MAX);
+}
+
 typedef enum mytestenum {
         myfoo, mybar, mybaz, with_some_dashes, _mymax, _myinvalid = -EINVAL,
 } mytestenum;
