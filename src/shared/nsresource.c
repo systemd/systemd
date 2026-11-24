@@ -256,6 +256,8 @@ int nsresource_add_mount(sd_varlink *vl, int userns_fd, int mount_fd) {
                 log_debug("User namespace has not been allocated via namespace resource registry, not adding mount to registration.");
                 return 0;
         }
+        if (streq_ptr(error_id, "io.systemd.NamespaceResource.FileSystemTypeNotSupported"))
+                return log_debug_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "File system type of mount may not be delegated to user namespace.");
         if (error_id)
                 return log_debug_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to mount image: %s", error_id);
 
