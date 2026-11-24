@@ -61,7 +61,6 @@ wrap=(
     dbus-daemon
     delv
     dfuzzer
-    dhcpd
     dig
     dnf
     dnf5
@@ -77,6 +76,7 @@ wrap=(
     integritysetup
     iscsiadm
     iscsid
+    kea-dhcp6
     keymgr
     knotc
     knotd
