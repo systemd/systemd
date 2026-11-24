@@ -23,15 +23,6 @@ uint32_t poll_events_to_epoll(uint32_t events) {
                (events & POLLRDHUP ? EPOLLRDHUP : 0);
 }
 
-uint32_t epoll_events_to_poll(uint32_t events) {
-        return (events & EPOLLIN    ? POLLIN    : 0) |
-               (events & EPOLLOUT   ? POLLOUT   : 0) |
-               (events & EPOLLPRI   ? POLLPRI   : 0) |
-               (events & EPOLLERR   ? POLLERR   : 0) |
-               (events & EPOLLHUP   ? POLLHUP   : 0) |
-               (events & EPOLLRDHUP ? POLLRDHUP : 0);
-}
-
 int flush_fd(int fd) {
         int count = 0;
 
