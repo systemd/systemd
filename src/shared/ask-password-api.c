@@ -596,13 +596,13 @@ int ask_password_plymouth(
                                 continue;
 
                         size = unaligned_read_le32(buffer + 1);
-                        if (size + 5 > sizeof(buffer))
+                        if (size > sizeof(buffer) - 5)
                                 return -EIO;
 
                         if (p-5 < size)
                                 continue;
 
-                        l = strv_parse_nulstr(buffer + 5, size);
+                        l = plymouth_parse_password_reply(buffer[0], buffer + 5, size);
                         if (!l)
                                 return -ENOMEM;
 
