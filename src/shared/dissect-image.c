@@ -3719,6 +3719,13 @@ static int do_crypt_activate_verity(
                         verity->root_hash.iov_base,
                         verity->root_hash.iov_len,
                         CRYPT_ACTIVATE_READONLY);
+        /* With dm_verity.require_signatures=1, the kernel refuses a volume without a signature that a key in
+         * its keyrings validates, and libcryptsetup returns -ENOKEY. Callers read -ENOKEY as a missing
+         * password, so we return -EDESTADDRREQ instead, like for a signature that no trusted key validates
+         * above. */
+        if (r == -ENOKEY)
+                return log_debug_errno(SYNTHETIC_ERRNO(EDESTADDRREQ),
+                                       "The kernel refuses Verity volume %s without a validated signature.", name);
         if (r < 0)
                 return log_debug_errno(r, "Activation of Verity via root hash failed: %m");
 
