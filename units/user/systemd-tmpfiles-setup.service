@@ -18,6 +18,7 @@ RefuseManualStop=yes
 [Service]
 Type=oneshot
 RemainAfterExit=yes
+NotifyAccess=main
 ExecStart=systemd-tmpfiles --user --create --remove --boot
 SuccessExitStatus=DATAERR
 

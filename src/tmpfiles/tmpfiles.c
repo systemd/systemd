@@ -7,6 +7,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "sd-daemon.h"
 #include "sd-json.h"
 #include "sd-path.h"
 
@@ -5272,12 +5273,23 @@ static int run(int argc, char *argv[]) {
         _cleanup_(context_done) Context c = {};
         bool invalid_config = false;
         ItemArray *a;
-        enum {
+        typedef enum {
                 PHASE_PURGE,
                 PHASE_REMOVE_AND_CLEAN,
                 PHASE_CREATE,
                 _PHASE_MAX
-        } phase;
+        } Phase;
+
+        Phase phase;
+
+        static const char* const phase_table[_PHASE_MAX] = {
+                [PHASE_PURGE]                   = "Purging",
+                [PHASE_REMOVE_AND_CLEAN]        = "Removing",
+                [PHASE_CREATE]                  = "Creating"
+        };
+
+        DEFINE_STRING_TABLE_LOOKUP_TO_STRING(phase, Phase)
+
         int r;
 
         LIBACL_NOTE(recommended);
@@ -5419,6 +5431,7 @@ static int run(int argc, char *argv[]) {
          * the create operations. i.e. that we first clean out the platform we then build on. */
         for (phase = 0; phase < _PHASE_MAX; phase++) {
                 OperationMask op;
+                const char *phase_str;
 
                 if (phase == PHASE_PURGE)
                         op = arg_operation & OPERATION_PURGE;
@@ -5429,17 +5442,32 @@ static int run(int argc, char *argv[]) {
                 else
                         assert_not_reached();
 
+                phase_str = phase_to_string(phase);
+
                 if (op == 0) /* Nothing requested in this phase */
                         continue;
 
                 /* The non-globbing ones usually create things, hence we apply them first */
-                ORDERED_HASHMAP_FOREACH(a, c.items)
+                ORDERED_HASHMAP_FOREACH(a, c.items) {
+                        _cleanup_free_ char *escaped = a->n_items > 0 ? cescape(a->items[0].path) : NULL;
+                        (void) sd_notifyf(/* unset_environment= */ false,
+                                          "STATUS=%s %s...", phase_str,
+                                          escaped ? escaped : "files");
                         RET_GATHER(r, process_item_array(&c, a, op));
+                }
 
                 /* The globbing ones usually alter things, hence we apply them second. */
-                ORDERED_HASHMAP_FOREACH(a, c.globs)
+                ORDERED_HASHMAP_FOREACH(a, c.globs) {
+                        _cleanup_free_ char *escaped = a->n_items > 0 ? cescape(a->items[0].path) : NULL;
+                        (void) sd_notifyf(/* unset_environment= */ false,
+                                          "STATUS=%s %s...", phase_str,
+                                          escaped ? escaped : "files");
                         RET_GATHER(r, process_item_array(&c, a, op));
+                }
+
+                (void) sd_notify(/* unset_environment= */ false, "STATUS=");
         }
+
 
         if (ERRNO_IS_NEG_RESOURCE(r))
                 return r;
