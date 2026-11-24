@@ -345,9 +345,9 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("Requests that the session be brought to the foreground on its seat."
                                           " Returns NotSupported if the session has no seat."),
                 &vl_method_ActivateSession,
-                SD_VARLINK_SYMBOL_COMMENT("Locks a session or all sessions."),
+                SD_VARLINK_SYMBOL_COMMENT("Requests that one or all lock-capable sessions lock their screens."),
                 &vl_method_LockSession,
-                SD_VARLINK_SYMBOL_COMMENT("Unlocks a session or all sessions."),
+                SD_VARLINK_SYMBOL_COMMENT("Requests that one or all lock-capable sessions unlock their screens."),
                 &vl_method_UnlockSession,
                 SD_VARLINK_SYMBOL_COMMENT("Terminates a session."),
                 &vl_method_TerminateSession,
