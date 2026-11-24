@@ -697,6 +697,10 @@ testcase_08_resolved() {
 
     # without name
     run varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveService '{"type":"_mysvc._tcp","domain":"signed.test"}'
+    # A full service name in domain also works with explicitly null name and type.
+    run varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveService \
+        '{"name":null,"type":null,"domain":"_mysvc._tcp.signed.test"}'
+    jq -e 'any(.services[]; .hostname == "myservice.signed.test" and .port == 1234)' "$RUN_OUT"
     # without txt (SD_RESOLVE_NO_TXT)
     run varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveService '{"type":"_mysvc._tcp","domain":"signed.test","flags":64}'
     (! grep -qF '"txt"' "$RUN_OUT")
@@ -1224,10 +1228,12 @@ testcase_12_resolvectl2() {
     # Null query flags select the default behavior.
     varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveHostname '{"name":"localhost","family":2,"flags":null}' --json=short |
         jq -e 'any(.addresses[]; .address == [127,0,0,1])'
+    varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveAddress '{"family":2,"address":[127,0,0,1],"flags":null}' --json=short |
+        jq -e 'any(.names[]; .name == "localhost")'
 
-    # Test ResolveRecord RR resolving via Varlink
-    test "$(varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveRecord '{"name":"localhost","type":1}' --json=short | jq -rc 'del(.rrs | .[] | .ifindex)')" == '{"rrs":[{"rr":{"key":{"class":1,"type":1,"name":"localhost"},"address":[127,0,0,1]},"raw":"CWxvY2FsaG9zdAAAAQABAAAAAAAEfwAAAQ=="}],"flags":786945}'
-    test "$(varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveRecord '{"name":"localhost","type":28}' --json=short | jq -rc 'del(.rrs | .[] | .ifindex)')" == '{"rrs":[{"rr":{"key":{"class":1,"type":28,"name":"localhost"},"address":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1]},"raw":"CWxvY2FsaG9zdAAAHAABAAAAAAAQAAAAAAAAAAAAAAAAAAAAAQ=="}],"flags":786945}'
+    # ResolveRecord defaults to class IN for both null and omitted class.
+    test "$(varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveRecord '{"name":"localhost","type":1,"class":null}' --json=short | jq -rc 'del(.rrs | .[] | .ifindex)')" == '{"rrs":[{"rr":{"key":{"class":1,"type":1,"name":"localhost"},"address":[127,0,0,1]},"raw":"CWxvY2FsaG9zdAAAAQABAAAAAAAEfwAAAQ=="}],"flags":786945}'
+    test "$(varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveRecord '{"name":"localhost","type":28,"flags":null}' --json=short | jq -rc 'del(.rrs | .[] | .ifindex)')" == '{"rrs":[{"rr":{"key":{"class":1,"type":28,"name":"localhost"},"address":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1]},"raw":"CWxvY2FsaG9zdAAAHAABAAAAAAAQAAAAAAAAAAAAAAAAAAAAAQ=="}],"flags":786945}'
 
     # Ensure that reloading keeps the manually configured address
     {
