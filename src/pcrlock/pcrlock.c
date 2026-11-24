@@ -1168,8 +1168,8 @@ static int event_log_record_parse_json(EventLogRecord *record, sd_json_variant *
         int r;
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "pcr",          SD_JSON_VARIANT_UNSIGNED,      sd_json_dispatch_uint64,        voffsetof(p, pcr),          0                 },
-                { "nv_index",     SD_JSON_VARIANT_UNSIGNED,      sd_json_dispatch_uint64,        voffsetof(p, nv_index),     0                 },
+                { "pcr",          SD_JSON_VARIANT_UNSIGNED,      sd_json_dispatch_uint64,        voffsetof(p, pcr),          SD_JSON_STRICT    },
+                { "nv_index",     SD_JSON_VARIANT_UNSIGNED,      sd_json_dispatch_uint64,        voffsetof(p, nv_index),     SD_JSON_STRICT    },
                 { "digests",      SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant_noref, voffsetof(p, digests),      SD_JSON_MANDATORY },
                 { "content_type", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  voffsetof(p, content_type), 0                 },
                 { "content",      _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_variant_noref, voffsetof(p, content),      0                 },
