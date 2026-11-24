@@ -28,7 +28,8 @@ static bool parse_boot_option_name(const char16_t *name, uint16_t *ret) {
         assert(name);
         assert(ret);
 
-        /* Parses a "Boot####" variable name, where #### are exactly four hexadecimal digits. */
+        /* Parses a "Boot####" variable name, where #### are exactly four hexadecimal digits. The UEFI
+         * spec requires those to be upper-case, hence so do we. */
 
         const char16_t *e = startswith(name, u"Boot");
         if (!e)
@@ -43,8 +44,6 @@ static bool parse_boot_option_name(const char16_t *name, uint16_t *ret) {
                         v = c - '0';
                 else if (c >= 'A' && c <= 'F')
                         v = c - 'A' + 10;
-                else if (c >= 'a' && c <= 'f')
-                        v = c - 'a' + 10;
                 else
                         return false;
 
