@@ -147,68 +147,184 @@ TEST(service_restart_usec_nth) {
         ASSERT_EQ(service_restart_usec_nth(160 * USEC_PER_SEC, 160 * USEC_PER_SEC, 4, 3), 160 * USEC_PER_SEC);
 }
 
-TEST(timer_coldplug) {
-        _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
-        _cleanup_(manager_freep) Manager *m = NULL;
-        _cleanup_(unit_freep) Unit *service = NULL;
+static int timer_test_manager_new(char **runtime_dir, Manager **m) {
+        ASSERT_NOT_NULL(*runtime_dir = setup_fake_runtime_dir());
 
-        ASSERT_NOT_NULL(runtime_dir = setup_fake_runtime_dir());
-        ASSERT_OK(manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL|MANAGER_TEST_DONT_OPEN_EXECUTOR, &m));
-        m->n_reloading = 1;
+        int r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL|MANAGER_TEST_DONT_OPEN_EXECUTOR, m);
+        if (r >= 0)
+                (*m)->n_reloading = 1;
+        return r;
+}
+
+static Unit* timer_test_new(Manager *m, TimerState state, usec_t delay) {
+        Unit *service, *u;
+        TimerValue *v;
 
         ASSERT_OK(unit_new_for_name(m, sizeof(Service), "coldplug.service", &service));
         service->load_state = UNIT_LOADED;
 
-        /* Waiting timers must not repeat a fired trigger. Elapsed timers must stay elapsed even when
-         * the loaded configuration supplies a future trigger. */
-        FOREACH_ELEMENT(state, ((const TimerState[]) { TIMER_WAITING, TIMER_ELAPSED })) {
-                _cleanup_(unit_freep) Unit *u = NULL;
-                TimerValue *v;
-
-                ASSERT_OK(unit_new_for_name(m, sizeof(Timer), "coldplug.timer", &u));
-                u->load_state = UNIT_LOADED;
-                ASSERT_OK(unit_add_dependency(u, UNIT_TRIGGERS, service, /* add_reference= */ true, UNIT_DEPENDENCY_FILE));
-
-                Timer *t = TIMER(u);
-                t->deserialized_state = *state;
-                /* Keep an already fired OnActiveSec= timer waiting for a separate trigger. */
-                t->on_clock_change = *state == TIMER_WAITING;
-                dual_timestamp_now(&t->last_trigger);
-                u->inactive_exit_timestamp = (dual_timestamp) {
-                        .monotonic = *state == TIMER_WAITING ? 1 : t->last_trigger.monotonic,
-                };
-
-                ASSERT_NOT_NULL(v = new0(TimerValue, 1));
-                v->base = TIMER_ACTIVE;
-                v->value = *state == TIMER_WAITING ? 1 : USEC_PER_HOUR;
-                LIST_PREPEND(value, t->values, v);
-
-                ASSERT_OK(unit_coldplug(u));
-                ASSERT_EQ(t->state, *state);
-                if (*state == TIMER_WAITING)
-                        ASSERT_TRUE(v->disabled);
-                ASSERT_NULL(t->monotonic_event_source);
-        }
-
-        /* A pending OnActiveSec= trigger must retain its original deadline across reloads. */
-        _cleanup_(unit_freep) Unit *u = NULL;
-        TimerValue *v;
-
-        ASSERT_OK(unit_new_for_name(m, sizeof(Timer), "pending.timer", &u));
+        ASSERT_OK(unit_new_for_name(m, sizeof(Timer), "coldplug.timer", &u));
         u->load_state = UNIT_LOADED;
-        u->inactive_exit_timestamp = (dual_timestamp) { .monotonic = now(CLOCK_MONOTONIC) };
         ASSERT_OK(unit_add_dependency(u, UNIT_TRIGGERS, service, /* add_reference= */ true, UNIT_DEPENDENCY_FILE));
 
         Timer *t = TIMER(u);
-        t->deserialized_state = TIMER_WAITING;
-        ASSERT_NOT_NULL(v = new0(TimerValue, 1));
-        v->base = TIMER_ACTIVE;
-        v->value = USEC_PER_HOUR;
+        t->deserialized_state = state;
+        ASSERT_NOT_NULL(v = new(TimerValue, 1));
+        *v = (TimerValue) {
+                .base = TIMER_ACTIVE,
+                .value = delay,
+        };
         LIST_PREPEND(value, t->values, v);
+        return u;
+}
+
+TEST(timer_coldplug_fired) {
+        _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
+        _cleanup_(manager_freep) Manager *m = NULL;
+
+        int r = timer_test_manager_new(&runtime_dir, &m);
+        if (manager_errno_skip_test(r))
+                return (void) log_tests_skipped_errno(r, "manager_new");
+        ASSERT_OK(r);
+
+        _cleanup_(unit_freep) Unit *u = timer_test_new(m, TIMER_WAITING, 1);
+        Timer *t = TIMER(u);
+
+        /* A separate trigger keeps the timer waiting after OnActiveSec= has fired. */
+        t->on_clock_change = true;
+        dual_timestamp_now(&t->last_trigger);
+        u->inactive_exit_timestamp = (dual_timestamp) { .monotonic = 1 };
+
+        ASSERT_OK(unit_coldplug(u));
+        ASSERT_EQ(t->state, TIMER_WAITING);
+        ASSERT_TRUE(t->values->disabled);
+        ASSERT_NULL(t->monotonic_event_source);
+}
+
+TEST(timer_coldplug_elapsed) {
+        _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
+        _cleanup_(manager_freep) Manager *m = NULL;
+
+        int r = timer_test_manager_new(&runtime_dir, &m);
+        if (manager_errno_skip_test(r))
+                return (void) log_tests_skipped_errno(r, "manager_new");
+        ASSERT_OK(r);
+
+        _cleanup_(unit_freep) Unit *u = timer_test_new(m, TIMER_ELAPSED, USEC_PER_HOUR);
+        Timer *t = TIMER(u);
+        dual_timestamp_now(&t->last_trigger);
+        u->inactive_exit_timestamp = t->last_trigger;
+
+        ASSERT_OK(unit_coldplug(u));
+        ASSERT_EQ(t->state, TIMER_ELAPSED);
+        ASSERT_NULL(t->monotonic_event_source);
+}
+
+TEST(timer_coldplug_pending) {
+        _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
+        _cleanup_(manager_freep) Manager *m = NULL;
+
+        int r = timer_test_manager_new(&runtime_dir, &m);
+        if (manager_errno_skip_test(r))
+                return (void) log_tests_skipped_errno(r, "manager_new");
+        ASSERT_OK(r);
+
+        _cleanup_(unit_freep) Unit *u = timer_test_new(m, TIMER_WAITING, USEC_PER_HOUR);
+        Timer *t = TIMER(u);
+        u->inactive_exit_timestamp = (dual_timestamp) { .monotonic = now(CLOCK_MONOTONIC) };
 
         ASSERT_OK(unit_coldplug(u));
         ASSERT_EQ(t->state, TIMER_WAITING);
         ASSERT_EQ(t->next_elapse_monotonic_or_boottime, u->inactive_exit_timestamp.monotonic + USEC_PER_HOUR);
+}
+
+TEST(timer_coldplug_overdue) {
+        _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
+        _cleanup_(manager_freep) Manager *m = NULL;
+
+        int r = timer_test_manager_new(&runtime_dir, &m);
+        if (manager_errno_skip_test(r))
+                return (void) log_tests_skipped_errno(r, "manager_new");
+        ASSERT_OK(r);
+
+        _cleanup_(unit_freep) Unit *u = timer_test_new(m, TIMER_WAITING, 1);
+        Timer *t = TIMER(u);
+
+        /* The previous activation fired before this activation's deadline. */
+        usec_t n = now(CLOCK_MONOTONIC);
+        t->last_trigger.monotonic = n - 3;
+        u->inactive_exit_timestamp.monotonic = n - 2;
+
+        ASSERT_OK(unit_coldplug(u));
+        ASSERT_EQ(t->state, TIMER_WAITING);
+        ASSERT_FALSE(t->values->disabled);
+        ASSERT_NOT_NULL(t->monotonic_event_source);
+        ASSERT_EQ(t->next_elapse_monotonic_or_boottime, n - 1);
+}
+
+TEST(timer_coldplug_startup) {
+        _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
+        _cleanup_(manager_freep) Manager *m = NULL;
+
+        int r = timer_test_manager_new(&runtime_dir, &m);
+        if (manager_errno_skip_test(r))
+                return (void) log_tests_skipped_errno(r, "manager_new");
+        ASSERT_OK(r);
+
+        _cleanup_(unit_freep) Unit *u = timer_test_new(m, TIMER_WAITING, 1);
+        Timer *t = TIMER(u);
+
+        /* Keep the existing handling of an expired OnStartupSec= after the timer has triggered. */
+        m->timestamps[MANAGER_TIMESTAMP_USERSPACE].monotonic = 1;
+        t->values->base = TIMER_STARTUP;
+        t->last_trigger.monotonic = 1;
+        t->on_clock_change = true;
+
+        ASSERT_OK(unit_coldplug(u));
+        ASSERT_EQ(t->state, TIMER_WAITING);
+        ASSERT_TRUE(t->values->disabled);
+        ASSERT_NULL(t->monotonic_event_source);
+}
+
+TEST(timer_coldplug_unloaded) {
+        _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
+        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_(unit_freep) Unit *service = NULL;
+
+        int r = timer_test_manager_new(&runtime_dir, &m);
+        if (manager_errno_skip_test(r))
+                return (void) log_tests_skipped_errno(r, "manager_new");
+        ASSERT_OK(r);
+
+        ASSERT_OK(unit_new_for_name(m, sizeof(Service), "coldplug.service", &service));
+        service->load_state = UNIT_LOADED;
+
+        FOREACH_ELEMENT(load_state, ((const UnitLoadState[]) { UNIT_BAD_SETTING, UNIT_MASKED })) {
+                _cleanup_(unit_freep) Unit *u = NULL;
+
+                ASSERT_OK(unit_new_for_name(m, sizeof(Timer), "coldplug.timer", &u));
+                u->load_state = *load_state;
+                Timer *t = TIMER(u);
+                t->deserialized_state = TIMER_WAITING;
+                if (*load_state == UNIT_BAD_SETTING)
+                        ASSERT_OK(unit_add_dependency(
+                                        u, UNIT_TRIGGERS, service, /* add_reference= */ true, UNIT_DEPENDENCY_FILE));
+
+                ASSERT_OK(unit_coldplug(u));
+                ASSERT_EQ(t->state, TIMER_WAITING);
+
+                timer_vtable.trigger_notify(u, service);
+                ASSERT_EQ(t->state, TIMER_WAITING);
+                timer_vtable.time_change(u);
+                ASSERT_EQ(t->state, TIMER_WAITING);
+                timer_vtable.timezone_change(u);
+                ASSERT_EQ(t->state, TIMER_WAITING);
+
+                ASSERT_NULL(t->monotonic_event_source);
+                ASSERT_NULL(t->realtime_event_source);
+                ASSERT_EQ(t->next_elapse_monotonic_or_boottime, USEC_INFINITY);
+                ASSERT_EQ(t->next_elapse_realtime, USEC_INFINITY);
+        }
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
