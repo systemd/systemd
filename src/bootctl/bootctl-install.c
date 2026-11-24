@@ -80,6 +80,10 @@ typedef struct InstallContext {
         EVP_PKEY *secure_boot_private_key;
 #endif
         int touch_variables; /* tri-state */
+        DIR *source_dir;            /* source_dir is the BOOTLIBDIR that open_source_directory() selected.
+                                     * It is NULL if there is nothing to install. */
+        char *source_path;
+        bool source_from_image;     /* source_dir is located below c->root_fd and not on the host. */
 } InstallContext;
 
 #define INSTALL_CONTEXT_NULL                                            \
@@ -108,6 +112,9 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(install_operation, InstallOperati
 
 static void install_context_done(InstallContext *c) {
         assert(c);
+
+        c->source_dir = safe_closedir(c->source_dir);
+        c->source_path = mfree(c->source_path);
 
         c->root = mfree(c->root);
         c->root_fd = safe_close(c->root_fd);
@@ -855,13 +862,15 @@ static int dir_has_boot_loader(DIR *d, const char *path, const char *arch) {
         return false;
 }
 
-static int install_binaries(
-                InstallContext *c,
-                const char *arch) {
-
-        int r, ret = 0;
+static int open_source_directory(InstallContext *c, const char *arch) {
+        int r;
 
         assert(c);
+        assert(!c->source_dir);
+
+        /* open_source_directory() selects the BOOTLIBDIR that the systemd-boot binaries are taken from, and
+         * stores it in c->source_dir. c->source_dir stays NULL if there is nothing to install and that is
+         * not an error. */
 
         const char *fn = strjoina("systemd-boot", isempty(arch) ? "*" : arch, ".efi");
 
@@ -948,12 +957,30 @@ static int install_binaries(
                                        "No '%s' boot loader binary found in '%s'.", fn, source_path);
         }
 
+        c->source_dir = TAKE_PTR(d);
+        c->source_path = TAKE_PTR(source_path);
+        c->source_from_image = from_image;
+        return 0;
+}
+
+static int install_binaries(
+                InstallContext *c,
+                const char *arch) {
+
+        int r, ret = 0;
+
+        assert(c);
+
+        DIR *d = c->source_dir;
+        if (!d)
+                return 0;
+
         rewinddir(d);
 
         const char *suffix = strjoina(strempty(arch), ".efi");
         const char *suffix_signed = strjoina(strempty(arch), ".efi.signed");
 
-        FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read \"%s\": %m", source_path)) {
+        FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read \"%s\": %m", c->source_path)) {
                 if (endswith_no_case(de->d_name, suffix)) {
                         /* skip the .efi file, if there's a .signed version of it */
                         _cleanup_free_ const char *s = strjoin(de->d_name, ".signed");
@@ -964,7 +991,7 @@ static int install_binaries(
                 } else if (!endswith_no_case(de->d_name, suffix_signed))
                         continue;
 
-                r = copy_one_file(c, de->d_name, from_image, c->operation == INSTALL_NEW);
+                r = copy_one_file(c, de->d_name, c->source_from_image, c->operation == INSTALL_NEW);
                 /* Don't propagate an error code if no update necessary, installed version already equal or
                  * newer version, or other boot loader in place. */
                 if (c->graceful && IN_SET(r, -ESTALE, -ESRCH))
@@ -1686,6 +1713,24 @@ static int load_secure_boot_auto_enroll(
 }
 #endif
 
+static int remove_boot_option(sd_id128_t uuid, const char *path, bool in_order) {
+        uint16_t slot;
+        int r;
+
+        r = find_slot(uuid, path, &slot);
+        if (r != 1)
+                return 0;
+
+        r = efi_remove_boot_option(slot);
+        if (r < 0)
+                return r;
+
+        if (in_order)
+                return remove_from_order(slot);
+
+        return 0;
+}
+
 static int install_variables(InstallContext *c, const char *arch) {
         int r;
 
@@ -1770,6 +1815,10 @@ static int run_install(InstallContext *c) {
                         if (r < 0)
                                 return r;
                 }
+
+                r = open_source_directory(c, arch);
+                if (r < 0)
+                        return r;
 
                 r = install_binaries(c, arch);
                 if (r < 0)
@@ -1994,24 +2043,6 @@ static int remove_binaries(InstallContext *c) {
                 r = rm_rf_at(efi_fd, "systemd", REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_MISSING_OK);
 
         return RET_GATHER(r, remove_boot_efi(c));
-}
-
-static int remove_boot_option(sd_id128_t uuid, const char *path, bool in_order) {
-        uint16_t slot;
-        int r;
-
-        r = find_slot(uuid, path, &slot);
-        if (r != 1)
-                return 0;
-
-        r = efi_remove_boot_option(slot);
-        if (r < 0)
-                return r;
-
-        if (in_order)
-                return remove_from_order(slot);
-
-        return 0;
 }
 
 static int remove_loader_variables(void) {
