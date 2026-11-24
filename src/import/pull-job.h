@@ -41,6 +41,17 @@ typedef struct PullJob {
         CurlGlue *glue; /* May be NULL if the URL is transported via a resource provider rather than curl */
         CurlSlot *slot;
         struct curl_slist *request_header;
+        struct curl_slist *request_header_effective; /* The above, plus per-request fields, as passed to curl */
+
+        /* Additional HTTP header fields (as name/value pairs) to send, but only to the origin they are
+         * intended for. We follow HTTP redirects ourselves, so that we can leave them out when redirected
+         * elsewhere. */
+        char **http_headers;
+        char *http_headers_origin;
+
+        /* The URL we have been redirected to (if any), and how often */
+        char *redirect_url;
+        unsigned n_redirects;
 
         /* For provider:[…]/… URLs, which are transported via a Varlink connection instead of curl */
         sd_varlink *provider_link;
@@ -122,6 +133,7 @@ void pull_job_close_disk_fd(PullJob *j);
 int pull_job_add_request_header(PullJob *j, const char *hdr);
 int pull_job_set_accept(PullJob *j, char * const *l);
 int pull_job_set_bearer_token(PullJob *j, const char *token);
+int pull_job_set_http_headers(PullJob *j, char * const *headers, const char *origin_url);
 
 int pull_job_restart(PullJob *j, const char *new_url);
 

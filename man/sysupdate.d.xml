@@ -758,6 +758,17 @@
         resources, as well as inline data that is encoded, must consist of the file and nothing else, other
         such sources are ignored.</para>
 
+        <para>Entries with a <literal>url</literal> field may carry an <literal>httpHeaders</literal> object,
+        listing additional HTTP header fields (e.g. <literal>Authorization</literal>) to send when downloading
+        the URL. These fields are only sent to the origin (i.e. the combination of scheme, host and port) of
+        the URL: if the server redirects to a different origin, the fields are left out of the request to the
+        new location. Entries that list header fields relating to connection management, transfer and
+        content encoding, ranges or caching (such as <literal>Host</literal>, <literal>Range</literal> or
+        <literal>Accept-Encoding</literal>), which are managed by the download logic itself, are
+        ignored. Note that the header fields are part of the manifest, and hence protected by its signature,
+        but not kept confidential: credentials should only be placed in manifests that are not publicly
+        accessible.</para>
+
         <para>The extended attributes in the <literal>user</literal> namespace listed in the
         <literal>extendedAttributes</literal> field of a file object of a UAPI.16 manifest are applied to the
         file or directory created when installing it. This is done on a best-effort basis: if the file system
