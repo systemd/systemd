@@ -62,7 +62,6 @@ bool log_get_show_location(void) _pure_;
 void log_show_time(bool b);
 bool log_get_show_time(void) _pure_;
 void log_show_tid(bool b);
-bool log_get_show_tid(void) _pure_;
 void log_show_executable(bool b);
 bool log_get_show_executable(void) _pure_;
 
