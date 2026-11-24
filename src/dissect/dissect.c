@@ -834,14 +834,59 @@ static int parse_argv_as_mount_helper(int argc, char *argv[]) {
         return 1;
 }
 
-static void strv_pair_print(char **l, const char *prefix) {
-        assert(prefix);
+static int table_add_strv_pairs(Table *t, const char *field, char **l) {
+        int r;
 
-        STRV_FOREACH_PAIR(p, q, l)
+        assert(t);
+        assert(field);
+
+        STRV_FOREACH_PAIR(p, q, l) {
                 if (p == l)
-                        printf("%s %s=%s\n", prefix, *p, *q);
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_FIELD, field);
                 else
-                        printf("%*s %s=%s\n", (int) strlen(prefix), "", *p, *q);
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = table_add_cell_stringf(t, /* ret_cell= */ NULL, "%s=%s", *p, *q);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        return 0;
+}
+
+static int table_add_mark(Table *t, const char *field, bool b, const char *format, ...) _printf_(4, 5);
+static int table_add_mark(Table *t, const char *field, bool b, const char *format, ...) {
+        _cleanup_free_ char *text = NULL;
+        va_list ap;
+        int r;
+
+        assert(t);
+        assert(format);
+
+        /* Adds a row with a green check mark or a red cross mark, followed by the specified text. If
+         * 'field' is NULL the field name is left empty, i.e. the line is a continuation of the previous one. */
+
+        va_start(ap, format);
+        r = vasprintf(&text, format, ap);
+        va_end(ap);
+        if (r < 0)
+                return log_oom();
+
+        if (field)
+                r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_FIELD, field);
+        else
+                r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
+        if (r < 0)
+                return table_log_add_error(r);
+
+        const char *s = strjoina(COLOR_MARK_BOOL(b), " ", text);
+        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_STRING_WITH_ANSI, s);
+        if (r < 0)
+                return table_log_add_error(r);
+
+        return 0;
 }
 
 static int get_extension_scopes(DissectedImage *m, ImageClass class, char ***ret_scopes) {
@@ -895,9 +940,9 @@ static int action_dissect(
                 int userns_fd) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_(table_unrefp) Table *t = NULL, *vt = NULL;
         _cleanup_free_ char *bn = NULL;
-        int r;
+        int r, metadata_r;
 
         assert(m);
 
@@ -909,78 +954,123 @@ static int action_dissect(
                 pager_open(arg_pager_flags);
 
         if (!sd_json_format_enabled(arg_json_format_flags)) {
-                printf(" File Name: %s%s%s\n",
-                       ansi_highlight(), bn, ansi_normal());
+                vt = table_new_vertical();
+                if (!vt)
+                        return log_oom();
 
-                printf("      Size: %s\n",
-                       FORMAT_BYTES(m->image_size));
+                /* Don't ellipsize long values (such as os-release URLs), show them in full */
+                table_set_width(vt, 0);
 
-                printf(" Sec. Size: %" PRIu32 "\n",
-                       m->sector_size);
+                r = table_add_many(vt,
+                                   TABLE_FIELD, "File Name",
+                                   TABLE_STRING, bn,
+                                   TABLE_SET_COLOR, ansi_highlight());
+                if (r < 0)
+                        return table_log_add_error(r);
 
-                printf("     Arch.: %s\n",
-                       strna(architecture_to_string(dissected_image_architecture(m))));
+                if (m->image_size != UINT64_MAX) {
+                        r = table_add_many(vt,
+                                           TABLE_FIELD, "Size",
+                                           TABLE_SIZE, m->image_size);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
 
-                if (!sd_id128_is_null(m->image_uuid))
-                        printf("Image UUID: %s\n",
-                               SD_ID128_TO_UUID_STRING(m->image_uuid));
+                r = table_add_many(vt,
+                                   TABLE_FIELD, "Sector Size",
+                                   TABLE_UINT32, m->sector_size,
+                                   TABLE_FIELD, "Architecture",
+                                   TABLE_STRING, strna(architecture_to_string(dissected_image_architecture(m))));
+                if (r < 0)
+                        return table_log_add_error(r);
 
-                if (m->image_name && !streq(m->image_name, bn))
-                        printf("Image Name: %s\n", m->image_name);
+                if (!sd_id128_is_null(m->image_uuid)) {
+                        r = table_add_many(vt,
+                                           TABLE_FIELD, "Image UUID",
+                                           TABLE_UUID, m->image_uuid);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
 
-                putc('\n', stdout);
-                fflush(stdout);
+                if (m->image_name && !streq(m->image_name, bn)) {
+                        r = table_add_many(vt,
+                                           TABLE_FIELD, "Image Name",
+                                           TABLE_STRING, m->image_name);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
         }
 
         r = dissected_image_acquire_metadata(m, userns_fd, /* extra_flags= */ 0);
-        if (r == -ENXIO)
-                return log_error_errno(r, "No root partition discovered.");
-        if (r == -EUCLEAN)
-                return log_error_errno(r, "File system check of image failed.");
-        if (r == -EMEDIUMTYPE)
-                log_warning_errno(r, "Not a valid OS image, no os-release file included. Proceeding anyway.");
-        else if (r == -EUNATCH)
-                log_warning_errno(r, "OS image is encrypted, proceeding without showing OS image metadata.");
-        else if (r == -EBUSY)
-                log_warning_errno(r, "OS image is currently in use, proceeding without showing OS image metadata.");
-        else if (r < 0)
+        if (r < 0 && !IN_SET(r, -EMEDIUMTYPE, -EUNATCH, -EBUSY)) {
+                /* Show at least what we know so far (for example if we lack the privileges to look into
+                 * the image), before failing. */
+                if (vt)
+                        (void) table_print_or_warn(vt);
+
+                if (r == -ENXIO)
+                        return log_error_errno(r, "No root partition discovered.");
+                if (r == -EUCLEAN)
+                        return log_error_errno(r, "File system check of image failed.");
+
                 return log_error_errno(r, "Failed to acquire image metadata: %m");
+        }
+        metadata_r = r;
+        if (metadata_r < 0)
+                /* We'll log about these below, after the basic image information has been shown */
+                assert(IN_SET(metadata_r, -EMEDIUMTYPE, -EUNATCH, -EBUSY));
         else if (!sd_json_format_enabled(arg_json_format_flags)) {
+                if (m->hostname) {
+                        r = table_add_many(vt,
+                                           TABLE_FIELD, "Hostname",
+                                           TABLE_STRING, m->hostname);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
 
-                if (m->hostname)
-                        printf("  Hostname: %s\n", m->hostname);
+                if (!sd_id128_is_null(m->machine_id)) {
+                        r = table_add_many(vt,
+                                           TABLE_FIELD, "Machine ID",
+                                           TABLE_ID128, m->machine_id);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
 
-                if (!sd_id128_is_null(m->machine_id))
-                        printf("Machine ID: " SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(m->machine_id));
+                r = table_add_strv_pairs(vt, "Machine Info", m->machine_info);
+                if (r < 0)
+                        return r;
 
-                strv_pair_print(m->machine_info,
-                               "Mach. Info:");
-                strv_pair_print(m->os_release,
-                               "OS Release:");
-                strv_pair_print(m->initrd_release,
-                                "initrd R.:");
-                strv_pair_print(m->sysext_release,
-                               " sysext R.:");
-                strv_pair_print(m->confext_release,
-                               "confext R.:");
+                r = table_add_strv_pairs(vt, "OS Release", m->os_release);
+                if (r < 0)
+                        return r;
 
-                if (m->hostname ||
-                    !sd_id128_is_null(m->machine_id) ||
-                    !strv_isempty(m->machine_info) ||
-                    !strv_isempty(m->os_release) ||
-                    !strv_isempty(m->initrd_release) ||
-                    !strv_isempty(m->sysext_release) ||
-                    !strv_isempty(m->confext_release))
-                        putc('\n', stdout);
+                r = table_add_strv_pairs(vt, "initrd Release", m->initrd_release);
+                if (r < 0)
+                        return r;
 
-                printf("    Use As: %s bootable system for UEFI\n",
-                       COLOR_MARK_BOOL(dissected_image_is_bootable_uefi(m)));
-                printf("            %s bootable system for container\n",
-                       COLOR_MARK_BOOL(dissected_image_is_bootable_os(m)));
-                printf("            %s portable service\n",
-                       COLOR_MARK_BOOL(dissected_image_is_portable(m)));
-                printf("            %s initrd\n",
-                       COLOR_MARK_BOOL(dissected_image_is_initrd(m)));
+                r = table_add_strv_pairs(vt, "sysext Release", m->sysext_release);
+                if (r < 0)
+                        return r;
+
+                r = table_add_strv_pairs(vt, "confext Release", m->confext_release);
+                if (r < 0)
+                        return r;
+
+                r = table_add_mark(vt, "Use As", dissected_image_is_bootable_uefi(m), "bootable system for UEFI");
+                if (r < 0)
+                        return r;
+
+                r = table_add_mark(vt, /* field= */ NULL, dissected_image_is_bootable_os(m), "bootable system for container");
+                if (r < 0)
+                        return r;
+
+                r = table_add_mark(vt, /* field= */ NULL, dissected_image_is_portable(m), "portable service");
+                if (r < 0)
+                        return r;
+
+                r = table_add_mark(vt, /* field= */ NULL, dissected_image_is_initrd(m), "initrd");
+                if (r < 0)
+                        return r;
 
                 for (ImageClass c = _IMAGE_CLASS_EXTENSION_FIRST; c <= _IMAGE_CLASS_EXTENSION_LAST; c++) {
                         const char *string_class = image_class_to_string(c);
@@ -990,15 +1080,18 @@ static int action_dissect(
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse scopes: %m");
 
-                        printf("            %s %s for system\n",
-                               COLOR_MARK_BOOL(strv_contains(extension_scopes, "system")), string_class);
-                        printf("            %s %s for portable service\n",
-                               COLOR_MARK_BOOL(strv_contains(extension_scopes, "portable")), string_class);
-                        printf("            %s %s for initrd\n",
-                               COLOR_MARK_BOOL(strv_contains(extension_scopes, "initrd")), string_class);
-                }
+                        r = table_add_mark(vt, /* field= */ NULL, strv_contains(extension_scopes, "system"), "%s for system", string_class);
+                        if (r < 0)
+                                return r;
 
-                putc('\n', stdout);
+                        r = table_add_mark(vt, /* field= */ NULL, strv_contains(extension_scopes, "portable"), "%s for portable service", string_class);
+                        if (r < 0)
+                                return r;
+
+                        r = table_add_mark(vt, /* field= */ NULL, strv_contains(extension_scopes, "initrd"), "%s for initrd", string_class);
+                        if (r < 0)
+                                return r;
+                }
         } else {
                 _cleanup_strv_free_ char **sysext_scopes = NULL, **confext_scopes = NULL;
 
@@ -1039,6 +1132,23 @@ static int action_dissect(
                 if (r < 0)
                         return log_oom();
         }
+
+        if (vt) {
+                r = table_print_or_warn(vt);
+                if (r < 0)
+                        return r;
+        }
+
+        if (metadata_r == -EMEDIUMTYPE)
+                log_warning_errno(metadata_r, "Not a valid OS image, no os-release file included. Proceeding anyway.");
+        else if (metadata_r == -EUNATCH)
+                log_warning_errno(metadata_r, "OS image is encrypted, proceeding without showing OS image metadata.");
+        else if (metadata_r == -EBUSY)
+                log_warning_errno(metadata_r, "OS image is currently in use, proceeding without showing OS image metadata.");
+
+        if (vt)
+                /* Separate from the partition table */
+                putc('\n', stdout);
 
         t = table_new("rw", "designator", "partition uuid", "partition label", "fstype", "architecture", "verity", "growfs", "node", "partno");
         if (!t)
