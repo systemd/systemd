@@ -1819,6 +1819,85 @@ EOF
     veritysetup dump "${loop}p2" | grep 'Hash block size:' | grep '1024' >/dev/null
 }
 
+testcase_verity_signature_ecdsa_deterministic() {
+    local defs imgs output roothash
+    local -a sigs=()
+
+    # An ECDSA signature contains a nonce. systemd-repart has to derive the nonce from the key and the root
+    # hash (RFC 6979), or the signature, and with it the image, differs on every build. Build the same
+    # image twice with a P-256 key and check that the signatures are the same and verify against the
+    # certificate.
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod 0755 "$defs"
+
+    openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
+            -keyout "$defs/verity.key" -out "$defs/verity.crt" -subj /CN=verity -days 2 2>/dev/null
+
+    # OpenSSL supports deterministic nonces since 3.2.
+    if ! openssl dgst -sha256 -sign "$defs/verity.key" -sigopt nonce-type:1 -out /dev/null /dev/null; then
+        echo "OpenSSL doesn't support deterministic ECDSA nonces, skipping."
+        return
+    fi
+
+    mkdir "$defs/tree"
+    echo verity >"$defs/tree/file"
+
+    tee "$defs/verity-data.conf" <<EOF
+[Partition]
+Type=root-${architecture}
+Format=erofs
+CopyFiles=$defs/tree:/
+Verity=data
+VerityMatchKey=root
+Minimize=best
+EOF
+
+    tee "$defs/verity-hash.conf" <<EOF
+[Partition]
+Type=root-${architecture}-verity
+Verity=hash
+VerityMatchKey=root
+Minimize=best
+EOF
+
+    tee "$defs/verity-sig.conf" <<EOF
+[Partition]
+Type=root-${architecture}-verity-sig
+Verity=signature
+VerityMatchKey=root
+EOF
+
+    for i in 1 2; do
+        output=$(env SOURCE_DATE_EPOCH=0 \
+                     systemd-repart --offline="$OFFLINE" \
+                                    --definitions="$defs" \
+                                    --seed="$seed" \
+                                    --dry-run=no \
+                                    --empty=create \
+                                    --size=auto \
+                                    --split=yes \
+                                    --json=pretty \
+                                    --private-key="$defs/verity.key" \
+                                    --certificate="$defs/verity.crt" \
+                                    "$imgs/verity$i")
+        sigs+=("$(jq -r ".[] | select(.type == \"root-${architecture}-verity-sig\") | .split_path" <<<"$output")")
+    done
+
+    roothash="$(jq -r .rootHash "${sigs[0]}")"
+    assert_eq "$roothash" "$(jq -r .rootHash "${sigs[1]}")"
+    assert_eq "$(jq -r .signature "${sigs[0]}")" "$(jq -r .signature "${sigs[1]}")"
+
+    jq -r .signature "${sigs[0]}" | base64 --decode >"$imgs/sig.p7s"
+    printf '%s' "$roothash" >"$imgs/roothash"
+    openssl cms -verify -inform DER -binary -nointern -purpose any \
+            -certfile "$defs/verity.crt" -CAfile "$defs/verity.crt" \
+            -in "$imgs/sig.p7s" -content "$imgs/roothash" -out /dev/null
+}
+
 testcase_verity_hash_size_from_data_size() {
     local defs imgs loop
 

@@ -6492,9 +6492,32 @@ static int sign_verity_roothash(
         if (!rb)
                 return log_oom();
 
-        p7 = sym_PKCS7_sign(context->certificate, context->private_key, /* certs= */ NULL, rb, PKCS7_DETACHED|PKCS7_NOATTR|PKCS7_BINARY);
+        /* PKCS7_sign() signs with a random nonce for ECDSA keys. The signature then differs on every build.
+         * With PKCS7_PARTIAL, PKCS7_sign() only sets up the signer info, and we sign with digest_and_sign()
+         * instead. digest_and_sign() uses deterministic nonces (RFC 6979) if the key supports them. Without
+         * signed attributes, PKCS7_final() signs the digest of the content the same way, so a signature
+         * with an RSA key stays the same. */
+        p7 = sym_PKCS7_sign(context->certificate, context->private_key, /* certs= */ NULL, rb, PKCS7_DETACHED|PKCS7_NOATTR|PKCS7_BINARY|PKCS7_PARTIAL);
         if (!p7)
-                return log_openssl_errors(LOG_ERR, "Failed to calculate PKCS7 signature");
+                return log_openssl_errors(LOG_ERR, "Failed to set up PKCS7 signature");
+
+        PKCS7_SIGNER_INFO *si = sym_sk_PKCS7_SIGNER_INFO_value(sym_PKCS7_get_signer_info(p7), 0);
+        if (!si)
+                return log_openssl_errors(LOG_ERR, "Failed to get PKCS7 signer info");
+
+        const EVP_MD *md = sym_EVP_get_digestbyname(sym_OBJ_nid2sn(sym_OBJ_obj2nid(si->digest_alg->algorithm)));
+        if (!md)
+                return log_openssl_errors(LOG_ERR, "Failed to get digest algorithm of PKCS7 signer info");
+
+        _cleanup_free_ void *enc_digest = NULL;
+        size_t enc_digest_size;
+        r = digest_and_sign(md, context->private_key, hex, SIZE_MAX, &enc_digest, &enc_digest_size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to calculate PKCS7 signature: %m");
+        if (enc_digest_size > INT_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "PKCS7 signature too large.");
+
+        sym_ASN1_STRING_set0(si->enc_digest, TAKE_PTR(enc_digest), (int) enc_digest_size);
 
         sigsz = sym_i2d_PKCS7(p7, &sig);
         if (sigsz < 0)
