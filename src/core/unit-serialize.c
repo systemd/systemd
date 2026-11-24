@@ -108,6 +108,7 @@ int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
 
         (void) serialize_bool(f, "transient", u->transient);
         (void) serialize_bool(f, "in-audit", u->in_audit);
+        (void) serialize_item(f, "access-selinux-context", u->access_selinux_context);
 
         (void) serialize_bool(f, "debug-invocation", u->debug_invocation);
 
@@ -294,7 +295,17 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                 else if (MATCH_DESERIALIZE("exported-log-rate-limit-burst", l, v, parse_boolean, u->exported_log_ratelimit_burst))
                         continue;
 
-                else if (streq(l, "ref-uid")) {
+                else if (streq(l, "access-selinux-context")) {
+                        /* A freshly loaded fragment supplies its own label. If it disappeared, keep using
+                         * the original label for operations on the unit's remaining resources. */
+                        if (!u->fragment_path && !u->access_selinux_context) {
+                                r = free_and_strdup(&u->access_selinux_context, v);
+                                if (r < 0)
+                                        return r;
+                        }
+                        continue;
+
+                } else if (streq(l, "ref-uid")) {
                         uid_t uid;
 
                         r = parse_uid(v, &uid);
