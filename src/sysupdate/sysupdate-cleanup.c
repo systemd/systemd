@@ -84,7 +84,7 @@ static int context_installdb_acquire_fd(Context *c, bool make) {
         if (c->installdb_fd == -ENOENT && !make)
                 return 0;
         if (c->installdb_fd < 0)
-                return log_error_errno(c->installdb_fd, "Failed to open install database '%s%s': %m", empty_or_root(c->root) ? "" : c->root, p);
+                return log_error_errno(c->installdb_fd, "Failed to open install database '%s%s': %m", empty_or_root_to_empty(c->root), p);
 
         return 1;
 }

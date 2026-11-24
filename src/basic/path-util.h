@@ -185,6 +185,12 @@ static inline const char* skip_dev_prefix(const char *p) {
 
 bool empty_or_root(const char *path) _pure_;
 const char* empty_to_root(const char *path) _pure_;
+static inline const char* empty_or_root_to_empty(const char *path) {
+        /* Turns NULL, the empty string and the root directory (in any of its spellings) into the empty
+         * string, and leaves everything else as it is. Useful for prefixing paths with an optional root
+         * directory, for example in log messages, without duplicate slashes. */
+        return empty_or_root(path) ? "" : path;
+}
 int empty_or_root_harder_to_null(const char **path);
 
 bool path_strv_contains(char * const *l, const char *path);

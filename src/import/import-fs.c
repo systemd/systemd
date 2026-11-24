@@ -362,6 +362,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 static int run(int argc, char *argv[]) {
         int r;
 
+        LIBCRYPTO_NOTE(suggested);
         LIBSELINUX_NOTE(recommended);
 
         setlocale(LC_ALL, "");
