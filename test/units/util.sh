@@ -331,6 +331,83 @@ openssl_supports_kdf() {
     openssl kdf -keylen 16 -kdfopt digest:SHA2-256 -kdfopt key:foo -out /dev/null "$kdf"
 }
 
+# Read one field of os-release, e.g. os_release_field ID_LIKE, falling back to
+# /usr/lib/os-release.
+os_release_field() {
+    local field="${1:?}" os_release=/etc/os-release
+
+    [[ -e $os_release ]] || os_release=/usr/lib/os-release
+    # shellcheck disable=SC1090
+    (. "$os_release" 2>/dev/null; echo "${!field:-}")
+}
+
+# Check whether the ID field in os-release matches one of the given IDs, e.g.
+# os_release_id_is ubuntu debian. Returns 1 if it matches none of them, and 2 when no ID is
+# given.
+os_release_id_is() {
+    local expected id
+
+    if [[ $# -eq 0 ]]; then
+        echo "At least one distribution ID is required" >&2
+        return 2
+    fi
+
+    id="$(os_release_field ID)"
+
+    for expected in "$@"; do
+        if [[ "$id" == "$expected" ]]; then
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+# Check whether the ID_LIKE field in os-release contains one of the given IDs, e.g.
+# os_release_id_like alpine. Returns 1 if it contains none of them, and 2 when no ID is
+# given.
+os_release_id_like() {
+    local expected item like
+
+    if [[ $# -eq 0 ]]; then
+        echo "At least one distribution ID is required" >&2
+        return 2
+    fi
+
+    like="$(os_release_field ID_LIKE)"
+
+    for item in $like; do
+        for expected in "$@"; do
+            if [[ "$item" == "$expected" ]]; then
+                return 0
+            fi
+        done
+    done
+
+    return 1
+}
+
+# Compare the VERSION_ID field in os-release with the given version, e.g. os_release_version_compare
+# ge 10. The operator is one of lt, le, eq, ne, ge and gt, as accepted by systemd-analyze
+# compare-versions. Returns 1 if VERSION_ID is unset or empty, or the comparison does not hold,
+# and 2 on usage errors.
+os_release_version_compare() {
+    local operator version version_id
+
+    if [[ $# -ne 2 ]]; then
+        echo "Exactly one comparison operator and one version are required" >&2
+        return 2
+    fi
+
+    operator="$1"
+    version="$2"
+
+    version_id="$(os_release_field VERSION_ID)"
+    [[ -n "$version_id" ]] || return 1
+
+    systemd-analyze compare-versions "$version_id" "$operator" "$version"
+}
+
 kernel_supports_lsm() {
     local lsm="${1:?}"
     local items item
@@ -357,9 +434,9 @@ machine_supports_verity_keyring() {
     # verity signature support
     if { keyctl list %:.dm-verity; keyctl list %:.platform; keyctl list %:.machine; keyctl list %:.secondary_trusted_keys; :; } 2>/dev/null |
             grep -F "$(openssl x509 -noout -subject -in /usr/share/mkosi.crt | sed 's/^.*CN=//')" >/dev/null && \
-            ( . /etc/os-release; [ "$ID" != "centos" ] || systemd-analyze compare-versions "$VERSION_ID" ge 10 ) && \
-            ( . /etc/os-release; [ "$ID" != "debian" ] || [ -z "${VERSION_ID:-}" ] || systemd-analyze compare-versions "$VERSION_ID" ge 13 ) && \
-            ( . /etc/os-release; [ "$ID" != "ubuntu" ] || systemd-analyze compare-versions "$VERSION_ID" ge 24.04 ) && \
+            ( ! os_release_id_is centos || os_release_version_compare ge 10 ) && \
+            ( ! os_release_id_is debian || ! os_release_version_compare lt 13 ) && \
+            ( ! os_release_id_is ubuntu || os_release_version_compare ge 24.04 ) && \
             systemd-analyze compare-versions "$(cryptsetup --version | sed 's/^cryptsetup \([0-9]*\.[0-9]*\.[0-9]*\) .*/\1/')" ge 2.3.0; then
         return 0
     fi
