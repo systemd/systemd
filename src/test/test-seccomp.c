@@ -1326,6 +1326,23 @@ static void test_seccomp_suppress_sync_child(void) {
         ASSERT_ERROR_ERRNO(fdatasync(-1), EBADF);
         ASSERT_ERROR_ERRNO(fsync(-1), EBADF);
         ASSERT_ERROR_ERRNO(syncfs(-1), EBADF);
+
+        /* The kernel truncates the fd to 32 bits, make sure setting upper bits doesn't bypass the filter.
+         * fsync() on a pipe would fail with EINVAL if it reached the kernel. */
+        if (sizeof(long) == 8) {
+                int pipefd[2] = EBADF_PAIR;
+
+                ASSERT_OK_ERRNO(pipe2(pipefd, O_CLOEXEC));
+
+                ASSERT_OK_ERRNO(fsync(pipefd[1]));
+                ASSERT_OK_ERRNO(syscall(__NR_fsync, (unsigned long) pipefd[1] | (UINT64_C(1) << 32)));
+                ASSERT_OK_ERRNO(syscall(__NR_fdatasync, (unsigned long) pipefd[1] | (UINT64_C(1) << 63)));
+
+                /* A negative fd must still not be suppressed, whatever the upper bits are. */
+                ASSERT_ERROR_ERRNO(syscall(__NR_fsync, (unsigned long) (UINT64_C(1) << 32) | UINT32_MAX), EBADF);
+
+                safe_close_pair(pipefd);
+        }
 }
 /* NOLINTEND(bugprone-unsafe-functions) */
 
