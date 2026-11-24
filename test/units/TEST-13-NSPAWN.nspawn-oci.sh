@@ -38,6 +38,7 @@ OCI="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.oci-bundle.XXX)"
 create_dummy_container "$OCI/rootfs"
 mkdir -p "$OCI/rootfs/opt/var"
 mkdir -p "$OCI/rootfs/opt/readonly"
+mkdir -p "$OCI/rootfs/opt/readonly-bind"
 
 if [[ -e /proc/kcore ]]; then
     HAVE_PROC_KCORE=1
@@ -124,6 +125,11 @@ cat >"$OCI/config.json" <<EOF
             "type" : "none",
             "source" : "$TMPDIR",
             "options" : ["rbind", "rw"]
+        },
+        {
+            "destination" : "/opt/readonly-bind",
+            "source" : "$TMPDIR",
+            "options" : ["rbind", "ro"]
         }
     ],
     "process" : {
@@ -400,6 +406,10 @@ set -e
 mountpoint /root
 mountpoint /var
 test -e /var/hello
+test -e /opt/readonly-bind/hello
+if touch /opt/readonly-bind/fail; then
+    exit 1
+fi
 
 # Process
 [[ "\$PWD" == /root ]]
