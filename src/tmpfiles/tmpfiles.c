@@ -7,6 +7,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "sd-daemon.h"
 #include "sd-json.h"
 #include "sd-path.h"
 
@@ -5419,26 +5420,38 @@ static int run(int argc, char *argv[]) {
          * the create operations. i.e. that we first clean out the platform we then build on. */
         for (phase = 0; phase < _PHASE_MAX; phase++) {
                 OperationMask op;
+                const char *phase_str;
 
-                if (phase == PHASE_PURGE)
+                if (phase == PHASE_PURGE) {
                         op = arg_operation & OPERATION_PURGE;
-                else if (phase == PHASE_REMOVE_AND_CLEAN)
+                        phase_str = "Purging";
+                } else if (phase == PHASE_REMOVE_AND_CLEAN) {
                         op = arg_operation & (OPERATION_REMOVE|OPERATION_CLEAN);
-                else if (phase == PHASE_CREATE)
+                        phase_str = "Cleaning up";
+                } else if (phase == PHASE_CREATE) {
                         op = arg_operation & OPERATION_CREATE;
-                else
+                        phase_str = "Creating";
+                } else
                         assert_not_reached();
 
                 if (op == 0) /* Nothing requested in this phase */
                         continue;
 
                 /* The non-globbing ones usually create things, hence we apply them first */
-                ORDERED_HASHMAP_FOREACH(a, c.items)
+                ORDERED_HASHMAP_FOREACH(a, c.items) {
+                        (void) sd_notifyf(/* unset_environment= */ false,
+                                          "STATUS=%s %s...", phase_str,
+                                          a->n_items > 0 ? a->items[0].path : "files");
                         RET_GATHER(r, process_item_array(&c, a, op));
+                }
 
                 /* The globbing ones usually alter things, hence we apply them second. */
-                ORDERED_HASHMAP_FOREACH(a, c.globs)
+                ORDERED_HASHMAP_FOREACH(a, c.globs) {
+                        (void) sd_notifyf(/* unset_environment= */ false,
+                                          "STATUS=%s %s...", phase_str,
+                                          a->n_items > 0 ? a->items[0].path : "files");
                         RET_GATHER(r, process_item_array(&c, a, op));
+                }
         }
 
         if (ERRNO_IS_NEG_RESOURCE(r))
