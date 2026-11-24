@@ -3815,7 +3815,7 @@ int bus_exec_context_set_transient_property(
                         ExecDirectoryType i;
                         ExecDirectory *d;
 
-                        assert_se((i = exec_directory_type_from_string(name)) >= 0);
+                        i = ASSERT_SE_NONNEG(exec_directory_type_from_string(name));
                         d = c->directories + i;
 
                         if (strv_isempty(l)) {
@@ -4307,7 +4307,7 @@ int bus_exec_context_set_transient_property(
                 uint64_t symlink_flags;
                 ExecDirectoryType i;
 
-                assert_se((i = exec_directory_type_symlink_from_string(name)) >= 0);
+                i = ASSERT_SE_NONNEG(exec_directory_type_symlink_from_string(name));
                 directory = c->directories + i;
 
                 r = sd_bus_message_enter_container(message, 'a', "(sst)");

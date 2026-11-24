@@ -31,9 +31,6 @@ int mac_smack_fix_full(int atfd, const char *inode_path, const char *label_path,
 
 int mac_smack_init(void);
 
-static inline int mac_smack_read(const char *path, SmackAttr attr, char **ret) {
-        return mac_smack_read_at(AT_FDCWD, path, attr, ret);
-}
 static inline int mac_smack_read_fd(int fd, SmackAttr attr, char **ret) {
         return mac_smack_read_at(fd, /* path= */ NULL, attr, ret);
 }

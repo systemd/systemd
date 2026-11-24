@@ -638,13 +638,12 @@ TEST(install_printf, .sd_booted = true) {
 
         /* gcc-12.0.1-0.9.fc36.x86_64 insist that streq(…, NULL) is called,
          * even though the call is inside of a conditional where the pointer is checked. :( */
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wnonnull"
+        DISABLE_WARNING_NONNULL;
         expect(RUNTIME_SCOPE_GLOBAL, i2, "%g", NULL);
         expect(RUNTIME_SCOPE_GLOBAL, i2, "%G", NULL);
         expect(RUNTIME_SCOPE_GLOBAL, i2, "%u", NULL);
         expect(RUNTIME_SCOPE_GLOBAL, i2, "%U", NULL);
-#pragma GCC diagnostic pop
+        REENABLE_WARNING;
 
         expect(RUNTIME_SCOPE_SYSTEM, i3, "%n", "name@inst.service");
         expect(RUNTIME_SCOPE_SYSTEM, i3, "%N", "name@inst");

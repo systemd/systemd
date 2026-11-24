@@ -581,11 +581,9 @@ static int uname_from_banner(const uint8_t *data, size_t size, char **ret) {
          * compatibility. */
 
         for (const uint8_t *p = data; p < data + size;) {
-                p = memmem_safe(p, data + size - p, banner, strlen(banner));
+                p = mempmem_safe(p, data + size - p, banner, strlen(banner));
                 if (!p)
                         break;
-
-                p += strlen(banner);
 
                 size_t l = 0;
                 while (l <= KERNEL_RELEASE_MAX && p + l < data + size && !strchr(WHITESPACE, p[l]))

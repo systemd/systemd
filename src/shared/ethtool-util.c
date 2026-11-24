@@ -603,7 +603,7 @@ int ethtool_set_features(int *ethtool_fd, const char *ifname, const int features
         assert(ifname);
         assert(features);
 
-        for (size_t i = 0; i < _NET_DEV_FEAT_MAX; i++)
+        for (NetDevFeature i = 0; i < _NET_DEV_FEAT_MAX; i++)
                 if (features[i] >= 0) {
                         have = true;
                         break;
@@ -632,13 +632,13 @@ int ethtool_set_features(int *ethtool_fd, const char *ifname, const int features
         sfeatures->cmd = ETHTOOL_SFEATURES;
         sfeatures->size = DIV_ROUND_UP(strings->len, 32U);
 
-        for (size_t i = 0; i < _NET_DEV_FEAT_SIMPLE_MAX; i++) {
+        for (NetDevFeature i = 0; i < _NET_DEV_FEAT_SIMPLE_MAX; i++) {
                 r = set_features_bit(strings, gfeatures, sfeatures, netdev_feature_table[i], features[i]);
                 if (r < 0)
                         log_debug_errno(r, "ethtool: could not set feature %s for %s, ignoring: %m", netdev_feature_table[i], ifname);
         }
 
-        for (size_t i = _NET_DEV_FEAT_SIMPLE_MAX; i < _NET_DEV_FEAT_MAX; i++) {
+        for (NetDevFeature i = _NET_DEV_FEAT_SIMPLE_MAX; i < _NET_DEV_FEAT_MAX; i++) {
                 r = set_features_multiple_bit(strings, gfeatures, sfeatures, netdev_feature_table[i], features[i]);
                 if (r < 0)
                         log_debug_errno(r, "ethtool: could not set feature %s for %s, ignoring: %m", netdev_feature_table[i], ifname);

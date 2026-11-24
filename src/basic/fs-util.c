@@ -345,18 +345,6 @@ int stat_warn_permissions(const char *path, const struct stat *st) {
         return 0;
 }
 
-int fd_warn_permissions(const char *path, int fd) {
-        struct stat st;
-
-        assert(path);
-        assert(fd >= 0);
-
-        if (fstat(fd, &st) < 0)
-                return -errno;
-
-        return stat_warn_permissions(path, &st);
-}
-
 int access_nofollow(const char *path, int mode) {
         return RET_NERRNO(faccessat(AT_FDCWD, path, mode, AT_SYMLINK_NOFOLLOW));
 }

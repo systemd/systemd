@@ -8,8 +8,6 @@
 
 #include "forward.h"
 
-char *utf8_prev_char (const char *p);
-
 extern const char utf8_skip_data[256];
 
 /**

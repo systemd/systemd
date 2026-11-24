@@ -38,7 +38,6 @@ int fchmod_opath(int fd, mode_t m);
 
 int futimens_opath(int fd, const struct timespec ts[2]);
 
-int fd_warn_permissions(const char *path, int fd);
 int stat_warn_permissions(const char *path, const struct stat *st);
 
 int access_nofollow(const char *path, int mode);
@@ -67,14 +66,8 @@ static inline int symlink_atomic(const char *target, const char *linkpath) {
 }
 
 int mknodat_atomic(int atfd, const char *path, mode_t mode, dev_t dev);
-static inline int mknod_atomic(const char *path, mode_t mode, dev_t dev) {
-        return mknodat_atomic(AT_FDCWD, path, mode, dev);
-}
 
 int mkfifoat_atomic(int dir_fd, const char *path, mode_t mode);
-static inline int mkfifo_atomic(const char *path, mode_t mode) {
-        return mkfifoat_atomic(AT_FDCWD, path, mode);
-}
 
 int get_files_in_directory(const char *path, char ***list);
 

@@ -32,9 +32,6 @@ static inline int in_addr_data_is_null(const struct in_addr_data *a) {
         assert(a);
         return in_addr_is_null(a->family, &a->address);
 }
-static inline bool in_addr_data_is_set(const struct in_addr_data *a) {
-        return in_addr_data_is_null(a);
-}
 
 bool in4_addr_is_multicast(const struct in_addr *a) _pure_;
 bool in6_addr_is_multicast(const struct in6_addr *a) _pure_;
@@ -152,9 +149,6 @@ int in_addr_mask(int family, union in_addr_union *addr, unsigned char prefixlen)
 int in4_addr_prefix_covers_full(const struct in_addr *prefix, unsigned char prefixlen, const struct in_addr *address, unsigned char address_prefixlen);
 int in6_addr_prefix_covers_full(const struct in6_addr *prefix, unsigned char prefixlen, const struct in6_addr *address, unsigned char address_prefixlen);
 int in_addr_prefix_covers_full(int family, const union in_addr_union *prefix, unsigned char prefixlen, const union in_addr_union *address, unsigned char address_prefixlen);
-static inline int in4_addr_prefix_covers(const struct in_addr *prefix, unsigned char prefixlen, const struct in_addr *address) {
-        return in4_addr_prefix_covers_full(prefix, prefixlen, address, 32);
-}
 static inline int in6_addr_prefix_covers(const struct in6_addr *prefix, unsigned char prefixlen, const struct in6_addr *address) {
         return in6_addr_prefix_covers_full(prefix, prefixlen, address, 128);
 }
@@ -206,16 +200,6 @@ extern const struct hash_ops in_addr_data_hash_ops;
 extern const struct hash_ops in_addr_data_hash_ops_free;
 extern const struct hash_ops in6_addr_hash_ops;
 extern const struct hash_ops in6_addr_hash_ops_free;
-
-static inline void PTR_TO_IN4_ADDR(const void *p, struct in_addr *ret) {
-        assert(ret);
-        ret->s_addr = (uint32_t) ((uintptr_t) p);
-}
-
-static inline void* IN4_ADDR_TO_PTR(const struct in_addr *a) {
-        assert(a);
-        return (void*) ((uintptr_t) a->s_addr);
-}
 
 #define IPV4_ADDRESS_FMT_STR     "%u.%u.%u.%u"
 #define IPV4_ADDRESS_FMT_VAL(address)              \

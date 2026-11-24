@@ -8253,8 +8253,7 @@ int tpm2_define_data_nv_index(
         for (size_t offset = 0; offset < data->iov_len;) {
                 size_t chunk_size = MIN(data->iov_len - offset, max_buffer_size);
 
-                TPM2B_MAX_NV_BUFFER buffer = { .size = chunk_size };
-                memcpy(buffer.buffer, (const uint8_t*) data->iov_base + offset, chunk_size);
+                TPM2B_MAX_NV_BUFFER buffer = TPM2B_MAX_NV_BUFFER_MAKE((const uint8_t*) data->iov_base + offset, chunk_size);
 
                 rc = sym_Esys_NV_Write(
                                 c->esys_context,
@@ -8614,10 +8613,7 @@ static int tpm2_extend_nvpcr_nv_index(
         if (digest->iov_len > sizeof_field(TPM2B_MAX_NV_BUFFER, buffer))
                 return log_debug_errno(SYNTHETIC_ERRNO(E2BIG), "Hash value to extend too long.");
 
-        TPM2B_MAX_NV_BUFFER buf = {
-                .size = digest->iov_len,
-        };
-        memcpy(buf.buffer, digest->iov_base, digest->iov_len);
+        TPM2B_MAX_NV_BUFFER buf = TPM2B_MAX_NV_BUFFER_MAKE(digest->iov_base, digest->iov_len);
 
         rc = sym_Esys_NV_Extend(
                         c->esys_context,

@@ -1262,6 +1262,7 @@ int config_parse_string(
                 void *data,
                 void *userdata) {
 
+        ConfigParseStringFlags flags = ltype;
         char **s = ASSERT_PTR(data);
         int r;
 
@@ -1274,7 +1275,7 @@ int config_parse_string(
                 return 1;
         }
 
-        if (FLAGS_SET(ltype, CONFIG_PARSE_STRING_SAFE) && !string_is_safe(rvalue, STRING_ALLOW_GLOBS)) {
+        if (FLAGS_SET(flags, CONFIG_PARSE_STRING_SAFE) && !string_is_safe(rvalue, STRING_ALLOW_GLOBS)) {
                 _cleanup_free_ char *escaped = NULL;
 
                 escaped = cescape(rvalue);
@@ -1283,7 +1284,7 @@ int config_parse_string(
                 return 0;
         }
 
-        if (FLAGS_SET(ltype, CONFIG_PARSE_STRING_ASCII) && !ascii_is_valid(rvalue)) {
+        if (FLAGS_SET(flags, CONFIG_PARSE_STRING_ASCII) && !ascii_is_valid(rvalue)) {
                 _cleanup_free_ char *escaped = NULL;
 
                 escaped = cescape(rvalue);

@@ -2096,7 +2096,7 @@ static int bus_append_directory(sd_bus_message *m, const char *field, const char
         const char *p = eq;
         int r;
 
-        assert_se((type = exec_directory_type_from_string(field)) >= 0);
+        type = ASSERT_SE_NONNEG(exec_directory_type_from_string(field));
 
         /* Adding new directories is supported from both *DirectorySymlink methods and the
          * older ones, so first parse the input, and if we are given a new-style src:dst

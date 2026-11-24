@@ -714,15 +714,6 @@ int path_is_temporary_fs(const char *path) {
         return is_temporary_fs(&s);
 }
 
-int path_is_network_fs(const char *path) {
-        struct statfs s;
-
-        if (statfs(path, &s) < 0)
-                return -errno;
-
-        return is_network_fs(&s);
-}
-
 int proc_mounted(void) {
         /* This is typically used in error path. So, it is better to not overwrite the original errno. */
         PROTECT_ERRNO;

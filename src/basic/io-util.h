@@ -8,7 +8,6 @@
  * between poll() and epoll() event masks. Bits outside the mapped set (EPOLLET, EPOLLONESHOT,
  * POLLNVAL, …) are dropped. */
 uint32_t poll_events_to_epoll(uint32_t events);
-uint32_t epoll_events_to_poll(uint32_t events);
 
 int flush_fd(int fd);
 

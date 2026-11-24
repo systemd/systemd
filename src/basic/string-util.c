@@ -1451,13 +1451,6 @@ size_t strnspn(const char *str, const char *accept, size_t n) {
         return i;
 }
 
-char* strdupspn(const char *a, const char *accept) {
-        if (isempty(a) || isempty(accept))
-                return strdup("");
-
-        return strndup(a, strspn(a, accept));
-}
-
 char* strdupcspn(const char *a, const char *reject) {
         if (isempty(a))
                 return strdup("");
