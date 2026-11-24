@@ -222,6 +222,12 @@ static bool load_option_matches(
                         return false;
         }
 
+        /* Firmware (e.g. EDK2) concatenates consecutive file path nodes, hence make sure that the file
+         * path node is the last node of the device path, so that the firmware indeed invokes the file we
+         * matched against. */
+        if (!device_path_is_end(device_path_next_node(dp_file)))
+                return false;
+
         _cleanup_free_ char16_t *path = file_path_node_to_path(dp_file);
         if (!path)
                 return false;
