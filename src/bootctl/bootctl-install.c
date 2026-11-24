@@ -47,60 +47,6 @@
 #include "utf8.h"
 #include "varlink-util.h"
 
-typedef enum InstallOperation {
-        INSTALL_NEW,
-        INSTALL_UPDATE,
-        INSTALL_REMOVE,
-        INSTALL_TEST,
-        _INSTALL_OPERATION_MAX,
-        _INSTALL_OPERATION_INVALID = -1,
-} InstallOperation;
-
-typedef struct InstallContext {
-        InstallOperation operation;
-        bool graceful;
-        char *root;
-        int root_fd;
-        sd_id128_t machine_id;
-        char *install_layout;
-        BootEntryTokenType entry_token_type;
-        char *entry_token;
-        int make_entry_directory; /* tri-state */
-        InstallSource install_source;
-        char *esp_path;
-        int esp_fd;
-        uint32_t esp_part;
-        uint64_t esp_pstart;
-        uint64_t esp_psize;
-        sd_id128_t esp_uuid;
-        char *xbootldr_path;
-        int xbootldr_fd;
-#if HAVE_OPENSSL
-        X509 *secure_boot_certificate;
-        EVP_PKEY *secure_boot_private_key;
-#endif
-        int touch_variables; /* tri-state */
-        DIR *source_dir;            /* source_dir is the BOOTLIBDIR that open_source_directory() selected.
-                                     * It is NULL if there is nothing to install. */
-        char *source_path;
-        bool source_from_image;     /* source_dir is located below c->root_fd and not on the host. */
-} InstallContext;
-
-#define INSTALL_CONTEXT_NULL                                            \
-        (InstallContext) {                                              \
-                .operation = _INSTALL_OPERATION_INVALID,                \
-                .root_fd = -EBADF,                                      \
-                .entry_token_type = _BOOT_ENTRY_TOKEN_TYPE_INVALID,     \
-                .make_entry_directory = -1,                             \
-                .install_source = _INSTALL_SOURCE_INVALID,              \
-                .esp_part = UINT32_MAX,                                 \
-                .esp_pstart = UINT64_MAX,                               \
-                .esp_psize = UINT64_MAX,                                \
-                .esp_fd = -EBADF,                                       \
-                .xbootldr_fd = -EBADF,                                  \
-                .touch_variables = -1,                                  \
-        }
-
 static const char* install_operation_table[_INSTALL_OPERATION_MAX] = {
         [INSTALL_NEW]    = "new",
         [INSTALL_UPDATE] = "update",
@@ -496,7 +442,7 @@ static int version_check(int fd_from, const char *from, int fd_to, const char *t
         return 0;
 }
 
-static int copy_file_with_version_check(
+int copy_file_with_version_check(
                 const char *source_path,
                 int source_fd,
                 const char *dest_path,
@@ -1364,7 +1310,7 @@ static bool same_entry(uint16_t id, sd_id128_t uuid, const char *path) {
         return true;
 }
 
-static int find_slot(sd_id128_t uuid, const char *path, uint16_t *id) {
+int find_slot(sd_id128_t uuid, const char *path, uint16_t *id) {
         _cleanup_free_ uint16_t *options = NULL;
 
         assert(id);
