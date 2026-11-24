@@ -190,7 +190,7 @@ void network_info_done(NetworkInfo *info) {
 void virtiofs_info_done(VirtiofsInfo *info) {
         assert(info);
         info->id = mfree(info->id);
-        info->socket_path = mfree(info->socket_path);
+        info->fd = safe_close(info->fd);
         info->tag = mfree(info->tag);
         info->pcie_port = mfree(info->pcie_port);
 }
@@ -1636,17 +1636,32 @@ int vmspawn_qmp_setup_network(VmspawnQmpBridge *bridge, NetworkInfo *network) {
         return 0;
 }
 
-static int vmspawn_qmp_setup_one_virtiofs(QmpClient *qmp, const VirtiofsInfo *vfs) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *chardev_args = NULL, *device_args = NULL;
+static int vmspawn_qmp_setup_one_virtiofs(QmpClient *qmp, VirtiofsInfo *vfs) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *getfd_args = NULL, *chardev_args = NULL, *device_args = NULL;
         int r;
 
         assert(qmp);
         assert(vfs);
         assert(vfs->id);
-        assert(vfs->socket_path);
+        assert(vfs->fd >= 0);
         assert(vfs->tag);
 
-        /* chardev-add: connect to virtiofsd socket.
+        _cleanup_free_ char *fdname = strjoin("vmspawn_virtiofs_", vfs->id);
+        if (!fdname)
+                return log_oom();
+
+        r = sd_json_buildo(
+                        &getfd_args,
+                        SD_JSON_BUILD_PAIR_STRING("fdname", fdname));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build getfd JSON for '%s': %m", vfs->id);
+
+        r = qmp_client_invoke(qmp, /* ret_slot= */ NULL, "getfd", QMP_CLIENT_ARGS_FD(getfd_args, TAKE_FD(vfs->fd)),
+                              on_qmp_complete, (void*) "getfd");
+        if (r < 0)
+                return log_error_errno(r, "Failed to send getfd for '%s': %m", vfs->id);
+
+        /* chardev-add looks up the socket that getfd passed to QEMU by its fdname.
          * ChardevBackend and SocketAddressLegacy are QAPI legacy unions with explicit "data"
          * wrapper objects at each level — the nesting is mandatory on the wire. */
         r = sd_json_buildo(
@@ -1656,9 +1671,9 @@ static int vmspawn_qmp_setup_one_virtiofs(QmpClient *qmp, const VirtiofsInfo *vf
                                         SD_JSON_BUILD_PAIR_STRING("type", "socket"),
                                         SD_JSON_BUILD_PAIR("data", SD_JSON_BUILD_OBJECT(
                                                         SD_JSON_BUILD_PAIR("addr", SD_JSON_BUILD_OBJECT(
-                                                                        SD_JSON_BUILD_PAIR_STRING("type", "unix"),
+                                                                        SD_JSON_BUILD_PAIR_STRING("type", "fd"),
                                                                         SD_JSON_BUILD_PAIR("data", SD_JSON_BUILD_OBJECT(
-                                                                                        SD_JSON_BUILD_PAIR_STRING("path", vfs->socket_path))))),
+                                                                                        SD_JSON_BUILD_PAIR_STRING("str", fdname))))),
                                                         SD_JSON_BUILD_PAIR_BOOLEAN("server", false))))));
         if (r < 0)
                 return log_error_errno(r, "Failed to build chardev-add JSON for '%s': %m", vfs->id);
@@ -1688,7 +1703,7 @@ static int vmspawn_qmp_setup_one_virtiofs(QmpClient *qmp, const VirtiofsInfo *vf
         return 0;
 }
 
-int vmspawn_qmp_setup_virtiofs(VmspawnQmpBridge *bridge, const VirtiofsInfos *virtiofs) {
+int vmspawn_qmp_setup_virtiofs(VmspawnQmpBridge *bridge, VirtiofsInfos *virtiofs) {
         int r;
 
         assert(bridge);

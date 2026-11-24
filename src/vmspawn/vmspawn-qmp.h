@@ -134,7 +134,7 @@ void network_info_done(NetworkInfo *info);
 /* Virtiofs device info for QMP-based chardev + device setup */
 typedef struct VirtiofsInfo {
         char *id;              /* owned: chardev and device id (e.g. "rootdir", "mnt0") */
-        char *socket_path;     /* owned: virtiofsd listen socket path */
+        int fd;                /* socket connected to virtiofsd to pass via getfd */
         char *tag;             /* owned: virtiofs mount tag visible to guest */
         char *pcie_port;       /* owned: pcie-root-port id for device_add bus (NULL on non-PCIe) */
 } VirtiofsInfo;
@@ -171,7 +171,7 @@ void machine_config_done(MachineConfig *c);
 /* Phase 2: Device setup — call any subset in any order before vmspawn_qmp_start(). */
 int vmspawn_qmp_setup_drives(VmspawnQmpBridge *bridge, DriveInfos *drives);
 int vmspawn_qmp_setup_network(VmspawnQmpBridge *bridge, NetworkInfo *network);
-int vmspawn_qmp_setup_virtiofs(VmspawnQmpBridge *bridge, const VirtiofsInfos *virtiofs);
+int vmspawn_qmp_setup_virtiofs(VmspawnQmpBridge *bridge, VirtiofsInfos *virtiofs);
 int vmspawn_qmp_setup_vsock(VmspawnQmpBridge *bridge, VsockInfo *vsock);
 int vmspawn_qmp_add_block_device(VmspawnQmpBridge *bridge, DriveInfo *drive);
 int vmspawn_qmp_remove_block_device(VmspawnQmpBridge *bridge, sd_varlink *link, const char *id);
