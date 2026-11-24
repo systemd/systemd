@@ -1472,6 +1472,34 @@ static int manifest_uapi16_item(
         if (r < 0)
                 return r;
 
+        /* The specification does not permit the UID/GID 65535 and 4294967295, as these are commonly used as
+         * "invalid" markers. Hence omit them, like any other metadata we cannot represent. */
+        bool have_uid = FLAGS_SET(c->fields, MANIFEST_FIELD_UID) && FLAGS_SET(sx->stx_mask, STATX_UID);
+        if (have_uid && !uid_is_valid(sx->stx_uid)) {
+                log_warning("Owning UID " UID_FMT " of '%s' cannot be represented in a UAPI.16 manifest, omitting.", sx->stx_uid, empty_to_root(path));
+                c->n_metadata_omitted++;
+                have_uid = false;
+        }
+
+        bool have_gid = FLAGS_SET(c->fields, MANIFEST_FIELD_GID) && FLAGS_SET(sx->stx_mask, STATX_GID);
+        if (have_gid && !gid_is_valid(sx->stx_gid)) {
+                log_warning("Owning GID " GID_FMT " of '%s' cannot be represented in a UAPI.16 manifest, omitting.", sx->stx_gid, empty_to_root(path));
+                c->n_metadata_omitted++;
+                have_gid = false;
+        }
+
+        /* The modification time is recorded in nanoseconds since the epoch, as unsigned 64-bit integer,
+         * which cannot express times before 1970 or after 2554. statx_timestamp_load_nsec() returns
+         * NSEC_INFINITY for these, so omit them too. */
+        nsec_t mtime = NSEC_INFINITY;
+        if (FLAGS_SET(c->fields, MANIFEST_FIELD_MTIME) && FLAGS_SET(sx->stx_mask, STATX_MTIME)) {
+                mtime = statx_timestamp_load_nsec(&sx->stx_mtime);
+                if (mtime == NSEC_INFINITY) {
+                        log_warning("Modification time of '%s' cannot be represented in a UAPI.16 manifest, omitting.", empty_to_root(path));
+                        c->n_metadata_omitted++;
+                }
+        }
+
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *jid = NULL, *jf = NULL;
         if (is_root) {
                 ManifestField unqueryable = 0;
@@ -1507,13 +1535,13 @@ static int manifest_uapi16_item(
                         SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(c->fields, MANIFEST_FIELD_DEVICE) && FLAGS_SET(sx->stx_mask, STATX_TYPE) && (S_ISBLK(sx->stx_mode) || S_ISCHR(sx->stx_mode)), "major", SD_JSON_BUILD_UNSIGNED(sx->stx_rdev_major)),
                         SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(c->fields, MANIFEST_FIELD_DEVICE) && FLAGS_SET(sx->stx_mask, STATX_TYPE) && (S_ISBLK(sx->stx_mode) || S_ISCHR(sx->stx_mode)), "minor", SD_JSON_BUILD_UNSIGNED(sx->stx_rdev_minor)),
                         SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(c->fields, MANIFEST_FIELD_MODE) && FLAGS_SET(sx->stx_mask, STATX_TYPE|STATX_MODE) && !S_ISLNK(sx->stx_mode), "mode", SD_JSON_BUILD_UNSIGNED(sx->stx_mode & 07777)),
-                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(c->fields, MANIFEST_FIELD_UID) && FLAGS_SET(sx->stx_mask, STATX_UID), "uid", SD_JSON_BUILD_UNSIGNED(sx->stx_uid)),
-                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(c->fields, MANIFEST_FIELD_GID) && FLAGS_SET(sx->stx_mask, STATX_GID), "gid", SD_JSON_BUILD_UNSIGNED(sx->stx_gid)),
+                        SD_JSON_BUILD_PAIR_CONDITION(have_uid, "uid", SD_JSON_BUILD_UNSIGNED(sx->stx_uid)),
+                        SD_JSON_BUILD_PAIR_CONDITION(have_gid, "gid", SD_JSON_BUILD_UNSIGNED(sx->stx_gid)),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("userName", user_name),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("groupName", group_name),
                         SD_JSON_BUILD_PAIR_CONDITION(hardlink_counter > 0, "inodeToken", SD_JSON_BUILD_UNSIGNED(hardlink_counter)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!jx, "extendedAttributes", SD_JSON_BUILD_VARIANT(jx)),
-                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(c->fields, MANIFEST_FIELD_MTIME) && FLAGS_SET(sx->stx_mask, STATX_MTIME) && sx->stx_mtime.tv_sec >= 0, "mTimeNSec", SD_JSON_BUILD_UNSIGNED(statx_timestamp_load_nsec(&sx->stx_mtime))));
+                        SD_JSON_BUILD_PAIR_CONDITION(mtime != NSEC_INFINITY, "mTimeNSec", SD_JSON_BUILD_UNSIGNED(mtime)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON object: %m");
 
