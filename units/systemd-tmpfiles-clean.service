@@ -18,6 +18,7 @@ Before=shutdown.target initrd-switch-root.target
 
 [Service]
 Type=oneshot
+NotifyAccess=main
 ExecStart=systemd-tmpfiles --clean
 SuccessExitStatus=DATAERR
 IOSchedulingClass=idle
