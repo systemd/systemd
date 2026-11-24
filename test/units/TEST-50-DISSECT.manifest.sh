@@ -314,6 +314,19 @@ runas testuser systemd-manifest make --graceful --format=list "$GRACE" >/dev/nul
 # The top-level inode must be covered even in graceful mode
 (! runas testuser systemd-manifest make --graceful "$GRACE/locked")
 
+: "The UID/GID 65535 cannot be represented in UAPI.16 manifests, it is omitted and makes generation fail, unless --graceful is used"
+IDS="$WORK/ids"
+mkdir "$IDS"
+echo -n "uid" >"$IDS/uid.txt"
+echo -n "gid" >"$IDS/gid.txt"
+chown 65535 "$IDS/uid.txt"
+chgrp 65535 "$IDS/gid.txt"
+(! systemd-manifest make "$IDS")
+systemd-manifest make --graceful "$IDS" >"$WORK/ids.manifest"
+jq --seq -s -e '.[] | select(.name == "uid.txt") | (has("uid") | not) and has("gid")' "$WORK/ids.manifest" >/dev/null
+jq --seq -s -e '.[] | select(.name == "gid.txt") | has("uid") and (has("gid") | not)' "$WORK/ids.manifest" >/dev/null
+systemd-manifest verify --verify-signature=no "$IDS" "$WORK/ids.manifest"
+
 : "File contents that cannot be read make verification fail"
 HASHFAIL="$WORK/hashfail"
 mkdir "$HASHFAIL"

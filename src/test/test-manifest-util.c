@@ -819,6 +819,48 @@ TEST(manifest_omitted) {
         ASSERT_OK_ERRNO(fchmodat(tfd, "subdir", 0755, 0));
 }
 
+TEST(manifest_uapi16_invalid_uid_gid) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF;
+        _cleanup_free_ char *buf = NULL;
+        size_t size;
+        int r;
+
+        ASSERT_OK(tfd = make_tree(&t));
+
+        /* UAPI.16 manifests cannot carry the UID/GID 65535, hence it is omitted and counted. (The same
+         * applies to 4294967295, but the kernel never reports that as owner of an inode.) */
+        r = RET_NERRNO(fchownat(tfd, "regular.txt", 0xFFFF, getgid(), 0));
+        if (ERRNO_IS_NEG_PRIVILEGE(r) || r == -EINVAL) /* EINVAL if not mapped in our user namespace */
+                return (void) log_tests_skipped_errno(r, "Cannot change owner of files to 65535");
+        ASSERT_OK(r);
+        ASSERT_OK_ERRNO(fchownat(tfd, "subdir/nested.txt", getuid(), 0xFFFF, 0));
+
+        _cleanup_(manifest_context_done) ManifestContext c;
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        ASSERT_OK(generate(&c, tfd, &buf, &size));
+        ASSERT_EQ(c.n_skipped, 0U);
+        ASSERT_EQ(c.n_metadata_omitted, 2U);
+
+        sd_json_variant *v;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reg = find_object(buf, "regular.txt");
+        ASSERT_NOT_NULL(reg);
+        ASSERT_NULL(sd_json_variant_by_key(reg, "uid"));
+        ASSERT_NOT_NULL(v = sd_json_variant_by_key(reg, "gid"));
+        ASSERT_EQ(sd_json_variant_unsigned(v), (uint64_t) getgid());
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *nested = find_object(buf, "subdir/nested.txt");
+        ASSERT_NOT_NULL(nested);
+        ASSERT_NOT_NULL(v = sd_json_variant_by_key(nested, "uid"));
+        ASSERT_EQ(sd_json_variant_unsigned(v), (uint64_t) getuid());
+        ASSERT_NULL(sd_json_variant_by_key(nested, "gid"));
+
+        /* … and the result reads back, and matches the tree */
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        ASSERT_OK(verify_buffer(&c, tfd, buf, size));
+}
+
 static int dispatch_with_features(const char *json, size_t n, ManifestField features, Uapi16Object *ret) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
