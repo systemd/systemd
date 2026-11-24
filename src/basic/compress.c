@@ -2024,14 +2024,6 @@ int decompress_stream_full(
         return 0;
 }
 
-int decompress_stream_by_filename(const char *filename, int fdf, int fdt, uint64_t max_bytes) {
-        Compression c = compression_from_filename(filename);
-        if (c == COMPRESSION_NONE)
-                return -EPROTONOSUPPORT;
-
-        return decompress_stream(c, fdf, fdt, max_bytes);
-}
-
 /* Push-based streaming compression/decompression context API */
 
 Compressor* compressor_free(Compressor *c) {
