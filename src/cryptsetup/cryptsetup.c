@@ -863,12 +863,16 @@ static PassphraseType check_registered_passwords(struct crypt_device *cd) {
                 tk = cryptsetup_get_token_as_json(cd, token, /* verify_type= */ NULL, &v);
                 if (IN_SET(tk, -ENOENT, -EINVAL))
                         continue;
+                if (tk == -ENOMEM)
+                        return log_oom();
                 if (tk < 0) {
                         log_warning_errno(tk, "Failed to read JSON token data, ignoring: %m");
                         continue;
                 }
 
                 tk = cryptsetup_token_parse_common(v, &type, &keyslots, &n_keyslots);
+                if (tk == -ENOMEM)
+                        return log_oom();
                 if (tk < 0) {
                         log_warning_errno(tk, "Token JSON data lacks a valid type or keyslots field, ignoring: %m");
                         continue;

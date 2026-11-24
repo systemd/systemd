@@ -61,6 +61,8 @@ static int search_policy_hash(
                         continue;
 
                 keyslot = cryptsetup_get_keyslot_from_token(v);
+                if (keyslot == -ENOMEM)
+                        return log_oom();
                 if (keyslot < 0) {
                         /* Handle parsing errors of the keyslots field gracefully, since it's not 'owned' by
                          * us, but by the LUKS2 spec */
