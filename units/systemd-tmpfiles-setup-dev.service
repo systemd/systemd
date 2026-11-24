@@ -21,6 +21,7 @@ Before=shutdown.target initrd-switch-root.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
+NotifyAccess=main
 ExecStart=systemd-tmpfiles --prefix=/dev --create --boot
 SuccessExitStatus=DATAERR CANTCREAT
 ImportCredential=tmpfiles.*
