@@ -110,12 +110,16 @@ static int find_slots_by_mask(
                 r = cryptsetup_get_token_as_json(cd, token, /* verify_type= */ NULL, &v);
                 if (IN_SET(r, -ENOENT, -EINVAL))
                         continue;
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r < 0) {
                         log_warning_errno(r, "Failed to read JSON token data off disk, ignoring: %m");
                         continue;
                 }
 
                 r = cryptsetup_token_parse_common(v, /* ret_type= */ NULL, &keyslots, &n_keyslots);
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r < 0) {
                         log_warning_errno(r, "Token JSON data lacks a valid type or keyslots field, ignoring: %m");
                         continue;
@@ -194,12 +198,16 @@ static int find_slot_tokens(struct crypt_device *cd, Set *wipe_slots, Set *keep_
                 r = cryptsetup_get_token_as_json(cd, token, /* verify_type= */ NULL, &v);
                 if (IN_SET(r, -ENOENT, -EINVAL))
                         continue;
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r < 0) {
                         log_warning_errno(r, "Failed to read JSON token data off disk, ignoring: %m");
                         continue;
                 }
 
                 r = cryptsetup_token_parse_common(v, /* ret_type= */ NULL, &keyslots, &n_keyslots);
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r < 0) {
                         log_warning_errno(r, "Token JSON data lacks a valid type or keyslots field, ignoring: %m");
                         continue;
