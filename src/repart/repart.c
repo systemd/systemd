@@ -6467,7 +6467,6 @@ static int sign_verity_roothash(
                 struct iovec *ret_signature) {
 
 #if HAVE_OPENSSL
-        _cleanup_(BIO_freep) BIO *rb = NULL;
         _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
         _cleanup_free_ char *hex = NULL;
         _cleanup_free_ uint8_t *sig = NULL;
@@ -6488,13 +6487,33 @@ static int sign_verity_roothash(
         if (!hex)
                 return log_oom();
 
-        rb = sym_BIO_new_mem_buf(hex, -1);
-        if (!rb)
-                return log_oom();
+        /* pkcs7_new() doesn't check that the private key belongs to the certificate. A signature made with
+         * another key fails to verify when the image is activated. */
+        if (sym_EVP_PKEY_eq(sym_X509_get0_pubkey(context->certificate), context->private_key) != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Private key does not match the certificate.");
 
-        p7 = sym_PKCS7_sign(context->certificate, context->private_key, /* certs= */ NULL, rb, PKCS7_DETACHED|PKCS7_NOATTR|PKCS7_BINARY);
-        if (!p7)
-                return log_openssl_errors(LOG_ERR, "Failed to calculate PKCS7 signature");
+        /* PKCS7_sign() signs with a random nonce for ECDSA keys. The signature then differs on every build.
+         * We set up the signer info with pkcs7_new() instead and sign with digest_and_sign(), which uses
+         * deterministic nonces (RFC 6979) if the key supports them. Without signed attributes,
+         * PKCS7_sign() signs the digest of the content the same way, so a signature with an RSA key stays
+         * the same. */
+        PKCS7_SIGNER_INFO *si;
+        r = pkcs7_new(context->certificate, context->private_key, "SHA256", &p7, &si);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up PKCS7 signature: %m");
+
+        if (sym_PKCS7_set_detached(p7, true) == 0)
+                return log_openssl_errors(LOG_ERR, "Failed to set PKCS7 detached attribute");
+
+        _cleanup_free_ void *enc_digest = NULL;
+        size_t enc_digest_size;
+        r = digest_and_sign(sym_EVP_sha256(), context->private_key, hex, SIZE_MAX, &enc_digest, &enc_digest_size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to calculate PKCS7 signature: %m");
+        if (enc_digest_size > INT_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "PKCS7 signature too large.");
+
+        sym_ASN1_STRING_set0(si->enc_digest, TAKE_PTR(enc_digest), (int) enc_digest_size);
 
         sigsz = sym_i2d_PKCS7(p7, &sig);
         if (sigsz < 0)
