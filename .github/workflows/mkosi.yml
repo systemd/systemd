@@ -82,7 +82,7 @@ jobs:
             release: resolute
             shim: 1
           - distro: fedora
-            release: "44"
+            release: "45"
             sanitizers: address,undefined
             llvm: 1
           - distro: fedora
