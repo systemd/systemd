@@ -823,18 +823,6 @@ int conf_files_list_nulstr_full(const char *suffix, const char *root, ConfFilesF
         return conf_files_list_strv_full(suffix, root, flags, (const char**) d, ret_files, ret_n_files);
 }
 
-int conf_files_list_nulstr_at(char ***ret, const char *suffix, int rfd, ConfFilesFlags flags, const char *dirs) {
-        _cleanup_strv_free_ char **d = NULL;
-
-        assert(ret);
-
-        d = strv_split_nulstr(dirs);
-        if (!d)
-                return log_oom_full(conf_files_log_level(flags));
-
-        return conf_files_list_strv_at(ret, suffix, rfd, flags, (const char**) d);
-}
-
 int conf_files_list_nulstr_at_full(const char *suffix, int rfd, ConfFilesFlags flags, const char *dirs, ConfFile ***ret_files, size_t *ret_n_files) {
         _cleanup_strv_free_ char **d = NULL;
 
