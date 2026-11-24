@@ -7,6 +7,7 @@
 #include "bpf-restrict-fsaccess.h"
 #include "dbus.h"
 #include "dynamic-user.h"
+#include "exec-directory.h"
 #include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"
@@ -197,6 +198,12 @@ int manager_serialize(
                         return r;
         }
 
+        if (!switching_root && m->directory_report_fds[0] >= 0) {
+                r = serialize_fd_many(f, fds, "directory-report-fds", m->directory_report_fds, 2);
+                if (r < 0)
+                        return r;
+        }
+
         (void) serialize_ratelimit(f, "dump-ratelimit", &m->dump_ratelimit);
         (void) serialize_ratelimit(f, "reload-reexec-ratelimit", &m->reload_reexec_ratelimit);
         (void) serialize_ratelimit(f, "event-loop-ratelimit", &m->event_loop_ratelimit);
@@ -366,7 +373,8 @@ static int manager_synthesize_orphaned_unit(
         if (!description)
                 return log_oom();
 
-        r = unit_deserialize_state(orphan, f, fds);
+        /* The canonical unit may still be using the directories created by the old one. */
+        r = unit_deserialize_state(orphan, f, fds, /* restore_owned_directories= */ false);
         if (r < 0)
                 return log_notice_errno(r, "Failed to deserialize state into orphan unit '%s': %m", orphaned_name);
 
@@ -450,7 +458,7 @@ static int manager_deserialize_one_unit(
                 return r;
         }
 
-        r = unit_deserialize_state(u, f, fds);
+        r = unit_deserialize_state(u, f, fds, /* restore_owned_directories= */ true);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0)
@@ -772,6 +780,15 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         r = deserialize_fd_many(fds, val, 2, m->user_lookup_fds);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to parse user-lookup fds: \"%s\", ignoring: %m", val);
+
+                } else if ((val = startswith(l, "directory-report-fds="))) {
+                        m->directory_report_event_source = sd_event_source_disable_unref(m->directory_report_event_source);
+                        safe_close_pair(m->directory_report_fds);
+                        r = deserialize_fd_many(fds, val, 2, m->directory_report_fds);
+                        if (r >= 0)
+                                r = manager_setup_directory_reports(m);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to restore executor directory report socket, ignoring: %m");
 
                 } else if ((val = startswith(l, "handoff-timestamp-fds="))) {
 

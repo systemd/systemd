@@ -81,14 +81,14 @@ TEST(access_selinux_context) {
 
         u->load_state = UNIT_NOT_FOUND;
         u->access_selinux_context = mfree(u->access_selinux_context);
-        ASSERT_OK(unit_deserialize_state(u, f, fds));
+        ASSERT_OK(unit_deserialize_state(u, f, fds, /* restore_owned_directories= */ true));
         ASSERT_STREQ(u->access_selinux_context, "system_u:object_r:old_unit_file_t:s0");
 
         ASSERT_OK_ERRNO(fsetpos(f, &pos));
         u->load_state = UNIT_LOADED;
         ASSERT_NOT_NULL(u->fragment_path = strdup("/run/systemd/system/label.service"));
         ASSERT_OK(free_and_strdup(&u->access_selinux_context, "system_u:object_r:new_unit_file_t:s0"));
-        ASSERT_OK(unit_deserialize_state(u, f, fds));
+        ASSERT_OK(unit_deserialize_state(u, f, fds, /* restore_owned_directories= */ true));
         ASSERT_STREQ(u->access_selinux_context, "system_u:object_r:new_unit_file_t:s0");
 }
 

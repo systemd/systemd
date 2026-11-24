@@ -465,6 +465,7 @@ typedef struct ExecParameters {
         char *fallback_smack_process_label;
 
         int user_lookup_fd;
+        int directory_report_fd;
         int handoff_timestamp_fd;
         int pidref_transport_fd;
 
@@ -490,6 +491,7 @@ typedef struct ExecParameters {
                 .exec_fd                = -EBADF, \
                 .bpf_restrict_fs_map_fd = -EBADF, \
                 .user_lookup_fd         = -EBADF, \
+                .directory_report_fd    = -EBADF, \
                 .handoff_timestamp_fd   = -EBADF, \
                 .pidref_transport_fd    = -EBADF, \
         }

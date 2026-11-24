@@ -260,6 +260,9 @@ typedef struct Unit {
         char *source_path; /* if converted, the source file */
         char **dropin_paths;
 
+        /* Host paths confirmed by the executor, independent of the current unit configuration. */
+        char **owned_directories[_EXEC_DIRECTORY_TYPE_MAX];
+
         usec_t fragment_not_found_timestamp_hash;
         usec_t fragment_mtime;
         usec_t source_mtime;
@@ -1072,6 +1075,8 @@ int unit_failure_action_exit_status(Unit *u);
 int unit_test_trigger_loaded(Unit *u);
 
 void unit_destroy_runtime_data(Unit *u, const ExecContext *context, bool destroy_runtime_dir);
+int unit_get_clean_directories(Unit *u, ExecCleanMask mask, char ***ret);
+ExecCleanMask unit_owned_directory_mask(const Unit *u);
 int unit_clean(Unit *u, ExecCleanMask mask);
 int unit_can_clean(Unit *u, ExecCleanMask *ret_mask);
 

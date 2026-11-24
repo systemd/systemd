@@ -25,6 +25,7 @@
 #include "env-util.h"
 #include "escape.h"
 #include "exec-credential.h"
+#include "exec-directory.h"
 #include "execute.h"
 #include "execute-serialize.h"
 #include "fd-util.h"
@@ -504,6 +505,18 @@ int exec_spawn(
         assert(ret);
 
         LOG_CONTEXT_PUSH_UNIT(unit);
+
+        if (!unit->transient && !unit->instance)
+                FOREACH_ELEMENT(d, context->directories) {
+                        if (d->n_items == 0)
+                                continue;
+
+                        r = manager_setup_directory_reports(unit->manager);
+                        if (r < 0)
+                                return log_unit_error_errno(unit, r, "Failed to set up executor directory reports: %m");
+                        params->directory_report_fd = unit->manager->directory_report_fds[1];
+                        break;
+                }
 
         /* CLONE_INTO_CGROUP applies TasksMax= before the executor can fork a probe. */
         if (FLAGS_SET(params->flags, EXEC_APPLY_SANDBOXING) &&
@@ -3182,6 +3195,7 @@ void exec_params_shallow_clear(ExecParameters *p) {
         p->root_directory_fd = safe_close(p->root_directory_fd);
         p->exec_fd = safe_close(p->exec_fd);
         p->user_lookup_fd = -EBADF;
+        p->directory_report_fd = -EBADF;
         p->bpf_restrict_fs_map_fd = -EBADF;
         p->unit_id = mfree(p->unit_id);
         p->invocation_id = SD_ID128_NULL;
@@ -3217,6 +3231,7 @@ void exec_params_deep_clear(ExecParameters *p) {
         p->stdin_fd = safe_close(p->stdin_fd);
         p->stdout_fd = safe_close(p->stdout_fd);
         p->stderr_fd = safe_close(p->stderr_fd);
+        p->directory_report_fd = safe_close(p->directory_report_fd);
 
         p->notify_socket = mfree(p->notify_socket);
 
