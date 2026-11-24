@@ -1986,20 +1986,6 @@ int make_mount_point_inode_from_path(const char *source, const char *dest, mode_
         return make_mount_point_inode_from_mode(AT_FDCWD, dest, st.st_mode, access_mode);
 }
 
-int trigger_automount_at(int dir_fd, const char *path) {
-        _cleanup_free_ char *nested = NULL;
-
-        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
-
-        nested = path_join(path, "a");
-        if (!nested)
-                return -ENOMEM;
-
-        (void) faccessat(dir_fd, nested, F_OK, 0);
-
-        return 0;
-}
-
 unsigned long credentials_fs_mount_flags(bool ro) {
         /* A tight set of mount flags for credentials mounts */
         return MS_NODEV|MS_NOEXEC|MS_NOSUID|MS_NOSYMFOLLOW|(ro ? MS_RDONLY : 0);

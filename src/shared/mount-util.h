@@ -164,8 +164,6 @@ int remount_idmap(
 int make_mount_point_inode_from_mode(int dir_fd, const char *dest, mode_t source_mode, mode_t target_mode);
 int make_mount_point_inode_from_path(const char *source, const char *dest, mode_t mode);
 
-int trigger_automount_at(int dir_fd, const char *path);
-
 unsigned long credentials_fs_mount_flags(bool ro) _const_;
 int fsmount_credentials_fs(int *ret_fsfd);
 int mount_credentials_fs(const char *path);
