@@ -19,10 +19,6 @@
         _Pragma("GCC diagnostic push");                                 \
         _Pragma("GCC diagnostic ignored \"-Wnonnull\"")
 
-#define DISABLE_WARNING_SHADOW                                          \
-        _Pragma("GCC diagnostic push");                                 \
-        _Pragma("GCC diagnostic ignored \"-Wshadow\"")
-
 #define DISABLE_WARNING_STRINGOP_OVERREAD                               \
         _Pragma("GCC diagnostic push");                                 \
         _Pragma("GCC diagnostic ignored \"-Wstringop-overread\"")
