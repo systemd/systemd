@@ -543,12 +543,12 @@ static int partition_is_luks2_integrity(int part_fd, uint64_t offset, uint64_t s
         sd_json_variant *segments = NULL;
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "segments", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_variant_noref, 0, 0 },
+                { "segments", SD_JSON_VARIANT_OBJECT, sd_json_dispatch_variant_noref, 0, 0 },
                 {}
         };
 
         r = sd_json_dispatch(v, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &segments);
-        if (r < 0 || !segments || !sd_json_variant_is_object(segments)) {
+        if (r < 0 || !segments) {
                 log_debug("LUKS JSON header lacks 'segments' information, assuming no integrity.");
                 return 0;
         }
@@ -839,7 +839,7 @@ static int acquire_sig_for_roothash(
         if (r == -ENOMEM)
                 return r;
         if (r < 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to parse signature JSON data: %s", STRERROR(r));
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Signature JSON data lacks a valid 'rootHash' or 'signature' field: %s", STRERROR(r));
         if (root_hash.iov_len < sizeof(sd_id128_t))
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Root hash field is too short.");
 
