@@ -228,19 +228,6 @@ int bus_match_signal_async(
         return sd_bus_match_signal_async(bus, ret_slot, locator->destination, locator->path, locator->interface, member, callback, install_callback, userdata);
 }
 
-int bus_match_signal_channel(
-                sd_bus *bus,
-                const BusLocator *locator,
-                const char *member,
-                size_t capacity,
-                sd_channel **ret) {
-
-        assert(locator);
-
-        return bus_signal_channel_new(bus, locator->destination, locator->path,
-                                      locator->interface, member, capacity, ret);
-}
-
 int bus_match_signal_channel_conflated(
                 sd_bus *bus,
                 const BusLocator *locator,
