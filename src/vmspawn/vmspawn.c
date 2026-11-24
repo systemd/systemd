@@ -1608,25 +1608,15 @@ static int cmdline_add_smbios11(char ***cmdline, int smbios_dir_fd, const char *
 static int start_tpm(
                 const char *swtpm,
                 const char *runtime_dir,
-                const char *sd_socket_activate,
-                char **ret_listen_address,
+                int *ret_fd,
                 PidRef *ret_pidref) {
 
         int r;
 
         assert(swtpm);
         assert(runtime_dir);
-        assert(sd_socket_activate);
-
-        _cleanup_free_ char *listen_address = path_join(runtime_dir, "tpm.sock");
-        if (!listen_address)
-                return log_oom();
-
-        /* Validate socket path length up front instead of a failure in swtpm */
-        union sockaddr_union sa;
-        r = sockaddr_un_set_path(&sa.un, listen_address);
-        if (r < 0)
-                return log_error_errno(r, "TPM socket path '%s' is too long: %m", listen_address);
+        assert(ret_fd);
+        assert(ret_pidref);
 
         _cleanup_free_ char *transient_state_dir = NULL;
         const char *state_dir;
@@ -1648,8 +1638,12 @@ static int start_tpm(
         if (r < 0)
                 return r;
 
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+        if (socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, pair) < 0)
+                return log_error_errno(errno, "Failed to create TPM socketpair: %m");
+
         _cleanup_strv_free_ char **argv = NULL;
-        argv = strv_new(sd_socket_activate, "--listen", listen_address, swtpm, "socket", "--tpm2", "--tpmstate");
+        argv = strv_new(swtpm, "socket", "--tpm2", "--tpmstate");
         if (!argv)
                 return log_oom();
 
@@ -1657,16 +1651,26 @@ static int start_tpm(
         if (r < 0)
                 return log_oom();
 
-        r = strv_extend_many(&argv, "--ctrl", "type=unixio,fd=3");
+        r = strv_extend_many(&argv, "--ctrl", "type=unixio,clientfd=3");
         if (r < 0)
                 return log_oom();
 
-        r = fork_notify(argv, /* child_handler= */ NULL, /* child_userdata= */ NULL, ret_pidref);
+        r = pidref_safe_fork_full(
+                        "(swtpm)",
+                        (const int[3]) { -EBADF, STDOUT_FILENO, STDERR_FILENO },
+                        (int[]) { pair[0] }, 1,
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG|FORK_REARRANGE_STDIO|FORK_PACK_FDS|FORK_CLOEXEC_OFF,
+                        ret_pidref);
         if (r < 0)
                 return r;
+        if (r == 0) {
+                /* Child */
+                execv(argv[0], argv);
+                log_error_errno(errno, "Failed to execute '%s': %m", argv[0]);
+                _exit(EXIT_FAILURE);
+        }
 
-        if (ret_listen_address)
-                *ret_listen_address = TAKE_PTR(listen_address);
+        *ret_fd = TAKE_FD(pair[1]);
 
         return 0;
 }
@@ -1737,13 +1741,14 @@ static int start_virtiofsd(
                 uid_t target_uid,
                 uid_t uid_range,
                 const char *runtime_dir,
-                char **ret_listen_address,
+                int *ret_fd,
                 PidRef *ret_pidref) {
 
         int r;
 
         assert(directory);
         assert(runtime_dir);
+        assert(ret_fd);
 
         _cleanup_free_ char *virtiofsd = NULL;
         r = find_virtiofsd(&virtiofsd);
@@ -1756,20 +1761,27 @@ static int start_virtiofsd(
         if (asprintf(&listen_address, "%s/sock-%"PRIx64, runtime_dir, random_u64()) < 0)
                 return log_oom();
 
-        union sockaddr_union su;
-        r = sockaddr_un_set_path(&su.un, listen_address);
-        if (r < 0)
-                return log_error_errno(r, "Failed to prepare unix socket '%s': %m", listen_address);
-
         _cleanup_close_ int sock = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
         if (sock < 0)
                 return log_error_errno(errno, "Failed to create unix socket: %m");
 
-        if (bind(sock, &su.sa, r) < 0)
-                return log_error_errno(errno, "Failed to bind unix socket to '%s': %m", listen_address);
+        r = bind_unix_path(sock, AT_FDCWD, listen_address);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind unix socket to '%s': %m", listen_address);
 
         if (listen(sock, SOMAXCONN_DELUXE) < 0)
                 return log_error_errno(errno, "Failed to listen on unix socket '%s': %m", listen_address);
+
+        /* The socket path contains the machine name and doesn't fit into sun_path if the name is long. QEMU
+         * can only connect to paths that fit, so we connect to virtiofsd ourselves and pass the connected
+         * socket to QEMU. */
+        _cleanup_close_ int fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to create unix socket: %m");
+
+        r = connect_unix_path(fd, AT_FDCWD, listen_address);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to unix socket '%s': %m", listen_address);
 
         _cleanup_free_ char *sockstr = NULL;
         if (asprintf(&sockstr, "%i", sock) < 0)
@@ -1868,8 +1880,7 @@ static int start_virtiofsd(
                 _exit(EXIT_FAILURE);
         }
 
-        if (ret_listen_address)
-                *ret_listen_address = TAKE_PTR(listen_address);
+        *ret_fd = TAKE_FD(fd);
 
         return 0;
 }
@@ -3515,13 +3526,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to mangle scope name: %m");
 
-        _cleanup_free_ char *sd_socket_activate = NULL;
-        r = find_executable("systemd-socket-activate", &sd_socket_activate);
-        if (r < 0)
-                return log_error_errno(r, "Failed to find systemd-socket-activate binary: %m");
-
         if (arg_directory) {
-                _cleanup_free_ char *listen_address = NULL;
+                _cleanup_close_ int virtiofsd_fd = -EBADF;
                 _cleanup_(fork_notify_terminate) PidRef child = PIDREF_NULL;
 
                 if (!GREEDY_REALLOC(children, n_children + 1))
@@ -3548,7 +3554,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 /* target_uid= */ 0,
                                 /* uid_range= */ arg_uid_range,
                                 runtime_dir,
-                                &listen_address,
+                                &virtiofsd_fd,
                                 &child);
                 if (r < 0)
                         return r;
@@ -3569,9 +3575,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
 
                 config.virtiofs.entries[config.virtiofs.n_entries++] = (VirtiofsInfo) {
-                        .id          = TAKE_PTR(id),
-                        .socket_path = TAKE_PTR(listen_address),
-                        .tag         = TAKE_PTR(tag),
+                        .id  = TAKE_PTR(id),
+                        .fd  = TAKE_FD(virtiofsd_fd),
+                        .tag = TAKE_PTR(tag),
                 };
 
                 if (strv_extend(&arg_kernel_cmdline_extra, "root=root rootfstype=virtiofs rw") < 0)
@@ -3636,7 +3642,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         for (size_t j = 0; j < arg_runtime_mounts.n_mounts; j++) {
                 RuntimeMount *m = arg_runtime_mounts.mounts + j;
-                _cleanup_free_ char *listen_address = NULL, *id = NULL, *tag = NULL;
+                _cleanup_free_ char *id = NULL, *tag = NULL;
+                _cleanup_close_ int virtiofsd_fd = -EBADF;
                 _cleanup_(fork_notify_terminate) PidRef child = PIDREF_NULL;
 
                 if (!GREEDY_REALLOC(children, n_children + 1))
@@ -3648,7 +3655,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 /* target_uid= */ m->target_uid,
                                 /* uid_range= */ 1U,
                                 runtime_dir,
-                                &listen_address,
+                                &virtiofsd_fd,
                                 &child);
                 if (r < 0)
                         return r;
@@ -3697,9 +3704,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
 
                 config.virtiofs.entries[config.virtiofs.n_entries++] = (VirtiofsInfo) {
-                        .id          = TAKE_PTR(id),
-                        .socket_path = TAKE_PTR(listen_address),
-                        .tag         = TAKE_PTR(tag),
+                        .id  = TAKE_PTR(id),
+                        .fd  = TAKE_FD(virtiofsd_fd),
+                        .tag = TAKE_PTR(tag),
                 };
         }
 
@@ -3757,14 +3764,14 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 }
         }
 
-        _cleanup_free_ char *tpm_socket_address = NULL;
+        _cleanup_close_ int tpm_fd = -EBADF;
         if (swtpm) {
                 _cleanup_(fork_notify_terminate) PidRef child = PIDREF_NULL;
 
                 if (!GREEDY_REALLOC(children, n_children + 1))
                         return log_oom();
 
-                r = start_tpm(swtpm, runtime_dir, sd_socket_activate, &tpm_socket_address, &child);
+                r = start_tpm(swtpm, runtime_dir, &tpm_fd, &child);
                 if (r < 0) {
                         /* only bail if the user asked for a tpm */
                         if (arg_tpm > 0)
@@ -3782,10 +3789,18 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 }
         }
 
-        if (tpm_socket_address) {
+        if (tpm_fd >= 0) {
+                if (!GREEDY_REALLOC(pass_fds, n_pass_fds + 1))
+                        return log_oom();
+
+                pass_fds[n_pass_fds++] = tpm_fd;
+
                 r = qemu_config_section(config_file, "chardev", "chrtpm",
-                                        "backend", "socket",
-                                        "path", tpm_socket_address);
+                                        "backend", "socket");
+                if (r < 0)
+                        return r;
+
+                r = qemu_config_keyf(config_file, "fd", "%d", tpm_fd);
                 if (r < 0)
                         return r;
 
@@ -4137,6 +4152,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         /* Close QEMU's end of the QMP socketpair in the parent. We don't need it anymore. */
         child_pty = safe_close(child_pty);
         bridge_fds[1] = safe_close(bridge_fds[1]);
+
+        /* swtpm exits when every copy of QEMU's end of the TPM socketpair is closed. Close our copy, so that
+         * swtpm exits when QEMU exits. */
+        tpm_fd = safe_close(tpm_fd);
 
         /* In broker mode QEMU has inherited the console backend (slave) fd via the fd set; release our copy
          * so we don't keep the pseudo TTY's backend side pinned open for the VM's entire lifetime. */

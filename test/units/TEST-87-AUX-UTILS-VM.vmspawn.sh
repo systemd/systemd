@@ -51,7 +51,7 @@ WORKDIR="$(mktemp -d)"
 at_exit() {
     set +e
 
-    for m in "$MACHINE" "${MACHINE2:-}" "${STRESS_MACHINE:-}"; do
+    for m in "$MACHINE" "${MACHINE2:-}" "${STRESS_MACHINE:-}" "${LONG_MACHINE:-}"; do
         [[ -n "$m" ]] || continue
         if machinectl status "$m" &>/dev/null; then
             machinectl terminate "$m" 2>/dev/null
@@ -64,6 +64,7 @@ at_exit() {
     [[ -n "${STRESS_PID:-}" ]] && kill "$STRESS_PID" 2>/dev/null && wait "$STRESS_PID" 2>/dev/null
     [[ -n "${VMSPAWN_PID:-}" ]] && kill "$VMSPAWN_PID" 2>/dev/null && wait "$VMSPAWN_PID" 2>/dev/null
     [[ -n "${VMSPAWN2_PID:-}" ]] && kill "$VMSPAWN2_PID" 2>/dev/null && wait "$VMSPAWN2_PID" 2>/dev/null
+    [[ -n "${LONG_PID:-}" ]] && kill "$LONG_PID" 2>/dev/null && wait "$LONG_PID" 2>/dev/null
     rm -rf "$WORKDIR"
 }
 trap at_exit EXIT
@@ -284,6 +285,38 @@ echo "Parallel terminate succeeded, both VMs gone"
 timeout 10 bash -c "while kill -0 '$VMSPAWN_PID' 2>/dev/null; do sleep .5; done"
 timeout 10 bash -c "while kill -0 '$VMSPAWN2_PID' 2>/dev/null; do sleep .5; done"
 echo "Both vmspawn processes exited"
+
+# --- Long runtime directory ---
+# vmspawn creates the virtiofsd sockets, the control socket, and the TPM state directory in the runtime
+# directory of the machine. Use $RUNTIME_DIRECTORY to make the path of the runtime directory longer than
+# sun_path. Then no socket path in it fits into sun_path. vmspawn must start the VM with a TPM anyway, and
+# machinectl must connect to the control socket.
+LONG_MACHINE="test-vmspawn-long-$$"
+LONG_RUNTIME_BASE="$WORKDIR/runtime-"
+while (( ${#LONG_RUNTIME_BASE} + 1 + ${#LONG_MACHINE} < 150 )); do
+    LONG_RUNTIME_BASE+="x"
+done
+
+RUNTIME_DIRECTORY="$LONG_RUNTIME_BASE" systemd-vmspawn \
+    --machine="$LONG_MACHINE" \
+    --ram=256M \
+    --directory="$WORKDIR/root" \
+    --linux="$KERNEL" \
+    --tpm=yes \
+    --console=headless \
+    &>"$WORKDIR/vmspawn-long.log" &
+LONG_PID=$!
+
+wait_for_machine "$LONG_MACHINE" "$LONG_PID" "$WORKDIR/vmspawn-long.log"
+echo "Machine with a long runtime directory registered"
+
+machinectl pause "$LONG_MACHINE"
+machinectl resume "$LONG_MACHINE"
+echo "machinectl connected to the control socket in the long runtime directory"
+
+machinectl terminate "$LONG_MACHINE"
+timeout 10 bash -c "while machinectl status '$LONG_MACHINE' &>/dev/null; do sleep .5; done"
+timeout 10 bash -c "while kill -0 '$LONG_PID' 2>/dev/null; do sleep .5; done"
 
 # --- QEMU startup failure ---
 # With a console PTY, vmspawn must still show QEMU's own error when QEMU refuses to start.

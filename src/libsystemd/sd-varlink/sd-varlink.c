@@ -3941,10 +3941,13 @@ _public_ int sd_varlink_server_listen_address(sd_varlink_server *s, const char *
                         return r;
         }
 
+        /* A file system path that doesn't fit into sun_path makes sockaddr_un_set_path() fail with
+         * -ENAMETOOLONG. We still bind the path further down, with bind_unix_path(). */
         r = sockaddr_un_set_path(&sockaddr.un, address);
-        if (r < 0)
+        if (r < 0 && r != -ENAMETOOLONG)
                 return r;
-        sockaddr_len = r;
+        bool long_path = r == -ENAMETOOLONG;
+        sockaddr_len = long_path ? 0 : (socklen_t) r;
 
         fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (fd < 0)
@@ -3958,10 +3961,15 @@ _public_ int sd_varlink_server_listen_address(sd_varlink_server *s, const char *
         if (FLAGS_SET(s->flags, SD_VARLINK_SERVER_FD_PASSING_INPUT_STRICT))
                 (void) setsockopt_int(fd, SOL_SOCKET, SO_PASSRIGHTS, FLAGS_SET(s->flags, SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT));
 
-        (void) sockaddr_un_unlink(&sockaddr.un);
+        if (long_path)
+                (void) unlink(address);
+        else
+                (void) sockaddr_un_unlink(&sockaddr.un);
 
         WITH_UMASK(~m & 0777)
-                r = RET_NERRNO(bind(fd, &sockaddr.sa, sockaddr_len));
+                r = long_path ?
+                        bind_unix_path(fd, AT_FDCWD, address) :
+                        RET_NERRNO(bind(fd, &sockaddr.sa, sockaddr_len));
         if (r < 0)
                 return r;
 
