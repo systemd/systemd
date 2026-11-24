@@ -318,10 +318,8 @@ static int timer_coldplug(Unit *u) {
          * rearm those that already fired when another trigger keeps the timer waiting. */
         timer_set_state(t, t->deserialized_state);
 
-        /* Recalculating with an empty value list after a load error would turn a waiting timer into an
-         * elapsed one. Keep its state until the unit loads successfully (#44667). Timers that have already
-         * elapsed must keep their state, even after a configuration change. */
-        if (!UNIT_IS_LOAD_ERROR(u->load_state) && t->state == TIMER_WAITING)
+        /* Do not rearm timers that have already elapsed. */
+        if (t->state == TIMER_WAITING)
                 timer_enter_waiting(t, /* time_change= */ false);
 
         return 0;
@@ -383,6 +381,14 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
         int r;
 
         assert(t);
+
+        /* A rejected or masked unit may have no timer values or trigger unit. Do not lose the waiting
+         * state when recalculation is requested before the unit file is repaired (#44667). */
+        if (UNIT(t)->load_state != UNIT_LOADED) {
+                if (t->state == TIMER_RUNNING)
+                        timer_set_state(t, TIMER_WAITING);
+                return;
+        }
 
         trigger = UNIT_TRIGGER(UNIT(t));
         if (!trigger) {
@@ -531,9 +537,9 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                                       is_oneshot))
                                         v->next_elapse = usec_add(usec_shift_clock(base, CLOCK_MONOTONIC, TIMER_MONOTONIC_CLOCK(t)), v->value);
 
-                                if (dual_timestamp_is_set(&t->last_trigger) &&
-                                    v->next_elapse < triple_timestamp_by_clock(&ts, TIMER_MONOTONIC_CLOCK(t)) &&
-                                    is_oneshot) {
+                                if (is_oneshot &&
+                                    t->last_trigger.monotonic > 0 &&
+                                    v->next_elapse <= usec_shift_clock(t->last_trigger.monotonic, CLOCK_MONOTONIC, TIMER_MONOTONIC_CLOCK(t))) {
                                         /* This is a one time trigger, disable it now. */
                                         v->disabled = true;
                                         continue;
@@ -870,7 +876,7 @@ static void timer_time_change(Unit *u) {
         Timer *t = ASSERT_PTR(TIMER(u));
         usec_t ts;
 
-        if (t->state != TIMER_WAITING)
+        if (u->load_state != UNIT_LOADED || t->state != TIMER_WAITING)
                 return;
 
         /* If we appear to have triggered in the future, the system clock must
@@ -893,7 +899,7 @@ static void timer_time_change(Unit *u) {
 static void timer_timezone_change(Unit *u) {
         Timer *t = ASSERT_PTR(TIMER(u));
 
-        if (t->state != TIMER_WAITING)
+        if (u->load_state != UNIT_LOADED || t->state != TIMER_WAITING)
                 return;
 
         if (t->on_timezone_change) {

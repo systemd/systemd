@@ -13,19 +13,19 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-wait_substate() {
-    local unit="$1" want="$2" deadline=$((SECONDS + 30))
+assert_calendar_waiting() {
+    local load_state="$1"
 
-    while ((SECONDS < deadline)); do
-        if [[ "$(systemctl show -P SubState "$unit")" == "$want" ]]; then
-            return 0
-        fi
-        sleep 0.1
-    done
-
-    systemctl status "$unit" || true
-    echo "Timed out waiting for $unit to be $want" >&2
-    return 1
+    assert_eq "$(systemctl show -P LoadState "$CAL_UNIT.timer")" "$load_state"
+    assert_unit_state "$CAL_UNIT.timer" active waiting
+    if [[ "$load_state" == loaded ]]; then
+        local next
+        next="$(systemctl show -P NextElapseUSecRealtime "$CAL_UNIT.timer")"
+        assert_not_empty "$next"
+        assert_neq "$next" infinity
+    else
+        assert_in '^$|^infinity$' "$(systemctl show -P NextElapseUSecRealtime "$CAL_UNIT.timer")"
+    fi
 }
 
 write_calendar_timer() {
@@ -66,45 +66,21 @@ write_calendar_timer "$CALENDAR"
 
 systemctl daemon-reload
 systemctl start "$CAL_UNIT.timer"
-assert_eq "$(systemctl show -P LoadState "$CAL_UNIT.timer")" "loaded"
-assert_eq "$(systemctl show -P ActiveState "$CAL_UNIT.timer")" "active"
-assert_eq "$(systemctl show -P SubState "$CAL_UNIT.timer")" "waiting"
-next="$(systemctl show -P NextElapseUSecRealtime "$CAL_UNIT.timer")"
-assert_neq "$next" ""
-assert_neq "$next" "infinity"
+assert_calendar_waiting loaded
 
 # The report's broken file is a single line outside any section. The parser
 # ignores it and the timer is then rejected for having no values.
 echo test >"/run/systemd/system/$CAL_UNIT.timer"
 systemctl daemon-reload
-assert_eq "$(systemctl show -P LoadState "$CAL_UNIT.timer")" "bad-setting"
-assert_eq "$(systemctl show -P ActiveState "$CAL_UNIT.timer")" "active"
-assert_eq "$(systemctl show -P SubState "$CAL_UNIT.timer")" "waiting"
-# Nothing is armed while the file is rejected.
-bad_next="$(systemctl show -P NextElapseUSecRealtime "$CAL_UNIT.timer")"
-case "$bad_next" in
-    ""|infinity) ;;
-    *)
-        echo "FAIL: expected no realtime elapse while the unit file is bad, got '$bad_next'" >&2
-        exit 1
-        ;;
-esac
-
+assert_calendar_waiting bad-setting
 write_calendar_timer "$CALENDAR"
 
 systemctl daemon-reload
-assert_eq "$(systemctl show -P LoadState "$CAL_UNIT.timer")" "loaded"
-assert_eq "$(systemctl show -P ActiveState "$CAL_UNIT.timer")" "active"
-assert_eq "$(systemctl show -P SubState "$CAL_UNIT.timer")" "waiting"
-next="$(systemctl show -P NextElapseUSecRealtime "$CAL_UNIT.timer")"
-assert_neq "$next" ""
-assert_neq "$next" "infinity"
+assert_calendar_waiting loaded
 
 # A second reload of the repaired file must keep the timer armed.
 systemctl daemon-reload
-assert_eq "$(systemctl show -P SubState "$CAL_UNIT.timer")" "waiting"
-assert_neq "$(systemctl show -P NextElapseUSecRealtime "$CAL_UNIT.timer")" ""
-assert_neq "$(systemctl show -P NextElapseUSecRealtime "$CAL_UNIT.timer")" "infinity"
+assert_calendar_waiting loaded
 
 # A calendar event in the past has no next elapse. Once the timer has elapsed,
 # a valid configuration change must not start it again on daemon-reload.
@@ -135,7 +111,8 @@ EOF
 rm -f "$SHOT_STAMP"
 systemctl daemon-reload
 systemctl start "$SHOT_UNIT.timer"
-wait_substate "$SHOT_UNIT.timer" elapsed
+# shellcheck disable=SC2016
+timeout 30 bash -c 'until [[ "$(systemctl show -P SubState "$1")" == elapsed ]]; do sleep .5; done' _ "$SHOT_UNIT.timer"
 assert_eq "$(systemctl show -P Result "$SHOT_UNIT.timer")" "success"
 test -f "$SHOT_STAMP"
 stamp_mtime="$(stat -c %y "$SHOT_STAMP")"
@@ -144,11 +121,4 @@ systemctl daemon-reload
 sleep 3
 assert_eq "$(systemctl show -P SubState "$SHOT_UNIT.timer")" "elapsed"
 assert_eq "$(stat -c %y "$SHOT_STAMP")" "$stamp_mtime"
-shot_next="$(systemctl show -P NextElapseUSecMonotonic "$SHOT_UNIT.timer")"
-case "$shot_next" in
-    ""|infinity) ;;
-    *)
-        echo "FAIL: elapsed one-shot was re-armed, next elapse is '$shot_next'" >&2
-        exit 1
-        ;;
-esac
+assert_in '^$|^infinity$' "$(systemctl show -P NextElapseUSecMonotonic "$SHOT_UNIT.timer")"
