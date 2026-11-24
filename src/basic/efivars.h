@@ -35,7 +35,6 @@
 #define EFI_SHIMLOCK_VARIABLE_STR(name) EFI_VENDOR_VARIABLE_STR(EFI_VENDOR_SHIMLOCK_STR, name)
 
 #define EFIVAR_PATH(variable) "/sys/firmware/efi/efivars/" variable
-#define EFIVAR_CACHE_PATH(variable) "/run/systemd/efivars/" variable
 
 #if ENABLE_EFI
 
