@@ -78,6 +78,7 @@ static int process_managed_oom_message(Manager *m, uid_t uid, sd_json_variant *p
                 Hashmap *monitor_hm;
                 loadavg_t limit;
                 usec_t duration;
+                bool limit_overridden = false, duration_overridden = false;
 
                 if (!sd_json_variant_is_object(c))
                         continue;
@@ -138,7 +139,7 @@ static int process_managed_oom_message(Manager *m, uid_t uid, sd_json_variant *p
                         continue;
                 }
 
-                limit = m->default_mem_pressure_limit;
+                limit = m->config.default_mem_pressure_limit;
 
                 if (streq(message.property, "ManagedOOMMemoryPressure") && message.limit > 0) {
                         int permyriad = UINT32_SCALE_TO_PERMYRIAD(message.limit);
@@ -146,12 +147,15 @@ static int process_managed_oom_message(Manager *m, uid_t uid, sd_json_variant *p
                         r = store_loadavg_fixed_point(permyriad / 100LU, permyriad % 100LU, &limit);
                         if (r < 0)
                                 continue;
+
+                        limit_overridden = true;
                 }
 
-                if (streq(message.property, "ManagedOOMMemoryPressure") && message.duration != USEC_INFINITY)
+                if (streq(message.property, "ManagedOOMMemoryPressure") && message.duration != USEC_INFINITY) {
                         duration = message.duration;
-                else
-                        duration = m->default_mem_pressure_duration_usec;
+                        duration_overridden = true;
+                } else
+                        duration = m->config.default_mem_pressure_duration_usec;
 
                 /* For OOMRules, only insert/update if rules are actually provided */
                 if (streq(message.property, "OOMRules")) {
@@ -214,6 +218,8 @@ static int process_managed_oom_message(Manager *m, uid_t uid, sd_json_variant *p
                  * ignored so always updating it here is not a problem. */
                 ctx = hashmap_get(monitor_hm, empty_to_root(message.path));
                 if (ctx) {
+                        ctx->mem_pressure_limit_overridden = limit_overridden;
+                        ctx->mem_pressure_duration_overridden = duration_overridden;
                         ctx->mem_pressure_limit = limit;
                         ctx->mem_pressure_duration_usec = duration;
                 }
@@ -475,8 +481,8 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
          * nodes are the ones that matter). */
 
         /* Check amount of memory available and swap free so we don't free up swap when memory is still available. */
-        if (oomd_mem_available_below(&m->system_context, 10000 - m->swap_used_limit_permyriad) &&
-                        oomd_swap_free_below(&m->system_context, 10000 - m->swap_used_limit_permyriad)) {
+        if (oomd_mem_available_below(&m->system_context, 10000 - m->config.swap_used_limit_permyriad) &&
+                        oomd_swap_free_below(&m->system_context, 10000 - m->config.swap_used_limit_permyriad)) {
                 _cleanup_hashmap_free_ Hashmap *candidates = NULL;
                 OomdCGroupContext *selected = NULL;
                 uint64_t threshold;
@@ -485,7 +491,7 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
                           "swap used (%"PRIu64") / total (%"PRIu64") is more than " PERMYRIAD_AS_PERCENT_FORMAT_STR,
                           m->system_context.mem_used, m->system_context.mem_total,
                           m->system_context.swap_used, m->system_context.swap_total,
-                          PERMYRIAD_AS_PERCENT_FORMAT_VAL(m->swap_used_limit_permyriad));
+                          PERMYRIAD_AS_PERCENT_FORMAT_VAL(m->config.swap_used_limit_permyriad));
 
                 r = get_monitored_cgroup_contexts_candidates(m->monitored_swap_cgroup_contexts, &candidates);
                 if (r == -ENOMEM)
@@ -515,7 +521,7 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
                                            selected->path,
                                            m->system_context.mem_used, m->system_context.mem_total,
                                            m->system_context.swap_used, m->system_context.swap_total,
-                                           PERMYRIAD_AS_PERCENT_FORMAT_VAL(m->swap_used_limit_permyriad));
+                                           PERMYRIAD_AS_PERCENT_FORMAT_VAL(m->config.swap_used_limit_permyriad));
                         return 0;
                 }
         }
@@ -1168,8 +1174,29 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
 
         (void) notify_reloading();
 
-        manager_set_defaults(m);
-        manager_parse_config_file(m);
+        OomdConfig config = m->config;
+        int r = oomd_config_parse(&config);
+        manager_load_rulesets(m);
+
+        if (r >= 0) {
+                OomdCGroupContext *ctx;
+
+                m->config = config;
+
+                HASHMAP_FOREACH(ctx, m->monitored_mem_pressure_cgroup_contexts) {
+                        if (!ctx->mem_pressure_limit_overridden &&
+                            ctx->mem_pressure_limit != config.default_mem_pressure_limit) {
+                                ctx->mem_pressure_limit = config.default_mem_pressure_limit;
+
+                                /* Start a new observation window for the updated threshold. */
+                                ctx->mem_pressure_limit_hit_start = 0;
+                        }
+
+                        if (!ctx->mem_pressure_duration_overridden)
+                                ctx->mem_pressure_duration_usec = config.default_mem_pressure_duration_usec;
+                }
+        }
+
         warn_missing_rulesets(m);
 
         (void) sd_notify(/* unset_environment= */ false, NOTIFY_READY_MESSAGE);
@@ -1186,8 +1213,8 @@ int manager_new(Manager **ret) {
         if (!m)
                 return -ENOMEM;
 
-        manager_set_defaults(m);
-        manager_parse_config_file(m);
+        (void) oomd_config_parse(&m->config);
+        manager_load_rulesets(m);
 
         r = sd_event_default(&m->event);
         if (r < 0)
@@ -1367,9 +1394,10 @@ int manager_get_dump_string(Manager *m, char **ret) {
                 "Default Memory Pressure Duration: %s\n"
                 "System Context:\n",
                 yes_no(m->dry_run),
-                PERMYRIAD_AS_PERCENT_FORMAT_VAL(m->swap_used_limit_permyriad),
-                LOADAVG_INT_SIDE(m->default_mem_pressure_limit), LOADAVG_DECIMAL_SIDE(m->default_mem_pressure_limit),
-                FORMAT_TIMESPAN(m->default_mem_pressure_duration_usec, USEC_PER_SEC));
+                PERMYRIAD_AS_PERCENT_FORMAT_VAL(m->config.swap_used_limit_permyriad),
+                LOADAVG_INT_SIDE(m->config.default_mem_pressure_limit),
+                LOADAVG_DECIMAL_SIDE(m->config.default_mem_pressure_limit),
+                FORMAT_TIMESPAN(m->config.default_mem_pressure_duration_usec, USEC_PER_SEC));
         oomd_dump_system_context(&m->system_context, f, "\t");
 
         r = hashmap_dump_sorted(m->monitored_swap_cgroup_contexts, (void***) &sorted, &n);
