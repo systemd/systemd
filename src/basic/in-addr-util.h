@@ -32,9 +32,6 @@ static inline int in_addr_data_is_null(const struct in_addr_data *a) {
         assert(a);
         return in_addr_is_null(a->family, &a->address);
 }
-static inline bool in_addr_data_is_set(const struct in_addr_data *a) {
-        return in_addr_data_is_null(a);
-}
 
 bool in4_addr_is_multicast(const struct in_addr *a) _pure_;
 bool in6_addr_is_multicast(const struct in6_addr *a) _pure_;
