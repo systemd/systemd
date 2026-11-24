@@ -1181,7 +1181,7 @@ static int property_get_memory_accounting(
         assert(bus);
         assert(reply);
 
-        assert_se((metric = cgroup_memory_accounting_metric_from_string(property)) >= 0);
+        metric = ASSERT_SE_NONNEG(cgroup_memory_accounting_metric_from_string(property));
         (void) unit_get_memory_accounting(u, metric, &sz);
         return sd_bus_message_append(reply, "t", sz);
 }
@@ -1536,7 +1536,7 @@ static int property_get_ip_counter(
         assert(reply);
         assert(property);
 
-        assert_se((metric = cgroup_ip_accounting_metric_from_string(property)) >= 0);
+        metric = ASSERT_SE_NONNEG(cgroup_ip_accounting_metric_from_string(property));
         (void) unit_get_ip_accounting(u, metric, &value);
         return sd_bus_message_append(reply, "t", value);
 }
@@ -1558,7 +1558,7 @@ static int property_get_io_counter(
         assert(reply);
         assert(property);
 
-        assert_se((metric = cgroup_io_accounting_metric_from_string(property)) >= 0);
+        metric = ASSERT_SE_NONNEG(cgroup_io_accounting_metric_from_string(property));
         (void) unit_get_io_accounting(u, metric, &value);
         return sd_bus_message_append(reply, "t", value);
 }
@@ -1580,7 +1580,7 @@ static int property_get_effective_limit(
         assert(reply);
         assert(property);
 
-        assert_se((type = cgroup_effective_limit_type_from_string(property)) >= 0);
+        type = ASSERT_SE_NONNEG(cgroup_effective_limit_type_from_string(property));
         (void) unit_get_effective_limit(u, type, &value);
         return sd_bus_message_append(reply, "t", value);
 }

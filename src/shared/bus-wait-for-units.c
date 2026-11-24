@@ -1105,9 +1105,3 @@ int bus_wait_for_units_run(BusWaitForUnits *d, usec_t timeout_usec) {
 
         return r;
 }
-
-BusWaitForUnitsState bus_wait_for_units_state(BusWaitForUnits *d) {
-        assert(d);
-
-        return d->state;
-}

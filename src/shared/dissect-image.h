@@ -40,12 +40,6 @@ typedef struct DissectedPartition {
                 .mount_node_fd = -EBADF,                                \
                 .fsmount_fd = -EBADF,                                   \
         })
-#define TAKE_PARTITION(p)                                       \
-        ({                                                      \
-                DissectedPartition *_pp = &(p), _p = *_pp;      \
-                *_pp = DISSECTED_PARTITION_NULL;                \
-                _p;                                             \
-        })
 
 typedef enum DissectImageFlags {
         DISSECT_IMAGE_DEVICE_READ_ONLY          = 1 << 0,  /* Make device read-only */
@@ -209,7 +203,6 @@ static inline bool dissected_image_is_bootable_uefi(DissectedImage *m) {
 bool dissected_image_is_portable(DissectedImage *m) _pure_;
 bool dissected_image_is_initrd(DissectedImage *m) _pure_;
 
-DecryptedImage* decrypted_image_ref(DecryptedImage *p);
 DecryptedImage* decrypted_image_unref(DecryptedImage *p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DecryptedImage*, decrypted_image_unref);
 
@@ -223,13 +216,6 @@ int image_filter_parse(const char *s, ImageFilter **ret);
 
 int verity_settings_load(VeritySettings *verity, const char *image, const char *root_hash_path, const char *root_hash_sig_path);
 int verity_validate_signature_userspace(const struct iovec *root_hash, const struct iovec *root_hash_sig, const char *root);
-
-static inline bool verity_settings_set(const VeritySettings *settings) {
-        return settings &&
-                (iovec_is_set(&settings->root_hash) ||
-                 iovec_is_set(&settings->root_hash_sig) ||
-                 settings->data_path);
-}
 
 void verity_settings_done(VeritySettings *verity);
 VeritySettings* verity_settings_free(VeritySettings *v);

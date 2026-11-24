@@ -11,32 +11,6 @@
 
 #define unichar uint32_t
 
-/**
- * g_utf8_prev_char:
- * @p: a pointer to a position within a UTF-8 encoded string
- *
- * Finds the previous UTF-8 character in the string before @p.
- *
- * @p does not have to be at the beginning of a UTF-8 character. No check
- * is made to see if the character found is actually valid other than
- * it starts with an appropriate byte. If @p might be the first
- * character of the string, you must use g_utf8_find_prev_char() instead.
- *
- * Return value: a pointer to the found character.
- **/
-char *
-utf8_prev_char (const char *p)
-{
-  assert(p);
-
-  for (;;)
-    {
-      p--;
-      if ((*p & 0xc0) != 0x80)
-        return (char *)p;
-    }
-}
-
 struct Interval
 {
   unichar start, end;

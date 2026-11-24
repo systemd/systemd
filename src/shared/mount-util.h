@@ -164,8 +164,6 @@ int remount_idmap(
 int make_mount_point_inode_from_mode(int dir_fd, const char *dest, mode_t source_mode, mode_t target_mode);
 int make_mount_point_inode_from_path(const char *source, const char *dest, mode_t mode);
 
-int trigger_automount_at(int dir_fd, const char *path);
-
 unsigned long credentials_fs_mount_flags(bool ro) _const_;
 int fsmount_credentials_fs(int *ret_fsfd);
 int mount_credentials_fs(const char *path);
@@ -173,9 +171,6 @@ int mount_credentials_fs(const char *path);
 int make_fsmount(int error_log_level, const char *what, const char *type, unsigned long flags, const char *options, int userns_fd);
 
 int path_get_mount_info_at(int dir_fd, const char *path, char **ret_fstype, char **ret_options, char **ret_source);
-static inline int path_get_mount_info(const char *path, char **ret_fstype, char **ret_options, char **ret_source) {
-        return path_get_mount_info_at(AT_FDCWD, path, ret_fstype, ret_options, ret_source);
-}
 
 int path_is_network_fs_harder_at(int dir_fd, const char *path);
 static inline int path_is_network_fs_harder(const char *path) {

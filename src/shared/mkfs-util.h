@@ -5,7 +5,7 @@
 
 #include "forward.h"
 
-typedef enum MakeFilesystemFlags {
+typedef enum MakeFileSystemFlags {
         MKFS_QUIET     = 1 << 0,  /* Suppress mkfs command output */
         MKFS_DISCARD   = 1 << 1,  /* Enable 'discard' mode on the filesystem */
         MKFS_FS_VERITY = 1 << 2,  /* Enable fs-verity support on the filesystem */

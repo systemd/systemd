@@ -1466,16 +1466,8 @@ void log_show_tid(bool b) {
         show_tid = b;
 }
 
-bool log_get_show_tid(void) {
-        return show_tid;
-}
-
 void log_show_executable(bool b) {
         show_executable = b;
-}
-
-bool log_get_show_executable(void) {
-        return show_executable;
 }
 
 int log_show_color_from_string(const char *e) {

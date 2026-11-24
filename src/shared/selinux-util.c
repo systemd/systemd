@@ -548,25 +548,6 @@ int mac_selinux_fix_full(
 #endif
 }
 
-int mac_selinux_apply(const char *path, const char *label) {
-
-        assert(path);
-
-#if HAVE_SELINUX
-        int r;
-
-        r = selinux_init(/* force= */ false);
-        if (r <= 0)
-                return r;
-
-        assert(label);
-
-        if (sym_setfilecon_raw(path, label) < 0)
-                return log_selinux_enforcing_errno(errno, "Failed to set SELinux security context %s on path %s: %m", label, path);
-#endif
-        return 0;
-}
-
 int mac_selinux_apply_fd(int fd, const char *path, const char *label) {
 
         assert(fd >= 0);

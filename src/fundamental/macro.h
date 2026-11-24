@@ -15,25 +15,13 @@
         _Pragma("GCC diagnostic push");                                 \
         _Pragma("GCC diagnostic ignored \"-Wformat-nonliteral\"")
 
-#define DISABLE_WARNING_MISSING_PROTOTYPES                              \
-        _Pragma("GCC diagnostic push");                                 \
-        _Pragma("GCC diagnostic ignored \"-Wmissing-prototypes\"")
-
 #define DISABLE_WARNING_NONNULL                                         \
         _Pragma("GCC diagnostic push");                                 \
         _Pragma("GCC diagnostic ignored \"-Wnonnull\"")
 
-#define DISABLE_WARNING_SHADOW                                          \
-        _Pragma("GCC diagnostic push");                                 \
-        _Pragma("GCC diagnostic ignored \"-Wshadow\"")
-
 #define DISABLE_WARNING_STRINGOP_OVERREAD                               \
         _Pragma("GCC diagnostic push");                                 \
         _Pragma("GCC diagnostic ignored \"-Wstringop-overread\"")
-
-#define DISABLE_WARNING_INCOMPATIBLE_POINTER_TYPES                      \
-        _Pragma("GCC diagnostic push");                                 \
-        _Pragma("GCC diagnostic ignored \"-Wincompatible-pointer-types\"")
 
 #define DISABLE_WARNING_TYPE_LIMITS                                     \
         _Pragma("GCC diagnostic push");                                 \
@@ -50,15 +38,6 @@
 #define DISABLE_WARNING_REDUNDANT_DECLS                                 \
         _Pragma("GCC diagnostic push");                                 \
         _Pragma("GCC diagnostic ignored \"-Wredundant-decls\"")
-
-#if HAVE_WARNING_ZERO_LENGTH_BOUNDS
-#  define DISABLE_WARNING_ZERO_LENGTH_BOUNDS                            \
-        _Pragma("GCC diagnostic push");                                 \
-        _Pragma("GCC diagnostic ignored \"-Wzero-length-bounds\"")
-#else
-#  define DISABLE_WARNING_ZERO_LENGTH_BOUNDS                            \
-        _Pragma("GCC diagnostic push")
-#endif
 
 #if HAVE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT
 #  define DISABLE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT                 \

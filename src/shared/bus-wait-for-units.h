@@ -57,4 +57,3 @@ void bus_wait_for_units_set_ready_callback(
                 void *userdata);
 
 int bus_wait_for_units_run(BusWaitForUnits *d, usec_t timeout_usec);
-BusWaitForUnitsState bus_wait_for_units_state(BusWaitForUnits *d);

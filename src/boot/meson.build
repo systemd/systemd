@@ -82,8 +82,7 @@ endif
 efi_conf = configuration_data()
 
 # import several configs from userspace
-foreach name : ['HAVE_WARNING_ZERO_LENGTH_BOUNDS',
-                'HAVE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT']
+foreach name : ['HAVE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT']
         efi_conf.set(name, conf.get(name))
 endforeach
 

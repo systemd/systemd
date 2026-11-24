@@ -323,26 +323,6 @@ int uid_range_load_userns_by_fd_full(int userns_fd, UIDRangeUsernsMode mode, boo
         return uid_range_load_userns_full(p, mode, coalesce, ret);
 }
 
-bool uid_range_overlaps(const UIDRange *range, uid_t start, uid_t nr) {
-
-        if (!range)
-                return false;
-
-        /* Avoid overflow */
-        if (start > UINT32_MAX - nr)
-                nr = UINT32_MAX - start;
-
-        if (nr == 0)
-                return false;
-
-        FOREACH_ARRAY(entry, range->entries, range->n_entries)
-                if (start < entry->start + entry->nr &&
-                    start + nr >= entry->start)
-                        return true;
-
-        return false;
-}
-
 int uid_range_clip(UIDRange *range, uid_t min, uid_t max) {
         assert(range);
 
