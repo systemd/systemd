@@ -459,7 +459,7 @@ static int run(int argc, char *argv[]) {
         else if (streq(arg_verb, "kexec"))
                 cmd = LINUX_REBOOT_CMD_KEXEC;
         else if (streq(arg_verb, "exit"))
-                cmd = 0; /* ignored, just checking that arg_verb is valid */
+                cmd = RB_POWER_OFF; /* We cannot exit() on the host, fallback on another method. */
         else {
                 r = log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown action '%s'.", arg_verb);
                 goto error;
@@ -692,13 +692,10 @@ static int run(int argc, char *argv[]) {
         /* In a container, prefer exiting over reboot(RB_POWER_OFF/RB_HALT_SYSTEM) when shutting down, so
          * that our exit status is propagated to the container manager. (For reboots we stick to reboot(),
          * since that is how the container manager learns that a reboot was requested.) */
-        if (in_container && (streq(arg_verb, "exit") || IN_SET(cmd, RB_POWER_OFF, RB_HALT_SYSTEM))) {
+        if (in_container && IN_SET(cmd, RB_POWER_OFF, RB_HALT_SYSTEM)) {
                 log_info("Exiting container.");
                 return arg_exit_code;
         }
-
-        if (streq(arg_verb, "exit"))
-                cmd = RB_POWER_OFF; /* We cannot exit() on the host, fallback on another method. */
 
         switch (cmd) {
 
