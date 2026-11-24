@@ -262,7 +262,7 @@ int kmod_setup(void) {
                  * initialized in "global" mode and sysctl.d/ settings are not applied. Hence load
                  * it early, before systemd-sysctl.service runs and before any unit can create a
                  * network namespace. */
-                { "vsock",                      "/proc/sys/net/vsock",          false, false, NULL                      },
+                { "vsock",                      "/sys/module/vsock",            false, false, NULL                      },
 
                 /* Make sure we can send sd-notify messages over vsock as early as possible. */
                 { "vmw_vsock_virtio_transport", NULL,                           false, false, may_have_virtio           },
