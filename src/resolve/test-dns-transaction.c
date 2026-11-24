@@ -236,6 +236,31 @@ TEST(dns_transaction_process_reply_no_do_strict) {
         ASSERT_NULL(dns_transaction_gc(t));
 }
 
+TEST(dns_transaction_process_reply_no_crypto_strict) {
+        _cleanup_(transaction_env_teardown) TransactionEnv env = {};
+        _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
+        DnsTransaction *t;
+
+        transaction_env_setup(&env, DNSSEC_YES);
+        env.manager.dnssec_crypto = -EOPNOTSUPP;
+
+        env.server->verified_feature_level = DNS_SERVER_FEATURE_LEVEL_DO;
+        env.server->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_DO;
+        ASSERT_TRUE(dns_server_dnssec_supported(env.server));
+
+        transaction_setup_sent(&env, DNS_SERVER_FEATURE_LEVEL_DO, /* bypass_do= */ -1, &t, &reply);
+        dns_transaction_process_reply(t, reply, /* encrypted= */ false);
+
+        /* Fails without auxiliary lookups, instead of being accepted as insecure */
+        ASSERT_EQ(t->state, DNS_TRANSACTION_DNSSEC_FAILED);
+        ASSERT_EQ(t->answer_dnssec_result, DNSSEC_CRYPTO_UNAVAILABLE);
+        ASSERT_FALSE(FLAGS_SET(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED));
+        ASSERT_TRUE(set_isempty(t->dnssec_transactions));
+
+        t->block_gc--;
+        ASSERT_NULL(dns_transaction_gc(t));
+}
+
 TEST(dns_transaction_process_reply_do_allow_downgrade) {
         _cleanup_(transaction_env_teardown) TransactionEnv env = {};
         DnsTransaction *t;
