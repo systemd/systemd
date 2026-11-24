@@ -298,6 +298,12 @@ enum {
 #define JSON_BUILD_PAIR_CONDITION_STRV(condition, name, value) \
         SD_JSON_BUILD_PAIR_CONDITION(condition, name, SD_JSON_BUILD_STRV(value))
 
+/* Like sd_json_build()/sd_json_buildo(), but the pairs of the top-level object whose name isn't in filter are
+ * left out, without calling their callbacks, unless filter is NULL. */
+int json_build_filtered(sd_json_variant **ret, char * const *filter, ...);
+#define json_buildo_filtered(ret, filter, ...)                          \
+        json_build_filtered((ret), (filter), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
+
 int json_variant_new_pidref(sd_json_variant **ret, PidRef *pidref);
 int json_variant_new_devnum(sd_json_variant **ret, dev_t devnum);
 int json_variant_new_fd_info(sd_json_variant **ret, int fd);
