@@ -203,7 +203,6 @@ static inline bool dissected_image_is_bootable_uefi(DissectedImage *m) {
 bool dissected_image_is_portable(DissectedImage *m) _pure_;
 bool dissected_image_is_initrd(DissectedImage *m) _pure_;
 
-DecryptedImage* decrypted_image_ref(DecryptedImage *p);
 DecryptedImage* decrypted_image_unref(DecryptedImage *p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DecryptedImage*, decrypted_image_unref);
 

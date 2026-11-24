@@ -3224,7 +3224,7 @@ static DecryptedImage* decrypted_image_free(DecryptedImage *d) {
         return NULL;
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(DecryptedImage, decrypted_image, decrypted_image_free);
+DEFINE_TRIVIAL_UNREF_FUNC(DecryptedImage, decrypted_image, decrypted_image_free);
 
 int verity_validate_signature_userspace(const struct iovec *root_hash, const struct iovec *root_hash_sig, const char *root) {
         int r;
