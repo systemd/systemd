@@ -76,8 +76,10 @@
     transient UID/GID range, the user namespace can be configured to map the caller's UID/GID to root (UID
     0) inside the namespace, or to itself. Identity mappings can be combined with delegated ranges to enter
     a privileged user namespace from which the container can be set up after which the container can run in
-    one of the delegated ranges. Identity mapped users are not subject to BPF-LSM write restrictions unlike
-    the transient ranges.</para>
+    one of the delegated ranges. Unlike the transient ranges, identity mapped users may leave files owned by
+    them behind on file systems that outlive the user namespace. However, like any user namespace registered
+    with this service, they may only write to such file systems if these are of one of a fixed set of vetted
+    types (btrfs, erofs, ext4, f2fs, squashfs, tmpfs, vfat, xfs).</para>
 
     <para>Additionally, the allocation API supports mapping the <emphasis>foreign UID range</emphasis> into
     the user namespace. When this option is enabled, the foreign UID range is mapped 1:1 into the user

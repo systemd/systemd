@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <linux/magic.h>
 #include <stdio.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -16,6 +17,7 @@
 #include "namespace-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "userns-restrict.h"
@@ -454,4 +456,21 @@ int userns_restrict_setgroups_deny_by_fd(
 #else
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "User Namespace Restriction BPF support disabled.");
 #endif
+}
+
+/* Keep this in sync with superblock_is_vetted() in userns-restrict.bpf.c! The BPF-LSM policy refuses writes
+ * from managed user namespaces to file systems that outlive them unless they are of one of these types. We
+ * refuse to delegate mounts of any other type in the first place, so that clients get a clear error instead
+ * of an EPERM on first write. */
+bool userns_restrict_fs_type_is_vetted(const struct statfs *sfs) {
+        assert(sfs);
+
+        return is_fs_type(sfs, BTRFS_SUPER_MAGIC) ||
+                is_fs_type(sfs, EROFS_SUPER_MAGIC_V1) ||
+                is_fs_type(sfs, EXT4_SUPER_MAGIC) ||
+                is_fs_type(sfs, F2FS_SUPER_MAGIC) ||
+                is_fs_type(sfs, MSDOS_SUPER_MAGIC) ||
+                is_fs_type(sfs, SQUASHFS_MAGIC) ||
+                is_fs_type(sfs, TMPFS_MAGIC) ||
+                is_fs_type(sfs, XFS_SUPER_MAGIC);
 }
