@@ -57,8 +57,7 @@ dnsmasq_pid_file = '/run/networkd-ci/test-dnsmasq.pid'
 dnsmasq_log_file = '/run/networkd-ci/test-dnsmasq.log'
 dnsmasq_lease_file = '/run/networkd-ci/test-dnsmasq.lease'
 
-isc_dhcpd_pid_file = '/run/networkd-ci/test-isc-dhcpd.pid'
-isc_dhcpd_lease_file = '/run/networkd-ci/test-isc-dhcpd.lease'
+kea_dhcp6_unit = 'networkd-test-kea-dhcp6.service'
 
 radvd_pid_file = '/run/networkd-ci/test-radvd.pid'
 
@@ -941,16 +940,26 @@ def read_dnsmasq_log_file():
         return f.read()
 
 
-def start_isc_dhcpd(conf_file, ipv, interface='veth-peer'):
+def start_kea_dhcp6(conf_file):
+    # kea-dhcp6 does not daemonize, hence run it in a transient unit. The configuration files tell it to
+    # keep leases and the server ID in memory only. The PID file and the lock file for logging cannot be
+    # configured there, hence redirect the former to our directory and disable the latter.
     conf_file_path = os.path.join(networkd_ci_temp_dir, conf_file)
-    isc_dhcpd_command = f'dhcpd {ipv} -cf {conf_file_path} -lf {isc_dhcpd_lease_file} -pf {isc_dhcpd_pid_file} {interface}'  # fmt: skip
-    touch(isc_dhcpd_lease_file)
-    check_output(isc_dhcpd_command)
+    check_output(
+        'systemd-run',
+        f'--unit={kea_dhcp6_unit}',
+        '--service-type=exec',
+        f'--setenv=KEA_PIDFILE_DIR={networkd_ci_temp_dir}',
+        '--setenv=KEA_LOCKFILE_DIR=none',
+        'kea-dhcp6',
+        '-c',
+        conf_file_path,
+    )
 
 
-def stop_isc_dhcpd():
-    stop_by_pid_file(isc_dhcpd_pid_file)
-    rm_f(isc_dhcpd_lease_file)
+def stop_kea_dhcp6():
+    call_quiet(f'systemctl stop {kea_dhcp6_unit}')
+    call_quiet(f'systemctl reset-failed {kea_dhcp6_unit}')
 
 
 def get_dbus_link_path(link):
@@ -1228,7 +1237,7 @@ def setup_common():
 def tear_down_common():
     # 1. stop DHCP/RA servers
     stop_dnsmasq()
-    stop_isc_dhcpd()
+    stop_kea_dhcp6()
     stop_radvd()
 
     # 2. remove modules
@@ -10816,7 +10825,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         self.assertGreater(prefixInfo[0]['PreferredLifetimeUSec'], 0)
         self.assertGreater(prefixInfo[0]['ValidLifetimeUSec'], 0)
 
-    @unittest.skipUnless(shutil.which('dhcpd'), reason='dhcpd is not available')
+    @unittest.skipUnless(shutil.which('kea-dhcp6'), reason='kea-dhcp6 is not available')
     def test_dhcp6pd_no_address(self):
         # For issue #29979.
         copy_network_unit(
@@ -10827,7 +10836,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
 
         start_networkd()
         self.wait_online('veth-peer:routable')
-        start_isc_dhcpd(conf_file='isc-dhcpd-dhcp6pd.conf', ipv='-6')
+        start_kea_dhcp6(conf_file='kea-dhcp6-pd.conf')
         self.wait_online('veth99:degraded')
 
         print('### ip -6 address show dev veth99 scope global')
@@ -10842,7 +10851,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
 
         self.check_dhcp6_prefix('veth99')
 
-    @unittest.skipUnless(shutil.which('dhcpd'), reason='dhcpd is not available')
+    @unittest.skipUnless(shutil.which('kea-dhcp6'), reason='kea-dhcp6 is not available')
     def test_dhcp6pd_no_assign(self):
         # Similar to test_dhcp6pd_no_assign(), but in this case UseAddress=yes (default),
         # However, the server does not provide IA_NA. For issue #31349.
@@ -10854,7 +10863,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
 
         start_networkd()
         self.wait_online('veth-peer:routable')
-        start_isc_dhcpd(conf_file='isc-dhcpd-dhcp6pd-no-range.conf', ipv='-6')
+        start_kea_dhcp6(conf_file='kea-dhcp6-pd-no-range.conf')
         self.wait_online('veth99:degraded')
 
         print('### ip -6 address show dev veth99 scope global')
@@ -10869,7 +10878,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
 
         self.check_dhcp6_prefix('veth99')
 
-    @unittest.skipUnless(shutil.which('dhcpd'), reason='dhcpd is not available')
+    @unittest.skipUnless(shutil.which('kea-dhcp6'), reason='kea-dhcp6 is not available')
     def test_dhcp6pd(self):
         copy_network_unit(
             '25-veth.netdev',
@@ -10892,7 +10901,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
 
         start_networkd()
         self.wait_online('veth-peer:routable')
-        start_isc_dhcpd(conf_file='isc-dhcpd-dhcp6pd.conf', ipv='-6')
+        start_kea_dhcp6(conf_file='kea-dhcp6-pd.conf')
         self.wait_online(
             'veth99:routable',
             'test1:routable',
@@ -11137,7 +11146,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
 
         self.teardown_nftset('addr6', 'network6', 'ifindex')
 
-    @unittest.skipUnless(shutil.which('dhcpd'), reason='dhcpd is not available')
+    @unittest.skipUnless(shutil.which('kea-dhcp6'), reason='kea-dhcp6 is not available')
     def test_dhcp6pd_renumber(self):
         copy_network_unit(
             '25-veth.netdev',
@@ -11150,7 +11159,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
 
         start_networkd()
         self.wait_online('veth-peer:routable')
-        start_isc_dhcpd(conf_file='isc-dhcpd-dhcp6pd.conf', ipv='-6')
+        start_kea_dhcp6(conf_file='kea-dhcp6-pd.conf')
         self.wait_online('veth99:routable', 'veth97:routable', 'veth97-peer:routable')
 
         # NDisc address (Token=static)
@@ -11158,8 +11167,8 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         self.wait_address('veth97-peer', f'{old_address} dynamic', ipv='-6')
 
         # The new invocation solicits a new lease, and the server hands out a different prefix.
-        stop_isc_dhcpd()
-        start_isc_dhcpd(conf_file='isc-dhcpd-dhcp6pd-renumbered.conf', ipv='-6')
+        stop_kea_dhcp6()
+        start_kea_dhcp6(conf_file='kea-dhcp6-pd-renumbered.conf')
         restart_networkd()
         self.wait_online('veth99:routable', 'veth97:routable', 'veth97-peer:routable')
 
