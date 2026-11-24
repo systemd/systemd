@@ -271,10 +271,12 @@
 
       <varlistentry>
         <term><varname>_SOURCE_REALTIME_TIMESTAMP=</varname></term>
+        <term><varname>_SOURCE_MONOTONIC_TIMESTAMP=</varname></term>
         <listitem>
           <para>The earliest trusted timestamp of the message, if any is known that is different from the
-          reception time of the journal. The timestamp is the <constant>CLOCK_REALTIME</constant> time in
-          microseconds, formatted as a decimal.</para>
+          reception time of the journal. The timestamp is the <constant>CLOCK_REALTIME</constant> or
+          <constant>CLOCK_MONOTONIC</constant> time, respectively, in microseconds, formatted as a
+          decimal.</para>
         </listitem>
       </varlistentry>
 
@@ -283,6 +285,15 @@
         <listitem>
           <para>The earliest trusted timestamp of the message in the <constant>CLOCK_BOOTTIME</constant>
           time, in the same format as <varname>_SOURCE_REALTIME_TIMESTAMP=</varname>.</para>
+
+          <para>For kernel messages these fields are set to the timestamp the kernel attached to the
+          message. Note that this timestamp is taken from neither of these clocks, but from a kernel-internal
+          clock not accessible from userspace, which depending on hardware and suspend mode behaves roughly
+          like <constant>CLOCK_MONOTONIC</constant> or like <constant>CLOCK_BOOTTIME</constant>. Hence, once
+          the system has been suspended, <command>systemd-journald</command> heuristically stores it only in
+          the field of the clock it appears closer to. Older versions of
+          <command>systemd-journald</command> always set <varname>_SOURCE_MONOTONIC_TIMESTAMP=</varname>
+          for kernel messages, and since version 257 also <varname>_SOURCE_BOOTTIME_TIMESTAMP=</varname>.</para>
 
           <xi:include href="version-info.xml" xpointer="v257"/>
         </listitem>
@@ -672,6 +683,23 @@
           for the entry, this should be combined with the boot ID in
           <literal>_BOOT_ID=</literal>.
           </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>__BOOTTIME_TIMESTAMP=</varname></term>
+        <listitem>
+          <para>The boottime clock (<constant>CLOCK_BOOTTIME</constant>) at the point in time the entry was
+          received by the journal in microseconds, formatted as a decimal. This clock is like
+          <constant>CLOCK_MONOTONIC</constant>, but also includes time the system spent in suspend. Like
+          <varname>__MONOTONIC_TIMESTAMP=</varname> this should be combined with the boot ID in
+          <literal>_BOOT_ID=</literal> to be useful as an address of the entry. This field is only included
+          if the boottime timestamp is known for the entry, which is not the case for entries written by
+          older versions of systemd. See
+          <citerefentry><refentrytitle>sd_journal_get_boottime_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+          for details.</para>
+
+          <xi:include href="version-info.xml" xpointer="v264"/>
         </listitem>
       </varlistentry>
 

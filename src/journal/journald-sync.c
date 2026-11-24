@@ -58,15 +58,15 @@ static bool sync_req_is_complete(SyncReq *req) {
         /* In case the clock jumped backwards, let's adjust the timestamp, to guarantee reasonably quick
          * termination */
         usec_t n = now(CLOCK_REALTIME);
-        if (n < req->realtime)
-                req->realtime = n;
+        if (n < req->timestamp.realtime)
+                req->timestamp.realtime = n;
 
         if (req->realtime_prioq_idx != PRIOQ_IDX_NULL) {
                 /* If this sync request is still in the priority queue it means we still need to check if
                  * incoming message timestamps are now newer than then sync request timestamp. */
 
                 if (req->manager->native_fd >= 0 &&
-                    req->manager->native_timestamp < req->realtime) {
+                    req->manager->native_timestamp < req->timestamp.realtime) {
                         r = fd_wait_for_event(req->manager->native_fd, POLLIN, /* timeout= */ 0);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to determine pending IO events of native socket, ignoring: %m");
@@ -75,7 +75,7 @@ static bool sync_req_is_complete(SyncReq *req) {
                 }
 
                 if (req->manager->syslog_fd >= 0&&
-                    req->manager->syslog_timestamp < req->realtime) {
+                    req->manager->syslog_timestamp < req->timestamp.realtime) {
                         r = fd_wait_for_event(req->manager->syslog_fd, POLLIN, /* timeout= */ 0);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to determine pending IO events of syslog socket, ignoring: %m");
@@ -90,10 +90,11 @@ static bool sync_req_is_complete(SyncReq *req) {
         }
 
         if (req->boottime_prioq_idx != PRIOQ_IDX_NULL) {
-                /* Very similar to the above, but for /dev/kmsg we operate on the CLOCK_BOOTTIME clock */
+                /* Very similar to the above, but for /dev/kmsg we operate on the CLOCK_BOOTTIME or
+                 * CLOCK_MONOTONIC clock, depending on which one the kernel's timestamps appear closer to. */
 
                 if (req->manager->dev_kmsg_fd >= 0 &&
-                    req->manager->dev_kmsg_timestamp < req->boottime) {
+                    req->manager->dev_kmsg_timestamp < triple_timestamp_by_clock(&req->timestamp, req->manager->dev_kmsg_timestamp_clock)) {
                         r = fd_wait_for_event(req->manager->dev_kmsg_fd, POLLIN, /* timeout= */ 0);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to determine pending IO events of /dev/kmsg file descriptor, ignoring: %m");
@@ -153,11 +154,12 @@ SyncReq* sync_req_free(SyncReq *req) {
 }
 
 static int sync_req_realtime_compare(const SyncReq *x, const SyncReq *y) {
-        return CMP(ASSERT_PTR(x)->realtime, ASSERT_PTR(y)->realtime);
+        return CMP(ASSERT_PTR(x)->timestamp.realtime, ASSERT_PTR(y)->timestamp.realtime);
 }
 
 static int sync_req_boottime_compare(const SyncReq *x, const SyncReq *y) {
-        return CMP(ASSERT_PTR(x)->boottime, ASSERT_PTR(y)->boottime);
+        /* Note that this order is the same as the one by the CLOCK_MONOTONIC timestamps */
+        return CMP(ASSERT_PTR(x)->timestamp.boottime, ASSERT_PTR(y)->timestamp.boottime);
 }
 
 static int sync_req_add_stream(SyncReq *req, StdoutStream *ss) {
@@ -221,8 +223,9 @@ int sync_req_new(Manager *m, sd_varlink *link, SyncReq **ret) {
          *    there was an easier, quicker way!). Once we accept()ed that many connections we know all
          *    further connections are definitely more recent than the sync request.
          *
-         * 4. For /dev/kmsg we look at the log message timestamps, similar to the AF_UNIX/SOCK_DGRAM case,
-         *    and they are in CLOCK_BOOTTIME clock.
+         * 4. For /dev/kmsg we look at the log message timestamps, similar to the AF_UNIX/SOCK_DGRAM case.
+         *    They are in a kernel-internal clock that behaves roughly like either CLOCK_BOOTTIME or
+         *    CLOCK_MONOTONIC (see dev_kmsg_classify_timestamp()), hence we compare them with either.
          *
          * 5. Finally, as safety net we install an idle handler with a very low priority (lower than the
          *    syslog/native/stream IO handlers). If this handler is called we know that there's no pending
@@ -240,8 +243,7 @@ int sync_req_new(Manager *m, sd_varlink *link, SyncReq **ret) {
          * know everything is processed by now regardless of any timestamps or pending byte or connection
          * counts.) */
 
-        req->realtime = now(CLOCK_REALTIME);
-        req->boottime = now(CLOCK_BOOTTIME);
+        triple_timestamp_now(&req->timestamp);
 
         if (m->native_event_source || m->syslog_event_source) {
                 r = prioq_ensure_put(&m->sync_req_realtime_prioq, sync_req_realtime_compare, req, &req->realtime_prioq_idx);

@@ -235,12 +235,13 @@ int event_source_get_child_pidref(sd_event_source *s, PidRef *ret) {
         return 0;
 }
 
-dual_timestamp* event_dual_timestamp_now(sd_event *e, dual_timestamp *ts) {
+triple_timestamp* event_triple_timestamp_now(sd_event *e, triple_timestamp *ts) {
         assert(e);
         assert(ts);
 
         assert_se(sd_event_now(e, CLOCK_REALTIME, &ts->realtime) >= 0);
         assert_se(sd_event_now(e, CLOCK_MONOTONIC, &ts->monotonic) >= 0);
+        assert_se(sd_event_now(e, CLOCK_BOOTTIME, &ts->boottime) >= 0);
         return ts;
 }
 

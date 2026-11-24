@@ -71,11 +71,22 @@ enum {
 struct ObjectHeader {
         uint8_t type;
         uint8_t flags;
-        uint8_t reserved[6];
+        /* Only defined for entry objects in files with HEADER_COMPATIBLE_BOOTTIME set, zero otherwise: the
+         * offset of CLOCK_BOOTTIME relative to CLOCK_MONOTONIC (i.e. usually the time spent in system suspend
+         * so far during the boot) in µs, as a signed 48-bit integer in two's complement, split into the high
+         * 16 bits and the low 32 bits. The offset may be negative, since time namespaces allow shifting
+         * the two clocks independently. The smallest value (i.e. only the most significant bit set,
+         * ENTRY_BOOTTIME_OFFSET_UNKNOWN) indicates the offset is not known for the entry. */
+        le16_t boottime_offset_hi;
+        le32_t boottime_offset_lo;
         le64_t size;
         uint8_t payload[0]; /* The struct is embedded in other objects, hence flex array (i.e. payload[])
                              * cannot be used. */
 } _packed_;
+
+assert_cc(offsetof(struct ObjectHeader, boottime_offset_hi) == 2);
+assert_cc(offsetof(struct ObjectHeader, boottime_offset_lo) == 4);
+assert_cc(sizeof(struct ObjectHeader) == 16);
 
 #define DataObject__contents {                                          \
         ObjectHeader object;                                            \
@@ -206,14 +217,21 @@ enum {
         HEADER_COMPATIBLE_SEALED             = 1 << 0,
         HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID = 1 << 1, /* if set, the last_entry_boot_id field in the header is exclusively refreshed when an entry is appended */
         HEADER_COMPATIBLE_SEALED_CONTINUOUS  = 1 << 2,
+        HEADER_COMPATIBLE_BOOTTIME           = 1 << 3, /* if set, entry objects carry a CLOCK_BOOTTIME offset in their object header */
         HEADER_COMPATIBLE_ANY                = HEADER_COMPATIBLE_SEALED |
                                                HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID |
-                                               HEADER_COMPATIBLE_SEALED_CONTINUOUS,
+                                               HEADER_COMPATIBLE_SEALED_CONTINUOUS |
+                                               HEADER_COMPATIBLE_BOOTTIME,
 
         HEADER_COMPATIBLE_SUPPORTED          = HEADER_COMPATIBLE_SEALED |
                                                HEADER_COMPATIBLE_SEALED_CONTINUOUS |
-                                               HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID,
+                                               HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID |
+                                               HEADER_COMPATIBLE_BOOTTIME,
 };
+
+#define ENTRY_BOOTTIME_OFFSET_MAX     ((INT64_C(1) << 47) - 1)
+#define ENTRY_BOOTTIME_OFFSET_MIN     (-ENTRY_BOOTTIME_OFFSET_MAX)
+#define ENTRY_BOOTTIME_OFFSET_UNKNOWN (-(INT64_C(1) << 47))
 
 #define HEADER_SIGNATURE                                                \
         ((const uint8_t[]) { 'L', 'P', 'K', 'S', 'H', 'H', 'R', 'H' })
@@ -257,12 +275,14 @@ enum {
         le32_t tail_entry_array_n_entries;              \
         /* Added in 254 */                              \
         le64_t tail_entry_offset;                       \
+        /* Added in 264 */                              \
+        le64_t tail_entry_boottime;                     \
         }
 
 struct Header struct_Header__contents;
 struct Header__packed struct_Header__contents _packed_;
 assert_cc(sizeof(struct Header) == sizeof(struct Header__packed));
-assert_cc(sizeof(struct Header) == 272);
+assert_cc(sizeof(struct Header) == 280);
 
 #define FSS_HEADER_SIGNATURE                                            \
         { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' }
