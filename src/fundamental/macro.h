@@ -39,15 +39,6 @@
         _Pragma("GCC diagnostic push");                                 \
         _Pragma("GCC diagnostic ignored \"-Wredundant-decls\"")
 
-#if HAVE_WARNING_ZERO_LENGTH_BOUNDS
-#  define DISABLE_WARNING_ZERO_LENGTH_BOUNDS                            \
-        _Pragma("GCC diagnostic push");                                 \
-        _Pragma("GCC diagnostic ignored \"-Wzero-length-bounds\"")
-#else
-#  define DISABLE_WARNING_ZERO_LENGTH_BOUNDS                            \
-        _Pragma("GCC diagnostic push")
-#endif
-
 #if HAVE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT
 #  define DISABLE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT                 \
         _Pragma("GCC diagnostic push");                                 \

@@ -703,10 +703,6 @@ endif
 
 cpp = ' '.join(cc.cmd_array() + get_option('c_args')) + ' -E'
 
-# new in GCC 10
-have = cc.has_argument('-Wzero-length-bounds')
-conf.set10('HAVE_WARNING_ZERO_LENGTH_BOUNDS', have)
-
 # new in GCC 15
 have = cc.has_argument('-Wzero-as-null-pointer-constant')
 conf.set10('HAVE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT', have)
