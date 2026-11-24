@@ -208,9 +208,9 @@ static int ruleset_load_one(Manager *m, const char *filename) {
         return 0;
 }
 
-void manager_parse_config_file(Manager *m) {
+int manager_parse_config_file(Manager *m) {
         _cleanup_strv_free_ char **files = NULL;
-        int r;
+        int k, r;
 
         assert(m);
 
@@ -232,12 +232,12 @@ void manager_parse_config_file(Manager *m) {
         if (r >= 0)
                 log_debug("Config file successfully parsed.");
 
-        r = conf_files_list_strv(&files, ".oomrule", /* root= */ NULL, CONF_FILES_WARN, RULESET_DIRS);
-        if (r < 0) {
+        k = conf_files_list_strv(&files, ".oomrule", /* root= */ NULL, CONF_FILES_WARN, RULESET_DIRS);
+        if (k < 0) {
                 /* On enumeration failure, keep the previously loaded rulesets rather than clearing them —
                  * a transient I/O error shouldn't cause in-flight units to silently lose their OOM policy. */
-                log_error_errno(r, "Failed to enumerate ruleset files, keeping previously loaded rulesets: %m");
-                return;
+                log_error_errno(k, "Failed to enumerate ruleset files, keeping previously loaded rulesets: %m");
+                return r;
         }
 
         /* Clear all rulesets and re-parse. This intentionally resets any accumulated
@@ -264,4 +264,6 @@ void manager_parse_config_file(Manager *m) {
                         log_debug("  LastingSec=%s", FORMAT_TIMESPAN(ruleset->lasting_usec, USEC_PER_SEC));
                 }
         }
+
+        return r;
 }
