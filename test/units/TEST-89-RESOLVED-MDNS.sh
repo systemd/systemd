@@ -116,7 +116,7 @@ run_and_check_services() {
     error_file="$(mktemp)"
     tmp_file="$(mktemp)"
     service_type="_testService$service_id._udp"
-    parameters="{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": ${BRIDGE_INDEX:?}, \"flags\": 16785432 }"
+    parameters="{ \"domain\": null, \"type\": \"$service_type\", \"ifindex\": ${BRIDGE_INDEX:?}, \"flags\": 16785432 }"
 
     # shellcheck disable=SC2064
     # Note: unregister the trap once it's fired, otherwise it'll get propagated to functions that call this
@@ -208,7 +208,7 @@ run_and_check_services_with_ifindex() {
     error_file="$(mktemp)"
     tmp_file="$(mktemp)"
     service_type="_testService$service_id._udp"
-    parameters="{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": $ifindex, \"flags\": 16785432 }"
+    parameters="{ \"domain\": \"$service_type.local\", \"type\": null, \"ifindex\": $ifindex, \"flags\": 16785432 }"
 
     # shellcheck disable=SC2064
     # Note: same as above about unregistering the trap once it's fired
@@ -236,8 +236,9 @@ run_and_check_services_with_ifindex() {
 testcase_browse_all_interfaces_ifindex_zero() {
     : "Test browsing all interfaces with ifindex=0"
     resolvectl flush-caches
-    # Using ifindex=0 should discover services on all mDNS interfaces
+    # Both zero and null should discover services on all mDNS interfaces.
     run_and_check_services_with_ifindex 0 check_both 0
+    run_and_check_services_with_ifindex 0 check_both null
 }
 
 testcase_browse_ifindex_zero_no_flap() {
