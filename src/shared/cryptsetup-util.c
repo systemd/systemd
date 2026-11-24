@@ -411,16 +411,24 @@ static int dispatch_token_keyslots(const char *name, sd_json_variant *variant, s
         return 0;
 }
 
+typedef struct CryptsetupTokenCommon {
+        const char *type;
+        CryptsetupTokenKeyslots keyslots;
+} CryptsetupTokenCommon;
+
+static void cryptsetup_token_common_done(CryptsetupTokenCommon *c) {
+        assert(c);
+
+        free(c->keyslots.keyslots);
+}
+
 int cryptsetup_token_parse_common(
                 sd_json_variant *v,
                 const char **ret_type,
                 int **ret_keyslots,
                 size_t *ret_n_keyslots) {
 
-        struct {
-                const char *type;
-                CryptsetupTokenKeyslots keyslots;
-        } p = {};
+        _cleanup_(cryptsetup_token_common_done) CryptsetupTokenCommon p = {};
         int r;
 
         static const sd_json_dispatch_field dispatch_table[] = {
@@ -435,10 +443,8 @@ int cryptsetup_token_parse_common(
          * spec, not by us. The returned type string is owned by the JSON variant. */
 
         r = sd_json_dispatch(v, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
-        if (r < 0) {
-                free(p.keyslots.keyslots);
+        if (r < 0)
                 return r;
-        }
 
         if (ret_type)
                 *ret_type = p.type;
@@ -446,8 +452,6 @@ int cryptsetup_token_parse_common(
                 *ret_n_keyslots = p.keyslots.n_keyslots;
         if (ret_keyslots)
                 *ret_keyslots = TAKE_PTR(p.keyslots.keyslots);
-        else
-                free(p.keyslots.keyslots);
 
         return 0;
 }
