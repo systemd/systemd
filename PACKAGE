@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+load("@tine//distribution:defs.bzl", "distribution")
+
+distribution.set_for_package({
+    "fedora": {"release": "fedora.rawhide", "package_manager": "//:fedora.package-manager"},
+})
