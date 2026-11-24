@@ -1257,7 +1257,8 @@ EOF
     echo "$self_err" | grep NotSupported >/dev/null
     self_err=$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetIdleHint "{\"id\":\"$session\",\"idleHint\":false}" 2>&1 || true)
     echo "$self_err" | grep NotSupported >/dev/null
-    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetIdleHint '{"id":"nonexistent","idleHint":true}')
+    assert_in io.systemd.Login.NoSuchSession "$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetIdleHint \
+        '{"id":"nonexistent","idleHint":true}' 2>&1 || :)"
 
     : "--- SetLockedHint ---"
     runas logind-test-user varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetLockedHint "{\"id\":\"$session\",\"lockedHint\":true}"
@@ -1265,20 +1266,23 @@ EOF
     assert_eq "$(busctl get-property org.freedesktop.login1 "$session_path" org.freedesktop.login1.Session LockedHint)" "b true"
     varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetLockedHint "{\"id\":\"$session\",\"lockedHint\":false}"
     assert_eq "$(busctl get-property org.freedesktop.login1 "$session_path" org.freedesktop.login1.Session LockedHint)" "b false"
-    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetLockedHint '{"id":"nonexistent","lockedHint":true}')
+    assert_in io.systemd.Login.NoSuchSession "$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.SetLockedHint \
+        '{"id":"nonexistent","lockedHint":true}' 2>&1 || :)"
 
     : "--- LockSession / UnlockSession ---"
     for member in Lock Unlock; do
         journalctl --sync
         cursor=$(journalctl -b -u systemd-logind.service -n 1 --show-cursor | sed -n 's/^-- cursor: //p')
         varlinkctl call "$VARLINK_SOCKET" "io.systemd.Login.${member}Session" "{\"id\":\"$session\"}"
+        # shellcheck disable=SC2016
         timeout -v 10 bash -c '
             until journalctl -b -u systemd-logind.service --after-cursor="${1:?}" |
                   grep -F "path=$2 interface=org.freedesktop.login1.Session member=$3 " >/dev/null; do
                 sleep 0.2
             done
         ' bash "$cursor" "$session_path" "$member"
-        (! varlinkctl call "$VARLINK_SOCKET" "io.systemd.Login.${member}Session" '{"id":"nonexistent"}')
+        assert_in io.systemd.Login.NoSuchSession "$(varlinkctl call "$VARLINK_SOCKET" "io.systemd.Login.${member}Session" \
+            '{"id":"nonexistent"}' 2>&1 || :)"
     done
 
     # An omitted or null id targets every session that supports locking.
@@ -1290,13 +1294,15 @@ EOF
     # Invalid signal number
     (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.KillSession "{\"id\":\"$session\",\"signal\":999}")
     # Nonexistent session
-    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.KillSession "{\"id\":\"nonexistent\",\"signal\":$sigcont}")
+    assert_in io.systemd.Login.NoSuchSession "$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.KillSession \
+        "{\"id\":\"nonexistent\",\"signal\":$sigcont}" 2>&1 || :)"
     # SIGCONT to the leader is non-lethal, so the session must survive.
     varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.KillSession "{\"id\":\"$session\",\"signal\":$sigcont,\"whom\":\"leader\"}"
     loginctl session-status "$session" >/dev/null
 
     : "--- TerminateSession ---"
-    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.TerminateSession '{"id":"nonexistent"}')
+    assert_in io.systemd.Login.NoSuchSession "$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.TerminateSession \
+        '{"id":"nonexistent"}' 2>&1 || :)"
     # This ends the test session. Keep this check last.
     varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.TerminateSession "{\"id\":\"$session\"}"
     timeout 10 bash -c "while loginctl session-status '$session' >/dev/null 2>&1; do sleep 0.5; done"
@@ -1453,7 +1459,7 @@ testcase_inhibit_default() {
 teardown_polkit_details() (
     set +ex
 
-    rm -f /etc/polkit-1/rules.d/00-logind-test-details.rules
+    rm -f /etc/pam.d/logind-test-seatless /etc/polkit-1/rules.d/00-logind-test-details.rules
     systemctl try-reload-or-restart polkit.service
     cleanup_session
 
@@ -1474,7 +1480,7 @@ testcase_polkit_details() {
         return
     fi
 
-    trap teardown_polkit_details RETURN
+    trap teardown_polkit_details EXIT
 
     create_session
 
@@ -1538,7 +1544,11 @@ EOF
     fi
 
     # A session without a seat is rejected before the polkit rule can deny the request.
-    if seatless_error=$(systemd-run --wait --pipe -p PAMName=login -p Type=exec -p User=testuser \
+    cat >/etc/pam.d/logind-test-seatless <<EOF
+account required pam_permit.so
+session required pam_systemd.so
+EOF
+    if seatless_error=$(systemd-run --wait --pipe -p PAMName=logind-test-seatless -p Type=exec -p User=testuser \
         varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ActivateSession '{}' 2>&1); then
         echo "Unexpectedly activated a session without a seat"
         return 1

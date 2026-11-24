@@ -4,6 +4,7 @@
 #include "logind-session.h"
 #include "tests.h"
 #include "test-varlink-idl-util.h"
+#include "varlink-idl-util.h"
 #include "varlink-io.systemd.Login.h"
 
 TEST(login_enums_idl) {
@@ -12,6 +13,9 @@ TEST(login_enums_idl) {
          * via Varlink. Only validate the IDL→C direction. */
         TEST_IDL_ENUM_FROM_STRING(SessionClass, session_class, vl_type_SessionClass);
         TEST_IDL_ENUM(InhibitMode, inhibit_mode, vl_type_InhibitMode);
+        const sd_varlink_symbol *kill_whom_symbol = ASSERT_PTR(
+                        varlink_idl_find_symbol(&vl_interface_io_systemd_Login, SD_VARLINK_ENUM_TYPE, "KillWhom"));
+        TEST_IDL_ENUM(KillWhom, kill_whom, *kill_whom_symbol);
         /* InhibitWhat is a bit-flag enum: inhibit_what_to_string() accepts a bitmask and
          * the index does not correspond to a sequential integer, so the TEST_IDL_ENUM
          * round-trip macro doesn't apply. The flag→string mapping is exercised through
