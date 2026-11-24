@@ -266,6 +266,9 @@ EOF
     # It may take a bit until the whole journal is transferred
     timeout 30 bash -xec "until journalctl --directory=/var/log/journal/remote --identifier='$TEST_TAG' --grep='$TEST_MESSAGE'; do sleep 1; done"
 
+    # The upload state and remote log directories pin the services. Reset the start counters while the
+    # units are still loaded so this compression case doesn't count against the next one.
+    systemctl reset-failed systemd-journal-upload.service systemd-journal-remote.{service,socket}
     systemctl stop systemd-journal-upload
     systemctl stop systemd-journal-remote.{socket,service}
     rm -rf /var/log/journal/remote/*
