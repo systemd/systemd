@@ -127,7 +127,11 @@ DnsResourceKey* dns_resource_key_ref(DnsResourceKey *k) {
         assert(k->n_ref != UINT_MAX);
 
         assert(k->n_ref > 0);
-        k->n_ref++;
+
+        /* Also make sure we never increase the counter to UINT_MAX, since that would turn this key into
+         * a const one. See ref_counter_inc() for an explanation why we abort here. */
+        assert_se(k->n_ref < UINT_MAX - 1);
+        ref_counter_inc(&k->n_ref);
 
         return k;
 }
@@ -137,15 +141,12 @@ DnsResourceKey* dns_resource_key_unref(DnsResourceKey *k) {
                 return NULL;
 
         assert(k->n_ref != UINT_MAX);
-        assert(k->n_ref > 0);
 
-        if (k->n_ref == 1) {
-                free(k->_name);
-                free(k);
-        } else
-                k->n_ref--;
+        if (ref_counter_dec(&k->n_ref) > 0)
+                return NULL;
 
-        return NULL;
+        free(k->_name);
+        return mfree(k);
 }
 
 const char* dns_resource_key_name(const DnsResourceKey *key) {

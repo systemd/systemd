@@ -805,7 +805,7 @@ _public_ sd_bus_message* sd_bus_message_ref(sd_bus_message *m) {
          * least one bus connection object. */
         assert(m->n_ref > 0 || m->n_queued > 0);
 
-        m->n_ref++;
+        ref_counter_inc(&m->n_ref);
 
         /* Each user reference to a bus message shall also be considered a ref on the bus */
         sd_bus_ref(m->bus);
@@ -823,9 +823,7 @@ _public_ sd_bus_message* sd_bus_message_unref(sd_bus_message *m) {
                                * otherwise, if this message is currently queued sd_bus_unref() might call
                                * bus_message_unref_queued() for this which might then destroy the message
                                * while we are still processing it. */
-        m->n_ref--;
-
-        if (m->n_ref > 0 || m->n_queued > 0)
+        if (ref_counter_dec(&m->n_ref) > 0 || m->n_queued > 0)
                 return NULL;
 
         /* Unset the bus field if neither the user has a reference nor this message is queued. We are careful

@@ -66,7 +66,7 @@ _public_ sd_bus_creds* sd_bus_creds_ref(sd_bus_creds *c) {
 
         if (c->allocated) {
                 assert(c->n_ref > 0);
-                c->n_ref++;
+                ref_counter_inc(&c->n_ref);
         } else {
                 sd_bus_message *m;
 
@@ -85,10 +85,7 @@ _public_ sd_bus_creds* sd_bus_creds_unref(sd_bus_creds *c) {
                 return NULL;
 
         if (c->allocated) {
-                assert(c->n_ref > 0);
-                c->n_ref--;
-
-                if (c->n_ref == 0) {
+                if (ref_counter_dec(&c->n_ref) == 0) {
                         free(c->comm);
                         free(c->tid_comm);
                         free(c->exe);

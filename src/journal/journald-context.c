@@ -747,7 +747,7 @@ static int client_context_get_internal(
                                 c->in_lru = false;
                         }
 
-                        c->n_ref++;
+                        ref_counter_inc(&c->n_ref);
                 }
 
                 client_context_maybe_refresh(m, c, ucred, label, unit_id, USEC_INFINITY);
@@ -763,7 +763,7 @@ static int client_context_get_internal(
                 return r;
 
         if (add_ref)
-                c->n_ref++;
+                ref_counter_inc(&c->n_ref);
         else {
                 r = prioq_put(m->client_contexts_lru, c, &c->lru_index);
                 if (r < 0) {
@@ -808,11 +808,9 @@ ClientContext *client_context_release(Manager *m, ClientContext *c) {
         if (!c)
                 return NULL;
 
-        assert(c->n_ref > 0);
         assert(!c->in_lru);
 
-        c->n_ref--;
-        if (c->n_ref > 0)
+        if (ref_counter_dec(&c->n_ref) > 0)
                 return NULL;
 
         /* The entry is not pinned anymore, let's add it to the LRU prioq if we can. If we can't we'll drop it
