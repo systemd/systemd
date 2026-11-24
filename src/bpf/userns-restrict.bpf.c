@@ -67,8 +67,15 @@ void* bpf_rdonly_cast(const void *, __u32) __ksym;
 
 /* From include/uapi/linux/magic.h, which vmlinux.h does not provide. */
 #define BTRFS_SUPER_MAGIC 0x9123683E
-#define OVERLAYFS_SUPER_MAGIC 0x794c7630
 #define CGROUP2_SUPER_MAGIC 0x63677270
+#define EROFS_SUPER_MAGIC_V1 0xE0F5E1E2
+#define EXT4_SUPER_MAGIC 0xEF53
+#define F2FS_SUPER_MAGIC 0xF2F52010
+#define MSDOS_SUPER_MAGIC 0x4d44
+#define OVERLAYFS_SUPER_MAGIC 0x794c7630
+#define SQUASHFS_MAGIC 0x73717368
+#define TMPFS_MAGIC 0x01021994
+#define XFS_SUPER_MAGIC 0x58465342
 
 /* The kernel defines MQUEUE_MAGIC in ipc/mqueue.c rather than a UAPI header. */
 #define MQUEUE_MAGIC 0x19800202
@@ -295,6 +302,32 @@ static bool superblock_is_exempt(struct super_block *sb) {
         return sb->s_magic == CGROUP2_SUPER_MAGIC;
 }
 
+/* The policy relies on the file system to route every inode creation and ownership change through the LSM
+ * hooks above, and to record exactly the IDs the mount idmapping yields. That's something we can only vouch
+ * for after looking at a file system's implementation: Btrfs subvolume creation for example bypasses the
+ * regular hooks (see validate_ioctl() below), and overlayfs needs special treatment as well (see
+ * userns_restrict_sb_kern_mount() below). Hence, writes to a file system that outlives the user namespace
+ * are only permitted if it is of a type we vetted, everything else is refused, whatever the IDs involved.
+ * This covers what systemd-mountfsd mounts from disk images (see allowed_fstypes() in dissect-image.c),
+ * plus tmpfs. Note that ext2/ext3 share the ext4 magic.
+ *
+ * Keep this in sync with superblock_type_is_vetted() in nsresourcework.c! */
+static bool superblock_is_vetted(struct super_block *sb) {
+        switch (sb->s_magic) {
+        case BTRFS_SUPER_MAGIC:
+        case EROFS_SUPER_MAGIC_V1:
+        case EXT4_SUPER_MAGIC:
+        case F2FS_SUPER_MAGIC:
+        case MSDOS_SUPER_MAGIC:
+        case SQUASHFS_MAGIC:
+        case TMPFS_MAGIC:
+        case XFS_SUPER_MAGIC:
+                return true;
+        default:
+                return false;
+        }
+}
+
 /* Returns 1 if the calling task belongs to a user namespace provisioned by nsresourced and the file system
  * outlives that namespace, 0 if the policy doesn't apply, and negative on failure. */
 static int task_writes_outlive_userns(struct super_block *sb, const struct cred **ret_cred) {
@@ -324,6 +357,11 @@ static int task_writes_outlive_userns(struct super_block *sb, const struct cred 
                 return r;
         if (r > 0)
                 return 0;
+
+        /* The file system outlives the user namespace. Refuse outright unless we know it plays by the rules
+         * the remaining checks depend on. */
+        if (!superblock_is_vetted(sb))
+                return -EPERM;
 
         if (ret_cred)
                 *ret_cred = cred;
@@ -703,6 +741,12 @@ int BPF_PROG(userns_restrict_sb_kern_mount, struct super_block *sb, int ret) {
          * initial user namespace whose mount idmapping maps the transient ranges away. We refuse anything
          * we cannot prove this for, including any non-initial-namespace upper. */
         if (fs_userns->parent)
+                return -EPERM;
+
+        /* The writes to the upper happen with the mounter's credentials, i.e. they reach the inode hooks
+         * only, and only if the kernel supports them. Hence apply the file system type allowlist here too,
+         * rather than relying on the hooks to catch an upper of a type we never vetted. */
+        if (!superblock_is_vetted(upper->mnt_sb))
                 return -EPERM;
 
         if (mount_neutralizes_transient(upper))

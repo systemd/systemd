@@ -26,6 +26,7 @@
 #include "ether-addr-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "filesystems.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
@@ -1770,6 +1771,45 @@ fail:
         return r;
 }
 
+/* Keep this in sync with superblock_is_vetted() in userns-restrict.bpf.c! The BPF-LSM policy refuses writes
+ * from managed user namespaces to file systems that outlive them unless they are of one of these types, and
+ * we refuse to delegate mounts of any other type in the first place, so that clients get a clear error
+ * instead of an EPERM on first write. */
+static bool superblock_type_is_vetted(const struct statfs *sfs) {
+        assert(sfs);
+
+        return is_fs_type(sfs, BTRFS_SUPER_MAGIC) ||
+                is_fs_type(sfs, EROFS_SUPER_MAGIC_V1) ||
+                is_fs_type(sfs, EXT4_SUPER_MAGIC) ||
+                is_fs_type(sfs, F2FS_SUPER_MAGIC) ||
+                is_fs_type(sfs, MSDOS_SUPER_MAGIC) ||
+                is_fs_type(sfs, SQUASHFS_MAGIC) ||
+                is_fs_type(sfs, TMPFS_MAGIC) ||
+                is_fs_type(sfs, XFS_SUPER_MAGIC);
+}
+
+static int validate_mount_file_system_type(sd_varlink *link, int mount_fd) {
+        struct statfs sfs;
+
+        assert(link);
+        assert(mount_fd >= 0);
+
+        if (fstatfs(mount_fd, &sfs) < 0)
+                return log_debug_errno(errno, "Failed to statfs() mount file descriptor: %m");
+
+        if (superblock_type_is_vetted(&sfs))
+                return 0;
+
+        const char *n = fs_type_to_string(sfs.f_type);
+        log_debug("Refusing to delegate mount of file system type '%s' (0x%llx) to user namespace.",
+                  strna(n), (unsigned long long) sfs.f_type);
+
+        return sd_varlink_errorbo(
+                        link,
+                        "io.systemd.NamespaceResource.FileSystemTypeNotSupported",
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("fileSystemType", n));
+}
+
 typedef struct AddMountParameters {
         unsigned userns_fd_idx;
         unsigned mount_fd_idx;
@@ -1833,6 +1873,10 @@ static int vl_method_add_mount_to_user_namespace(sd_varlink *link, sd_json_varia
 
         r = path_get_mnt_id_at(mount_fd, /* path= */ NULL, &mnt_id);
         if (r < 0)
+                return r;
+
+        r = validate_mount_file_system_type(link, mount_fd);
+        if (r != 0)
                 return r;
 
         r = varlink_verify_polkit_async_full(

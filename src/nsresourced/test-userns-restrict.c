@@ -762,6 +762,61 @@ TEST(userns_restrict_overlayfs_identity) {
         ASSERT_OK(pidref_wait_for_terminate_and_check("(test-ovl-id)", &pidref, WAIT_LOG));
 }
 
+static int make_ramfs_fsmount(void) {
+        _cleanup_close_ int fsfd = -EBADF;
+
+        fsfd = fsopen("ramfs", FSOPEN_CLOEXEC);
+        if (fsfd < 0)
+                return -errno;
+
+        if (fsconfig(fsfd, FSCONFIG_CMD_CREATE, /* key= */ NULL, /* value= */ NULL, /* aux= */ 0) < 0)
+                return -errno;
+
+        return RET_NERRNO(fsmount(fsfd, FSMOUNT_CLOEXEC, /* attr_flags= */ 0));
+}
+
+TEST(userns_restrict_unvetted_fs) {
+        _cleanup_(unregister_userns) uint64_t registered = 0;
+        _cleanup_close_ int userns_fd = -EBADF, ramfs = -EBADF, tmpfs = -EBADF;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+        int r;
+
+        /* ramfs is not on the list of file system types the policy vetted, and hence any write to a
+         * host-owned instance must be refused, even if no transient ID is involved. To show that, the user
+         * namespace maps root to root, i.e. no transient IDs are involved at all. A host tmpfs is
+         * vetted, and hence stays writable under the same conditions. */
+        ramfs = make_ramfs_fsmount();
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(ramfs) || ramfs == -ENODEV)
+                return (void) log_tests_skipped_errno(ramfs, "ramfs is not available");
+        ASSERT_OK(ramfs);
+
+        tmpfs = ASSERT_OK(make_tmpfs_fsmount());
+
+        userns_fd = ASSERT_OK(userns_acquire("0 0 1", "0 0 1", /* setgroups_deny= */ true));
+        registered = register_userns(userns_fd);
+
+        r = ASSERT_OK(pidref_safe_fork("(test-unvetted)", FORK_DEATHSIG_SIGKILL, &pidref));
+        if (r == 0) {
+                ASSERT_OK(namespace_enter(-EBADF, -EBADF, -EBADF, userns_fd, -EBADF));
+
+                ASSERT_ERROR(xopenat_full(ramfs, "file", O_CREAT|O_RDWR, /* xopen_flags= */ 0, 0600), EPERM);
+                ASSERT_ERROR_ERRNO(mkdirat(ramfs, "dir", 0700), EPERM);
+                ASSERT_ERROR_ERRNO(symlinkat("file", ramfs, "symlink"), EPERM);
+                ASSERT_ERROR_ERRNO(mkfifoat(ramfs, "fifo", 0600), EPERM);
+                ASSERT_ERROR_ERRNO(fchownat(ramfs, "", 0, 0, AT_EMPTY_PATH), EPERM);
+
+                safe_close(ASSERT_OK(xopenat_full(tmpfs, "file", O_CREAT|O_RDWR, /* xopen_flags= */ 0, 0600)));
+                ASSERT_OK_ERRNO(mkdirat(tmpfs, "dir", 0700));
+                ASSERT_OK_ERRNO(symlinkat("file", tmpfs, "symlink"));
+                ASSERT_OK_ERRNO(mkfifoat(tmpfs, "fifo", 0600));
+                ASSERT_OK_ERRNO(fchownat(tmpfs, "", 0, 0, AT_EMPTY_PATH));
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        ASSERT_OK(pidref_wait_for_terminate_and_check("(test-unvetted)", &pidref, WAIT_LOG));
+}
+
 TEST(userns_restrict_cgroupfs) {
         _cleanup_(unregister_userns) uint64_t registered = 0;
         _cleanup_close_ int userns_fd = -EBADF, undelegated_fd = -EBADF, delegated_fd = -EBADF;
