@@ -260,13 +260,14 @@ void pam_cleanup_free(pam_handle_t *pamh, void *data, int error_status) {
 }
 
 void pam_cleanup_close(pam_handle_t *pamh, void *data, int error_status) {
-
         /* A generic destructor for pam_set_data() that just closes the specified fd.
          *
-         * As per pam_set_data() docs: the PAM_DATA_SILENT indicates whether we are called in the forked off
-         * payload child of the new session. However, all file descriptors are most likely already closed
-         * there (that's what /bin/login does after all), hence let's simply turn this into a NOP in the
-         * child, and only close the fd in the parent. */
+         * As per pam_end() docs: PAM_DATA_SILENT indicates that we are called in the process that is about
+         * to execute the payload of the new session, while some other process takes care of the cleanup.
+         * (For login(1) this is the forked off child, for the service manager it is the parent, with the
+         * forked off (sd-pam) child cleaning up.) The file descriptor might already be closed there, or will
+         * be closed on exec anyway, hence let's simply turn this into a noop in this process, and only close
+         * the fd in the one that cleans up. */
         if (FLAGS_SET(error_status, PAM_DATA_SILENT))
                 return;
 
