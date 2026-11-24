@@ -152,9 +152,6 @@ int in_addr_mask(int family, union in_addr_union *addr, unsigned char prefixlen)
 int in4_addr_prefix_covers_full(const struct in_addr *prefix, unsigned char prefixlen, const struct in_addr *address, unsigned char address_prefixlen);
 int in6_addr_prefix_covers_full(const struct in6_addr *prefix, unsigned char prefixlen, const struct in6_addr *address, unsigned char address_prefixlen);
 int in_addr_prefix_covers_full(int family, const union in_addr_union *prefix, unsigned char prefixlen, const union in_addr_union *address, unsigned char address_prefixlen);
-static inline int in4_addr_prefix_covers(const struct in_addr *prefix, unsigned char prefixlen, const struct in_addr *address) {
-        return in4_addr_prefix_covers_full(prefix, prefixlen, address, 32);
-}
 static inline int in6_addr_prefix_covers(const struct in6_addr *prefix, unsigned char prefixlen, const struct in6_addr *address) {
         return in6_addr_prefix_covers_full(prefix, prefixlen, address, 128);
 }
