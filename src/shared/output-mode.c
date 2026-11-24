@@ -31,6 +31,7 @@ static const char *const output_mode_table[_OUTPUT_MODE_MAX] = {
         [OUTPUT_SHORT_PRECISE] = "short-precise",
         [OUTPUT_SHORT_MONOTONIC] = "short-monotonic",
         [OUTPUT_SHORT_DELTA] = "short-delta",
+        [OUTPUT_SHORT_BOOTTIME] = "short-boottime",
         [OUTPUT_SHORT_UNIX] = "short-unix",
         [OUTPUT_VERBOSE] = "verbose",
         [OUTPUT_EXPORT] = "export",
