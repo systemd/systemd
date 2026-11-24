@@ -395,6 +395,17 @@ static bool unit_success_failure_handler_has_jobs(Unit *unit) {
         return false;
 }
 
+static void unit_destroy_runtime_directory(Unit *u, const ExecContext *context) {
+        int r;
+
+        assert(u);
+        assert(u->manager);
+
+        r = exec_context_destroy_runtime_directory(context, u->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
+        if (r < 0)
+                log_unit_warning_errno(u, r, "Failed to remove runtime directories, ignoring: %m");
+}
+
 void unit_release_resources(Unit *u) {
         UnitActiveState state;
         ExecContext *ec;
@@ -416,7 +427,7 @@ void unit_release_resources(Unit *u) {
 
         ec = unit_get_exec_context(u);
         if (ec && ec->runtime_directory_preserve_mode == EXEC_PRESERVE_RESTART)
-                exec_context_destroy_runtime_directory(ec, u->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
+                unit_destroy_runtime_directory(u, ec);
 
         if (UNIT_VTABLE(u)->release_resources)
                 UNIT_VTABLE(u)->release_resources(u);
@@ -6516,7 +6527,7 @@ void unit_destroy_runtime_data(Unit *u, const ExecContext *context, bool destroy
 
         /* EXEC_PRESERVE_RESTART is handled via unit_release_resources()! */
         if (destroy_runtime_dir && context->runtime_directory_preserve_mode == EXEC_PRESERVE_NO)
-                exec_context_destroy_runtime_directory(context, u->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
+                unit_destroy_runtime_directory(u, context);
 
         exec_context_destroy_credentials(context, u->manager->prefix[EXEC_DIRECTORY_RUNTIME], u->id);
         exec_context_destroy_mount_ns_dir(u);
