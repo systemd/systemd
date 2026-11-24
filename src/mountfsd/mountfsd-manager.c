@@ -284,7 +284,7 @@ int manager_startup(Manager *m) {
                         if (bind(m->listen_fd, &sockaddr.sa, sockaddr_un_len(&sockaddr.un)) < 0)
                                 return log_error_errno(errno, "Failed to bind socket: %m");
 
-                if (listen(m->listen_fd, SOMAXCONN) < 0)
+                if (listen(m->listen_fd, SOMAXCONN_DELUXE) < 0)
                         return log_error_errno(errno, "Failed to listen on socket: %m");
         }
 

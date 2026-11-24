@@ -524,7 +524,7 @@ static int manager_make_listen_socket(Manager *m) {
         (void) xsetxattr(AT_FDCWD, sockaddr.un.sun_path, /* at_flags= */ 0, "user.userdb.username", "ns-*");
         (void) xsetxattr(AT_FDCWD, sockaddr.un.sun_path, /* at_flags= */ 0, "user.userdb.groupname", "ns-*");
 
-        if (listen(m->listen_fd, SOMAXCONN) < 0)
+        if (listen(m->listen_fd, SOMAXCONN_DELUXE) < 0)
                 return log_error_errno(errno, "Failed to listen on socket: %m");
 
         return 1;
