@@ -40,6 +40,10 @@ RELEASE="$(date "+%Y%m%d%H%M%S" --date "@$TS")"
 # abuild-meson internally sets -Dwerror=false, hence we cannot override it with --werror.
 MESON_OPTIONS="${MESON_OPTIONS//--werror/-D werror=true}"
 
+# postmarketos-base pulls in rtkit, whose D-Bus and polkit files conflict with the ones of
+# systemd-rtwatchd, which implements the same D-Bus API.
+MESON_OPTIONS="$MESON_OPTIONS -D rtwatch=false"
+
 # Patch version number.
 sed -i \
     -e "/^pkgver=/ s|=.*|=$VERSION|" \
