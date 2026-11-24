@@ -5136,7 +5136,7 @@ static int context_discard_range(
         if (size <= 0)
                 return 0;
 
-        assert_se((fd = sym_fdisk_get_devfd(context->fdisk_context)) >= 0);
+        fd = ASSERT_SE_NONNEG(sym_fdisk_get_devfd(context->fdisk_context));
 
         if (fstat(fd, &st) < 0)
                 return -errno;
@@ -5521,7 +5521,7 @@ static int partition_target_prepare(
         assert(p);
         assert(ret);
 
-        assert_se((whole_fd = sym_fdisk_get_devfd(context->fdisk_context)) >= 0);
+        whole_fd = ASSERT_SE_NONNEG(sym_fdisk_get_devfd(context->fdisk_context));
 
         t = new(PartitionTarget, 1);
         if (!t)
@@ -5675,7 +5675,7 @@ static int partition_target_sync(Context *context, Partition *p, PartitionTarget
         assert(p);
         assert(t);
 
-        assert_se((whole_fd = sym_fdisk_get_devfd(context->fdisk_context)) >= 0);
+        whole_fd = ASSERT_SE_NONNEG(sym_fdisk_get_devfd(context->fdisk_context));
 
         log_info("Syncing future partition %"PRIu64" contents to disk.", p->partno);
 
@@ -6597,7 +6597,7 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
 
         (void) partition_hint(p, context->node, &hint);
 
-        assert_se((whole_fd = sym_fdisk_get_devfd(context->fdisk_context)) >= 0);
+        whole_fd = ASSERT_SE_NONNEG(sym_fdisk_get_devfd(context->fdisk_context));
 
         _cleanup_(iovec_done) struct iovec sig_free = {};
         const struct iovec *roothash, *sig;
@@ -9023,7 +9023,7 @@ static int context_apply_match_xattrs(Context *context) {
         /* Applies the "user.uapi.match_…" extended attributes to the image itself, via the fd we already
          * have open for it. (The split-out partition files get them in context_split().) */
 
-        assert_se((fd = sym_fdisk_get_devfd(context->fdisk_context)) >= 0);
+        fd = ASSERT_SE_NONNEG(sym_fdisk_get_devfd(context->fdisk_context));
 
         struct stat st;
         if (fstat(fd, &st) < 0)
@@ -9065,7 +9065,7 @@ static int context_split(Context *context) {
                         continue;
 
                 if (fd < 0) {
-                        assert_se((fd = sym_fdisk_get_devfd(context->fdisk_context)) >= 0);
+                        fd = ASSERT_SE_NONNEG(sym_fdisk_get_devfd(context->fdisk_context));
 
                         r = read_attr_fd(fd, &attrs);
                         if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
@@ -9363,7 +9363,7 @@ static int context_manifest_gpt(Context *context) {
          * and one object per partition, carrying the GPT metadata, the partition's size and the hash of its
          * contents, and referencing the partition's bytes inside the image by their offset as source. */
 
-        assert_se((fd = sym_fdisk_get_devfd(context->fdisk_context)) >= 0);
+        fd = ASSERT_SE_NONNEG(sym_fdisk_get_devfd(context->fdisk_context));
         assert(context->total != UINT64_MAX);
 
         r = manifest_gpt_path(context, &path);
