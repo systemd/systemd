@@ -67,6 +67,12 @@ struct sd_dhcp_client {
         bool ipv6_acquired;
         bool bootp;
         bool send_release;
+
+        /* persistent lease */
+        int lease_dir_fd;
+        char *lease_file;
+        bool keep_expired_lease;
+        bool lease_timed_out;
 };
 
 int dhcp_client_set_state_callback(
@@ -78,6 +84,7 @@ int dhcp_client_get_state(sd_dhcp_client *client);
 int dhcp_client_set_extra_options(sd_dhcp_client *client, TLV *options);
 int dhcp_client_set_vendor_options(sd_dhcp_client *client, TLV *options);
 int dhcp_client_set_user_class(sd_dhcp_client *client, const struct iovec_wrapper *user_class);
+int dhcp_client_stop_full(sd_dhcp_client *client, bool send_release);
 
 int client_receive_message_raw(
                 sd_event_source *s,
