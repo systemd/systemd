@@ -1,0 +1,7 @@
+{
+  "tine": {
+    "repository": "https://github.com/amutable-systems/tine.git",
+    "ref": "main",
+    "commit": "b1ae053121e39fc52ac3c0d801cde954a1a300ba"
+  }
+}
