@@ -3,6 +3,7 @@
 
 #include "journald-forward.h"
 #include "list.h"
+#include "time-util.h"
 
 /* Encapsulates the synchronization request data we need to keep per STDOUT stream. Primarily a byte counter
  * to count down. */
@@ -23,8 +24,9 @@ typedef struct SyncReq {
 
         bool offline; /* if true, we'll offline the journal files after sync is complete */
 
-        usec_t realtime; /* CLOCK_REALTIME timestamp when synchronization request was initiated (for syncing on AF_UNIX/SOCK_DGRAM) */
-        usec_t boottime; /* CLOCK_BOOTTIME timestamp when synchronization request was initiated (for syncing on /dev/kmsg) */
+        /* Timestamps when synchronization request was initiated: CLOCK_REALTIME for syncing on
+         * AF_UNIX/SOCK_DGRAM, CLOCK_MONOTONIC or CLOCK_BOOTTIME for syncing on /dev/kmsg */
+        triple_timestamp timestamp;
 
         sd_event_source *idle_event_source;
 

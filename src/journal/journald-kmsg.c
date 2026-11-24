@@ -364,6 +364,8 @@ void dev_kmsg_record(Manager *m, char *p, size_t l) {
                 log_set_max_level(saved_log_max_level);
 
         m->dev_kmsg_timestamp = usec;
+        /* If we cannot tell the clocks apart, it doesn't matter which one we compare with. */
+        m->dev_kmsg_timestamp_clock = kmsg_clock >= 0 ? kmsg_clock : CLOCK_BOOTTIME;
         sync_req_revalidate_by_timestamp(m);
 
 finish:

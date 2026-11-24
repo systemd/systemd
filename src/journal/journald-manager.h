@@ -124,8 +124,9 @@ typedef struct Manager {
         sd_varlink_server *metrics_varlink_server;
 
         /* timestamp of most recently processed log messages from each source (CLOCK_REALTIME for the first
-         * two, CLOCK_BOOTTIME for the other) */
+         * two, CLOCK_BOOTTIME or CLOCK_MONOTONIC for the other, see dev_kmsg_classify_timestamp()) */
         usec_t native_timestamp, syslog_timestamp, dev_kmsg_timestamp;
+        clockid_t dev_kmsg_timestamp_clock; /* CLOCK_BOOTTIME or CLOCK_MONOTONIC */
 
         /* Pending synchronization requests, ordered by their timestamp */
         Prioq *sync_req_realtime_prioq;

@@ -2314,6 +2314,7 @@ int manager_new(Manager **ret) {
                 .native_fd = -EBADF,
                 .stdout_fd = -EBADF,
                 .dev_kmsg_fd = -EBADF,
+                .dev_kmsg_timestamp_clock = CLOCK_BOOTTIME,
                 .audit_fd = -EBADF,
                 .hostname_fd = -EBADF,
                 .notify_fd = -EBADF,
