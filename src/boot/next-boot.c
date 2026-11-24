@@ -186,6 +186,8 @@ static bool load_option_matches(
          *
          * If options are specified, the optional data of the load option (which the firmware passes to the
          * invoked binary as load options) must match them too. If no options are specified, the optional
+         * data of load options we created ourselves must be empty, so that we do not reuse one that still
+         * carries the optional data of an older version of the entry. For other load options the optional
          * data is not checked, so that we can reuse boot options OS installers created for themselves
          * (e.g. the one Windows creates for its boot manager carries some opaque optional data). */
 
@@ -198,7 +200,8 @@ static bool load_option_matches(
                 size_t l = strsize16(options);
                 if (o->optional_data_size != l || memcmp(o->optional_data, options, l) != 0)
                         return false;
-        }
+        } else if (load_option_is_ours(o) && o->optional_data_size > 0)
+                return false;
 
         _cleanup_free_ EFI_DEVICE_PATH *dp_device = NULL, *target_device = NULL;
         const EFI_DEVICE_PATH *dp_file, *target_file;
