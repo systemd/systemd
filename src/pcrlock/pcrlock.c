@@ -1879,7 +1879,7 @@ static int event_log_add_component_file(EventLog *el, EventLogComponent *compone
         };
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "records", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_variant_noref, 0, 0 },
+                { "records", SD_JSON_VARIANT_ARRAY, sd_json_dispatch_variant_noref, 0, 0 },
                 {}
         };
 
@@ -1889,31 +1889,24 @@ static int event_log_add_component_file(EventLog *el, EventLogComponent *compone
                 return 0;
         }
 
-        if (records) {
-                sd_json_variant *rj;
+        sd_json_variant *rj;
 
-                if (!sd_json_variant_is_array(records)) {
-                        log_warning("Component records field of file %s is not an array, ignoring.", path);
-                        return 0;
-                }
+        JSON_VARIANT_ARRAY_FOREACH(rj, records) {
+                _cleanup_(event_log_record_freep) EventLogRecord *record = NULL;
 
-                JSON_VARIANT_ARRAY_FOREACH(rj, records) {
-                        _cleanup_(event_log_record_freep) EventLogRecord *record = NULL;
+                if (!GREEDY_REALLOC(variant->records, variant->n_records+1))
+                        return log_oom();
 
-                        if (!GREEDY_REALLOC(variant->records, variant->n_records+1))
-                                return log_oom();
+                record = event_log_record_new(el);
+                if (!record)
+                        return log_oom();
 
-                        record = event_log_record_new(el);
-                        if (!record)
-                                return log_oom();
+                r = event_log_record_parse_json(record, rj);
+                if (r < 0)
+                        return r;
 
-                        r = event_log_record_parse_json(record, rj);
-                        if (r < 0)
-                                return r;
-
-                        record->owning_component_variant = variant;
-                        variant->records[variant->n_records++] = TAKE_PTR(record);
-                }
+                record->owning_component_variant = variant;
+                variant->records[variant->n_records++] = TAKE_PTR(record);
         }
 
         component->variants[component->n_variants++] = TAKE_PTR(variant);
