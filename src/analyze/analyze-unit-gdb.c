@@ -40,7 +40,7 @@ int verb_unit_gdb(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         r = acquire_bus(&bus, /* use_full_bus= */ NULL);
         if (r < 0)
-                return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
+                return bus_log_connect_error(r, arg_transport, arg_host, arg_runtime_scope);
 
         _cleanup_free_ char *object = unit_dbus_path_from_name(unit);
         if (!object)
