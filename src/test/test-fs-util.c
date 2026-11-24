@@ -178,7 +178,7 @@ TEST(touch_file) {
 
         test_mtime = usec_sub_unsigned(now(CLOCK_REALTIME), USEC_PER_WEEK);
 
-        a = strjoina(arg_test_dir ?: "/dev/shm", "/touch-file-XXXXXX");
+        a = strjoina(arg_test_dir ?: "/tmp", "/touch-file-XXXXXX");
         ASSERT_OK(mkdtemp_malloc(a, &p));
 
         a = strjoina(p, "/regular");
