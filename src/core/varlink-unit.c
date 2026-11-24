@@ -29,6 +29,8 @@
 #include "varlink-cgroup.h"
 #include "varlink-common.h"
 #include "varlink-execute.h"
+#include "varlink-idl-util.h"
+#include "varlink-io.systemd.Unit.h"
 #include "varlink-job.h"
 #include "varlink-kill.h"
 #include "varlink-mount.h"
@@ -123,8 +125,79 @@ static int unit_conditions_build_json(sd_json_variant **ret, const char *name, v
         return 0;
 }
 
-static int unit_context_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        Unit *u = ASSERT_PTR(userdata);
+/* List()'s 'fields', each path split into its components, e.g. { "runtime", "CGroup", "ID" }. No paths
+ * means everything. */
+typedef struct UnitFields {
+        char ***paths;
+        size_t n_paths;
+        bool nested; /* whether a path goes below a field of context or runtime, e.g. runtime.CGroup.ID */
+} UnitFields;
+
+static void unit_fields_done(UnitFields *f) {
+        assert(f);
+
+        FOREACH_ARRAY(path, f->paths, f->n_paths)
+                strv_free(*path);
+        f->paths = mfree(f->paths);
+        f->n_paths = 0;
+}
+
+/* Whether output (context or runtime) is asked for, if name is NULL, or else output.name (e.g.
+ * runtime.CGroup): the whole output, the field itself, or one of its own. */
+static bool unit_fields_want(const UnitFields *f, const char *output, const char *name) {
+        assert(output);
+
+        if (!f || f->n_paths == 0)
+                return true;
+
+        FOREACH_ARRAY(path, f->paths, f->n_paths) {
+                if (!streq((*path)[0], output))
+                        continue;
+
+                if (!name || !(*path)[1] || streq((*path)[1], name))
+                        return true;
+        }
+
+        return false;
+}
+
+/* Like JSON_BUILD_PAIR_CALLBACK_NON_NULL(), but the callback is only called, and the field only added, if
+ * it's wanted. */
+#define UNIT_PAIR_CALLBACK_WANTED(output, name, c, u)                   \
+        JSON_BUILD_PAIR_CALLBACK_NON_NULL(name, unit_fields_want(fields, output, name) ? (c) : NULL, u)
+
+/* Like the pair macros they're named after, but the field is only added, and its value only computed, if
+ * it's wanted. The _NON_EMPTY/_NON_NULL/... ones get what they leave out otherwise. */
+#define UNIT_FIELD_WANTED(output, name, value, none)                    \
+        (unit_fields_want(fields, output, name) ? (value) : (none))
+#define UNIT_PAIR_BOOLEAN_WANTED(output, name, b)                       \
+        SD_JSON_BUILD_PAIR_CONDITION(unit_fields_want(fields, output, name), name, \
+                                     SD_JSON_BUILD_BOOLEAN(unit_fields_want(fields, output, name) && (b)))
+#define UNIT_PAIR_STRING_WANTED(output, name, s)                        \
+        SD_JSON_BUILD_PAIR_CONDITION(unit_fields_want(fields, output, name), name, SD_JSON_BUILD_STRING(s))
+#define UNIT_PAIR_ENUM_WANTED(output, name, s)                          \
+        SD_JSON_BUILD_PAIR_CONDITION(unit_fields_want(fields, output, name), name, JSON_BUILD_STRING_UNDERSCORIFY(s))
+#define UNIT_PAIR_CONDITION_WANTED(output, condition, name, ...)        \
+        SD_JSON_BUILD_PAIR_CONDITION(unit_fields_want(fields, output, name) && (condition), name, __VA_ARGS__)
+#define UNIT_PAIR_STRING_NON_EMPTY_WANTED(output, name, s)              \
+        JSON_BUILD_PAIR_STRING_NON_EMPTY(name, UNIT_FIELD_WANTED(output, name, s, NULL))
+#define UNIT_PAIR_STRV_NON_EMPTY_WANTED(output, name, l)                \
+        JSON_BUILD_PAIR_STRV_NON_EMPTY(name, UNIT_FIELD_WANTED(output, name, l, NULL))
+#define UNIT_PAIR_DUAL_TIMESTAMP_NON_NULL_WANTED(output, name, t)       \
+        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL(name, UNIT_FIELD_WANTED(output, name, t, NULL))
+#define UNIT_PAIR_RATELIMIT_ENABLED_WANTED(output, name, rl)            \
+        JSON_BUILD_PAIR_RATELIMIT_ENABLED(name, UNIT_FIELD_WANTED(output, name, rl, NULL))
+#define UNIT_PAIR_FINITE_USEC_WANTED(output, name, u)                   \
+        JSON_BUILD_PAIR_FINITE_USEC(name, UNIT_FIELD_WANTED(output, name, u, USEC_INFINITY))
+#define UNIT_PAIR_INTEGER_NON_NEGATIVE_WANTED(output, name, i)          \
+        JSON_BUILD_PAIR_INTEGER_NON_NEGATIVE(name, UNIT_FIELD_WANTED(output, name, i, -1))
+#define UNIT_PAIR_UNSIGNED_NON_ZERO_WANTED(output, name, u)             \
+        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO(name, UNIT_FIELD_WANTED(output, name, u, 0))
+#define UNIT_EMERGENCY_ACTION_NON_EMPTY_WANTED(output, name, v)         \
+        JSON_BUILD_EMERGENCY_ACTION_NON_EMPTY(name, UNIT_FIELD_WANTED(output, name, v, EMERGENCY_ACTION_NONE))
+
+static int unit_context_build_json_full(sd_json_variant **ret, Unit *u, const UnitFields *fields) {
+        assert(u);
 
         /* The main principle behind context/runtime split is the following:
          * If it make sense to place a property into a config/unit file it belongs to Context.
@@ -144,85 +217,89 @@ static int unit_context_build_json(sd_json_variant **ret, const char *name, void
 
         return sd_json_buildo(
                         ASSERT_PTR(ret),
-                        SD_JSON_BUILD_PAIR_STRING("Type", unit_type_to_string(u->type)),
-                        SD_JSON_BUILD_PAIR_STRING("ID", u->id),
-                        SD_JSON_BUILD_PAIR_CONDITION(!set_isempty(u->aliases), "Names", JSON_BUILD_STRING_SET(u->aliases)),
+                        UNIT_PAIR_STRING_WANTED("context", "Type", unit_type_to_string(u->type)),
+                        UNIT_PAIR_STRING_WANTED("context", "ID", u->id),
+                        UNIT_PAIR_CONDITION_WANTED("context", !set_isempty(u->aliases), "Names", JSON_BUILD_STRING_SET(u->aliases)),
 
                         /* [Unit] Section Options
                          * https://www.freedesktop.org/software/systemd/man/latest/systemd.unit.html#%5BUnit%5D%20Section%20Options */
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Description", u->description),
-                        JSON_BUILD_PAIR_STRV_NON_EMPTY("Documentation", u->documentation),
-                        JSON_BUILD_PAIR_STRV_NON_EMPTY("Tags", u->tags),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("Wants", unit_dependencies_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("WantedBy", unit_dependencies_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("Requires", unit_dependencies_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("RequiredBy", unit_dependencies_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("Requisite", unit_dependencies_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("RequisiteOf", unit_dependencies_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("BindsTo", unit_dependencies_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("BoundBy", unit_dependencies_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("PartOf", unit_dependencies_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("ConsistsOf", unit_dependencies_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("Upholds", unit_dependencies_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("UpheldBy", unit_dependencies_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("Conflicts", unit_dependencies_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("ConflictedBy", unit_dependencies_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("Before", unit_dependencies_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("After", unit_dependencies_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("OnFailure", unit_dependencies_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("OnFailureOf", unit_dependencies_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("OnSuccess", unit_dependencies_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("OnSuccessOf", unit_dependencies_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("PropagatesReloadTo", unit_dependencies_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("ReloadPropagatedFrom", unit_dependencies_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("PropagatesStopTo", unit_dependencies_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("StopPropagatedFrom", unit_dependencies_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("JoinsNamespaceOf", unit_dependencies_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("RequiresMountsFor", unit_mounts_for_build_json, &u->mounts_for),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("WantsMountsFor", unit_mounts_for_build_json, &u->mounts_for),
-                        JSON_BUILD_PAIR_ENUM("OnSuccessJobMode", job_mode_to_string(u->on_success_job_mode)),
-                        JSON_BUILD_PAIR_ENUM("OnFailureJobMode", job_mode_to_string(u->on_failure_job_mode)),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("IgnoreOnIsolate", u->ignore_on_isolate),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("StopWhenUnneeded", u->stop_when_unneeded),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("RefuseManualStart", u->refuse_manual_start),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("RefuseManualStop", u->refuse_manual_stop),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("AllowIsolate", u->allow_isolate),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("DefaultDependencies", u->default_dependencies),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("SurviveFinalKillSignal", u->survive_final_kill_signal),
-                        JSON_BUILD_PAIR_ENUM("CollectMode", collect_mode_to_string(u->collect_mode)),
-                        JSON_BUILD_EMERGENCY_ACTION_NON_EMPTY("FailureAction", u->failure_action),
-                        JSON_BUILD_EMERGENCY_ACTION_NON_EMPTY("SuccessAction", u->success_action),
-                        JSON_BUILD_PAIR_INTEGER_NON_NEGATIVE("FailureActionExitStatus", u->failure_action_exit_status),
-                        JSON_BUILD_PAIR_INTEGER_NON_NEGATIVE("SuccessActionExitStatus", u->success_action_exit_status),
-                        JSON_BUILD_PAIR_FINITE_USEC("JobTimeoutUSec", u->job_timeout),
-                        JSON_BUILD_PAIR_FINITE_USEC("JobRunningTimeoutUSec", u->job_running_timeout),
-                        JSON_BUILD_EMERGENCY_ACTION_NON_EMPTY("JobTimeoutAction", u->job_timeout_action),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("JobTimeoutRebootArgument", u->job_timeout_reboot_arg),
-                        JSON_BUILD_PAIR_RATELIMIT_ENABLED("StartLimit", &u->start_ratelimit),
-                        JSON_BUILD_EMERGENCY_ACTION_NON_EMPTY("StartLimitAction", u->start_limit_action),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("RebootArgument", u->reboot_arg),
+                        UNIT_PAIR_STRING_NON_EMPTY_WANTED("context", "Description", u->description),
+                        UNIT_PAIR_STRV_NON_EMPTY_WANTED("context", "Documentation", u->documentation),
+                        UNIT_PAIR_STRV_NON_EMPTY_WANTED("context", "Tags", u->tags),
+                        UNIT_PAIR_CALLBACK_WANTED("context", "Wants", unit_dependencies_build_json, u),
+                        UNIT_PAIR_CALLBACK_WANTED("context", "WantedBy", unit_dependencies_build_json, u),
+                        UNIT_PAIR_CALLBACK_WANTED("context", "Requires", unit_dependencies_build_json, u),
+                        UNIT_PAIR_CALLBACK_WANTED("context", "RequiredBy", unit_dependencies_build_json, u),
+                        UNIT_PAIR_CALLBACK_WANTED("context", "Requisite", unit_dependencies_build_json, u),
+                        UNIT_PAIR_CALLBACK_WANTED("context", "RequisiteOf", unit_dependencies_build_json, u),
+                        UNIT_PAIR_CALLBACK_WANTED("context", "BindsTo", unit_dependencies_build_json, u),
+                        UNIT_PAIR_CALLBACK_WANTED("context", "BoundBy", unit_dependencies_build_json, u),
+                        UNIT_PAIR_CALLBACK_WANTED("context", "PartOf", unit_dependencies_build_json, u),
+                        UNIT_PAIR_CALLBACK_WANTED("context", "ConsistsOf", unit_dependencies_build_json, u),
+                        UNIT_PAIR_CALLBACK_WANTED("context", "Upholds", unit_dependencies_build_json, u),
+                        UNIT_PAIR_CALLBACK_WANTED("context", "UpheldBy", unit_dependencies_build_json, u),
+                        UNIT_PAIR_CALLBACK_WANTED("context", "Conflicts", unit_dependencies_build_json, u),
+                        UNIT_PAIR_CALLBACK_WANTED("context", "ConflictedBy", unit_dependencies_build_json, u),
+                        UNIT_PAIR_CALLBACK_WANTED("context", "Before", unit_dependencies_build_json, u),
+                        UNIT_PAIR_CALLBACK_WANTED("context", "After", unit_dependencies_build_json, u),
+                        UNIT_PAIR_CALLBACK_WANTED("context", "OnFailure", unit_dependencies_build_json, u),
+                        UNIT_PAIR_CALLBACK_WANTED("context", "OnFailureOf", unit_dependencies_build_json, u),
+                        UNIT_PAIR_CALLBACK_WANTED("context", "OnSuccess", unit_dependencies_build_json, u),
+                        UNIT_PAIR_CALLBACK_WANTED("context", "OnSuccessOf", unit_dependencies_build_json, u),
+                        UNIT_PAIR_CALLBACK_WANTED("context", "PropagatesReloadTo", unit_dependencies_build_json, u),
+                        UNIT_PAIR_CALLBACK_WANTED("context", "ReloadPropagatedFrom", unit_dependencies_build_json, u),
+                        UNIT_PAIR_CALLBACK_WANTED("context", "PropagatesStopTo", unit_dependencies_build_json, u),
+                        UNIT_PAIR_CALLBACK_WANTED("context", "StopPropagatedFrom", unit_dependencies_build_json, u),
+                        UNIT_PAIR_CALLBACK_WANTED("context", "JoinsNamespaceOf", unit_dependencies_build_json, u),
+                        UNIT_PAIR_CALLBACK_WANTED("context", "RequiresMountsFor", unit_mounts_for_build_json, &u->mounts_for),
+                        UNIT_PAIR_CALLBACK_WANTED("context", "WantsMountsFor", unit_mounts_for_build_json, &u->mounts_for),
+                        UNIT_PAIR_ENUM_WANTED("context", "OnSuccessJobMode", job_mode_to_string(u->on_success_job_mode)),
+                        UNIT_PAIR_ENUM_WANTED("context", "OnFailureJobMode", job_mode_to_string(u->on_failure_job_mode)),
+                        UNIT_PAIR_BOOLEAN_WANTED("context", "IgnoreOnIsolate", u->ignore_on_isolate),
+                        UNIT_PAIR_BOOLEAN_WANTED("context", "StopWhenUnneeded", u->stop_when_unneeded),
+                        UNIT_PAIR_BOOLEAN_WANTED("context", "RefuseManualStart", u->refuse_manual_start),
+                        UNIT_PAIR_BOOLEAN_WANTED("context", "RefuseManualStop", u->refuse_manual_stop),
+                        UNIT_PAIR_BOOLEAN_WANTED("context", "AllowIsolate", u->allow_isolate),
+                        UNIT_PAIR_BOOLEAN_WANTED("context", "DefaultDependencies", u->default_dependencies),
+                        UNIT_PAIR_BOOLEAN_WANTED("context", "SurviveFinalKillSignal", u->survive_final_kill_signal),
+                        UNIT_PAIR_ENUM_WANTED("context", "CollectMode", collect_mode_to_string(u->collect_mode)),
+                        UNIT_EMERGENCY_ACTION_NON_EMPTY_WANTED("context", "FailureAction", u->failure_action),
+                        UNIT_EMERGENCY_ACTION_NON_EMPTY_WANTED("context", "SuccessAction", u->success_action),
+                        UNIT_PAIR_INTEGER_NON_NEGATIVE_WANTED("context", "FailureActionExitStatus", u->failure_action_exit_status),
+                        UNIT_PAIR_INTEGER_NON_NEGATIVE_WANTED("context", "SuccessActionExitStatus", u->success_action_exit_status),
+                        UNIT_PAIR_FINITE_USEC_WANTED("context", "JobTimeoutUSec", u->job_timeout),
+                        UNIT_PAIR_FINITE_USEC_WANTED("context", "JobRunningTimeoutUSec", u->job_running_timeout),
+                        UNIT_EMERGENCY_ACTION_NON_EMPTY_WANTED("context", "JobTimeoutAction", u->job_timeout_action),
+                        UNIT_PAIR_STRING_NON_EMPTY_WANTED("context", "JobTimeoutRebootArgument", u->job_timeout_reboot_arg),
+                        UNIT_PAIR_RATELIMIT_ENABLED_WANTED("context", "StartLimit", &u->start_ratelimit),
+                        UNIT_EMERGENCY_ACTION_NON_EMPTY_WANTED("context", "StartLimitAction", u->start_limit_action),
+                        UNIT_PAIR_STRING_NON_EMPTY_WANTED("context", "RebootArgument", u->reboot_arg),
 
                         /* Conditions and Asserts
                          * https://www.freedesktop.org/software/systemd/man/latest/systemd.unit.html#Conditions%20and%20Asserts */
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("Conditions", unit_conditions_build_json, u->conditions),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("Asserts", unit_conditions_build_json, u->asserts),
+                        UNIT_PAIR_CALLBACK_WANTED("context", "Conditions", unit_conditions_build_json, u->conditions),
+                        UNIT_PAIR_CALLBACK_WANTED("context", "Asserts", unit_conditions_build_json, u->asserts),
 
                         /* Others */
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("Triggers", unit_dependencies_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("TriggeredBy", unit_dependencies_build_json, u),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("AccessSELinuxContext", u->access_selinux_context),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("FragmentPath", u->fragment_path),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("SourcePath", u->source_path),
-                        JSON_BUILD_PAIR_STRV_NON_EMPTY("DropInPaths", u->dropin_paths),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("UnitFilePreset", preset_action_past_tense_to_string(unit_get_unit_file_preset(u))),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("Transient", u->transient),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("Perpetual", u->perpetual),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("DebugInvocation", u->debug_invocation),
+                        UNIT_PAIR_CALLBACK_WANTED("context", "Triggers", unit_dependencies_build_json, u),
+                        UNIT_PAIR_CALLBACK_WANTED("context", "TriggeredBy", unit_dependencies_build_json, u),
+                        UNIT_PAIR_STRING_NON_EMPTY_WANTED("context", "AccessSELinuxContext", u->access_selinux_context),
+                        UNIT_PAIR_STRING_NON_EMPTY_WANTED("context", "FragmentPath", u->fragment_path),
+                        UNIT_PAIR_STRING_NON_EMPTY_WANTED("context", "SourcePath", u->source_path),
+                        UNIT_PAIR_STRV_NON_EMPTY_WANTED("context", "DropInPaths", u->dropin_paths),
+                        UNIT_PAIR_STRING_NON_EMPTY_WANTED("context", "UnitFilePreset", preset_action_past_tense_to_string(unit_get_unit_file_preset(u))),
+                        UNIT_PAIR_BOOLEAN_WANTED("context", "Transient", u->transient),
+                        UNIT_PAIR_BOOLEAN_WANTED("context", "Perpetual", u->perpetual),
+                        UNIT_PAIR_BOOLEAN_WANTED("context", "DebugInvocation", u->debug_invocation),
 
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("CGroup", unit_cgroup_context_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("Exec", unit_exec_context_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("Kill", unit_kill_context_build_json, unit_get_kill_context(u)),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL(unit_type_to_capitalized_string(u->type), unit_type_callbacks[u->type], u));
+                        UNIT_PAIR_CALLBACK_WANTED("context", "CGroup", unit_cgroup_context_build_json, u),
+                        UNIT_PAIR_CALLBACK_WANTED("context", "Exec", unit_exec_context_build_json, u),
+                        UNIT_PAIR_CALLBACK_WANTED("context", "Kill", unit_kill_context_build_json, unit_get_kill_context(u)),
+                        UNIT_PAIR_CALLBACK_WANTED("context", unit_type_to_capitalized_string(u->type), unit_type_callbacks[u->type], u));
+}
+
+static int unit_context_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        return unit_context_build_json_full(ret, ASSERT_PTR(userdata), /* fields= */ NULL);
 }
 
 static int can_clean_build_json(sd_json_variant **ret, const char *name, void *userdata) {
@@ -298,8 +375,9 @@ static int activation_details_build_json(sd_json_variant **ret, const char *name
         return 0;
 }
 
-static int unit_runtime_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        Unit *u = ASSERT_PTR(userdata);
+static int unit_runtime_build_json_full(sd_json_variant **ret, Unit *u, const UnitFields *fields) {
+        assert(u);
+
         Unit *f = unit_following(u);
 
         /* TODO missing callbacks */
@@ -316,47 +394,177 @@ static int unit_runtime_build_json(sd_json_variant **ret, const char *name, void
 
         return sd_json_buildo(
                         ASSERT_PTR(ret),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Following", f ? f->id : NULL),
-                        SD_JSON_BUILD_PAIR_STRING("LoadState", unit_load_state_to_string(u->load_state)),
-                        SD_JSON_BUILD_PAIR_STRING("ActiveState", unit_active_state_to_string(unit_active_state(u))),
-                        SD_JSON_BUILD_PAIR_STRING("FreezerState", freezer_state_to_string(u->freezer_state)),
-                        SD_JSON_BUILD_PAIR_STRING("SubState", unit_sub_state_to_string(u)),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("UnitFileState", unit_file_state_to_string(unit_get_unit_file_state(u))),
-                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("StateChangeTimestamp", &u->state_change_timestamp),
-                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("ActiveEnterTimestamp", &u->active_enter_timestamp),
-                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("ActiveExitTimestamp", &u->active_exit_timestamp),
-                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("InactiveEnterTimestamp", &u->inactive_enter_timestamp),
-                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("InactiveExitTimestamp", &u->inactive_exit_timestamp),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("CanStart", unit_can_start_refuse_manual(u)),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("CanStop", unit_can_stop_refuse_manual(u)),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("CanReload", unit_can_reload(u)),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("CanIsolate", unit_can_isolate_refuse_manual(u)),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("CanClean", can_clean_build_json, u),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("CanFreeze", unit_can_freeze(u)),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("CanLiveMount", unit_can_live_mount(u, /* reterr_error= */ NULL) >= 0),
-                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("JobId", u->job ? u->job->id : 0),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("NeedDaemonReload", unit_need_daemon_reload(u)),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("ConditionResult", u->condition_result),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("AssertResult", u->assert_result),
-                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("ConditionTimestamp", &u->condition_timestamp),
-                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("AssertTimestamp", &u->assert_timestamp),
-                        SD_JSON_BUILD_PAIR_CONDITION(unit_has_invocation_id(u), "InvocationID", SD_JSON_BUILD_UUID(u->invocation_id)),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("Markers", markers_build_json, &u->markers),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("ActivationDetails", activation_details_build_json, u->activation_details),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("CGroup", unit_cgroup_runtime_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL(unit_type_to_capitalized_string(u->type), unit_type_callbacks[u->type], u));
+                        UNIT_PAIR_STRING_NON_EMPTY_WANTED("runtime", "Following", f ? f->id : NULL),
+                        UNIT_PAIR_STRING_WANTED("runtime", "LoadState", unit_load_state_to_string(u->load_state)),
+                        UNIT_PAIR_STRING_WANTED("runtime", "ActiveState", unit_active_state_to_string(unit_active_state(u))),
+                        UNIT_PAIR_STRING_WANTED("runtime", "FreezerState", freezer_state_to_string(u->freezer_state)),
+                        UNIT_PAIR_STRING_WANTED("runtime", "SubState", unit_sub_state_to_string(u)),
+                        UNIT_PAIR_STRING_NON_EMPTY_WANTED("runtime", "UnitFileState", unit_file_state_to_string(unit_get_unit_file_state(u))),
+                        UNIT_PAIR_DUAL_TIMESTAMP_NON_NULL_WANTED("runtime", "StateChangeTimestamp", &u->state_change_timestamp),
+                        UNIT_PAIR_DUAL_TIMESTAMP_NON_NULL_WANTED("runtime", "ActiveEnterTimestamp", &u->active_enter_timestamp),
+                        UNIT_PAIR_DUAL_TIMESTAMP_NON_NULL_WANTED("runtime", "ActiveExitTimestamp", &u->active_exit_timestamp),
+                        UNIT_PAIR_DUAL_TIMESTAMP_NON_NULL_WANTED("runtime", "InactiveEnterTimestamp", &u->inactive_enter_timestamp),
+                        UNIT_PAIR_DUAL_TIMESTAMP_NON_NULL_WANTED("runtime", "InactiveExitTimestamp", &u->inactive_exit_timestamp),
+                        UNIT_PAIR_BOOLEAN_WANTED("runtime", "CanStart", unit_can_start_refuse_manual(u)),
+                        UNIT_PAIR_BOOLEAN_WANTED("runtime", "CanStop", unit_can_stop_refuse_manual(u)),
+                        UNIT_PAIR_BOOLEAN_WANTED("runtime", "CanReload", unit_can_reload(u)),
+                        UNIT_PAIR_BOOLEAN_WANTED("runtime", "CanIsolate", unit_can_isolate_refuse_manual(u)),
+                        UNIT_PAIR_CALLBACK_WANTED("runtime", "CanClean", can_clean_build_json, u),
+                        UNIT_PAIR_BOOLEAN_WANTED("runtime", "CanFreeze", unit_can_freeze(u)),
+                        UNIT_PAIR_BOOLEAN_WANTED("runtime", "CanLiveMount", unit_can_live_mount(u, /* reterr_error= */ NULL) >= 0),
+                        UNIT_PAIR_UNSIGNED_NON_ZERO_WANTED("runtime", "JobId", u->job ? u->job->id : 0),
+                        UNIT_PAIR_BOOLEAN_WANTED("runtime", "NeedDaemonReload", unit_need_daemon_reload(u)),
+                        UNIT_PAIR_BOOLEAN_WANTED("runtime", "ConditionResult", u->condition_result),
+                        UNIT_PAIR_BOOLEAN_WANTED("runtime", "AssertResult", u->assert_result),
+                        UNIT_PAIR_DUAL_TIMESTAMP_NON_NULL_WANTED("runtime", "ConditionTimestamp", &u->condition_timestamp),
+                        UNIT_PAIR_DUAL_TIMESTAMP_NON_NULL_WANTED("runtime", "AssertTimestamp", &u->assert_timestamp),
+                        UNIT_PAIR_CONDITION_WANTED("runtime", unit_has_invocation_id(u), "InvocationID", SD_JSON_BUILD_UUID(u->invocation_id)),
+                        UNIT_PAIR_CALLBACK_WANTED("runtime", "Markers", markers_build_json, &u->markers),
+                        UNIT_PAIR_CALLBACK_WANTED("runtime", "ActivationDetails", activation_details_build_json, u->activation_details),
+                        UNIT_PAIR_CALLBACK_WANTED("runtime", "CGroup", unit_cgroup_runtime_build_json, u),
+                        UNIT_PAIR_CALLBACK_WANTED("runtime", unit_type_to_capitalized_string(u->type), unit_type_callbacks[u->type], u));
 }
 
-static int list_unit_one(sd_varlink *link, Unit *unit) {
+static int unit_runtime_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        return unit_runtime_build_json_full(ret, ASSERT_PTR(userdata), /* fields= */ NULL);
+}
+
+static int unit_fields_parse(char * const *fields, UnitFields *ret) {
+        _cleanup_(unit_fields_done) UnitFields f = {};
+        const sd_varlink_symbol *method;
+
+        assert(ret);
+
+        /* Splits each of List()'s 'fields' into its components and checks that it's a path to a field
+         * of the reply that only goes through structs (not arrays or maps), using the interface
+         * definition. Returns -EINVAL if one isn't. */
+
+        method = varlink_idl_find_symbol(&vl_interface_io_systemd_Unit, SD_VARLINK_METHOD, "List");
+        assert(method);
+
+        f.paths = new0(char**, strv_length((char**) fields));
+        if (!f.paths && !strv_isempty((char**) fields))
+                return -ENOMEM;
+
+        STRV_FOREACH(i, fields) {
+                const sd_varlink_symbol *symbol = method;
+                char **path;
+
+                /* strv_split() would merge empty components. */
+                if (isempty(*i) || startswith(*i, ".") || endswith(*i, ".") || strstr(*i, ".."))
+                        return -EINVAL;
+
+                path = f.paths[f.n_paths++] = strv_split(*i, ".");
+                if (!path)
+                        return -ENOMEM;
+                if (strv_length(path) > 2)
+                        f.nested = true;
+
+                STRV_FOREACH(component, path) {
+                        const sd_varlink_field *field;
+
+                        if (!symbol) /* the previous component isn't a struct */
+                                return -EINVAL;
+
+                        field = varlink_idl_find_field(symbol, *component);
+                        if (!field)
+                                return -EINVAL;
+                        if (symbol == method && field->field_direction != SD_VARLINK_OUTPUT)
+                                return -EINVAL;
+
+                        if (IN_SET(field->field_type, SD_VARLINK_STRUCT, SD_VARLINK_NAMED_TYPE) &&
+                            (field->field_flags & (SD_VARLINK_ARRAY|SD_VARLINK_MAP)) == 0 &&
+                            field->symbol &&
+                            field->symbol->symbol_type == SD_VARLINK_STRUCT_TYPE)
+                                symbol = field->symbol;
+                        else
+                                symbol = NULL;
+                }
+        }
+
+        *ret = TAKE_STRUCT(f);
+        return 0;
+}
+
+static int json_copy_path(sd_json_variant **target, sd_json_variant *source, char * const *path) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *child = NULL;
+        sd_json_variant *v;
+        int r;
+
+        assert(target);
+        assert(!strv_isempty((char**) path));
+
+        /* Copies the field at path in source to target, creating the objects on the way. */
+
+        v = sd_json_variant_by_key(source, path[0]);
+        if (!v)
+                return 0; /* not set for this unit (null, or for another unit type), so not returned either */
+
+        if (strv_isempty(path + 1))
+                return sd_json_variant_set_field(target, path[0], v);
+
+        child = sd_json_variant_ref(sd_json_variant_by_key(*target, path[0]));
+        r = json_copy_path(&child, v, path + 1);
+        if (r < 0)
+                return r;
+        if (!child)
+                return 0;
+
+        return sd_json_variant_set_field(target, path[0], child);
+}
+
+static int list_unit_one(sd_varlink *link, Unit *unit, const UnitFields *fields) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *context = NULL, *runtime = NULL, *full = NULL, *v = NULL;
+        int r;
+
         assert(link);
         assert(unit);
 
-        return sd_varlink_replybo(link,
-                        SD_JSON_BUILD_PAIR_CALLBACK("context", unit_context_build_json, unit),
-                        SD_JSON_BUILD_PAIR_CALLBACK("runtime", unit_runtime_build_json, unit));
+        if (!fields || fields->n_paths == 0)
+                return sd_varlink_replybo(link,
+                                SD_JSON_BUILD_PAIR_CALLBACK("context", unit_context_build_json, unit),
+                                SD_JSON_BUILD_PAIR_CALLBACK("runtime", unit_runtime_build_json, unit));
+
+        /* The builders only build the fields of context and runtime that are wanted, but those whole
+         * (e.g. all of runtime.CGroup for runtime.CGroup.MemoryCurrent). */
+        if (unit_fields_want(fields, "context", /* name= */ NULL)) {
+                r = unit_context_build_json_full(&context, unit, fields);
+                if (r < 0)
+                        return r;
+        }
+
+        if (unit_fields_want(fields, "runtime", /* name= */ NULL)) {
+                r = unit_runtime_build_json_full(&runtime, unit, fields);
+                if (r < 0)
+                        return r;
+        }
+
+        /* So unless a path goes below one of them, that's the reply. Leave out context or runtime if none of
+         * the fields asked for in it are set. */
+        if (!fields->nested)
+                return sd_varlink_replybo(
+                                link,
+                                SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_object(context), "context", SD_JSON_BUILD_VARIANT(context)),
+                                SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_object(runtime), "runtime", SD_JSON_BUILD_VARIANT(runtime)));
+
+        /* Otherwise copy the fields asked for out. */
+        r = sd_json_buildo(
+                        &full,
+                        SD_JSON_BUILD_PAIR_CONDITION(!!context, "context", SD_JSON_BUILD_VARIANT(context)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!runtime, "runtime", SD_JSON_BUILD_VARIANT(runtime)));
+        if (r < 0)
+                return r;
+
+        FOREACH_ARRAY(path, fields->paths, fields->n_paths) {
+                r = json_copy_path(&v, full, *path);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_varlink_reply(link, v);
 }
 
-static int list_unit_one_with_selinux_access_check(sd_varlink *link, Unit *unit) {
+static int list_unit_one_with_selinux_access_check(sd_varlink *link, Unit *unit, const UnitFields *fields) {
         int r;
 
         assert(link);
@@ -368,7 +576,7 @@ static int list_unit_one_with_selinux_access_check(sd_varlink *link, Unit *unit)
                  * it means that SELinux enforce is on. It also does all the logging(). */
                 return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, /* parameters= */ NULL);
 
-        return list_unit_one(link, unit);
+        return list_unit_one(link, unit, fields);
 }
 
 static int lookup_unit_by_pidref(sd_varlink *link, Manager *manager, PidRef *pidref, Unit **ret_unit) {
@@ -440,6 +648,17 @@ typedef struct UnitLookupParameters {
 static void unit_lookup_parameters_done(UnitLookupParameters *p) {
         assert(p);
         pidref_done(&p->pidref);
+}
+
+typedef struct ListUnitsParameters {
+        UnitLookupParameters lookup;
+        char **fields;
+} ListUnitsParameters;
+
+static void list_units_parameters_done(ListUnitsParameters *p) {
+        assert(p);
+        unit_lookup_parameters_done(&p->lookup);
+        strv_free(p->fields);
 }
 
 static int varlink_error_conflict_lookup_parameters(sd_varlink *v, const UnitLookupParameters *p) {
@@ -518,17 +737,19 @@ static int lookup_unit_by_parameters(
 
 int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "name",         SD_JSON_VARIANT_STRING,        json_dispatch_const_unit_name, offsetof(UnitLookupParameters, name),          0 /* allows UNIT_NAME_PLAIN | UNIT_NAME_INSTANCE */ },
-                { "pid",          _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_pidref,          offsetof(UnitLookupParameters, pidref),        SD_JSON_RELAX /* allows PID_AUTOMATIC */            },
-                { "cgroup",       SD_JSON_VARIANT_STRING,        json_dispatch_const_path,      offsetof(UnitLookupParameters, cgroup),        SD_JSON_STRICT /* require normalized path */        },
-                { "invocationID", SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,        offsetof(UnitLookupParameters, invocation_id), 0                                                   },
+                { "name",         SD_JSON_VARIANT_STRING,        json_dispatch_const_unit_name, offsetof(ListUnitsParameters, lookup.name),          0 /* allows UNIT_NAME_PLAIN | UNIT_NAME_INSTANCE */ },
+                { "pid",          _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_pidref,          offsetof(ListUnitsParameters, lookup.pidref),        SD_JSON_RELAX /* allows PID_AUTOMATIC */            },
+                { "cgroup",       SD_JSON_VARIANT_STRING,        json_dispatch_const_path,      offsetof(ListUnitsParameters, lookup.cgroup),        SD_JSON_STRICT /* require normalized path */        },
+                { "invocationID", SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,        offsetof(ListUnitsParameters, lookup.invocation_id), 0                                                   },
+                { "fields",       SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,         offsetof(ListUnitsParameters, fields),               0                                                   },
                 {}
         };
 
         Manager *manager = ASSERT_PTR(userdata);
-         _cleanup_(unit_lookup_parameters_done) UnitLookupParameters p = {
-                 .pidref = PIDREF_NULL,
+        _cleanup_(list_units_parameters_done) ListUnitsParameters p = {
+                .lookup.pidref = PIDREF_NULL,
         };
+        _cleanup_(unit_fields_done) UnitFields fields = {};
         Unit *unit;
         const char *k;
         int r;
@@ -540,11 +761,17 @@ int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varli
         if (r != 0)
                 return r;
 
-        r = lookup_unit_by_parameters(link, manager, &p, &unit);
+        r = unit_fields_parse(p.fields, &fields);
+        if (r == -EINVAL)
+                return sd_varlink_error_invalid_parameter_name(link, "fields");
+        if (r < 0)
+                return r;
+
+        r = lookup_unit_by_parameters(link, manager, &p.lookup, &unit);
         if (r < 0)
                 return r;
         if (r > 0)
-                return list_unit_one_with_selinux_access_check(link, unit);
+                return list_unit_one_with_selinux_access_check(link, unit, &fields);
 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, /* parameters= */ NULL);
@@ -562,7 +789,7 @@ int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varli
                 if (r < 0)
                         continue; /* silently skip units the caller is not allowed to see */
 
-                r = list_unit_one(link, unit);
+                r = list_unit_one(link, unit, &fields);
                 if (r < 0)
                         return r;
         }
