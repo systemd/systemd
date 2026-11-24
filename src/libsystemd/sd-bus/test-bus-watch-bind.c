@@ -211,9 +211,7 @@ TEST(watch_bind) {
         _cleanup_(sd_future_unrefp) sd_future *f_server = NULL, *f_client1 = NULL, *f_client2 = NULL, *f_exit = NULL;
         char *path;
 
-        /* We use /dev/shm here rather than /tmp, since some weird distros might set up /tmp as some weird fs that
-         * doesn't support inotify properly. */
-        ASSERT_OK(mkdtemp_malloc("/dev/shm/systemd-watch-bind-XXXXXX", &d));
+        ASSERT_OK(mkdtemp_malloc("/tmp/systemd-watch-bind-XXXXXX", &d));
 
         path = strjoina(d, "/this/is/a/socket");
 
