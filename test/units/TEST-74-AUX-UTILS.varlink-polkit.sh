@@ -33,12 +33,14 @@ RULE
 systemctl reload-or-restart polkit.service
 systemctl start systemd-hostnamed.service systemd-hostnamed.socket
 
-# Verify that a call with an explicit null reaches the delayed polkit rule before Describe replies.
-start=$SECONDS
-runas testuser timeout 15 varlinkctl --json=short call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe \
-    '{"allowInteractiveAuthentication":null}' |
-    grep '"Hostname":' >/dev/null
-(( SECONDS - start >= 3 ))
+# Both an omitted polkit parameter and an explicit null must reach the delayed rule before Describe replies.
+for parameters in '{}' '{"allowInteractiveAuthentication":null}'; do
+    start=$SECONDS
+    runas testuser timeout 15 varlinkctl --json=short call /run/systemd/io.systemd.Hostname \
+        io.systemd.Hostname.Describe "$parameters" |
+        grep '"Hostname":' >/dev/null
+    (( SECONDS - start >= 3 ))
+done
 
 systemctl is-active systemd-hostnamed.service
 request='{"method":"io.systemd.Hostname.Describe","parameters":{},"oneway":true}'

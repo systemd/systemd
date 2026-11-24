@@ -606,8 +606,9 @@ testcase_tags() {
 
     # Describe() exposes the parsed tag list as MachineTags, on both transports.
     varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags '{"set":["foo","bar"]}'
-    assert_eq "$(varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}' |
-                 jq --compact-output .MachineTags)" \
+    # The optional polkit parameter also accepts an explicit null.
+    assert_eq "$(varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe \
+                 '{"allowInteractiveAuthentication":null}' | jq --compact-output .MachineTags)" \
             '["bar","foo"]'
     assert_eq "$(busctl call --json=short org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 Describe |
                  jq --compact-output '.data[0] | fromjson | .MachineTags')" \
