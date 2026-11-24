@@ -119,6 +119,7 @@ simple_tests += files(
         'test-fileio.c',
         'test-firewall-util.c',
         'test-firstboot-util.c',
+        'test-fork-notify.c',
         'test-format-table.c',
         'test-format-util.c',
         'test-fs-util.c',
