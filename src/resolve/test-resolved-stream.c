@@ -26,6 +26,7 @@
 #include "resolved-dns-stream.h"
 #include "resolved-dnstls.h"
 #include "resolved-manager.h"
+#include "socket-util.h"
 #include "sparse-endian.h"
 #include "tests.h"
 #include "time-util.h"
@@ -107,7 +108,7 @@ static void *tcp_dns_server(void *p) {
         _cleanup_close_ int bindfd = -EBADF, acceptfd = -EBADF;
 
         bindfd = ASSERT_OK_ERRNO(socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0));
-        ASSERT_OK_ERRNO(setsockopt(bindfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)));
+        ASSERT_OK(setsockopt_int(bindfd, SOL_SOCKET, SO_REUSEADDR, /* value= */ true));
         ASSERT_OK_ERRNO(bind(bindfd, &server_address.sa, sockaddr_len(&server_address)));
         ASSERT_OK_ERRNO(listen(bindfd, 1));
         acceptfd = ASSERT_OK_ERRNO(accept4(bindfd, NULL, NULL, SOCK_CLOEXEC));
