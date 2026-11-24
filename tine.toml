@@ -1,0 +1,3 @@
+[buckconfig.cells]
+root = "."
+tine = "tine"
