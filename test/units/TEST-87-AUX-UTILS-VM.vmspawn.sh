@@ -287,10 +287,10 @@ timeout 10 bash -c "while kill -0 '$VMSPAWN2_PID' 2>/dev/null; do sleep .5; done
 echo "Both vmspawn processes exited"
 
 # --- Long runtime directory ---
-# vmspawn creates the virtiofsd sockets and the control socket in the runtime directory of the machine.
-# Use $RUNTIME_DIRECTORY to make the path of the runtime directory longer than sun_path. Then no socket
-# path in it fits into sun_path. vmspawn must start the VM anyway, and machinectl must connect to the
-# control socket.
+# vmspawn creates the virtiofsd sockets and the control socket in the runtime directory of the machine. Use
+# $RUNTIME_DIRECTORY to make the path of the runtime directory longer than sun_path. Then no socket path in
+# it fits into sun_path. vmspawn must start the VM anyway, and machinectl must connect to the control
+# socket. vmspawn must also attach a TPM if swtpm is installed and the architecture supports a TPM.
 LONG_MACHINE="test-vmspawn-long-$$"
 LONG_RUNTIME_BASE="$WORKDIR/runtime-"
 while (( ${#LONG_RUNTIME_BASE} + 1 + ${#LONG_MACHINE} < 150 )); do
@@ -309,7 +309,8 @@ RUNTIME_DIRECTORY="$LONG_RUNTIME_BASE" systemd-vmspawn \
     --ram=256M \
     --directory="$WORKDIR/root" \
     --linux="$KERNEL" \
-    --tpm=no \
+    --tpm="$LONG_TPM" \
+    --tpm-state=off \
     --console=headless \
     &>"$WORKDIR/vmspawn-long.log" &
 LONG_PID=$!
