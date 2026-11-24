@@ -77,8 +77,10 @@ nsec_t now_nsec(clockid_t clock_id) {
 dual_timestamp* dual_timestamp_now(dual_timestamp *ts) {
         assert(ts);
 
-        ts->realtime = now(CLOCK_REALTIME);
+        /* Read CLOCK_MONOTONIC before CLOCK_REALTIME, see triple_timestamp_now() for details. */
+
         ts->monotonic = now(CLOCK_MONOTONIC);
+        ts->realtime = now(CLOCK_REALTIME);
 
         return ts;
 }
@@ -86,9 +88,20 @@ dual_timestamp* dual_timestamp_now(dual_timestamp *ts) {
 triple_timestamp* triple_timestamp_now(triple_timestamp *ts) {
         assert(ts);
 
-        ts->realtime = now(CLOCK_REALTIME);
+        /* Note that we cannot read the clocks atomically, hence time passes between the reads, and the clock
+         * read later will be ahead of the earlier ones by that time. Usually CLOCK_REALTIME is ahead of
+         * CLOCK_BOOTTIME (which counts from boot), which in turn is ahead of CLOCK_MONOTONIC (as it also
+         * includes the time spent in suspend). Hence, read them in the order CLOCK_MONOTONIC, CLOCK_BOOTTIME,
+         * CLOCK_REALTIME, so that "realtime ≥ boottime ≥ monotonic" holds for the timestamps whenever it
+         * holds for the underlying clocks, and is never broken just because time passed between the reads.
+         *
+         * Note that callers must not assume this relationship holds unconditionally though: CLOCK_REALTIME
+         * might be set to anything, and time namespaces allow shifting CLOCK_BOOTTIME and CLOCK_MONOTONIC
+         * independently of each other. */
+
         ts->monotonic = now(CLOCK_MONOTONIC);
         ts->boottime = now(CLOCK_BOOTTIME);
+        ts->realtime = now(CLOCK_REALTIME);
 
         return ts;
 }
