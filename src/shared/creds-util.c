@@ -30,7 +30,6 @@
 #include "log.h"
 #include "memory-util.h"
 #include "mkdir.h"
-#include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "random-util.h"
@@ -331,17 +330,6 @@ int read_credential_strings_many_internal(
 
         va_end(ap);
         return ret < 0 ? ret : all;
-}
-
-int read_credential_bool(const char *name) {
-        _cleanup_free_ void *data = NULL;
-        int r;
-
-        r = read_credential(name, &data, /* ret_size= */ NULL);
-        if (r < 0)
-                return IN_SET(r, -ENXIO, -ENOENT) ? 0 : r;
-
-        return parse_boolean(data);
 }
 
 int get_credential_user_password(const char *username, char **ret_password, bool *ret_is_hashed) {
