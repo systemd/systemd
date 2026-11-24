@@ -1737,13 +1737,14 @@ static int start_virtiofsd(
                 uid_t target_uid,
                 uid_t uid_range,
                 const char *runtime_dir,
-                char **ret_listen_address,
+                int *ret_fd,
                 PidRef *ret_pidref) {
 
         int r;
 
         assert(directory);
         assert(runtime_dir);
+        assert(ret_fd);
 
         _cleanup_free_ char *virtiofsd = NULL;
         r = find_virtiofsd(&virtiofsd);
@@ -1756,20 +1757,27 @@ static int start_virtiofsd(
         if (asprintf(&listen_address, "%s/sock-%"PRIx64, runtime_dir, random_u64()) < 0)
                 return log_oom();
 
-        union sockaddr_union su;
-        r = sockaddr_un_set_path(&su.un, listen_address);
-        if (r < 0)
-                return log_error_errno(r, "Failed to prepare unix socket '%s': %m", listen_address);
-
         _cleanup_close_ int sock = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
         if (sock < 0)
                 return log_error_errno(errno, "Failed to create unix socket: %m");
 
-        if (bind(sock, &su.sa, r) < 0)
-                return log_error_errno(errno, "Failed to bind unix socket to '%s': %m", listen_address);
+        r = bind_unix_path(sock, AT_FDCWD, listen_address);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind unix socket to '%s': %m", listen_address);
 
         if (listen(sock, SOMAXCONN_DELUXE) < 0)
                 return log_error_errno(errno, "Failed to listen on unix socket '%s': %m", listen_address);
+
+        /* The socket path contains the machine name and doesn't fit into sun_path if the name is long. QEMU
+         * can only connect to paths that fit, so we connect to virtiofsd ourselves and pass the connected
+         * socket to QEMU. */
+        _cleanup_close_ int fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to create unix socket: %m");
+
+        r = connect_unix_path(fd, AT_FDCWD, listen_address);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to unix socket '%s': %m", listen_address);
 
         _cleanup_free_ char *sockstr = NULL;
         if (asprintf(&sockstr, "%i", sock) < 0)
@@ -1868,8 +1876,7 @@ static int start_virtiofsd(
                 _exit(EXIT_FAILURE);
         }
 
-        if (ret_listen_address)
-                *ret_listen_address = TAKE_PTR(listen_address);
+        *ret_fd = TAKE_FD(fd);
 
         return 0;
 }
@@ -3521,7 +3528,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 return log_error_errno(r, "Failed to find systemd-socket-activate binary: %m");
 
         if (arg_directory) {
-                _cleanup_free_ char *listen_address = NULL;
+                _cleanup_close_ int virtiofsd_fd = -EBADF;
                 _cleanup_(fork_notify_terminate) PidRef child = PIDREF_NULL;
 
                 if (!GREEDY_REALLOC(children, n_children + 1))
@@ -3548,7 +3555,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 /* target_uid= */ 0,
                                 /* uid_range= */ arg_uid_range,
                                 runtime_dir,
-                                &listen_address,
+                                &virtiofsd_fd,
                                 &child);
                 if (r < 0)
                         return r;
@@ -3569,9 +3576,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
 
                 config.virtiofs.entries[config.virtiofs.n_entries++] = (VirtiofsInfo) {
-                        .id          = TAKE_PTR(id),
-                        .socket_path = TAKE_PTR(listen_address),
-                        .tag         = TAKE_PTR(tag),
+                        .id  = TAKE_PTR(id),
+                        .fd  = TAKE_FD(virtiofsd_fd),
+                        .tag = TAKE_PTR(tag),
                 };
 
                 if (strv_extend(&arg_kernel_cmdline_extra, "root=root rootfstype=virtiofs rw") < 0)
@@ -3636,7 +3643,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         for (size_t j = 0; j < arg_runtime_mounts.n_mounts; j++) {
                 RuntimeMount *m = arg_runtime_mounts.mounts + j;
-                _cleanup_free_ char *listen_address = NULL, *id = NULL, *tag = NULL;
+                _cleanup_free_ char *id = NULL, *tag = NULL;
+                _cleanup_close_ int virtiofsd_fd = -EBADF;
                 _cleanup_(fork_notify_terminate) PidRef child = PIDREF_NULL;
 
                 if (!GREEDY_REALLOC(children, n_children + 1))
@@ -3648,7 +3656,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 /* target_uid= */ m->target_uid,
                                 /* uid_range= */ 1U,
                                 runtime_dir,
-                                &listen_address,
+                                &virtiofsd_fd,
                                 &child);
                 if (r < 0)
                         return r;
@@ -3697,9 +3705,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
 
                 config.virtiofs.entries[config.virtiofs.n_entries++] = (VirtiofsInfo) {
-                        .id          = TAKE_PTR(id),
-                        .socket_path = TAKE_PTR(listen_address),
-                        .tag         = TAKE_PTR(tag),
+                        .id  = TAKE_PTR(id),
+                        .fd  = TAKE_FD(virtiofsd_fd),
+                        .tag = TAKE_PTR(tag),
                 };
         }
 
