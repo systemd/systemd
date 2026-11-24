@@ -1488,6 +1488,18 @@ static int manifest_uapi16_item(
                 have_gid = false;
         }
 
+        /* The modification time is recorded in nanoseconds since the epoch, as unsigned 64-bit integer,
+         * which cannot express times before 1970 or after 2554. statx_timestamp_load_nsec() returns
+         * NSEC_INFINITY for these, so omit them too. */
+        nsec_t mtime = NSEC_INFINITY;
+        if (FLAGS_SET(c->fields, MANIFEST_FIELD_MTIME) && FLAGS_SET(sx->stx_mask, STATX_MTIME)) {
+                mtime = statx_timestamp_load_nsec(&sx->stx_mtime);
+                if (mtime == NSEC_INFINITY) {
+                        log_warning("Modification time of '%s' cannot be represented in a UAPI.16 manifest, omitting.", empty_to_root(path));
+                        c->n_metadata_omitted++;
+                }
+        }
+
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *jid = NULL, *jf = NULL;
         if (is_root) {
                 ManifestField unqueryable = 0;
@@ -1529,7 +1541,7 @@ static int manifest_uapi16_item(
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("groupName", group_name),
                         SD_JSON_BUILD_PAIR_CONDITION(hardlink_counter > 0, "inodeToken", SD_JSON_BUILD_UNSIGNED(hardlink_counter)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!jx, "extendedAttributes", SD_JSON_BUILD_VARIANT(jx)),
-                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(c->fields, MANIFEST_FIELD_MTIME) && FLAGS_SET(sx->stx_mask, STATX_MTIME) && sx->stx_mtime.tv_sec >= 0, "mTimeNSec", SD_JSON_BUILD_UNSIGNED(statx_timestamp_load_nsec(&sx->stx_mtime))));
+                        SD_JSON_BUILD_PAIR_CONDITION(mtime != NSEC_INFINITY, "mTimeNSec", SD_JSON_BUILD_UNSIGNED(mtime)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON object: %m");
 
