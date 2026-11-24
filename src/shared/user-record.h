@@ -5,7 +5,6 @@
 
 #include "sd-id128.h"
 
-#include "bitfield.h"
 #include "forward.h"
 #include "pkcs11-padding.h"
 #include "rlimit-util.h"
@@ -527,15 +526,6 @@ typedef struct UserDBMatch {
                 .uid_max = UID_INVALID-1,                       \
                 .uuid = SD_ID128_NULL,                          \
        }
-
-/* Maybe useful when we want to resolve root and system user/group but want to refuse nobody user/group. */
-#define USERDB_MATCH_ROOT_AND_SYSTEM                            \
-        (const UserDBMatch) {                                   \
-                .disposition_mask =                             \
-                        INDEXES_TO_MASK(uint64_t, USER_INTRINSIC, USER_SYSTEM), \
-                .uid_min = 0,                                   \
-                .uid_max = UID_NOBODY - 1,                      \
-        }
 
 bool userdb_match_is_set(const UserDBMatch *match) _pure_;
 
