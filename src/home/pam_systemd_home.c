@@ -304,10 +304,6 @@ static int release_user_record(pam_handle_t *pamh, const char *username) {
         return IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA) ? k : r;
 }
 
-static void cleanup_home_fd(pam_handle_t *pamh, void *data, int error_status) {
-        safe_close(PTR_TO_FD(data));
-}
-
 static int handle_generic_user_record_error(
                 pam_handle_t *pamh,
                 const char *user_name,
@@ -738,9 +734,9 @@ static int acquire_home(
                         return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to set PAM auth token: @PAMERR@");
         }
 
-        r = sym_pam_set_data(pamh, fd_field, FD_TO_PTR(acquired_fd), cleanup_home_fd);
+        r = sym_pam_set_data(pamh, fd_field, FD_TO_PTR(acquired_fd), pam_cleanup_close);
         if (r != PAM_SUCCESS)
-                return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to set PAM bus data: @PAMERR@");
+                return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to set PAM home reference fd: @PAMERR@");
         TAKE_FD(acquired_fd);
 
         if (do_auth) {
