@@ -36,10 +36,6 @@ typedef enum CompareOperator {
         _COMPARE_OPERATOR_INVALID = -EINVAL,
 } CompareOperator;
 
-static inline bool COMPARE_OPERATOR_IS_FNMATCH(CompareOperator c) {
-        return c >= _COMPARE_OPERATOR_FNMATCH_FIRST && c <= _COMPARE_OPERATOR_FNMATCH_LAST;
-}
-
 static inline bool COMPARE_OPERATOR_IS_ORDER(CompareOperator c) {
         return c >= _COMPARE_OPERATOR_ORDER_FIRST && c <= _COMPARE_OPERATOR_ORDER_LAST;
 }
