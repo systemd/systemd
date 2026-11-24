@@ -2,7 +2,6 @@
 
 #include "sd-bus.h"
 
-#include "bus-future.h"
 #include "bus-locator.h"
 
 const BusLocator* const bus_home_mgr = &(BusLocator){
@@ -226,18 +225,6 @@ int bus_match_signal_async(
         assert(locator);
 
         return sd_bus_match_signal_async(bus, ret_slot, locator->destination, locator->path, locator->interface, member, callback, install_callback, userdata);
-}
-
-int bus_match_signal_channel_conflated(
-                sd_bus *bus,
-                const BusLocator *locator,
-                const char *member,
-                sd_channel **ret) {
-
-        assert(locator);
-
-        return bus_signal_channel_new_conflated(bus, locator->destination, locator->path,
-                                                locator->interface, member, ret);
 }
 
 int bus_message_new_method_call(
