@@ -866,41 +866,68 @@ int exec_context_apply_set_credential(
         return 0;
 }
 
+static int unlink_exec_directory_symlink(const char *target, const char *linkpath) {
+        _cleanup_free_ char *actual = NULL, *relative = NULL;
+        int r;
+
+        r = readlink_malloc(linkpath, &actual);
+        if (IN_SET(r, -ENOENT, -ENOTDIR, -EINVAL))
+                return 0;
+        if (r < 0)
+                return r;
+
+        /* Only unlink what we linked in setup_exec_directory() or compile_symlinks(). Compare the link
+         * text rather than following it: the target may already have been cleaned up. */
+        if (!path_is_absolute(actual)) {
+                r = path_make_relative_parent(linkpath, target, &relative);
+                if (r < 0)
+                        return r;
+        }
+        if (!path_equal(actual, relative ?: target))
+                return 0;
+
+        return RET_NERRNO(unlink(linkpath));
+}
+
 int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_prefix) {
+        int ret = 0;
+
         assert(c);
 
         if (!runtime_prefix)
                 return 0;
 
+        bool is_private = exec_directory_is_private(c, EXEC_DIRECTORY_RUNTIME);
         FOREACH_ARRAY(i, c->directories[EXEC_DIRECTORY_RUNTIME].items, c->directories[EXEC_DIRECTORY_RUNTIME].n_items) {
-                _cleanup_free_ char *p = NULL;
+                _cleanup_free_ char *p = NULL, *private_path = NULL;
 
-                if (exec_directory_is_private(c, EXEC_DIRECTORY_RUNTIME))
-                        p = path_join(runtime_prefix, "private", i->path);
-                else
-                        p = path_join(runtime_prefix, i->path);
+                p = path_join(runtime_prefix, i->path);
                 if (!p)
                         return -ENOMEM;
 
+                if (is_private) {
+                        private_path = path_join(runtime_prefix, "private", i->path);
+                        if (!private_path)
+                                return -ENOMEM;
+
+                        if (!FLAGS_SET(i->flags, EXEC_DIRECTORY_ONLY_CREATE))
+                                RET_GATHER(ret, unlink_exec_directory_symlink(private_path, p));
+                }
+
                 /* We execute this synchronously, since we need to be sure this is gone when we start the
                  * service next. */
-                (void) rm_rf(p, REMOVE_ROOT);
+                RET_GATHER(ret, rm_rf(private_path ?: p, REMOVE_ROOT|REMOVE_MISSING_OK));
 
                 STRV_FOREACH(symlink, i->symlinks) {
-                        _cleanup_free_ char *symlink_abs = NULL;
-
-                        if (exec_directory_is_private(c, EXEC_DIRECTORY_RUNTIME))
-                                symlink_abs = path_join(runtime_prefix, "private", *symlink);
-                        else
-                                symlink_abs = path_join(runtime_prefix, *symlink);
+                        _cleanup_free_ char *symlink_abs = path_join(runtime_prefix, *symlink);
                         if (!symlink_abs)
                                 return -ENOMEM;
 
-                        (void) unlink(symlink_abs);
+                        RET_GATHER(ret, unlink_exec_directory_symlink(p, symlink_abs));
                 }
         }
 
-        return 0;
+        return ret;
 }
 
 int exec_context_destroy_mount_ns_dir(Unit *u) {
