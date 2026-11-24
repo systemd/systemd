@@ -1388,6 +1388,21 @@ testcase_inhibit_default() {
     (! systemd-inhibit --mode=delay --what=idle true)
 }
 
+testcase_inhibit_empty_who_why() {
+    local unit=inhibit-empty-who-why.service
+
+    # An inhibitor with empty who/why must survive a restart of logind (i.e. deserialization from the
+    # state file and re-serialization)
+    systemd-run --unit="$unit" systemd-inhibit --who= --why= --what=idle --mode=block sleep infinity
+    timeout 30 bash -c "until systemd-inhibit --list --no-legend --who= --why= --what=idle --mode=block | grep . >/dev/null; do sleep .5; done"
+
+    systemctl restart systemd-logind.service
+    systemctl --quiet is-active systemd-logind.service
+
+    systemd-inhibit --list --no-legend --who= --why= --what=idle --mode=block | grep . >/dev/null
+    systemctl stop "$unit"
+}
+
 teardown_polkit_details() (
     set +ex
 
