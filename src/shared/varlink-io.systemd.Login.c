@@ -355,9 +355,11 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_KillWhom,
                 SD_VARLINK_SYMBOL_COMMENT("Sends a signal to a session's processes."),
                 &vl_method_KillSession,
-                SD_VARLINK_SYMBOL_COMMENT("Sets the idle hint for a session."),
+                SD_VARLINK_SYMBOL_COMMENT("Reports the idle state of a graphical session that supports idle tracking."
+                                          " The caller must be the owner of the target session or root."),
                 &vl_method_SetIdleHint,
-                SD_VARLINK_SYMBOL_COMMENT("Sets the locked hint for a session."),
+                SD_VARLINK_SYMBOL_COMMENT("Reports the lock state of a session that supports locking."
+                                          " The caller must be the owner of the target session or root."),
                 &vl_method_SetLockedHint,
                 SD_VARLINK_SYMBOL_COMMENT("Configuration aspects of a user"),
                 &vl_type_UserContext,
