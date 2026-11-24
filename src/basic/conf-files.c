@@ -798,10 +798,6 @@ int conf_files_list_at(char ***ret, const char *suffix, int rfd, ConfFilesFlags 
         return conf_files_list_strv_at(ret, suffix, rfd, flags, STRV_MAKE_CONST(dir));
 }
 
-int conf_files_list_at_full(const char *suffix, int rfd, ConfFilesFlags flags, const char *dir, ConfFile ***ret_files, size_t *ret_n_files) {
-        return conf_files_list_strv_at_full(suffix, rfd, flags, STRV_MAKE_CONST(dir), ret_files, ret_n_files);
-}
-
 int conf_files_list_nulstr(char ***ret, const char *suffix, const char *root, ConfFilesFlags flags, const char *dirs) {
         _cleanup_strv_free_ char **d = NULL;
 
