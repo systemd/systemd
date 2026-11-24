@@ -1068,6 +1068,8 @@ static int on_dns_stub_packet_internal(sd_event_source *s, int fd, uint32_t reve
         if (r <= 0)
                 return r;
 
+        p->destination_port = l ? dns_stub_listener_extra_port(l) : 53;
+
         if (dns_packet_validate_query(p) > 0) {
                 log_debug("Got DNS stub UDP query packet for id %u", DNS_PACKET_ID(p));
 

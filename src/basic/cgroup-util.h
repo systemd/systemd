@@ -151,6 +151,7 @@ int cg_get_path(const char *path, const char *suffix, char **ret);
 
 int cg_pid_get_path(pid_t pid, char **ret);
 int cg_pidref_get_path(const PidRef *pidref, char **ret);
+int cg_pidref_get_cgroupid(const PidRef *pidref, uint64_t *ret);
 
 int cg_is_threaded(const char *path);
 
