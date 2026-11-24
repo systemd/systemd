@@ -51,14 +51,6 @@
 void* memdup(const void *p, size_t l) _alloc_(2);
 void* memdup_suffix0(const void *p, size_t l); /* We can't use _alloc_() here, since we return a buffer one byte larger than the specified size */
 
-#define memdupa(p, l)                           \
-        ({                                      \
-                void *_q_;                      \
-                size_t _l_ = l;                 \
-                _q_ = alloca_safe(_l_);         \
-                memcpy_safe(_q_, p, _l_);       \
-        })
-
 #define memdupa_suffix0(p, l)                   \
         ({                                      \
                 void *_q_;                      \
