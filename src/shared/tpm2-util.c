@@ -4894,17 +4894,16 @@ static int find_signature(
                         sd_json_variant *pol;
                         sd_json_variant *sig;
                 } e = {};
-                sd_json_variant *maskj, *fpj, *sigj, *polj, *refj;
                 size_t fpj_size, polj_size;
                 uint32_t parsed_mask;
 
                 /* The fields are decoded below in order, and only as far as the entry matches */
                 static const sd_json_dispatch_field dispatch_table[] = {
-                        { "pcrs", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_variant_noref, voffsetof(e, pcrs), 0 },
-                        { "pkfp", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_variant_noref, voffsetof(e, pkfp), 0 },
-                        { "ref",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_variant_noref, voffsetof(e, ref),  0 },
-                        { "pol",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_variant_noref, voffsetof(e, pol),  0 },
-                        { "sig",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_variant_noref, voffsetof(e, sig),  0 },
+                        { "pcrs", SD_JSON_VARIANT_ARRAY,  sd_json_dispatch_variant_noref, voffsetof(e, pcrs), 0 },
+                        { "pkfp", SD_JSON_VARIANT_STRING, sd_json_dispatch_variant_noref, voffsetof(e, pkfp), 0 },
+                        { "ref",  SD_JSON_VARIANT_STRING, sd_json_dispatch_variant_noref, voffsetof(e, ref),  0 },
+                        { "pol",  SD_JSON_VARIANT_STRING, sd_json_dispatch_variant_noref, voffsetof(e, pol),  0 },
+                        { "sig",  SD_JSON_VARIANT_STRING, sd_json_dispatch_variant_noref, voffsetof(e, sig),  0 },
                         {}
                 };
 
@@ -4916,11 +4915,10 @@ static int find_signature(
                         return log_debug_errno(r, "Failed to parse bank data element: %m");
 
                 /* Check if the PCR mask matches our expectations */
-                maskj = e.pcrs;
-                if (!maskj)
+                if (!e.pcrs)
                         continue;
 
-                r = tpm2_parse_pcr_json_array(maskj, &parsed_mask);
+                r = tpm2_parse_pcr_json_array(e.pcrs, &parsed_mask);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to parse JSON PCR mask");
 
@@ -4928,34 +4926,27 @@ static int find_signature(
                         continue; /* Not for this PCR mask */
 
                 /* Then check if this is for the public key we operate with */
-                fpj = e.pkfp;
-                if (!fpj)
+                if (!e.pkfp)
                         continue;
 
-                r = sd_json_variant_unhex(fpj, &fpj_data, &fpj_size);
+                r = sd_json_variant_unhex(e.pkfp, &fpj_data, &fpj_size);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to decode fingerprint in JSON data: %m");
 
                 if (memcmp_nn(fp, fp_size, fpj_data, fpj_size) != 0)
                         continue; /* Not for this public key */
 
-                refj = e.ref;
-                if (refj) {
-                        refj_data = sd_json_variant_string(refj);
-                        if (!refj_data)
-                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Policy reference is not a string.");
-                }
+                refj_data = sd_json_variant_string(e.ref);
 
                 if (!streq_ptr(policy_ref, refj_data))
                         continue;
 
                 /* Finally, check if this is for the PCR policy we expect this to be */
-                polj = e.pol;
-                if (!polj)
+                if (!e.pol)
                         continue;
 
                 if (policy) {
-                        r = sd_json_variant_unhex(polj, &polj_data, &polj_size);
+                        r = sd_json_variant_unhex(e.pol, &polj_data, &polj_size);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to decode policy hash JSON data: %m");
 
@@ -4964,14 +4955,13 @@ static int find_signature(
                 }
 
                 /* This entry matches all our expectations, now return the signature included in it */
-                sigj = e.sig;
-                if (!sigj)
+                if (!e.sig)
                         continue;
 
                 if (!ret_signature)
                         return 0;
 
-                return sd_json_variant_unbase64(sigj, ret_signature, ret_signature_size);
+                return sd_json_variant_unbase64(e.sig, ret_signature, ret_signature_size);
         }
 
         return log_debug_errno(SYNTHETIC_ERRNO(ENOSTR), "Couldn't find signature for this PCR bank, PCR index and public key.");
