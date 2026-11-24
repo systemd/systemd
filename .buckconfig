@@ -5,8 +5,8 @@ prelude = prelude
 none = none
 root = .
 tine = tine
+settings = tine-settings
 catalog = tine/catalog
-settings = tine/settings
 
 [cell_aliases]
 config = prelude
