@@ -1217,9 +1217,10 @@ int config_parse_nft_set(
                 void *userdata) {
 
         NFTSetContext *nft_set_context = ASSERT_PTR(data);
+        NFTSetParseFlags mode = ltype;
         int r;
 
-        assert(IN_SET(ltype, NFT_SET_PARSE_NETWORK, NFT_SET_PARSE_CGROUP));
+        assert(IN_SET(mode, NFT_SET_PARSE_NETWORK, NFT_SET_PARSE_CGROUP));
 
         if (isempty(rvalue)) {
                 nft_set_context_clear(nft_set_context);
@@ -1256,8 +1257,8 @@ int config_parse_nft_set(
 
                 source = nft_set_source_from_string(source_str);
                 if (source < 0 ||
-                    (ltype == NFT_SET_PARSE_NETWORK && !IN_SET(source, NFT_SET_SOURCE_ADDRESS, NFT_SET_SOURCE_PREFIX, NFT_SET_SOURCE_IFINDEX)) ||
-                    (ltype == NFT_SET_PARSE_CGROUP && !IN_SET(source, NFT_SET_SOURCE_CGROUP, NFT_SET_SOURCE_USER, NFT_SET_SOURCE_GROUP))) {
+                    (mode == NFT_SET_PARSE_NETWORK && !IN_SET(source, NFT_SET_SOURCE_ADDRESS, NFT_SET_SOURCE_PREFIX, NFT_SET_SOURCE_IFINDEX)) ||
+                    (mode == NFT_SET_PARSE_CGROUP && !IN_SET(source, NFT_SET_SOURCE_CGROUP, NFT_SET_SOURCE_USER, NFT_SET_SOURCE_GROUP))) {
                         _cleanup_free_ char *esc = NULL;
 
                         esc = cescape(source_str);
