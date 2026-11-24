@@ -461,6 +461,59 @@ TEST(invalid_parameter) {
         ASSERT_OK(sd_event_loop(e));
 }
 
+static int method_ping(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
+static int reply_ping(sd_varlink *link, sd_json_variant *parameters, const char *error_id, sd_varlink_reply_flags_t flags, void *userdata) {
+        ASSERT_NULL(error_id);
+        ASSERT_OK(sd_event_exit(sd_varlink_get_event(link), EXIT_SUCCESS));
+        return 0;
+}
+
+TEST(listen_address_long_path) {
+        /* sd_varlink_server_listen_address() must listen on a socket path that doesn't fit into sun_path.
+         * Create a directory whose path is longer than sun_path, and listen on a socket in it twice, so that
+         * the second server has to remove the socket inode that the first server created. The socket must
+         * get the requested access mode. A client that connects to the path must get a reply. */
+
+        _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
+        ASSERT_OK(mkdtemp_malloc("/tmp/varlink-test-long-path-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxXXXXXX", &tmpdir));
+
+        _cleanup_free_ char *sp = path_join(tmpdir, "socket");
+        ASSERT_NOT_NULL(sp);
+        ASSERT_GE(strlen(sp), SUN_PATH_LEN);
+
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_default(&e));
+
+        /* Listen once and free the server. The socket inode remains in the directory. */
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        ASSERT_OK(sd_varlink_server_new(&s, /* flags= */ 0));
+        ASSERT_OK(sd_varlink_server_listen_address(s, sp, 0600));
+        s = sd_varlink_server_unref(s);
+
+        /* Listen again on the same path. */
+        ASSERT_OK(sd_varlink_server_new(&s, /* flags= */ 0));
+        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.Ping", method_ping));
+        ASSERT_OK(sd_varlink_server_listen_address(s, sp, 0600));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, /* priority= */ 0));
+
+        struct stat st;
+        ASSERT_OK_ERRNO(stat(sp, &st));
+        ASSERT_TRUE(S_ISSOCK(st.st_mode));
+        ASSERT_EQ(st.st_mode & 0777, 0600u);
+
+        /* Connect via the path and call the method. */
+        _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
+        ASSERT_OK(sd_varlink_connect_address(&c, sp));
+        ASSERT_OK(sd_varlink_attach_event(c, e, /* priority= */ 0));
+        ASSERT_OK(sd_varlink_bind_reply(c, reply_ping));
+        ASSERT_OK(sd_varlink_invoke(c, "io.test.Ping", /* parameters= */ NULL));
+
+        ASSERT_OK(sd_event_loop(e));
+}
+
 typedef struct MandatoryTypeWithOptionalField {
         const char *mandatory;
         const char *optional;
