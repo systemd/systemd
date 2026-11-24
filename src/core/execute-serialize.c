@@ -1237,6 +1237,10 @@ static int exec_parameters_serialize(const ExecParameters *p, const ExecContext 
         if (r < 0)
                 return r;
 
+        r = serialize_fd(f, fds, "exec-parameters-directory-report-fd", p->directory_report_fd);
+        if (r < 0)
+                return r;
+
         r = serialize_strv(f, "exec-parameters-files-env", p->files_env);
         if (r < 0)
                 return r;
@@ -1512,6 +1516,11 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                                 continue;
 
                         close_and_replace(p->user_lookup_fd, fd);
+                } else if ((val = startswith(l, "exec-parameters-directory-report-fd="))) {
+                        int fd = deserialize_fd(fds, val);
+                        if (fd >= 0)
+                                close_and_replace(p->directory_report_fd, fd);
+
                 } else if ((val = startswith(l, "exec-parameters-files-env="))) {
                         r = deserialize_strv(val, &p->files_env);
                         if (r < 0)

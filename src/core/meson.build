@@ -57,6 +57,7 @@ libcore_sources = files(
         'dynamic-user.c',
         'emergency-action.c',
         'exec-credential.c',
+        'exec-directory.c',
         'execute.c',
         'execute-serialize.c',
         'generator-setup.c',

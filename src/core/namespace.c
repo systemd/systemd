@@ -2273,36 +2273,6 @@ static void sort_and_drop_unused_mounts(MountList *ml, const char *root_director
         drop_nop(ml);
 }
 
-static int create_symlinks_from_tuples(const char *root, char **strv_symlinks) {
-        int r;
-
-        STRV_FOREACH_PAIR(src, dst, strv_symlinks) {
-                _cleanup_free_ char *src_abs = NULL, *dst_abs = NULL;
-
-                src_abs = path_join(root, *src);
-                dst_abs = path_join(root, *dst);
-                if (!src_abs || !dst_abs)
-                        return -ENOMEM;
-
-                r = mkdir_parents_label(dst_abs, 0755);
-                if (r < 0)
-                        return log_debug_errno(
-                                        r,
-                                        "Failed to create parent directory for symlink '%s': %m",
-                                        dst_abs);
-
-                r = symlink_idempotent(src_abs, dst_abs, /* make_relative= */ true);
-                if (r < 0)
-                        return log_debug_errno(
-                                        r,
-                                        "Failed to create symlink from '%s' to '%s': %m",
-                                        src_abs,
-                                        dst_abs);
-        }
-
-        return 0;
-}
-
 static void mount_entry_path_debug_string(const char *root, MountEntry *m, char **ret_path) {
         assert(m);
 
@@ -2423,9 +2393,11 @@ static int apply_mounts(
          * read-only switches are flipped, create the exec dirs and other symlinks.
          * Note that when /var/lib is not empty/tmpfs, these symlinks will already
          * exist, which means this will be a no-op. */
-        r = create_symlinks_from_tuples(root, p->symlinks);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to set up symlinks inside mount namespace: %m");
+        if (p->make_symlinks) {
+                r = p->make_symlinks(root, p->symlink_userdata);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to set up symlinks inside mount namespace: %m");
+        }
 
         /* Create a deny list we can pass to bind_mount_recursive() */
         deny_list = new(char*, ml->n_mounts+1);
