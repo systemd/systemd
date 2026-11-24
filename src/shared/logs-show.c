@@ -356,6 +356,15 @@ finish:
         return written_chars;
 }
 
+static int output_timestamp_boottime(FILE *f, usec_t usec) {
+        assert(f);
+
+        if (!VALID_BOOTTIME(usec))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "No valid boottime timestamp available, skipping showing journal entry.");
+
+        return fprintf(f, "[%5"PRI_USEC".%06"PRI_USEC"]", usec / USEC_PER_SEC, usec % USEC_PER_SEC);
+}
+
 static int output_timestamp_realtime(
                 FILE *f,
                 OutputMode mode,
@@ -648,6 +657,8 @@ static int output_short(
 
         if (IN_SET(mode, OUTPUT_SHORT_MONOTONIC, OUTPUT_SHORT_DELTA))
                 r = output_timestamp_monotonic(f, mode, &display_ts, &boot_id, previous_display_ts, previous_boot_id);
+        else if (mode == OUTPUT_SHORT_BOOTTIME)
+                r = output_timestamp_boottime(f, ts.boottime);
         else
                 r = output_timestamp_realtime(f, mode, flags, ts.realtime);
         if (r == -EINVAL)
@@ -1541,6 +1552,7 @@ static output_func_t output_funcs[_OUTPUT_MODE_MAX] = {
         [OUTPUT_SHORT_PRECISE]     = output_short,
         [OUTPUT_SHORT_MONOTONIC]   = output_short,
         [OUTPUT_SHORT_DELTA]       = output_short,
+        [OUTPUT_SHORT_BOOTTIME]    = output_short,
         [OUTPUT_SHORT_UNIX]        = output_short,
         [OUTPUT_SHORT_FULL]        = output_short,
         [OUTPUT_VERBOSE]           = output_verbose,
