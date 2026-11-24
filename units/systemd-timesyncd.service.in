@@ -13,20 +13,23 @@ Documentation=man:systemd-timesyncd.service(8)
 ConditionCapability=CAP_SYS_TIME
 ConditionVirtualization=!container
 DefaultDependencies=no
-After=systemd-sysusers.service systemd-resolved.service systemd-resolved-varlink.socket
+After=systemd-sysusers.service systemd-resolved.service systemd-resolved-varlink.socket modprobe@ptp.service
 Before=time-set.target sysinit.target shutdown.target
 Conflicts=shutdown.target
-Wants=time-set.target
+Wants=time-set.target modprobe@ptp.service
 
 [Service]
 AmbientCapabilities=CAP_SYS_TIME
 BusName=org.freedesktop.timesync1
 CapabilityBoundingSet=CAP_SYS_TIME
+# PTP hardware clocks provided by hypervisors may show up after we started, hence PrivateDevices= cannot be
+# used, as it would hide them from us. Allow read access to them via the device policy instead.
+DeviceAllow=char-ptp r
+DevicePolicy=closed
 ExecStart={{LIBEXECDIR}}/systemd-timesyncd
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
 NoNewPrivileges=yes
-PrivateDevices=yes
 PrivateTmp=disconnected
 ProtectProc=invisible
 ProtectControlGroups=yes
@@ -38,7 +41,7 @@ ProtectKernelTunables=yes
 ProtectSystem=strict
 Restart=always
 RestartSec=0
-RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
 RestrictNamespaces=yes
 RestrictRealtime=yes
 RestrictSUIDSGID=yes

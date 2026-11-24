@@ -133,6 +133,40 @@
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>PHC=</varname></term>
+        <listitem><para>Takes a boolean or the absolute path of a device node below
+        <filename>/dev/</filename>. Many hypervisors and cloud providers expose their notion of the
+        current time to virtual machines as a PTP hardware clock (PHC) device, for example
+        <filename>/dev/ptp_kvm</filename> (KVM, requires the <literal>ptp_kvm</literal> kernel module),
+        <filename>/dev/ptp_hyperv</filename> (Hyper-V and Azure), <filename>/dev/ptp_vmware</filename>
+        (VMware), and <filename>/dev/ptp_ena</filename> (Amazon EC2). If enabled and such a device is
+        available, the system clock is synchronized to it instead of to an NTP server: it is read every 2
+        seconds and NTP servers are not contacted while it is in use. Defaults to true. If the empty string
+        is assigned, the default is restored.</para>
+
+        <para>Only PTP hardware clock devices that carry the udev tag <literal>timesync</literal> are
+        considered. The default udev rules set this tag on the hypervisor devices listed above. Additional
+        devices may be tagged with a udev rule such as
+        <programlisting>SUBSYSTEM=="ptp", ATTR{clock_name}=="…", TAG+="timesync"</programlisting>
+        and the tag may be removed from a device with <literal>TAG-="timesync"</literal> to exclude it. Note
+        that despite the name the Precision Time Protocol is not implemented: tagged devices must be local
+        clocks that report UTC (as is the case for the hypervisor devices listed above), not network
+        interface clocks synchronized via PTP, which typically run on TAI.</para>
+
+        <para>If a device node path is specified (for example <literal>/dev/ptp_kvm</literal> or
+        <literal>/dev/ptp0</literal>), the PTP hardware clock whose device node or one of whose device node
+        symlinks matches the path is used instead, regardless of whether it carries the
+        <literal>timesync</literal> tag. Only that device is considered then.</para>
+
+        <para>The first suitable device that may be read successfully is used, including devices that show
+        up later at runtime, as long as no device is in use yet. If the device goes away, is not suitable
+        anymore (i.e. loses the tag, or the configured device node path), or cannot be read anymore, the
+        next suitable device is tried, and if there is none, NTP is used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
