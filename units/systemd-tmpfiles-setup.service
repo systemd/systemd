@@ -21,6 +21,7 @@ RefuseManualStop=yes
 [Service]
 Type=oneshot
 RemainAfterExit=yes
+NotifyAccess=main
 ExecStart=systemd-tmpfiles --create --remove --boot --exclude-prefix=/dev
 SuccessExitStatus=DATAERR CANTCREAT
 ImportCredential=tmpfiles.*
