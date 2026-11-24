@@ -1884,9 +1884,11 @@ static int fallback_shutdown(ManagerObjective objective, int retval) {
         switch (objective) {
 
         case MANAGER_KEXEC:
-                log_info("Rebooting with kexec.");
-                (void) kexec();
-                /* If we are still here kexec didn't work, fall back to a plain reboot. */
+                if (!in_container) {
+                        log_info("Rebooting with kexec.");
+                        (void) kexec();
+                        /* If we are still here kexec didn't work, fall back to a plain reboot. */
+                }
                 _fallthrough_;
 
         case MANAGER_REBOOT:
@@ -1895,7 +1897,7 @@ static int fallback_shutdown(ManagerObjective objective, int retval) {
                 cmd = RB_AUTOBOOT;
                 break;
 
-        case MANAGER_EXIT: /* We cannot exit() on the host, fallback on another method. */
+        case MANAGER_EXIT: /* We cannot exit() on the host, fall back to another method. */
         case MANAGER_POWEROFF:
                 log_info("Powering off.");
                 cmd = RB_POWER_OFF;
