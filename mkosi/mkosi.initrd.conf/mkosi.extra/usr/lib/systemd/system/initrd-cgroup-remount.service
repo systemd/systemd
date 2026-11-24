@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+[Unit]
+Description=Turn memory_hugetlb_accounting off for cgroupfs, as a service manager that does not know systemd.memory_hugetlb_accounting= does
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=cp -v /proc/self/mountinfo /run/initrd-mountinfo
+ExecStart=mount -v -o remount,nosuid,nodev,noexec,nsdelegate,memory_recursiveprot,memory_localevents cgroup2 /sys/fs/cgroup
+ExecStart=cp -v /proc/self/mountinfo /run/initrd-mountinfo-remounted

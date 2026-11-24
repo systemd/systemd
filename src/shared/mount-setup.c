@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sched.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -11,14 +12,20 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fstab-util.h"
 #include "initrd-util.h"
 #include "label-util.h"
+#include "libmount-util.h"
 #include "log.h"
 #include "mkdir.h"
 #include "mount-setup.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
+#include "namespace-util.h"
 #include "path-util.h"
+#include "pidref.h"
+#include "proc-cmdline.h"
+#include "process-util.h"
 #include "recurse-dir.h"
 #include "smack-util.h"
 #include "string-util.h"
@@ -42,7 +49,84 @@ typedef struct MountPoint {
         unsigned long flags;
         MountMode mode;
         bool (*condition_fn)(void);
+        int (*already_mounted_fn)(const struct MountPoint *p);
 } MountPoint;
+
+static int cgroupfs_hugetlb_accounting_wanted(void) {
+        bool enabled = false;
+        int r;
+
+        /* Charging HugeTLB pages to the memory controller changes what memory.max and friends mean for
+         * every cgroup on the system, and the kernel has no way to choose this per cgroup. Workload
+         * managers that give HugeTLB pages a budget of their own rely on the old meaning. Hence this is
+         * opt-in, which is also what the kernel documentation asks for. */
+
+        r = proc_cmdline_get_bool("systemd.memory_hugetlb_accounting", /* flags= */ 0, &enabled);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to parse systemd.memory_hugetlb_accounting= kernel command line option, ignoring: %m");
+                return 0;
+        }
+        if (!enabled)
+                return 0;
+
+        /* memory_hugetlb_accounting mount option is since kernel v6.7 (8cba9576df601c384abd334a503c3f6e1e29eefb). */
+
+        r = mount_option_supported("cgroup2", "memory_hugetlb_accounting", /* value= */ NULL);
+        if (r == 0)
+                log_warning("'memory_hugetlb_accounting' was requested on the kernel command line, but is not supported by cgroupfs, ignoring.");
+
+        return r < 0 ? r : r > 0;
+}
+
+static int cgroupfs_hugetlb_accounting_in_effect(void) {
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        int r;
+
+        /* A cgroupfs instance that is mounted from a cgroup namespace other than the initial one shows the
+         * options of the hierarchy, but does not change them. Hence mount one from a temporary cgroup
+         * namespace to learn what is in effect. Returns > 0 if memory_hugetlb_accounting is on, 0 if off. */
+
+        /* The child cannot load libraries anymore, hence load what it needs to read the mount options. */
+        r = dlopen_libmount(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        r = pidref_safe_fork("(sd-cgopts)",
+                             FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE,
+                             &pidref);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                _cleanup_free_ char *fstype = NULL, *options = NULL;
+
+                /* Child. The exit status tells the parent what we found. */
+
+                if (unshare(CLONE_NEWCGROUP) < 0) {
+                        log_debug_errno(errno, "Failed to unshare cgroup namespace: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                if (mount_nofollow_verbose(LOG_DEBUG, "cgroup2", "/sys/fs/cgroup", "cgroup2",
+                                           MS_NOSUID|MS_NOEXEC|MS_NODEV, /* options= */ NULL) < 0)
+                        _exit(EXIT_FAILURE);
+
+                if (path_get_mount_info("/sys/fs/cgroup", &fstype, &options, /* ret_source= */ NULL) < 0 ||
+                    !streq(fstype, "cgroup2"))
+                        _exit(EXIT_FAILURE);
+
+                _exit(fstab_test_option(options, "memory_hugetlb_accounting\0") ? 2 : EXIT_SUCCESS);
+        }
+
+        r = pidref_wait_for_terminate_and_check("(sd-cgopts)", &pidref, /* flags= */ 0);
+        if (r < 0)
+                return r;
+        if (r == EXIT_SUCCESS)
+                return 0;
+        if (r == 2)
+                return 1;
+
+        return -EPROTO;
+}
 
 static int cgroupfs_mount_options(int priority, const char *type, char **ret) {
         int r;
@@ -51,20 +135,74 @@ static int cgroupfs_mount_options(int priority, const char *type, char **ret) {
         assert(streq(type, "cgroup2"));
         assert(ret);
 
-        /* memory_hugetlb_accounting mount option is since kernel v6.7 (8cba9576df601c384abd334a503c3f6e1e29eefb). */
+        /* In a container that shares the cgroup namespace of the host our mount sets the options of the
+         * host's hierarchy, and the kernel command line we see is not the one the host was booted with.
+         * Hence keep what is in effect. If we cannot tell which cgroup namespace we are in, look too. */
+        if (detect_container() > 0 && namespace_is_init(NAMESPACE_CGROUP) != 0) {
+                r = cgroupfs_hugetlb_accounting_in_effect();
+                if (r > 0)
+                        return strdup_to(ret, "memory_hugetlb_accounting");
+                if (r == 0) {
+                        *ret = NULL;
+                        return 0;
+                }
 
-        r = mount_option_supported("cgroup2", "memory_hugetlb_accounting", /* value= */ NULL);
+                log_warning_errno(r, "Failed to determine whether 'memory_hugetlb_accounting' is in effect, going by the kernel command line: %m");
+        }
+
+        r = cgroupfs_hugetlb_accounting_wanted();
+        if (r < 0)
+                log_full_errno(priority, r, "Failed to determine whether cgroupfs supports 'memory_hugetlb_accounting' mount option, assuming not: %m");
         if (r <= 0) {
-                if (r < 0)
-                        log_full_errno(priority, r, "Failed to determine whether cgroupfs supports 'memory_hugetlb_accounting' mount option, assuming not: %m");
-                else
-                        log_debug("'memory_hugetlb_accounting' not supported by cgroupfs, not using mount option.");
-
                 *ret = NULL;
                 return 0;
         }
 
         return strdup_to(ret, "memory_hugetlb_accounting");
+}
+
+static int cgroupfs_already_mounted(const MountPoint *p) {
+        _cleanup_free_ char *fstype = NULL, *current = NULL, *fs_options = NULL, *options = NULL;
+        unsigned long flags;
+        int r, wanted;
+
+        assert(p);
+
+        /* The cgroup file system might have been mounted by a service manager that handles
+         * memory_hugetlb_accounting differently, for example an older one in the initrd that always turns
+         * it on. Remount if what is in effect is not what we want. A remount from the initial cgroup
+         * namespace sets the options of the whole hierarchy, hence leave things alone in a container. */
+
+        if (detect_container() > 0)
+                return 0;
+
+        wanted = cgroupfs_hugetlb_accounting_wanted();
+        if (wanted < 0)
+                return log_warning_errno(wanted, "Failed to determine whether cgroupfs supports 'memory_hugetlb_accounting' mount option, leaving %s as it is: %m", p->where);
+
+        r = path_get_mount_info(p->where, &fstype, &current, /* ret_source= */ NULL);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to read mount options of %s, leaving it as it is: %m", p->where);
+
+        if (!streq(fstype, p->type) ||
+            fstab_test_option(current, "memory_hugetlb_accounting\0") == wanted)
+                return 0;
+
+        /* A remount replaces all options, hence carry over the other ones. */
+        r = mount_option_mangle(current, /* mount_flags= */ 0, &flags, &fs_options);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to parse mount options of %s, leaving it as it is: %m", p->where);
+
+        r = fstab_filter_options(fs_options, "memory_hugetlb_accounting\0",
+                                 /* ret_namefound= */ NULL, /* ret_value= */ NULL, /* ret_values= */ NULL,
+                                 &options);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to parse mount options of %s, leaving it as it is: %m", p->where);
+
+        if (wanted && !strextend_with_separator(&options, ",", "memory_hugetlb_accounting"))
+                return log_oom();
+
+        return mount_nofollow_verbose(LOG_WARNING, p->what, p->where, p->type, flags|MS_REMOUNT, options);
 }
 
 int mount_cgroupfs(const char *path) {
@@ -78,10 +216,24 @@ int mount_cgroupfs(const char *path) {
          * https://github.com/torvalds/linux/blob/b69bb476dee99d564d65d418e9a20acca6f32c3f/kernel/cgroup/cgroup.c#L1984)
          */
 
-        _cleanup_free_ char *opts = NULL;
-        r = cgroupfs_mount_options(LOG_WARNING, "cgroup2", &opts);
-        if (r < 0)
-                return r;
+        _cleanup_free_ char *opts = NULL, *fstype = NULL, *current = NULL;
+
+        /* Whether HugeTLB pages are charged to the memory controller is configurable. If a cgroupfs instance
+         * is mounted already, keep what it uses: it might have been changed since boot, and in a container
+         * the kernel command line we see is not the one the host was booted with. Only if we cannot tell
+         * what is in effect, go by the kernel command line. */
+        r = path_get_mount_info("/sys/fs/cgroup", &fstype, &current, /* ret_source= */ NULL);
+        if (r >= 0 && streq_ptr(fstype, "cgroup2")) {
+                if (fstab_test_option(current, "memory_hugetlb_accounting\0")) {
+                        r = strdup_to(&opts, "memory_hugetlb_accounting");
+                        if (r < 0)
+                                return log_oom();
+                }
+        } else {
+                r = cgroupfs_mount_options(LOG_WARNING, "cgroup2", &opts);
+                if (r < 0)
+                        return r;
+        }
 
         /* These options shall be kept in sync with those in mount_table below. */
         if (!strprepend_with_separator(&opts, ",", "nsdelegate,memory_recursiveprot"))
@@ -206,6 +358,7 @@ static const MountPoint mount_table[] = {
                 .options_fn = cgroupfs_mount_options,
                 .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
                 .mode = MNT_FATAL|MNT_IN_CONTAINER|MNT_CHECK_WRITABLE,
+                .already_mounted_fn = cgroupfs_already_mounted,
         },
 #if ENABLE_PSTORE
         {
@@ -277,7 +430,7 @@ bool mount_point_ignore(const char *path) {
         return false;
 }
 
-static int mount_one(const MountPoint *p, bool relabel) {
+static int mount_one(const MountPoint *p, bool relabel, bool skip_setup) {
         int r, priority;
 
         assert(p);
@@ -299,8 +452,13 @@ static int mount_one(const MountPoint *p, bool relabel) {
                 log_full_errno(priority, r, "Failed to determine whether %s is a mount point: %m", p->where);
                 return FLAGS_SET(p->mode, MNT_FATAL) ? r : 0;
         }
-        if (r > 0)
+        if (r > 0) {
+                /* Not on daemon-reexec: what an administrator changed at runtime shall stay. */
+                if (p->already_mounted_fn && !skip_setup)
+                        (void) p->already_mounted_fn(p);
+
                 return 0;
+        }
 
         if (!FLAGS_SET(p->mode, MNT_IN_CONTAINER) && detect_container() > 0)
                 return 0;
@@ -348,20 +506,20 @@ static int mount_one(const MountPoint *p, bool relabel) {
         return 1;
 }
 
-static int mount_points_setup(size_t n, bool loaded_policy) {
+static int mount_points_setup(size_t n, bool loaded_policy, bool skip_setup) {
         int r = 0;
 
         assert(n <= ELEMENTSOF(mount_table));
 
         FOREACH_ARRAY(mp, mount_table, n)
-                RET_GATHER(r, mount_one(mp, loaded_policy));
+                RET_GATHER(r, mount_one(mp, loaded_policy, skip_setup));
 
         return r;
 }
 
 int mount_setup_early(void) {
         /* Do a minimal mount of /proc and friends to enable the most basic stuff, such as SELinux */
-        return mount_points_setup(N_EARLY_MOUNT, /* loaded_policy= */ false);
+        return mount_points_setup(N_EARLY_MOUNT, /* loaded_policy= */ false, /* skip_setup= */ false);
 }
 
 #if HAVE_SELINUX || ENABLE_SMACK
@@ -479,7 +637,7 @@ static int relabel_extra(void) {
 int mount_setup(bool loaded_policy, bool skip_setup) {
         int r;
 
-        r = mount_points_setup(ELEMENTSOF(mount_table), loaded_policy);
+        r = mount_points_setup(ELEMENTSOF(mount_table), loaded_policy, skip_setup);
         if (r < 0)
                 return r;
 

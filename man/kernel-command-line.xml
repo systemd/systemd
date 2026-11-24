@@ -590,6 +590,28 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>systemd.memory_hugetlb_accounting=</varname></term>
+
+        <listitem>
+          <para>Takes a boolean argument, defaults to off. If on, the service manager mounts the control
+          group file system with the <literal>memory_hugetlb_accounting</literal> option, if the kernel
+          supports it. HugeTLB pages are then charged to the memory controller, in addition to the
+          <literal>hugetlb</literal> controller. This changes what the memory limits of all control groups
+          on the system mean, hence do not turn it on if a workload manager gives HugeTLB pages a budget
+          separate from other memory, as for example Kubernetes does. The control group file system is
+          mounted once, by whichever service manager runs first, hence the option applies to the initrd
+          too. If it was mounted differently before, for example by an older service manager in the initrd,
+          it is remounted when the system boots or soft-reboots, but not on
+          <command>systemctl daemon-reexec</command>. systemd v259 to v262 used the mount option
+          unconditionally, hence after an update from these versions it stays in effect until the next
+          boot. A service manager in a container that shares the control group namespace of the host keeps
+          what is in effect on the host.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>systemd.cpu_affinity=</varname></term>
 
         <listitem>

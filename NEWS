@@ -32,6 +32,17 @@ CHANGES WITH 263 in spe:
           includes the same configuration (for example, dracut only includes
           /etc/sysctl.d/ in host-only mode).
 
+        * The control group file system is no longer mounted with the
+          "memory_hugetlb_accounting" option by default, which v259 began
+          to use whenever the kernel supports it. The option makes the
+          memory controller charge HugeTLB pages too, which changes the
+          meaning of memory limits for all control groups and breaks
+          workload managers that give HugeTLB pages a budget of their own,
+          such as Kubernetes. Use the new kernel command line option
+          systemd.memory_hugetlb_accounting=yes to turn it on again. On
+          systems updated from v259-v262 the option stays in effect until
+          the next boot.
+
         * /run/ is now correctly read-only under ProtectSystem=strict. Since
           v248, when MountAPIVFS= was in effect (which is also implied by
           ProtectControlGroups=, ProtectKernelTunables=, ProtectProc=, and similar
