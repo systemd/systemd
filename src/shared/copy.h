@@ -58,9 +58,6 @@ int copy_file_at_full(int dir_fdf, const char *from, int dir_fdt, const char *to
 static inline int copy_file_at(int dir_fdf, const char *from, int dir_fdt, const char *to, int open_flags, mode_t mode, CopyFlags copy_flags) {
         return copy_file_at_full(dir_fdf, from, dir_fdt, to, open_flags, mode, /* chattr_flags= */ 0, /* chattr_mask= */ 0, copy_flags, /* progress= */ NULL, /* userdata= */ NULL);
 }
-static inline int copy_file_full(const char *from, const char *to, int open_flags, mode_t mode, unsigned chattr_flags, unsigned chattr_mask, CopyFlags copy_flags, copy_progress_bytes_t progress, void *userdata) {
-        return copy_file_at_full(AT_FDCWD, from, AT_FDCWD, to, open_flags, mode, chattr_flags, chattr_mask, copy_flags, progress, userdata);
-}
 static inline int copy_file(const char *from, const char *to, int open_flags, mode_t mode, CopyFlags copy_flags) {
         return copy_file_at(AT_FDCWD, from, AT_FDCWD, to, open_flags, mode, copy_flags);
 }
