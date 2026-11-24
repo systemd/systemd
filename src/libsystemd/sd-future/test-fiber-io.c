@@ -906,10 +906,7 @@ static int socket_sendmsg_fd_fiber(void *userdata) {
         int sockfd = args[0];
         int fd_to_send = args[1];
         struct iovec iov = IOVEC_MAKE_BYTE('X');
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int))];
-        } control = {};
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int))) control = {};
         struct msghdr msg = {
                 .msg_iov = &iov,
                 .msg_iovlen = 1,
@@ -934,10 +931,7 @@ static int socket_recvmsg_fd_fiber(void *userdata) {
                 .iov_base = buf,
                 .iov_len = sizeof(buf),
         };
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int))];
-        } control = {};
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int))) control = {};
         struct msghdr msg = {
                 .msg_iov = &iov,
                 .msg_iovlen = 1,
