@@ -78,6 +78,7 @@ static int process_managed_oom_message(Manager *m, uid_t uid, sd_json_variant *p
                 Hashmap *monitor_hm;
                 loadavg_t limit;
                 usec_t duration;
+                bool limit_overridden = false, duration_overridden = false;
 
                 if (!sd_json_variant_is_object(c))
                         continue;
@@ -146,11 +147,14 @@ static int process_managed_oom_message(Manager *m, uid_t uid, sd_json_variant *p
                         r = store_loadavg_fixed_point(permyriad / 100LU, permyriad % 100LU, &limit);
                         if (r < 0)
                                 continue;
+
+                        limit_overridden = true;
                 }
 
-                if (streq(message.property, "ManagedOOMMemoryPressure") && message.duration != USEC_INFINITY)
+                if (streq(message.property, "ManagedOOMMemoryPressure") && message.duration != USEC_INFINITY) {
                         duration = message.duration;
-                else
+                        duration_overridden = true;
+                } else
                         duration = m->default_mem_pressure_duration_usec;
 
                 /* For OOMRules, only insert/update if rules are actually provided */
@@ -214,6 +218,8 @@ static int process_managed_oom_message(Manager *m, uid_t uid, sd_json_variant *p
                  * ignored so always updating it here is not a problem. */
                 ctx = hashmap_get(monitor_hm, empty_to_root(message.path));
                 if (ctx) {
+                        ctx->mem_pressure_limit_overridden = limit_overridden;
+                        ctx->mem_pressure_duration_overridden = duration_overridden;
                         ctx->mem_pressure_limit = limit;
                         ctx->mem_pressure_duration_usec = duration;
                 }
@@ -1168,8 +1174,30 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
 
         (void) notify_reloading();
 
+        loadavg_t previous_limit = m->default_mem_pressure_limit;
+        usec_t previous_duration = m->default_mem_pressure_duration_usec;
+
         manager_set_defaults(m);
-        manager_parse_config_file(m);
+        if (manager_parse_config_file(m) < 0) {
+                m->default_mem_pressure_limit = previous_limit;
+                m->default_mem_pressure_duration_usec = previous_duration;
+        } else {
+                OomdCGroupContext *ctx;
+
+                HASHMAP_FOREACH(ctx, m->monitored_mem_pressure_cgroup_contexts) {
+                        if (!ctx->mem_pressure_limit_overridden &&
+                            ctx->mem_pressure_limit != m->default_mem_pressure_limit) {
+                                ctx->mem_pressure_limit = m->default_mem_pressure_limit;
+
+                                /* Start a new observation window for the updated threshold. */
+                                ctx->mem_pressure_limit_hit_start = 0;
+                        }
+
+                        if (!ctx->mem_pressure_duration_overridden)
+                                ctx->mem_pressure_duration_usec = m->default_mem_pressure_duration_usec;
+                }
+        }
+
         warn_missing_rulesets(m);
 
         (void) sd_notify(/* unset_environment= */ false, NOTIFY_READY_MESSAGE);
@@ -1187,7 +1215,7 @@ int manager_new(Manager **ret) {
                 return -ENOMEM;
 
         manager_set_defaults(m);
-        manager_parse_config_file(m);
+        (void) manager_parse_config_file(m);
 
         r = sd_event_default(&m->event);
         if (r < 0)

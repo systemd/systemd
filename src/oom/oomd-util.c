@@ -814,6 +814,8 @@ int oomd_insert_cgroup_context(Hashmap *old_h, Hashmap *new_h, const char *path)
         old_ctx = hashmap_get(old_h, path);
         if (old_ctx) {
                 curr_ctx->last_pgscan = old_ctx->pgscan;
+                curr_ctx->mem_pressure_limit_overridden = old_ctx->mem_pressure_limit_overridden;
+                curr_ctx->mem_pressure_duration_overridden = old_ctx->mem_pressure_duration_overridden;
                 curr_ctx->mem_pressure_limit = old_ctx->mem_pressure_limit;
                 curr_ctx->mem_pressure_limit_hit_start = old_ctx->mem_pressure_limit_hit_start;
                 curr_ctx->mem_pressure_duration_usec = old_ctx->mem_pressure_duration_usec;
