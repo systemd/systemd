@@ -74,7 +74,6 @@ int network_namespace_is_init(int socket_fd);
 int namespace_is_init(NamespaceType type);
 
 int pidref_in_same_namespace(PidRef *pid1, PidRef *pid2, NamespaceType type);
-int in_same_namespace(pid_t pid1, pid_t pid2, NamespaceType type);
 
 int namespace_get_leader(PidRef *pidref, NamespaceType type, PidRef *ret);
 

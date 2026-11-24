@@ -565,14 +565,6 @@ int pidref_in_same_namespace(PidRef *pid1, PidRef *pid2, NamespaceType type) {
         return fd_inode_same(ns1, ns2);
 }
 
-int in_same_namespace(pid_t pid1, pid_t pid2, NamespaceType type) {
-        assert(pid1 >= 0);
-        assert(pid2 >= 0);
-        return pidref_in_same_namespace(pid1 == 0 ? NULL : &PIDREF_MAKE_FROM_PID(pid1),
-                                        pid2 == 0 ? NULL : &PIDREF_MAKE_FROM_PID(pid2),
-                                        type);
-}
-
 int namespace_get_leader(PidRef *pidref, NamespaceType type, PidRef *ret) {
         int r;
 
