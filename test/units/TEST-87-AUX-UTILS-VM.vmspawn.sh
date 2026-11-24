@@ -287,12 +287,13 @@ timeout 10 bash -c "while kill -0 '$VMSPAWN2_PID' 2>/dev/null; do sleep .5; done
 echo "Both vmspawn processes exited"
 
 # --- Long runtime directory ---
-# vmspawn creates the virtiofsd sockets in the runtime directory of the machine. Use $RUNTIME_DIRECTORY
-# to make the runtime directory 99 characters long. The paths of the virtiofsd sockets then don't fit
-# into sun_path, but the path of the control socket still does. vmspawn must start the VM anyway.
+# vmspawn creates the virtiofsd sockets and the control socket in the runtime directory of the machine.
+# Use $RUNTIME_DIRECTORY to make the path of the runtime directory longer than sun_path. Then no socket
+# path in it fits into sun_path. vmspawn must start the VM anyway, and machinectl must connect to the
+# control socket.
 LONG_MACHINE="test-vmspawn-long-$$"
 LONG_RUNTIME_BASE="$WORKDIR/runtime-"
-while (( ${#LONG_RUNTIME_BASE} + 1 + ${#LONG_MACHINE} < 99 )); do
+while (( ${#LONG_RUNTIME_BASE} + 1 + ${#LONG_MACHINE} < 150 )); do
     LONG_RUNTIME_BASE+="x"
 done
 
@@ -315,6 +316,10 @@ LONG_PID=$!
 
 wait_for_machine "$LONG_MACHINE" "$LONG_PID" "$WORKDIR/vmspawn-long.log"
 echo "Machine with a long runtime directory registered"
+
+machinectl pause "$LONG_MACHINE"
+machinectl resume "$LONG_MACHINE"
+echo "machinectl connected to the control socket in the long runtime directory"
 
 machinectl terminate "$LONG_MACHINE"
 timeout 10 bash -c "while machinectl status '$LONG_MACHINE' &>/dev/null; do sleep .5; done"

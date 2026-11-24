@@ -3916,7 +3916,7 @@ static mode_t default_listen_mode(sd_varlink_server_flags_t flags) {
 _public_ int sd_varlink_server_listen_address(sd_varlink_server *s, const char *address, mode_t m) {
         _cleanup_(varlink_server_socket_freep) VarlinkServerSocket *ss = NULL;
         union sockaddr_union sockaddr;
-        socklen_t sockaddr_len;
+        socklen_t sockaddr_len = 0;
         _cleanup_close_ int fd = -EBADF;
         int r;
 
@@ -3941,10 +3941,15 @@ _public_ int sd_varlink_server_listen_address(sd_varlink_server *s, const char *
                         return r;
         }
 
-        r = sockaddr_un_set_path(&sockaddr.un, address);
-        if (r < 0)
-                return r;
-        sockaddr_len = r;
+        /* bind_unix_path() binds file system paths of any length, hence we only need a sockaddr for
+         * addresses in the abstract namespace. sockaddr_un_set_path() also rejects relative paths. */
+        bool fs_path = path_is_absolute(address);
+        if (!fs_path) {
+                r = sockaddr_un_set_path(&sockaddr.un, address);
+                if (r < 0)
+                        return r;
+                sockaddr_len = r;
+        }
 
         fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (fd < 0)
@@ -3958,14 +3963,17 @@ _public_ int sd_varlink_server_listen_address(sd_varlink_server *s, const char *
         if (FLAGS_SET(s->flags, SD_VARLINK_SERVER_FD_PASSING_INPUT_STRICT))
                 (void) setsockopt_int(fd, SOL_SOCKET, SO_PASSRIGHTS, FLAGS_SET(s->flags, SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT));
 
-        (void) sockaddr_un_unlink(&sockaddr.un);
+        if (fs_path)
+                (void) unlink(address);
 
         WITH_UMASK(~m & 0777)
-                r = RET_NERRNO(bind(fd, &sockaddr.sa, sockaddr_len));
+                r = fs_path ?
+                        bind_unix_path(fd, AT_FDCWD, address) :
+                        RET_NERRNO(bind(fd, &sockaddr.sa, sockaddr_len));
         if (r < 0)
                 return r;
 
-        if (path_is_absolute(address))
+        if (fs_path)
                 (void) mark_varlink_socket(AT_FDCWD, address, "entrypoint");
 
         if (listen(fd, SOMAXCONN_DELUXE) < 0)

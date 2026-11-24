@@ -68,7 +68,9 @@
 
     <para><function>sd_varlink_server_listen_address()</function> allocates a new
     <constant>AF_UNIX</constant> socket, binds it to the specified <parameter>address</parameter>, and starts
-    listening on it. The <parameter>address</parameter> is a file system path of the socket to bind to. (Use
+    listening on it. The <parameter>address</parameter> is a file system path of the socket to bind to. The
+    path may be longer than the 108 bytes of the <structfield>sun_path</structfield> field of
+    <structname>struct sockaddr_un</structname>. (Use
     <function>sd_varlink_server_listen_fd()</function> below for sockets in the abstract namespace, in foreign
     address families, or that are otherwise already allocated.)</para>
 
