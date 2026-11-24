@@ -66,9 +66,6 @@ static inline int symlink_atomic(const char *target, const char *linkpath) {
 }
 
 int mknodat_atomic(int atfd, const char *path, mode_t mode, dev_t dev);
-static inline int mknod_atomic(const char *path, mode_t mode, dev_t dev) {
-        return mknodat_atomic(AT_FDCWD, path, mode, dev);
-}
 
 int mkfifoat_atomic(int dir_fd, const char *path, mode_t mode);
 static inline int mkfifo_atomic(const char *path, mode_t mode) {
