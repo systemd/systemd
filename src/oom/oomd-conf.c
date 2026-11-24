@@ -60,19 +60,6 @@ static int config_parse_duration(
         return 0;
 }
 
-void manager_set_defaults(Manager *m) {
-        int r;
-
-        assert(m);
-
-        m->default_mem_pressure_duration_usec = DEFAULT_MEM_PRESSURE_DURATION_USEC;
-
-        m->swap_used_limit_permyriad = DEFAULT_SWAP_USED_LIMIT_PERCENT * 100;
-        r = store_loadavg_fixed_point(DEFAULT_MEM_PRESSURE_LIMIT_PERCENT, 0, &m->default_mem_pressure_limit);
-        if (r < 0)
-                log_warning_errno(r, "Failed to set default for default_mem_pressure_limit, ignoring: %m");
-}
-
 /* OOMD_ACTION_NONE is intentionally omitted — it's the "unset" sentinel. Rulesets with
  * .action == OOMD_ACTION_NONE are rejected at load time, so oomd_action_to_string() must
  * only be called on rulesets that have already passed ruleset_load_one's validation
@@ -208,17 +195,23 @@ static int ruleset_load_one(Manager *m, const char *filename) {
         return 0;
 }
 
-void manager_parse_config_file(Manager *m) {
-        _cleanup_strv_free_ char **files = NULL;
+int oomd_config_parse(OomdConfig *config) {
         int r;
 
-        assert(m);
+        assert(config);
+
+        *config = (OomdConfig) {
+                .swap_used_limit_permyriad = DEFAULT_SWAP_USED_LIMIT_PERCENT * 100,
+                .default_mem_pressure_limit = DEFAULT_MEM_PRESSURE_LIMIT_PERCENT * LOADAVG_FIXED_POINT_1_0,
+                .default_mem_pressure_duration_usec = DEFAULT_MEM_PRESSURE_DURATION_USEC,
+                .prekill_timeout = 0,
+        };
 
         const ConfigTableItem items[] = {
-                { "OOM", "SwapUsedLimit",                    config_parse_permyriad, 0, &m->swap_used_limit_permyriad          },
-                { "OOM", "DefaultMemoryPressureLimit",       config_parse_loadavg,   0, &m->default_mem_pressure_limit         },
-                { "OOM", "DefaultMemoryPressureDurationSec", config_parse_duration,  0, &m->default_mem_pressure_duration_usec },
-                { "OOM", "PrekillHookTimeoutSec",            config_parse_sec,       0, &m->prekill_timeout                    },
+                { "OOM", "SwapUsedLimit",                    config_parse_permyriad, 0, &config->swap_used_limit_permyriad          },
+                { "OOM", "DefaultMemoryPressureLimit",       config_parse_loadavg,   0, &config->default_mem_pressure_limit         },
+                { "OOM", "DefaultMemoryPressureDurationSec", config_parse_duration,  0, &config->default_mem_pressure_duration_usec },
+                { "OOM", "PrekillHookTimeoutSec",            config_parse_sec,       0, &config->prekill_timeout                    },
                 {}
         };
 
@@ -228,9 +221,17 @@ void manager_parse_config_file(Manager *m) {
                         config_item_table_lookup,
                         items,
                         CONFIG_PARSE_WARN,
-                        /* userdata= */ m);
+                        /* userdata= */ NULL);
         if (r >= 0)
                 log_debug("Config file successfully parsed.");
+        return r;
+}
+
+void manager_load_rulesets(Manager *m) {
+        _cleanup_strv_free_ char **files = NULL;
+        int r;
+
+        assert(m);
 
         r = conf_files_list_strv(&files, ".oomrule", /* root= */ NULL, CONF_FILES_WARN, RULESET_DIRS);
         if (r < 0) {
