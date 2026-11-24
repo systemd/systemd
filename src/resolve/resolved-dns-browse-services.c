@@ -697,17 +697,29 @@ int mdns_notify_browsers_unsolicited_updates(Manager *m, DnsAnswer *answer, int 
 static void mdns_browse_service_query_complete(DnsQuery *q) {
         _cleanup_(dns_service_browser_unrefp) DnsServiceBrowser *sb = NULL;
         _cleanup_(dns_query_freep) DnsQuery *query = q;
-        int r;
+        int family, r;
 
         assert(query);
         assert(query->manager);
 
-        if (query->state != DNS_TRANSACTION_SUCCESS)
+        if (!IN_SET(query->state, DNS_TRANSACTION_SUCCESS, DNS_TRANSACTION_ATTEMPTS_MAX_REACHED))
                 return;
 
         sb = dns_service_browser_ref(query->service_browser_request);
         if (!sb)
                 return;
+
+        if (query->state == DNS_TRANSACTION_ATTEMPTS_MAX_REACHED) {
+                /* Our query lists the cached services as known answers, which responders do not repeat
+                 * (RFC 6762, Section 7.1). Hence no response can simply mean that the cache is current. */
+                FOREACH_ARGUMENT(family, AF_INET, AF_INET6) {
+                        r = mdns_browser_revisit_cache(sb, family);
+                        if (r < 0)
+                                return (void) log_error_errno(r, "Failed to revisit cache for service browser: %m");
+                }
+
+                return;
+        }
 
         r = mdns_browser_revisit_cache(sb, query->answer_family);
         if (r < 0)
