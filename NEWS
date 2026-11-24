@@ -23,13 +23,17 @@ CHANGES WITH 263 in spe:
           namespace, and vice versa. Inside VMs, processes in such network
           namespaces can no longer reach the hypervisor via vsock at all, as
           the guest-to-host transports are not network namespace aware.
-          Setups relying on the old behaviour may restore it by setting
-          net.vsock.child_ns_mode=global in a sysctl.d/ drop-in. Note that
-          this sysctl is write-once and typically already applied in the
-          initrd: once set it cannot be changed until the next reboot, and
-          a later attempt to set a different value fails with EBUSY. Hence,
-          if this setting is changed, the initrd must be rebuilt so that it
-          includes the same configuration (for example, dracut only includes
+          Setups relying on the old behaviour may restore it by masking
+          this setting with a "-net.vsock.child_ns_mode" line in a
+          sysctl.d/ drop-in that is parsed later; this leaves the sysctl
+          unset at its kernel default ("global") and still writable (an
+          explicit "global" assignment would work too, but would lock in
+          the value, see below). Note that this sysctl is write-once and
+          typically already applied in the initrd: once set it cannot be
+          changed until the next reboot, and a later attempt to set a
+          different value fails with EBUSY. Hence, if this setting is
+          changed or masked, the initrd must be rebuilt so that it includes
+          the same configuration (for example, dracut only includes
           /etc/sysctl.d/ in host-only mode).
 
         * /run/ is now correctly read-only under ProtectSystem=strict. Since
