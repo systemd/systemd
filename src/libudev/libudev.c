@@ -99,9 +99,7 @@ _public_ struct udev* udev_unref(struct udev *udev) {
         if (!udev)
                 return NULL;
 
-        assert(udev->n_ref > 0);
-        udev->n_ref--;
-        if (udev->n_ref > 0)
+        if (ref_counter_dec(&udev->n_ref) > 0)
                 /* This is different from our convention, but let's keep backward
                  * compatibility. So, do not use DEFINE_PUBLIC_TRIVIAL_UNREF_FUNC()
                  * macro to define this function. */

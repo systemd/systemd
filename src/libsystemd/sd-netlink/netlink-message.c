@@ -128,7 +128,7 @@ int sd_netlink_message_set_request_dump(sd_netlink_message *m, int dump) {
 DEFINE_TRIVIAL_REF_FUNC(sd_netlink_message, sd_netlink_message);
 
 sd_netlink_message* sd_netlink_message_unref(sd_netlink_message *m) {
-        while (m && --m->n_ref == 0) {
+        while (m && ref_counter_dec(&m->n_ref) == 0) {
                 unsigned i;
 
                 free(m->hdr);
