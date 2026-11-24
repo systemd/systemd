@@ -998,11 +998,6 @@ int manager_open_stdout_socket(Manager *m, const char *stdout_socket) {
 
 void stdout_stream_send_notify(StdoutStream *s) {
         struct iovec iovec = CONST_IOVEC_MAKE_STRING("FDSTORE=1");
-        struct msghdr msghdr = {
-                .msg_iov = &iovec,
-                .msg_iovlen = 1,
-        };
-        struct cmsghdr *cmsg;
         ssize_t l;
 
         assert(s);
@@ -1014,22 +1009,12 @@ void stdout_stream_send_notify(StdoutStream *s) {
         /* Store the connection fd in PID 1, so that we get it passed
          * in again on next start */
 
-        msghdr.msg_controllen = CMSG_SPACE(sizeof(int));
-        msghdr.msg_control = alloca0(msghdr.msg_controllen);
-
-        cmsg = CMSG_FIRSTHDR(&msghdr);
-        cmsg->cmsg_level = SOL_SOCKET;
-        cmsg->cmsg_type = SCM_RIGHTS;
-        cmsg->cmsg_len = CMSG_LEN(sizeof(int));
-
-        memcpy(CMSG_DATA(cmsg), &s->fd, sizeof(int));
-
-        l = sendmsg(s->manager->notify_fd, &msghdr, MSG_DONTWAIT|MSG_NOSIGNAL);
+        l = send_one_fd_iov(s->manager->notify_fd, s->fd, &iovec, 1, MSG_DONTWAIT);
         if (l < 0) {
-                if (errno == EAGAIN)
+                if (l == -EAGAIN)
                         return;
 
-                log_error_errno(errno, "Failed to send stream file descriptor to service manager: %m");
+                log_error_errno(l, "Failed to send stream file descriptor to service manager: %m");
         } else {
                 log_debug("Successfully sent stream file descriptor to service manager.");
                 s->fdstore = 1;
