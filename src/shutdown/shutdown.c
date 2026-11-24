@@ -689,16 +689,16 @@ static int run(int argc, char *argv[]) {
         dual_timestamp_now(&shutdown_late_finish);
         (void) luo_serialization_add_shutdown_timestamps(&luo_serialization, &shutdown_late_start, &shutdown_late_finish);
 
+        if (streq(arg_verb, "exit"))
+                cmd = RB_POWER_OFF; /* We cannot exit() on the host, fallback on another method. */
+
         /* In a container, prefer exiting over reboot(RB_POWER_OFF/RB_HALT_SYSTEM) when shutting down, so
          * that our exit status is propagated to the container manager. (For reboots we stick to reboot(),
          * since that is how the container manager learns that a reboot was requested.) */
-        if (in_container && (streq(arg_verb, "exit") || IN_SET(cmd, RB_POWER_OFF, RB_HALT_SYSTEM))) {
+        if (in_container && IN_SET(cmd, RB_POWER_OFF, RB_HALT_SYSTEM)) {
                 log_info("Exiting container.");
                 return arg_exit_code;
         }
-
-        if (streq(arg_verb, "exit"))
-                cmd = RB_POWER_OFF; /* We cannot exit() on the host, fallback on another method. */
 
         switch (cmd) {
 
