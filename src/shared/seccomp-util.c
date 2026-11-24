@@ -2780,9 +2780,12 @@ int seccomp_suppress_sync(void) {
                                                 SCMP_ACT_ERRNO(0), /* success → we want this to be a NOP after all */
                                                 id,
                                                 1,
-                                                SCMP_A0(SCMP_CMP_LE, INT_MAX)); /* The rule handles arguments in unsigned. Hence, this
-                                                                                 * means non-negative fd matches the rule, and the negative
-                                                                                 * fd passed to the syscall (then it fails with EBADF). */
+                                                SCMP_A0(SCMP_CMP_MASKED_EQ, UINT32_C(0x80000000), 0)); /* The kernel takes the fd as a 32-bit
+                                                                                        * int and ignores the upper half of the
+                                                                                        * register, hence only look at bit 31 here:
+                                                                                        * a non-negative fd matches the rule, and
+                                                                                        * the negative fd passed to the syscall
+                                                                                        * (then it fails with EBADF). */
                         else
                                 r = sym_seccomp_rule_add_exact(
                                                 seccomp,
