@@ -153,11 +153,6 @@ typedef enum UserRecordLoadFlags {
         USER_RECORD_EMPTY_OK            = 1U << 30,
 } UserRecordLoadFlags;
 
-static inline UserRecordLoadFlags USER_RECORD_REQUIRE(UserRecordMask m) {
-        assert((m & ~_USER_RECORD_MASK_MAX) == 0);
-        return m << 7;
-}
-
 static inline UserRecordLoadFlags USER_RECORD_ALLOW(UserRecordMask m) {
         assert((m & ~_USER_RECORD_MASK_MAX) == 0);
         return m << 14;
