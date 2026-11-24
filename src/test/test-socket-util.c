@@ -542,6 +542,42 @@ TEST(sockaddr_un_set_path) {
         ASSERT_OK_ERRNO(connect(fd2, &sa.sa, sockaddr_len(&sa)));
 }
 
+TEST(bind_unix_path) {
+        /* bind_unix_path() must bind sockets whose path doesn't fit into sun_path. Create a directory whose
+         * path is longer than sun_path. Bind a listening socket in it via the absolute path, and a second
+         * listening socket relative to a directory fd. connect_unix_path() must connect to each socket.
+         * Binding to a filename that doesn't fit into sun_path on its own must fail with ENAMETOOLONG. */
+
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_free_ char *j = NULL, *k = NULL;
+        _cleanup_close_ int dir_fd = -EBADF, fd1 = -EBADF, fd2 = -EBADF, fd3 = -EBADF, fd4 = -EBADF, fd5 = -EBADF;
+
+        ASSERT_OK(dir_fd = mkdtemp_open("/tmp/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbXXXXXX", O_PATH, &t));
+        ASSERT_GT(strlen(t), SUN_PATH_LEN);
+
+        /* Bind via the absolute path. */
+        ASSERT_NOT_NULL(j = path_join(t, "sock"));
+        ASSERT_OK_ERRNO(fd1 = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0));
+        ASSERT_OK(bind_unix_path(fd1, AT_FDCWD, j));
+        ASSERT_OK_ERRNO(listen(fd1, 1));
+
+        ASSERT_OK_ERRNO(fd2 = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0));
+        ASSERT_OK(connect_unix_path(fd2, AT_FDCWD, j));
+
+        /* Bind relative to the directory fd. */
+        ASSERT_OK_ERRNO(fd3 = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0));
+        ASSERT_OK(bind_unix_path(fd3, dir_fd, "sock2"));
+        ASSERT_OK_ERRNO(listen(fd3, 1));
+
+        ASSERT_OK_ERRNO(fd4 = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0));
+        ASSERT_OK(connect_unix_path(fd4, dir_fd, "sock2"));
+
+        /* Bind to a filename that is too long on its own. */
+        ASSERT_NOT_NULL(k = path_join(t, "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"));
+        ASSERT_OK_ERRNO(fd5 = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0));
+        ASSERT_ERROR(bind_unix_path(fd5, AT_FDCWD, k), ENAMETOOLONG);
+}
+
 TEST(getpeerpidref) {
         _cleanup_close_pair_ int fd[2] = EBADF_PAIR;
 

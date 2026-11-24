@@ -1663,6 +1663,58 @@ int connect_unix_path(int fd, int dir_fd, const char *path) {
         return connect_unix_inode(fd, inode_fd);
 }
 
+static int bind_unix_path_simple(int fd, const char *path) {
+        union sockaddr_union sa = {
+                .un.sun_family = AF_UNIX,
+        };
+        size_t l;
+
+        assert(fd >= 0);
+        assert(path);
+
+        l = strlen(path);
+        assert(l > 0);
+        if (l >= sizeof(sa.un.sun_path))
+                return -ENAMETOOLONG;
+
+        memcpy(sa.un.sun_path, path, l + 1);
+        return RET_NERRNO(bind(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + l + 1));
+}
+
+int bind_unix_path(int fd, int dir_fd, const char *path) {
+        _cleanup_free_ char *parent = NULL, *filename = NULL;
+        _cleanup_close_ int parent_fd = -EBADF;
+        int r;
+
+        assert(fd >= 0);
+        assert(wildcard_fd_is_valid(dir_fd));
+        assert(path);
+
+        /* An empty path would make the kernel bind the socket to an abstract namespace address. */
+        if (isempty(path))
+                return -EINVAL;
+
+        if (dir_fd == AT_FDCWD && strlen(path) < sizeof_field(struct sockaddr_un, sun_path))
+                return bind_unix_path_simple(fd, path);
+
+        /* The path doesn't fit into sun_path, or it is relative to dir_fd, which bind() can't take. bind()
+         * creates the socket inode, so we can't open the inode via O_PATH first like connect_unix_path()
+         * does. Instead we bind to the filename below the /proc/self/fd/ path of the parent directory. Then
+         * only the /proc/self/fd/ path and the filename have to fit into sun_path. */
+        r = path_split_prefix_filename(path, &parent, &filename);
+        if (r < 0)
+                return r;
+        if (r == O_DIRECTORY)
+                return -EISDIR;
+
+        parent_fd = xopenat(dir_fd, parent ?: ".", O_PATH|O_DIRECTORY);
+        if (parent_fd < 0)
+                return parent_fd;
+
+        const char *p = strjoina(FORMAT_PROC_FD_PATH(parent_fd), "/", filename);
+        return bind_unix_path_simple(fd, p);
+}
+
 int socket_address_parse_unix(SocketAddress *ret_address, const char *s) {
         struct sockaddr_un un;
         int r;
