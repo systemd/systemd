@@ -60,8 +60,6 @@ static inline int uid_range_load_userns_by_fd(int userns_fd, UIDRangeUsernsMode 
         return uid_range_load_userns_by_fd_full(userns_fd, mode, /* coalesce= */ true, ret);
 }
 
-bool uid_range_overlaps(const UIDRange *range, uid_t start, uid_t nr);
-
 int uid_range_clip(UIDRange *range, uid_t min, uid_t max);
 int uid_range_partition(UIDRange *range, uid_t size);
 int uid_range_copy(const UIDRange *range, UIDRange **ret);
