@@ -428,14 +428,16 @@ void unit_release_resources(Unit *u) {
                 return;
 
         ec = unit_get_exec_context(u);
-        if (ec && ec->runtime_directory_preserve_mode == EXEC_PRESERVE_RESTART)
+        if (ec && ec->runtime_directory_preserve_mode == EXEC_PRESERVE_RESTART) {
                 unit_destroy_runtime_directory(u, ec);
+                unit_add_to_gc_queue(u);
+        }
 
         if (UNIT_VTABLE(u)->release_resources)
                 UNIT_VTABLE(u)->release_resources(u);
 }
 
-bool unit_may_gc(Unit *u) {
+static bool unit_may_gc_fast(Unit *u) {
         UnitActiveState state;
         int r;
 
@@ -508,6 +510,18 @@ bool unit_may_gc(Unit *u) {
         return UNIT_VTABLE(u)->may_gc(u);
 }
 
+bool unit_may_gc(Unit *u) {
+        if (!unit_may_gc_fast(u))
+                return false;
+
+        if (!IN_SET(u->load_state, UNIT_LOADED, UNIT_NOT_FOUND))
+                return true;
+
+        /* Only check the filesystem at sweep time, not every time the unit is queued. */
+        unit_prune_owned_directories(u);
+        return unit_owned_directory_mask(u) == 0;
+}
+
 void unit_add_to_load_queue(Unit *u) {
         assert(u);
         assert(u->type != _UNIT_TYPE_INVALID);
@@ -535,7 +549,7 @@ void unit_add_to_gc_queue(Unit *u) {
         if (u->in_gc_queue || u->in_cleanup_queue)
                 return;
 
-        if (!unit_may_gc(u))
+        if (!unit_may_gc_fast(u))
                 return;
 
         LIST_PREPEND(gc_queue, u->manager->gc_unit_queue, u);
