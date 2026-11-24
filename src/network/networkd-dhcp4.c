@@ -1513,6 +1513,11 @@ static int dhcp4_configure(Link *link) {
                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to %s sending release message on stop: %m",
                                             enable_disable(link->network->dhcp_send_release));
 
+        r = sd_dhcp_client_set_accept_reconfigure(link->dhcp_client, link->network->dhcp_accept_reconfigure);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to %s accepting FORCERENEW messages: %m",
+                                            enable_disable(link->network->dhcp_accept_reconfigure));
+
         r = sd_dhcp_client_attach_event(link->dhcp_client, link->manager->event, /* priority= */ 0);
         if (r < 0)
                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to attach event to DHCPv4 client: %m");

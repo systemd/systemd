@@ -99,6 +99,8 @@ int dhcp_message_parse(
                 const struct hw_addr_data *hw_addr,
                 sd_dhcp_message **ret);
 
+int dhcp_message_find_raw_option(const struct iovec *iov, uint8_t code, struct iovec *ret);
+
 size_t dhcp_message_payload_size(sd_dhcp_message *message);
 size_t dhcp_message_packet_size(sd_dhcp_message *message);
 

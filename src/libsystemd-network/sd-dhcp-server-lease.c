@@ -6,6 +6,7 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
+#include "dhcp-rkap.h"
 #include "dhcp-server-internal.h"
 #include "dhcp-server-lease-internal.h"
 #include "dhcp-server-request.h"
@@ -17,6 +18,7 @@
 #include "in-addr-util.h"
 #include "iovec-util.h"
 #include "json-util.h"
+#include "random-util.h"
 
 static sd_dhcp_server_lease* dhcp_server_lease_free(sd_dhcp_server_lease *lease) {
         if (!lease)
@@ -29,6 +31,7 @@ static sd_dhcp_server_lease* dhcp_server_lease_free(sd_dhcp_server_lease *lease)
                 hashmap_remove_value(lease->server->static_leases_by_client_id, &lease->client_id, lease);
         }
 
+        dhcp_rkap_key_clear(&lease->forcerenew_nonce);
         free(lease->hostname);
         return mfree(lease);
 }
@@ -129,6 +132,31 @@ int dhcp_server_set_lease(sd_dhcp_server *server, DHCPRequest *req) {
         char *hostname = NULL;
         (void) dhcp_message_get_option_hostname(req->message, &hostname);
         free_and_replace(lease->hostname, hostname);
+
+        /* RFC 6704 section 3.1.3: if the client is capable and no nonce is recorded, generate one and
+         * include it in the DHCPACK. The nonce SHOULD NOT be included when responding to a renewal,
+         * unless it was newly generated. Also include it when the client does not have an address yet
+         * (ciaddr is zero), as the client then starts afresh and discards any previous nonce, and in
+         * the DHCPACK to a retransmission of the DHCPREQUEST that got the new nonce, as the first
+         * DHCPACK may have been lost. Without HMAC-MD5, keep the saved nonce, but do not hand it out. */
+        if (!req->forcerenew_nonce_capable)
+                /* The client does not (or no longer) support it. */
+                dhcp_rkap_key_clear(&lease->forcerenew_nonce);
+        else if (dhcp_rkap_supported()) {
+                bool new_nonce = !lease->forcerenew_nonce.set;
+
+                if (new_nonce) {
+                        r = crypto_random_bytes(lease->forcerenew_nonce.key, sizeof(lease->forcerenew_nonce.key));
+                        if (r < 0)
+                                return r;
+                        lease->forcerenew_nonce.set = true;
+                        lease->forcerenew_nonce_xid = req->message->header.xid;
+                }
+
+                if (new_nonce || req->message->header.ciaddr == INADDR_ANY ||
+                    req->message->header.xid == lease->forcerenew_nonce_xid)
+                        req->forcerenew_nonce = &lease->forcerenew_nonce;
+        }
 
         TAKE_PTR(lease);
         return 0;
@@ -331,7 +359,7 @@ static int dhcp_server_lease_build_json(sd_dhcp_server_lease *lease, sd_json_var
                         SD_JSON_BUILD_PAIR_BYTE_ARRAY("HardwareAddress", lease->hw_addr.bytes, lease->hw_addr.length));
 }
 
-int dhcp_server_bound_leases_append_json(sd_dhcp_server *server, sd_json_variant **v) {
+static int bound_leases_append_json(sd_dhcp_server *server, bool include_nonces, sd_json_variant **v) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
         sd_dhcp_server_lease *lease;
         usec_t now_b, now_r;
@@ -364,12 +392,27 @@ int dhcp_server_bound_leases_append_json(sd_dhcp_server *server, sd_json_variant
                 if (r < 0)
                         return r;
 
+                /* The nonce is a secret, it is only saved to the lease file. */
+                if (include_nonces && lease->forcerenew_nonce.set) {
+                        r = sd_json_variant_merge_objectbo(
+                                        &w,
+                                        SD_JSON_BUILD_PAIR_BYTE_ARRAY("ForcerenewNonce",
+                                                                      lease->forcerenew_nonce.key,
+                                                                      sizeof(lease->forcerenew_nonce.key)));
+                        if (r < 0)
+                                return r;
+                }
+
                 r = sd_json_variant_append_array(&array, w);
                 if (r < 0)
                         return r;
         }
 
         return json_variant_set_field_non_null(v, "Leases", array);
+}
+
+int dhcp_server_bound_leases_append_json(sd_dhcp_server *server, sd_json_variant **v) {
+        return bound_leases_append_json(server, /* include_nonces= */ false, v);
 }
 
 int dhcp_server_static_leases_append_json(sd_dhcp_server *server, sd_json_variant **v) {
@@ -421,20 +464,24 @@ int dhcp_server_save_leases(sd_dhcp_server *server) {
                         SD_JSON_BUILD_PAIR_ID128("BootID", boot_id),
                         JSON_BUILD_PAIR_IN4_ADDR("Address", &(struct in_addr) { .s_addr = server->address }),
                         SD_JSON_BUILD_PAIR_UNSIGNED("PrefixLength",
-                                                    in4_addr_netmask_to_prefixlen(&(struct in_addr) { .s_addr = server->netmask })));
+                                                    in4_addr_netmask_to_prefixlen(&(struct in_addr) { .s_addr = server->netmask })),
+                        SD_JSON_BUILD_PAIR_CONDITION(server->forcerenew_replay > 0,
+                                                     "ForcerenewReplayDetection",
+                                                     SD_JSON_BUILD_UNSIGNED(server->forcerenew_replay)));
         if (r < 0)
                 return r;
 
-        r = dhcp_server_bound_leases_append_json(server, &v);
+        r = bound_leases_append_json(server, /* include_nonces= */ true, &v);
         if (r < 0)
                 return r;
 
+        /* The file contains the forcerenew nonces. */
         return json_variant_write_file_at(
                         server->lease_dir_fd,
                         server->lease_file,
                         v,
                         SD_JSON_FORMAT_NEWLINE,
-                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MKDIR_0755);
+                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MKDIR_0755|WRITE_STRING_FILE_MODE_0600);
 }
 
 typedef struct LeaseParam {
@@ -446,6 +493,7 @@ typedef struct LeaseParam {
         usec_t exp_b;
         usec_t exp_r;
         char *hostname;
+        struct iovec forcerenew_nonce;
 } LeaseParam;
 
 static void lease_param_done(LeaseParam *p) {
@@ -453,6 +501,7 @@ static void lease_param_done(LeaseParam *p) {
 
         iovec_done(&p->hw_addr);
         free(p->hostname);
+        iovec_done_erase(&p->forcerenew_nonce);
 }
 
 static int json_dispatch_dhcp_lease(sd_dhcp_server *server, sd_json_variant *v, bool use_boottime) {
@@ -466,6 +515,7 @@ static int json_dispatch_dhcp_lease(sd_dhcp_server *server, sd_json_variant *v, 
                 { "ExpirationUSec",         _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,        offsetof(LeaseParam, exp_b),      SD_JSON_MANDATORY },
                 { "ExpirationRealtimeUSec", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,        offsetof(LeaseParam, exp_r),      SD_JSON_MANDATORY },
                 { "Hostname",               SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,        offsetof(LeaseParam, hostname),   0                 },
+                { "ForcerenewNonce",        SD_JSON_VARIANT_ARRAY,         json_dispatch_byte_array_iovec, offsetof(LeaseParam, forcerenew_nonce), 0           },
                 {}
         };
 
@@ -489,6 +539,9 @@ static int json_dispatch_dhcp_lease(sd_dhcp_server *server, sd_json_variant *v, 
                 return -EINVAL;
 
         if (!sd_dhcp_client_id_is_set(&p.client_id))
+                return -EINVAL;
+
+        if (iovec_is_set(&p.forcerenew_nonce) && p.forcerenew_nonce.iov_len != DHCP_RKAP_KEY_SIZE)
                 return -EINVAL;
 
         usec_t now_b;
@@ -529,6 +582,11 @@ static int json_dispatch_dhcp_lease(sd_dhcp_server *server, sd_json_variant *v, 
 
         memcpy_safe(lease->hw_addr.bytes, p.hw_addr.iov_base, p.hlen);
 
+        if (iovec_is_set(&p.forcerenew_nonce)) {
+                memcpy(lease->forcerenew_nonce.key, p.forcerenew_nonce.iov_base, sizeof(lease->forcerenew_nonce.key));
+                lease->forcerenew_nonce.set = true;
+        }
+
         r = dhcp_server_put_lease(server, lease, /* is_static= */ false);
         if (r == -EEXIST)
                 return 0;
@@ -543,6 +601,7 @@ typedef struct SavedInfo {
         sd_id128_t boot_id;
         struct in_addr address;
         uint8_t prefixlen;
+        uint64_t forcerenew_replay;
         sd_json_variant *leases;
 } SavedInfo;
 
@@ -576,6 +635,7 @@ static int load_leases_file(int dir_fd, const char *path, SavedInfo *ret) {
                 { "BootID",       SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,   offsetof(SavedInfo, boot_id),   SD_JSON_MANDATORY },
                 { "Address",      SD_JSON_VARIANT_ARRAY,         json_dispatch_in_addr,    offsetof(SavedInfo, address),   SD_JSON_MANDATORY },
                 { "PrefixLength", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint8,   offsetof(SavedInfo, prefixlen), SD_JSON_MANDATORY },
+                { "ForcerenewReplayDetection", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(SavedInfo, forcerenew_replay), 0 },
                 { "Leases",       SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant, offsetof(SavedInfo, leases),    SD_JSON_MANDATORY },
                 {}
         };
@@ -604,6 +664,9 @@ int dhcp_server_load_leases(sd_dhcp_server *server) {
         r = sd_id128_get_boot(&boot_id);
         if (r < 0)
                 return r;
+
+        /* Continue after the last replay detection value sent, even if the clock went backwards. */
+        server->forcerenew_replay = MAX(server->forcerenew_replay, info.forcerenew_replay);
 
         n = hashmap_size(server->bound_leases_by_client_id);
 

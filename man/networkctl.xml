@@ -508,7 +508,16 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
           <replaceable>DEVICE…</replaceable>
         </term>
         <listitem><para>Send a FORCERENEW message to all connected clients, triggering DHCP reconfiguration.
-        Takes interface name or index number.</para>
+        Takes interface name or index number. The message is authenticated with the Forcerenew Nonce
+        Authentication protocol (<ulink url="https://tools.ietf.org/html/rfc6704">RFC 6704</ulink>) if the client
+        supports it and OpenSSL is available. Otherwise no nonces are handed out and the messages are sent
+        unauthenticated. Clients that support the authentication ignore unauthenticated FORCERENEW messages,
+        including the DHCP client of <command>systemd-networkd</command>, see <varname>AcceptReconfigure=</varname>
+        in the [DHCPv4] section of
+        <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        The nonces are saved with the leases. With <varname>PersistLeases=no</varname> in the [DHCPServer]
+        section, they are lost when the interface is reconfigured, and the clients ignore FORCERENEW messages
+        until they renew their leases.</para>
 
         <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>

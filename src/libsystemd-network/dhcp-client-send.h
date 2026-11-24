@@ -4,3 +4,4 @@
 #include "dhcp-forward.h"
 
 int dhcp_client_send_message(sd_dhcp_client *client, uint8_t type);
+int dhcp_client_listen_forcerenew(sd_dhcp_client *client);

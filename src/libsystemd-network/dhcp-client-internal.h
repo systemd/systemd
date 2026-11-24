@@ -6,6 +6,7 @@
 #include "dhcp-client-id-internal.h"
 #include "dhcp-forward.h"
 #include "dhcp-protocol.h"
+#include "dhcp-rkap.h"
 #include "ether-addr-util.h"
 #include "iovec-wrapper.h"
 #include "network-common.h"
@@ -67,6 +68,8 @@ struct sd_dhcp_client {
         bool ipv6_acquired;
         bool bootp;
         bool send_release;
+        bool accept_reconfigure;
+        DHCPRKAPKey forcerenew_nonce;
 };
 
 int dhcp_client_set_state_callback(

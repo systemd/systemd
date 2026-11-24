@@ -292,6 +292,7 @@ DHCPv4.UseTimezone,                              config_parse_bool,             
 DHCPv4.ListenPort,                               config_parse_uint16,                            0,                                      offsetof(Network, dhcp_client_port)
 DHCPv4.ServerPort,                               config_parse_uint16,                            0,                                      offsetof(Network, dhcp_port)
 DHCPv4.SendRelease,                              config_parse_bool,                              0,                                      offsetof(Network, dhcp_send_release)
+DHCPv4.AcceptReconfigure,                        config_parse_bool,                              0,                                      offsetof(Network, dhcp_accept_reconfigure)
 DHCPv4.SendDecline,                              config_parse_bool,                              0,                                      offsetof(Network, dhcp_send_decline)
 DHCPv4.DenyList,                                 config_parse_in_addr_prefixes,                  AF_INET,                                offsetof(Network, dhcp_deny_listed_ip)
 DHCPv4.AllowList,                                config_parse_in_addr_prefixes,                  AF_INET,                                offsetof(Network, dhcp_allow_listed_ip)
@@ -337,6 +338,7 @@ DHCPv6.DUIDRawData,                              config_parse_duid_rawdata,     
 DHCPv6.RapidCommit,                              config_parse_bool,                              0,                                      offsetof(Network, dhcp6_use_rapid_commit)
 DHCPv6.NetLabel,                                 config_parse_string,                            CONFIG_PARSE_STRING_SAFE,               offsetof(Network, dhcp6_netlabel)
 DHCPv6.SendRelease,                              config_parse_bool,                              0,                                      offsetof(Network, dhcp6_send_release)
+DHCPv6.AcceptReconfigure,                        config_parse_bool,                              0,                                      offsetof(Network, dhcp6_accept_reconfigure)
 DHCPv6.NFTSet,                                   config_parse_nft_set,                           NFT_SET_PARSE_NETWORK,                  offsetof(Network, dhcp6_nft_set_context)
 DHCPv6.RouteTable,                               config_parse_dhcp_or_ra_route_table,            NETWORK_CONFIG_SOURCE_DHCP6,            0
 IPv6AcceptRA.UseRedirect,                        config_parse_bool,                              0,                                      offsetof(Network, ndisc_use_redirect)
