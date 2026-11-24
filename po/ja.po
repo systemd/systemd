@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-19 10:41+0000\n"
+"POT-Creation-Date: 2026-11-24 18:37+0900\n"
 "PO-Revision-Date: 2026-08-02 00:10+0000\n"
 "Last-Translator: Takuro Onoue <kusanaginoturugi@gmail.com>\n"
 "Language-Team: Japanese <https://translate.fedoraproject.org/projects/"
@@ -571,15 +571,15 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:191
 msgid "Power off the system while an application is inhibiting this"
-msgstr "アプリケーションが使用されている状態でシステムの電源を切る"
+msgstr "アプリケーションがこの操作を阻害している状態でシステムの電源を切る"
 
 #: src/login/org.freedesktop.login1.policy:192
 msgid ""
 "Authentication is required to power off the system while an application is "
 "inhibiting this."
 msgstr ""
-"アプリケーションが使用されている状態でシステムの電源を切るには認証が必要で"
-"す。"
+"アプリケーションがこの操作を阻害している状態でシステムの電源を切るには認証が"
+"必要です。"
 
 #: src/login/org.freedesktop.login1.policy:202
 msgid "Reboot the system"
@@ -602,15 +602,15 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:224
 msgid "Reboot the system while an application is inhibiting this"
-msgstr "アプリケーションが使用されている状態でシステムを再起動する"
+msgstr "アプリケーションがこの操作を阻害している状態でシステムを再起動する"
 
 #: src/login/org.freedesktop.login1.policy:225
 msgid ""
 "Authentication is required to reboot the system while an application is "
 "inhibiting this."
 msgstr ""
-"アプリケーションが使用されている状態でシステムを再起動するには認証が必要で"
-"す。"
+"アプリケーションがこの操作を阻害している状態でシステムを再起動するには認証が"
+"必要です。"
 
 #: src/login/org.freedesktop.login1.policy:235
 msgid "Halt the system"
@@ -633,14 +633,15 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Halt the system while an application is inhibiting this"
-msgstr "アプリケーションが使用されている状態でシステムを停止する"
+msgstr "アプリケーションがこの操作を阻害している状態でシステムを停止する"
 
 #: src/login/org.freedesktop.login1.policy:258
 msgid ""
 "Authentication is required to halt the system while an application is "
 "inhibiting this."
 msgstr ""
-"アプリケーションが使用されている状態でシステムを停止するには認証が必要です。"
+"アプリケーションがこの操作を阻害している状態でシステムを停止するには認証が必"
+"要です。"
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid "Suspend the system"
@@ -664,15 +665,15 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:289
 msgid "Suspend the system while an application is inhibiting this"
-msgstr "アプリケーションが使用されている状態でシステムをサスペンドする"
+msgstr "アプリケーションがこの操作を阻害している状態でシステムをサスペンドする"
 
 #: src/login/org.freedesktop.login1.policy:290
 msgid ""
 "Authentication is required to suspend the system while an application is "
 "inhibiting this."
 msgstr ""
-"アプリケーションが使用されている状態でシステムをサスペンドするには認証が必要"
-"です。"
+"アプリケーションがこの操作を阻害している状態でシステムをサスペンドするには認"
+"証が必要です。"
 
 #: src/login/org.freedesktop.login1.policy:300
 msgid "Hibernate the system"
@@ -696,15 +697,16 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:321
 msgid "Hibernate the system while an application is inhibiting this"
-msgstr "アプリケーションが使用されている状態でシステムをハイバネートする"
+msgstr ""
+"アプリケーションがこの操作を阻害している状態でシステムをハイバネートする"
 
 #: src/login/org.freedesktop.login1.policy:322
 msgid ""
 "Authentication is required to hibernate the system while an application is "
 "inhibiting this."
 msgstr ""
-"アプリケーションが使用されている状態でシステムをハイバネートするには認証が必"
-"要です。"
+"アプリケーションがこの操作を阻害している状態でシステムをハイバネートするには"
+"認証が必要です。"
 
 #: src/login/org.freedesktop.login1.policy:332
 msgid "Manage active sessions, users and seats"
@@ -724,44 +726,42 @@ msgstr "アクティブなセッションをロックまたはロック解除す
 
 #: src/login/org.freedesktop.login1.policy:352
 msgid "Set the reboot \"reason\" in the kernel"
-msgstr "再起動の理由を設定する"
+msgstr "カーネルに再起動の理由を設定する"
 
 #: src/login/org.freedesktop.login1.policy:353
 msgid "Authentication is required to set the reboot \"reason\" in the kernel."
-msgstr "再起動の理由を設定するには認証が必要です。"
+msgstr "カーネルに再起動の理由を設定するには認証が必要です。"
 
 #: src/login/org.freedesktop.login1.policy:363
 msgid "Indicate to the firmware to boot to setup interface"
-msgstr "ファームウェアに「インターフェースの設定を起動」を表示させる"
+msgstr "ファームウェアにセットアップ画面の起動を指示する"
 
 #: src/login/org.freedesktop.login1.policy:364
 msgid ""
 "Authentication is required to indicate to the firmware to boot to setup "
 "interface."
-msgstr ""
-"ファームウェアに「インターフェースの設定を起動」を表示させるには認証が必要で"
-"す。"
+msgstr "ファームウェアにセットアップ画面の起動を指示するには認証が必要です。"
 
 #: src/login/org.freedesktop.login1.policy:374
 msgid "Indicate to the boot loader to boot to the boot loader menu"
-msgstr "ブートローダーにメニューを起動するための項目を表示させる"
+msgstr "ブートローダーにブートローダーメニューの起動を指示する"
 
 #: src/login/org.freedesktop.login1.policy:375
 msgid ""
 "Authentication is required to indicate to the boot loader to boot to the "
 "boot loader menu."
 msgstr ""
-"ブートローダーにメニューを起動するための項目を表示させるには認証が必要です。"
+"ブートローダーにブートローダーメニューの起動を指示するには認証が必要です。"
 
 #: src/login/org.freedesktop.login1.policy:385
 msgid "Indicate to the boot loader to boot a specific entry"
-msgstr "ブートローダーに特定の項目を表示させる"
+msgstr "ブートローダーに特定の項目の起動を指示する"
 
 #: src/login/org.freedesktop.login1.policy:386
 msgid ""
 "Authentication is required to indicate to the boot loader to boot into a "
 "specific boot loader entry."
-msgstr "ブートローダーに特定の項目を表示させるには認証が必要です。"
+msgstr "ブートローダーに特定の項目の起動を指示するには認証が必要です。"
 
 #: src/login/org.freedesktop.login1.policy:396
 msgid "Set a wall message"
@@ -986,7 +986,7 @@ msgstr "NTPの設定を破棄するには認証が必要です。"
 
 #: src/network/org.freedesktop.network1.policy:132
 msgid "Revert DNS settings"
-msgstr "DNSの設定を破棄"
+msgstr "DNSの設定の破棄"
 
 #: src/network/org.freedesktop.network1.policy:133
 msgid "Authentication is required to reset DNS settings."
@@ -1164,7 +1164,7 @@ msgstr "システム更新の確認"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:39
 msgid "Authentication is required to check for system updates."
-msgstr "システム更新の確認をするには認証が必要です。"
+msgstr "システム更新の確認には認証が必要です。"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:48
 msgid "Cancel checking for system updates"
@@ -1274,40 +1274,40 @@ msgid ""
 "shall be enabled."
 msgstr "ネットワーク経由の時刻同期を有効または無効にするには認証が必要です。"
 
-#: src/core/dbus-unit.c:372
+#: src/core/dbus-unit.c:373
 msgid "Authentication is required to start '$(unit)'."
 msgstr "'$(unit)'を開始するには認証が必要です。"
 
-#: src/core/dbus-unit.c:373
+#: src/core/dbus-unit.c:374
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "'$(unit)'を停止するには認証が必要です。"
 
-#: src/core/dbus-unit.c:374
+#: src/core/dbus-unit.c:375
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "'$(unit)'を再読み込みするには認証が必要です。"
 
-#: src/core/dbus-unit.c:375 src/core/dbus-unit.c:376
+#: src/core/dbus-unit.c:376 src/core/dbus-unit.c:377
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "'$(unit)'を再起動するには認証が必要です。"
 
-#: src/core/dbus-unit.c:594
+#: src/core/dbus-unit.c:595
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
 msgstr "'$(unit)'のプロセスにUNIXシグナルを送るには認証が必要です。"
 
-#: src/core/dbus-unit.c:647
+#: src/core/dbus-unit.c:648
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
 msgstr ""
 "'$(unit)'のサブグループ内のプロセスにUNIXシグナルを送るには認証が必要です。"
 
-#: src/core/dbus-unit.c:675
+#: src/core/dbus-unit.c:676
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "'$(unit)'の「失敗」状態をリセットするには認証が必要です。"
 
-#: src/core/dbus-unit.c:705
+#: src/core/dbus-unit.c:706
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "'$(unit)'のプロパティを設定するには認証が必要です。"
 
@@ -1323,17 +1323,17 @@ msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "'$(unit)'のプロセスを凍結または凍結解除するには認証が必要です。"
 
-#: src/shared/libfido2-util.c:494 src/shared/libfido2-util.c:551
+#: src/shared/libfido2-util.c:697 src/shared/libfido2-util.c:754
 msgid "Please confirm presence on security token to unlock."
 msgstr ""
 "ロックを解除するには、セキュリティトークンで存在確認（タッチ操作など）を行っ"
 "てください。"
 
-#: src/shared/libfido2-util.c:510
+#: src/shared/libfido2-util.c:713
 msgid "Please verify user on security token to unlock."
 msgstr "ロックを解除するには、セキュリティトークンで本人確認を行ってください。"
 
-#: src/shared/libfido2-util.c:944
+#: src/shared/libfido2-util.c:1196
 #, c-format
 msgid ""
 "Please enter security token PIN (remaining attempts before lock-out: %d):"
@@ -1341,6 +1341,6 @@ msgstr ""
 "セキュリティトークンのPINを入力してください（ロックアウトされるまでの残り試行"
 "回数：%d）："
 
-#: src/shared/libfido2-util.c:955
+#: src/shared/libfido2-util.c:1207
 msgid "Please enter security token PIN:"
 msgstr "セキュリティトークンのPINを入力してください："
