@@ -1819,6 +1819,121 @@ EOF
     veritysetup dump "${loop}p2" | grep 'Hash block size:' | grep '1024' >/dev/null
 }
 
+testcase_verity_signature_reproducible() {
+    local defs imgs key output roothash deterministic=1
+    local -a sigs
+
+    # systemd-repart signs the root hash without signed attributes, so the signature only depends on the
+    # key and the root hash. An ECDSA signature also contains a nonce. systemd-repart has to derive the
+    # nonce from the key and the root hash (RFC 6979). Otherwise the signature, and with it the image,
+    # differs on every build. Build the same image twice with a P-256 key and twice with an RSA key. Check
+    # that every signature verifies against its certificate, and that the two builds with the same key
+    # have the same signature. For the RSA key, also check that `openssl smime` creates the same
+    # signature. Finally, check that systemd-repart refuses a private key that doesn't belong to the
+    # certificate.
+
+    if ! command -v mkfs.erofs >/dev/null; then
+        echo "mkfs.erofs not found, skipping."
+        return
+    fi
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod 0755 "$defs"
+
+    openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
+            -keyout "$defs/ecdsa.key" -out "$defs/ecdsa.crt" -subj /CN=verity -days 2 2>/dev/null
+    openssl req -x509 -newkey rsa:2048 -nodes \
+            -keyout "$defs/rsa.key" -out "$defs/rsa.crt" -subj /CN=verity -days 2 2>/dev/null
+
+    # OpenSSL supports deterministic nonces since 3.2. With an older OpenSSL, the ECDSA signatures differ.
+    if ! openssl dgst -sha256 -sign "$defs/ecdsa.key" -sigopt nonce-type:1 -out /dev/null /dev/null; then
+        echo "OpenSSL doesn't support deterministic ECDSA nonces, not comparing the ECDSA signatures."
+        deterministic=0
+    fi
+
+    mkdir "$defs/tree"
+    echo verity >"$defs/tree/file"
+
+    tee "$defs/verity-data.conf" <<EOF
+[Partition]
+Type=root-${architecture}
+Format=erofs
+CopyFiles=$defs/tree:/
+Verity=data
+VerityMatchKey=root
+Minimize=best
+EOF
+
+    tee "$defs/verity-hash.conf" <<EOF
+[Partition]
+Type=root-${architecture}-verity
+Verity=hash
+VerityMatchKey=root
+Minimize=best
+EOF
+
+    tee "$defs/verity-sig.conf" <<EOF
+[Partition]
+Type=root-${architecture}-verity-sig
+Verity=signature
+VerityMatchKey=root
+EOF
+
+    for key in ecdsa rsa; do
+        sigs=()
+        for i in 1 2; do
+            output=$(env SOURCE_DATE_EPOCH=0 \
+                         systemd-repart --offline="$OFFLINE" \
+                                        --definitions="$defs" \
+                                        --seed="$seed" \
+                                        --dry-run=no \
+                                        --empty=create \
+                                        --size=auto \
+                                        --split=yes \
+                                        --json=pretty \
+                                        --private-key="$defs/$key.key" \
+                                        --certificate="$defs/$key.crt" \
+                                        "$imgs/$key$i")
+            sigs+=("$(jq -r ".[] | select(.type == \"root-${architecture}-verity-sig\") | .split_path" <<<"$output")")
+        done
+
+        roothash="$(jq -r .rootHash "${sigs[0]}")"
+        assert_eq "$roothash" "$(jq -r .rootHash "${sigs[1]}")"
+        if [[ "$key" == rsa || "$deterministic" == 1 ]]; then
+            assert_eq "$(jq -r .signature "${sigs[0]}")" "$(jq -r .signature "${sigs[1]}")"
+        fi
+
+        # Check that the signature verifies against the certificate.
+        jq -r .signature "${sigs[0]}" | base64 --decode >"$imgs/$key.p7s"
+        printf '%s' "$roothash" >"$imgs/roothash"
+        openssl cms -verify -inform DER -binary -nointern -purpose any \
+                -certfile "$defs/$key.crt" -CAfile "$defs/$key.crt" \
+                -in "$imgs/$key.p7s" -content "$imgs/roothash" -out /dev/null
+    done
+
+    # A signature with an RSA key has no nonce. Check that systemd-repart creates the same signature as
+    # `openssl smime` creates for the root hash.
+    openssl smime -sign -noattr -binary -outform DER \
+            -signer "$defs/rsa.crt" -inkey "$defs/rsa.key" \
+            -in "$imgs/roothash" -out "$imgs/rsa-openssl.p7s"
+    cmp "$imgs/rsa.p7s" "$imgs/rsa-openssl.p7s"
+
+    # A private key that doesn't belong to the certificate must be refused.
+    (! systemd-repart --offline="$OFFLINE" \
+                      --definitions="$defs" \
+                      --seed="$seed" \
+                      --dry-run=no \
+                      --empty=create \
+                      --size=auto \
+                      --split=yes \
+                      --private-key="$defs/ecdsa.key" \
+                      --certificate="$defs/rsa.crt" \
+                      "$imgs/mismatch")
+}
+
 testcase_verity_hash_size_from_data_size() {
     local defs imgs loop
 
