@@ -1879,7 +1879,7 @@ static int event_log_add_component_file(EventLog *el, EventLogComponent *compone
         };
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "records", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_variant_noref, 0, 0 },
+                { "records", SD_JSON_VARIANT_ARRAY, sd_json_dispatch_variant_noref, 0, 0 },
                 {}
         };
 
@@ -1891,11 +1891,6 @@ static int event_log_add_component_file(EventLog *el, EventLogComponent *compone
 
         if (records) {
                 sd_json_variant *rj;
-
-                if (!sd_json_variant_is_array(records)) {
-                        log_warning("Component records field of file %s is not an array, ignoring.", path);
-                        return 0;
-                }
 
                 JSON_VARIANT_ARRAY_FOREACH(rj, records) {
                         _cleanup_(event_log_record_freep) EventLogRecord *record = NULL;
