@@ -959,8 +959,8 @@ fail:
 
 static int vl_method_resolve_service(sd_varlink* link, sd_json_variant* parameters, sd_varlink_method_flags_t flags, void* userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "name",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParametersResolveService, name),    0                 },
-                { "type",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParametersResolveService, type),    0                 },
+                { "name",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParametersResolveService, name),    SD_JSON_NULLABLE     },
+                { "type",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParametersResolveService, type),    SD_JSON_NULLABLE     },
                 { "domain",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParametersResolveService, domain),  SD_JSON_MANDATORY },
                 { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,         offsetof(LookupParametersResolveService, ifindex), SD_JSON_RELAX     },
                 { "family",  _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_address_family,  offsetof(LookupParametersResolveService, family),  SD_JSON_RELAX     },
@@ -1113,11 +1113,19 @@ finish:
         }
 }
 
+static int json_dispatch_dns_class(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        /* Preserve the default DNS class if the value is null. */
+        if (sd_json_variant_is_null(variant))
+                return 0;
+
+        return sd_json_dispatch_uint16(name, variant, flags, userdata);
+}
+
 static int vl_method_resolve_record(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,         offsetof(LookupParameters, ifindex), SD_JSON_RELAX     },
                 { "name",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParameters, name),    SD_JSON_MANDATORY },
-                { "class",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16,       offsetof(LookupParameters, class),   0                 },
+                { "class",   _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_dns_class,       offsetof(LookupParameters, class),   0                 },
                 { "type",    _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16,       offsetof(LookupParameters, type),    SD_JSON_MANDATORY },
                 { "flags",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(LookupParameters, flags),   SD_JSON_NULL_TO_ZERO },
                 {}
@@ -1224,9 +1232,9 @@ static int verify_polkit(sd_varlink *link, sd_json_variant *parameters, const ch
 
 static int vl_method_browse_services(sd_varlink* link, sd_json_variant* parameters, sd_varlink_method_flags_t flags, void* userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "domain",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParamatersBrowseServices, domain),  0 },
-                { "type",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParamatersBrowseServices, type),    0 },
-                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,          offsetof(LookupParamatersBrowseServices, ifindex), 0 },
+                { "domain",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParamatersBrowseServices, domain),  SD_JSON_NULLABLE     },
+                { "type",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParamatersBrowseServices, type),    SD_JSON_NULLABLE     },
+                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,          offsetof(LookupParamatersBrowseServices, ifindex), SD_JSON_NULL_TO_ZERO },
                 { "flags",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(LookupParamatersBrowseServices, flags),   SD_JSON_NULL_TO_ZERO },
                 {}
         };
