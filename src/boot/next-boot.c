@@ -28,7 +28,8 @@ static bool parse_boot_option_name(const char16_t *name, uint16_t *ret) {
         assert(name);
         assert(ret);
 
-        /* Parses a "Boot####" variable name, where #### are exactly four hexadecimal digits. */
+        /* Parses a "Boot####" variable name, where #### are exactly four hexadecimal digits. The UEFI
+         * spec requires those to be upper-case, hence so do we. */
 
         const char16_t *e = startswith(name, u"Boot");
         if (!e)
@@ -43,8 +44,6 @@ static bool parse_boot_option_name(const char16_t *name, uint16_t *ret) {
                         v = c - '0';
                 else if (c >= 'A' && c <= 'F')
                         v = c - 'A' + 10;
-                else if (c >= 'a' && c <= 'f')
-                        v = c - 'a' + 10;
                 else
                         return false;
 
@@ -105,17 +104,16 @@ static char16_t *file_path_node_to_path(const EFI_DEVICE_PATH *node) {
         if (n < sizeof(char16_t) || n % sizeof(char16_t) != 0)
                 return NULL;
 
-        char16_t *p = xmemdup(((const FILEPATH_DEVICE_PATH *) node)->PathName, n);
-        if (p[n / sizeof(char16_t) - 1] != '\0') {
-                free(p);
+        _cleanup_free_ char16_t *p = xmemdup(((const FILEPATH_DEVICE_PATH *) node)->PathName, n);
+        if (p[n / sizeof(char16_t) - 1] != '\0')
                 return NULL;
-        }
 
         convert_efi_path(p);
-        return p;
+        return TAKE_PTR(p);
 }
 
 typedef struct LoadOption {
+        uint32_t attributes;
         char16_t *description;              /* aligned copy */
         const EFI_DEVICE_PATH *device_path; /* points into the parsed buffer */
         const uint8_t *optional_data;       /* ditto */
@@ -157,6 +155,7 @@ static bool load_option_parse(const void *data, size_t size, LoadOption *ret) {
                 return false;
 
         *ret = (LoadOption) {
+                .attributes = h->Attributes,
                 .description = xmemdup(d, p - d),
                 .device_path = dp,
                 .optional_data = p + h->FilePathListLength,
@@ -187,14 +186,22 @@ static bool load_option_matches(
          *
          * If options are specified, the optional data of the load option (which the firmware passes to the
          * invoked binary as load options) must match them too. If no options are specified, the optional
+         * data of load options we created ourselves must be empty, so that we do not reuse one that still
+         * carries the optional data of an older version of the entry. For other load options the optional
          * data is not checked, so that we can reuse boot options OS installers created for themselves
          * (e.g. the one Windows creates for its boot manager carries some opaque optional data). */
+
+        /* Skip inactive load options: the firmware does not honor BootNext if it points to one, but
+         * falls back to BootOrder, i.e. back into the boot loader. */
+        if (!FLAGS_SET(o->attributes, LOAD_OPTION_ACTIVE))
+                return false;
 
         if (options) {
                 size_t l = strsize16(options);
                 if (o->optional_data_size != l || memcmp(o->optional_data, options, l) != 0)
                         return false;
-        }
+        } else if (load_option_is_ours(o) && o->optional_data_size > 0)
+                return false;
 
         _cleanup_free_ EFI_DEVICE_PATH *dp_device = NULL, *target_device = NULL;
         const EFI_DEVICE_PATH *dp_file, *target_file;
@@ -214,6 +221,12 @@ static bool load_option_matches(
                 if (device_path_size(dp_device) != l || memcmp(dp_device, target_device, l) != 0)
                         return false;
         }
+
+        /* Firmware (e.g. EDK2) concatenates consecutive file path nodes, hence make sure that the file
+         * path node is the last node of the device path, so that the firmware indeed invokes the file we
+         * matched against. */
+        if (!device_path_is_end(device_path_next_node(dp_file)))
+                return false;
 
         _cleanup_free_ char16_t *path = file_path_node_to_path(dp_file);
         if (!path)
@@ -239,7 +252,7 @@ static EFI_STATUS write_boot_option(
                 dp_size = device_path_size(target),
                 options_size = options ? strsize16(options) : 0;
         if (dp_size > UINT16_MAX)
-                return log_error_status(EFI_INVALID_PARAMETER, "Device path of %ls too long.", target_path);
+                return log_debug_status(EFI_INVALID_PARAMETER, "Device path of %ls too long.", target_path);
 
         /* The optional data is passed by the firmware to the invoked binary as load options, encoded the
          * same way as we pass them when chainloading, i.e. as NUL-terminated UTF-16 string. The option is
@@ -259,7 +272,7 @@ static EFI_STATUS write_boot_option(
         _cleanup_free_ char16_t *name = xasprintf("Boot%04X", n);
         err = efivar_set_raw(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), name, data, size, EFI_VARIABLE_NON_VOLATILE);
         if (err != EFI_SUCCESS)
-                return log_error_status(err, "Failed to write boot option %ls for %ls: %m", name, target_path);
+                return log_debug_status(err, "Failed to write boot option %ls for %ls: %m", name, target_path);
 
         log_debug("Wrote boot option %ls for %ls.", name, target_path);
         return EFI_SUCCESS;
@@ -296,7 +309,7 @@ static EFI_STATUS find_or_create_boot_option(
         _cleanup_strv_free_ char16_t **names = NULL;
         err = efivar_get_names(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), &names);
         if (err != EFI_SUCCESS)
-                return log_error_status(err, "Failed to enumerate EFI variables: %m");
+                return log_debug_status(err, "Failed to enumerate EFI variables: %m");
 
         /* Bitmap of Boot#### numbers that are already taken */
         _cleanup_free_ uint8_t *used = xcalloc((UINT16_MAX + 1) / 8);
@@ -328,12 +341,10 @@ static EFI_STATUS find_or_create_boot_option(
                 if (load_option_matches(&o, target, target_path, options)) {
                         log_debug("Found matching boot option %ls for %ls.", *name, target_path);
 
-                        /* Update the description of our own boot options, if the title changed */
-                        if (load_option_is_ours(&o) && !streq16(o.description, description)) {
-                                err = write_boot_option(n, description, target, target_path, options);
-                                if (err != EFI_SUCCESS)
-                                        return err;
-                        }
+                        /* Update the description of our own boot options, if the title changed. This is
+                         * cosmetic, hence ignore failures, the option matches after all. */
+                        if (load_option_is_ours(&o) && !streq16(o.description, description))
+                                (void) write_boot_option(n, description, target, target_path, options);
 
                         *ret = n;
                         return EFI_SUCCESS;
@@ -366,7 +377,7 @@ static EFI_STATUS find_or_create_boot_option(
                 return EFI_SUCCESS;
         }
 
-        return log_error_status(EFI_OUT_OF_RESOURCES, "No free boot option slot available.");
+        return log_debug_status(EFI_OUT_OF_RESOURCES, "No free boot option slot available.");
 }
 
 EFI_STATUS next_boot_image(
@@ -389,7 +400,7 @@ EFI_STATUS next_boot_image(
         _cleanup_free_ EFI_DEVICE_PATH *dp = NULL;
         err = make_file_device_path(device, path, &dp);
         if (err != EFI_SUCCESS)
-                return log_error_status(err, "Failed to make device path for %ls: %m", path);
+                return log_debug_status(err, "Failed to make device path for %ls: %m", path);
 
         _cleanup_free_ char16_t *normalized = xstrdup16(path);
         convert_efi_path(normalized);
@@ -401,7 +412,7 @@ EFI_STATUS next_boot_image(
 
         err = efivar_set_raw(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"BootNext", &n, sizeof(n), EFI_VARIABLE_NON_VOLATILE);
         if (err != EFI_SUCCESS)
-                return log_error_status(err, "Failed to set BootNext EFI variable: %m");
+                return log_debug_status(err, "Failed to set BootNext EFI variable: %m");
 
         log_debug("Set BootNext to Boot%04X, rebooting.", n);
         RT->ResetSystem(EfiResetWarm, EFI_SUCCESS, 0, NULL);
