@@ -252,7 +252,7 @@ static EFI_STATUS write_boot_option(
                 dp_size = device_path_size(target),
                 options_size = options ? strsize16(options) : 0;
         if (dp_size > UINT16_MAX)
-                return log_error_status(EFI_INVALID_PARAMETER, "Device path of %ls too long.", target_path);
+                return log_debug_status(EFI_INVALID_PARAMETER, "Device path of %ls too long.", target_path);
 
         /* The optional data is passed by the firmware to the invoked binary as load options, encoded the
          * same way as we pass them when chainloading, i.e. as NUL-terminated UTF-16 string. The option is
@@ -272,7 +272,7 @@ static EFI_STATUS write_boot_option(
         _cleanup_free_ char16_t *name = xasprintf("Boot%04X", n);
         err = efivar_set_raw(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), name, data, size, EFI_VARIABLE_NON_VOLATILE);
         if (err != EFI_SUCCESS)
-                return log_error_status(err, "Failed to write boot option %ls for %ls: %m", name, target_path);
+                return log_debug_status(err, "Failed to write boot option %ls for %ls: %m", name, target_path);
 
         log_debug("Wrote boot option %ls for %ls.", name, target_path);
         return EFI_SUCCESS;
@@ -309,7 +309,7 @@ static EFI_STATUS find_or_create_boot_option(
         _cleanup_strv_free_ char16_t **names = NULL;
         err = efivar_get_names(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), &names);
         if (err != EFI_SUCCESS)
-                return log_error_status(err, "Failed to enumerate EFI variables: %m");
+                return log_debug_status(err, "Failed to enumerate EFI variables: %m");
 
         /* Bitmap of Boot#### numbers that are already taken */
         _cleanup_free_ uint8_t *used = xcalloc((UINT16_MAX + 1) / 8);
@@ -377,7 +377,7 @@ static EFI_STATUS find_or_create_boot_option(
                 return EFI_SUCCESS;
         }
 
-        return log_error_status(EFI_OUT_OF_RESOURCES, "No free boot option slot available.");
+        return log_debug_status(EFI_OUT_OF_RESOURCES, "No free boot option slot available.");
 }
 
 EFI_STATUS next_boot_image(
@@ -400,7 +400,7 @@ EFI_STATUS next_boot_image(
         _cleanup_free_ EFI_DEVICE_PATH *dp = NULL;
         err = make_file_device_path(device, path, &dp);
         if (err != EFI_SUCCESS)
-                return log_error_status(err, "Failed to make device path for %ls: %m", path);
+                return log_debug_status(err, "Failed to make device path for %ls: %m", path);
 
         _cleanup_free_ char16_t *normalized = xstrdup16(path);
         convert_efi_path(normalized);
@@ -412,7 +412,7 @@ EFI_STATUS next_boot_image(
 
         err = efivar_set_raw(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"BootNext", &n, sizeof(n), EFI_VARIABLE_NON_VOLATILE);
         if (err != EFI_SUCCESS)
-                return log_error_status(err, "Failed to set BootNext EFI variable: %m");
+                return log_debug_status(err, "Failed to set BootNext EFI variable: %m");
 
         log_debug("Set BootNext to Boot%04X, rebooting.", n);
         RT->ResetSystem(EfiResetWarm, EFI_SUCCESS, 0, NULL);
