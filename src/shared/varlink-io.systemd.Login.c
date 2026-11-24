@@ -342,7 +342,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_ReleaseSession,
                 SD_VARLINK_SYMBOL_COMMENT("Lists current sessions. If an Id or PID filter is provided, returns the single matching session; otherwise streams all current sessions (requires the 'more' flag)."),
                 &vl_method_ListSessions,
-                SD_VARLINK_SYMBOL_COMMENT("Activates a session, i.e. brings it to the foreground."),
+                SD_VARLINK_SYMBOL_COMMENT("Requests that the session be brought to the foreground on its seat."
+                                          " Returns NotSupported if the session has no seat."),
                 &vl_method_ActivateSession,
                 SD_VARLINK_SYMBOL_COMMENT("Locks a session or all sessions."),
                 &vl_method_LockSession,
