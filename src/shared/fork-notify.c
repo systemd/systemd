@@ -357,5 +357,9 @@ int fork_journal_remote(
             strv_extendf(&argv, "--max-files=%" PRIu64, max_files) < 0)
                 return log_oom();
 
-        return fork_notify_full(argv, listen_fd, set_journal_remote_config, /* child_userdata= */ NULL, ret_pidref);
+        r = fork_notify_full(argv, listen_fd, set_journal_remote_config, /* child_userdata= */ NULL, ret_pidref);
+        if (r < 0)
+                return log_error_errno(r, "Failed to start systemd-journal-remote: %m");
+
+        return 0;
 }

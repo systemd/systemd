@@ -96,4 +96,36 @@ TEST(fork_journal_remote_long_path) {
         }
 }
 
+TEST(fork_journal_remote_output_failure) {
+        /* fork_journal_remote() must fail with the error of systemd-journal-remote if systemd-journal-remote
+         * can't create the output file. The output path ends in .journal, so fork_journal_remote() runs
+         * systemd-journal-remote with --split-mode=none. With --split-mode=none, systemd-journal-remote
+         * creates the output file before it sends READY=1. A --keep-free= value that is larger than any
+         * file system makes creating the output file fail with E2BIG. systemd-journal-remote only checks
+         * --keep-free= once the output file grows beyond the minimum file size. Hence the test also passes
+         * a --max-file-size= value that makes the data hash table of a new output file larger than the
+         * minimum file size. */
+
+        if (!have_journal_remote())
+                return (void) log_tests_skipped("systemd-journal-remote not found");
+
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-fork-notify-XXXXXX", &t));
+
+        _cleanup_free_ char *socket_path = path_join(t, "socket");
+        ASSERT_NOT_NULL(socket_path);
+        _cleanup_free_ char *output = path_join(t, "output.journal");
+        ASSERT_NOT_NULL(output);
+
+        _cleanup_(fork_notify_terminate) PidRef pidref = PIDREF_NULL;
+        ASSERT_ERROR(fork_journal_remote(
+                        socket_path,
+                        output,
+                        /* max_use= */ UINT64_MAX,
+                        /* keep_free= */ UINT64_C(1) << 60,
+                        /* max_file_size= */ UINT64_C(4) << 30,
+                        /* max_files= */ UINT64_MAX,
+                        &pidref), E2BIG);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
