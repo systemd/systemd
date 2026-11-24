@@ -1,11 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "fd-util.h"
 #include "fdset.h"
+#include "fileio.h"
 #include "manager.h"
 #include "rm-rf.h"
 #include "serialize.h"
 #include "service.h"
+#include "special.h"
 #include "string-util.h"
 #include "tests.h"
 #include "unit-serialize.h"
@@ -90,6 +94,32 @@ TEST(access_selinux_context) {
         ASSERT_OK(free_and_strdup(&u->access_selinux_context, "system_u:object_r:new_unit_file_t:s0"));
         ASSERT_OK(unit_deserialize_state(u, f, fds));
         ASSERT_STREQ(u->access_selinux_context, "system_u:object_r:new_unit_file_t:s0");
+}
+
+TEST(deserialize_init_scope) {
+        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_fdset_free_ FDSet *fds = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        char state[] = "transient=yes\n\n";
+        int r;
+
+        r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &m);
+        if (manager_errno_skip_test(r))
+                return (void) log_tests_skipped_errno(r, "manager_new");
+        ASSERT_OK(r);
+        ASSERT_OK(manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL));
+
+        Unit *u = ASSERT_PTR(manager_get_unit(m, SPECIAL_INIT_SCOPE));
+        ASSERT_NULL(u->fragment_path);
+        ASSERT_NOT_NULL(fds = fdset_new());
+        ASSERT_NOT_NULL(f = fmemopen_unlocked(state, sizeof(state) - 1, "r"));
+        ASSERT_OK(unit_deserialize_state(u, f, fds));
+        ASSERT_TRUE(u->transient);
+
+        /* Even a persistent set-property request must write to the transient directory. */
+        ASSERT_OK(free_and_strdup(&m->lookup_paths.persistent_control, runtime_dir));
+        ASSERT_OK(unit_write_setting(u, UNIT_PERSISTENT, "Description", "Description=Test scope"));
+        ASSERT_OK_ERRNO(access(strjoina(m->lookup_paths.transient, "/init.scope.d/50-Description.conf"), F_OK));
 }
 
 static int intro(void) {

@@ -11,7 +11,9 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "glyph-util.h"
+#include "manager.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "serialize.h"
 #include "set.h"
 #include "string-util.h"
@@ -376,6 +378,14 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                                 log_unit_warning(u, "Failed to deserialize unit parameter '%s', ignoring.", l);
                 }
         }
+
+        /* Only our own transient fragment belongs to us. Without it a lazy load must read a replacement
+         * from disk, and a replacement that was already loaded must not be unlinked at collection.
+         * Perpetual units such as init.scope are synthesized without a fragment. */
+        if (u->transient && !u->perpetual &&
+            (!u->fragment_path || !u->manager->lookup_paths.transient ||
+             !path_startswith(u->fragment_path, u->manager->lookup_paths.transient)))
+                u->transient = false;
 
         /* Let's make sure that everything that is deserialized also gets any potential new cgroup settings
          * applied after we are done. For that we invalidate anything already realized, so that we can
