@@ -1615,7 +1615,7 @@ static int setup_pam(
         if (r < 0)
                 goto fail;
         if (r == 0) {
-                int ret = EXIT_PAM;
+                int ret = EXIT_PAM, end_flags = PAM_DATA_SILENT;
 
                 if (needs_sandboxing && exec_needs_cgroup_namespace(context) && params->cgroup_path) {
                         /* Move PAM process into subgroup immediately if the main process hasn't been moved
@@ -1675,6 +1675,7 @@ static int setup_pam(
 
                 /* If our parent died we'll end the session */
                 if (getppid() != parent_pid) {
+                        end_flags = 0;
                         pam_code = pam_close_session_and_delete_credentials(pamh, flags);
                         if (pam_code != PAM_SUCCESS)
                                 goto child_finish;
@@ -1683,9 +1684,19 @@ static int setup_pam(
                 ret = 0;
 
         child_finish:
-                /* NB: pam_end() when called in child processes should set PAM_DATA_SILENT to let the module
-                 * know about this. See pam_end(3) */
-                (void) sym_pam_end(pamh, pam_code | flags | PAM_DATA_SILENT);
+                /* Note that the roles are swapped compared to what pam_end(3) describes: we are the forked
+                 * off process, but it is our parent that executes the payload and hence calls pam_end() with
+                 * PAM_DATA_SILENT (see below), while we stay around for the lifetime of the session. Hence,
+                 * if we ended the session, call pam_end() without PAM_DATA_SILENT here, so that the modules
+                 * do their full cleanup, including of external state. If we get here while our parent is
+                 * still around (i.e. we failed early, or we got SIGTERM from the cgroup kill logic before
+                 * the payload exited), the session was not closed and might still be in use, hence leave
+                 * external state alone and pass PAM_DATA_SILENT.
+                 *
+                 * In either case, pass the status without PAM_SILENT from 'flags': it is not a flag
+                 * pam_end() knows, and it would be passed on to the cleanup handlers of the modules as part
+                 * of the status. */
+                (void) sym_pam_end(pamh, pam_code | end_flags);
                 _exit(ret);
         }
 
@@ -1727,7 +1738,7 @@ fail:
                 if (close_session)
                         pam_code = pam_close_session_and_delete_credentials(pamh, flags);
 
-                (void) sym_pam_end(pamh, pam_code | flags);
+                (void) sym_pam_end(pamh, pam_code);
         }
 
         closelog();
