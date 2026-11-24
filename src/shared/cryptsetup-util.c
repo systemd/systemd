@@ -435,19 +435,20 @@ int cryptsetup_token_parse_common(
          * spec, not by us. The returned type string is owned by the JSON variant. */
 
         r = sd_json_dispatch(v, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
-        if (r < 0) {
-                free(p.keyslots.keyslots);
+
+        /* Take ownership right away, so that a partially filled array is freed on failure too */
+        _cleanup_free_ int *keyslots = TAKE_PTR(p.keyslots.keyslots);
+        size_t n_keyslots = p.keyslots.n_keyslots;
+
+        if (r < 0)
                 return r;
-        }
 
         if (ret_type)
                 *ret_type = p.type;
         if (ret_n_keyslots)
-                *ret_n_keyslots = p.keyslots.n_keyslots;
+                *ret_n_keyslots = n_keyslots;
         if (ret_keyslots)
-                *ret_keyslots = TAKE_PTR(p.keyslots.keyslots);
-        else
-                free(p.keyslots.keyslots);
+                *ret_keyslots = TAKE_PTR(keyslots);
 
         return 0;
 }

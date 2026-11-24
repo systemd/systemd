@@ -1139,20 +1139,17 @@ static int event_log_load_firmware(EventLog *el, bool keep_no_action) {
 
 static int event_log_record_parse_json(EventLogRecord *record, sd_json_variant *j) {
         struct {
-                uint64_t pcr;
-                uint64_t nv_index;
+                sd_json_variant *pcr;
+                sd_json_variant *nv_index;
                 sd_json_variant *digests;
                 const char *content_type;
                 sd_json_variant *content;
-        } p = {
-                .pcr = UINT64_MAX,
-                .nv_index = UINT64_MAX,
-        };
+        } p = {};
         int r;
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "pcr",          SD_JSON_VARIANT_UNSIGNED,      sd_json_dispatch_uint64,        voffsetof(p, pcr),          0                 },
-                { "nv_index",     SD_JSON_VARIANT_UNSIGNED,      sd_json_dispatch_uint64,        voffsetof(p, nv_index),     0                 },
+                { "pcr",          SD_JSON_VARIANT_UNSIGNED,      sd_json_dispatch_variant_noref, voffsetof(p, pcr),          0                 },
+                { "nv_index",     SD_JSON_VARIANT_UNSIGNED,      sd_json_dispatch_variant_noref, voffsetof(p, nv_index),     0                 },
                 { "digests",      SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant_noref, voffsetof(p, digests),      SD_JSON_MANDATORY },
                 { "content_type", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  voffsetof(p, content_type), 0                 },
                 { "content",      _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_variant_noref, voffsetof(p, content),      0                 },
@@ -1169,21 +1166,27 @@ static int event_log_record_parse_json(EventLogRecord *record, sd_json_variant *
         if (r < 0)
                 return -EBADMSG;
 
-        if (p.pcr != UINT64_MAX) {
-                if (p.nv_index != UINT64_MAX)
+        /* The 'pcr' and 'nv_index' fields are dispatched as variants and checked for NULL, since
+         * UINT64_MAX cannot be used as an indicator for an absent field: it is a valid JSON value. */
+        if (p.pcr) {
+                uint64_t pcr = sd_json_variant_unsigned(p.pcr);
+
+                if (p.nv_index)
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Both 'pcr' and 'nv_index' field found in TPM measurement log file entry.");
-                if (p.pcr >= TPM2_PCRS_MAX)
+                if (pcr >= TPM2_PCRS_MAX)
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'pcr' field is out of range.");
 
-                record->pcr = p.pcr;
+                record->pcr = pcr;
                 record->nv_index = UINT32_MAX;
         } else {
-                if (p.nv_index == UINT64_MAX)
+                if (!p.nv_index)
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Neither 'pcr' nor 'nv_index' field found in TPM measurement log file entry.");
-                if (p.nv_index >= UINT32_MAX)
+
+                uint64_t nv_index = sd_json_variant_unsigned(p.nv_index);
+                if (nv_index >= UINT32_MAX)
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'nv_index' field is out of range.");
 
-                record->nv_index = p.nv_index;
+                record->nv_index = nv_index;
                 record->pcr = UINT32_MAX;
         }
 
@@ -1876,7 +1879,7 @@ static int event_log_add_component_file(EventLog *el, EventLogComponent *compone
         };
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "records", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_variant_noref, 0, 0 },
+                { "records", SD_JSON_VARIANT_ARRAY, sd_json_dispatch_variant_noref, 0, 0 },
                 {}
         };
 
@@ -1888,11 +1891,6 @@ static int event_log_add_component_file(EventLog *el, EventLogComponent *compone
 
         if (records) {
                 sd_json_variant *rj;
-
-                if (!sd_json_variant_is_array(records)) {
-                        log_warning("Component records field of file %s is not an array, ignoring.", path);
-                        return 0;
-                }
 
                 JSON_VARIANT_ARRAY_FOREACH(rj, records) {
                         _cleanup_(event_log_record_freep) EventLogRecord *record = NULL;

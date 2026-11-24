@@ -344,17 +344,17 @@ executables += [
                 ],
         },
         test_template + {
-                'sources' : files('test-cryptsetup-util.c'),
-                'dependencies' : libcryptsetup_cflags,
+                'sources' : files('test-crypto-util.c'),
+                'dependencies' : libopenssl_cflags,
+                'conditions' : ['HAVE_OPENSSL'],
         },
         test_template + {
                 'sources' : files('test-cryptsetup-fido2.c'),
                 'dependencies' : libfido2_cflags,
         },
         test_template + {
-                'sources' : files('test-crypto-util.c'),
-                'dependencies' : libopenssl_cflags,
-                'conditions' : ['HAVE_OPENSSL'],
+                'sources' : files('test-cryptsetup-util.c'),
+                'dependencies' : libcryptsetup_cflags,
         },
         test_template + {
                 'sources' : files('test-dbus-name-holder.c'),
@@ -520,6 +520,10 @@ executables += [
                 'dependencies' : libopenssl_cflags,
         },
         test_template + {
+                'sources' : files('test-pkcs11-util.c'),
+                'dependencies' : libp11kit_cflags,
+        },
+        test_template + {
                 'sources' : files('test-pkcs7-util.c'),
                 'dependencies' : libopenssl_cflags,
                 'conditions' : ['HAVE_OPENSSL'],
@@ -574,10 +578,6 @@ executables += [
         test_template + {
                 'sources' : files('test-time-util.c'),
                 'timeout' : 120,
-        },
-        test_template + {
-                'sources' : files('test-pkcs11-util.c'),
-                'dependencies' : libp11kit_cflags,
         },
         test_template + {
                 'sources' : files('test-tpm2.c'),

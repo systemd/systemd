@@ -23,9 +23,7 @@ void fido2_luks2_token_done(Fido2Luks2Token *t) {
 }
 
 typedef struct Fido2Luks2TokenFields {
-        struct iovec cid;
-        struct iovec salt;
-        char *rp_id;
+        Fido2Luks2Token token;
         int pin_required;
         int up_required;
         int uv_required;
@@ -34,9 +32,7 @@ typedef struct Fido2Luks2TokenFields {
 static void fido2_luks2_token_fields_done(Fido2Luks2TokenFields *f) {
         assert(f);
 
-        iovec_done(&f->cid);
-        iovec_done(&f->salt);
-        f->rp_id = mfree(f->rp_id);
+        fido2_luks2_token_done(&f->token);
 }
 
 int fido2_luks2_token_parse(sd_json_variant *v, Fido2Luks2Token *ret) {
@@ -49,12 +45,12 @@ int fido2_luks2_token_parse(sd_json_variant *v, Fido2Luks2Token *ret) {
         int r;
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "fido2-credential",         SD_JSON_VARIANT_STRING,  json_dispatch_unbase64_iovec, offsetof(Fido2Luks2TokenFields, cid),          SD_JSON_MANDATORY },
-                { "fido2-salt",               SD_JSON_VARIANT_STRING,  json_dispatch_unbase64_iovec, offsetof(Fido2Luks2TokenFields, salt),         SD_JSON_MANDATORY },
-                { "fido2-rp",                 SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,      offsetof(Fido2Luks2TokenFields, rp_id),        0                 },
-                { "fido2-clientPin-required", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,    offsetof(Fido2Luks2TokenFields, pin_required), 0                 },
-                { "fido2-up-required",        SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,    offsetof(Fido2Luks2TokenFields, up_required),  0                 },
-                { "fido2-uv-required",        SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,    offsetof(Fido2Luks2TokenFields, uv_required),  0                 },
+                { "fido2-credential",         SD_JSON_VARIANT_STRING,  json_dispatch_unbase64_iovec, voffsetof(f, token.cid),    SD_JSON_MANDATORY },
+                { "fido2-salt",               SD_JSON_VARIANT_STRING,  json_dispatch_unbase64_iovec, voffsetof(f, token.salt),   SD_JSON_MANDATORY },
+                { "fido2-rp",                 SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,      voffsetof(f, token.rp_id), 0                 },
+                { "fido2-clientPin-required", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,    voffsetof(f, pin_required), 0                 },
+                { "fido2-up-required",        SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,    voffsetof(f, up_required),  0                 },
+                { "fido2-uv-required",        SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,    voffsetof(f, uv_required),  0                 },
                 {}
         };
 
@@ -84,12 +80,8 @@ int fido2_luks2_token_parse(sd_json_variant *v, Fido2Luks2Token *ret) {
         else
                 required |= FIDO2ENROLL_UV_OMIT;
 
-        *ret = (Fido2Luks2Token) {
-                .cid = TAKE_STRUCT(f.cid),
-                .salt = TAKE_STRUCT(f.salt),
-                .rp_id = TAKE_PTR(f.rp_id),
-                .required = required,
-        };
+        f.token.required = required;
+        *ret = TAKE_STRUCT(f.token);
 
         return 0;
 }
@@ -250,6 +242,8 @@ int acquire_fido2_key_auto(
                         return log_error_errno(r, "Failed to read JSON token data off disk: %m");
 
                 ks = cryptsetup_get_keyslot_from_token(v);
+                if (ks == -ENOMEM)
+                        return log_oom();
                 if (ks < 0) {
                         /* Handle parsing errors of the keyslots field gracefully, since it's not 'owned' by
                          * us, but by the LUKS2 spec */
@@ -258,6 +252,9 @@ int acquire_fido2_key_auto(
                 }
 
                 r = fido2_luks2_token_parse(v, &t);
+                if (r == -ENXIO) /* A mandatory field is missing, i.e. the token is broken */
+                        r = -EBADMSG; /* Do not return -ENXIO here, as callers use it to indicate that no
+                                       * FIDO2 token is enrolled at all. */
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse FIDO2 JSON data token %i: %m", token);
 
