@@ -341,12 +341,10 @@ static EFI_STATUS find_or_create_boot_option(
                 if (load_option_matches(&o, target, target_path, options)) {
                         log_debug("Found matching boot option %ls for %ls.", *name, target_path);
 
-                        /* Update the description of our own boot options, if the title changed */
-                        if (load_option_is_ours(&o) && !streq16(o.description, description)) {
-                                err = write_boot_option(n, description, target, target_path, options);
-                                if (err != EFI_SUCCESS)
-                                        return err;
-                        }
+                        /* Update the description of our own boot options, if the title changed. This is
+                         * cosmetic, hence ignore failures, the option matches after all. */
+                        if (load_option_is_ours(&o) && !streq16(o.description, description))
+                                (void) write_boot_option(n, description, target, target_path, options);
 
                         *ret = n;
                         return EFI_SUCCESS;
