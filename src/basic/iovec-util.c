@@ -103,17 +103,6 @@ char* set_iovec_string_field(struct iovec *iovec, size_t *n_iovec, const char *f
         return x;
 }
 
-char* set_iovec_string_field_free(struct iovec *iovec, size_t *n_iovec, const char *field, char *value) {
-        char *x;
-
-        assert(iovec);
-        assert(n_iovec);
-
-        x = set_iovec_string_field(iovec, n_iovec, field, value);
-        free(value);
-        return x;
-}
-
 void iovec_array_free(struct iovec *iovec, size_t n_iovec) {
         assert(iovec || n_iovec == 0);
 
