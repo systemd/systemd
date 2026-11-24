@@ -366,16 +366,6 @@ GptPartitionType gpt_partition_type_override_architecture(GptPartitionType type,
         return type;
 }
 
-Architecture gpt_partition_type_uuid_to_arch(sd_id128_t id) {
-        const GptPartitionType *pt;
-
-        pt = gpt_partition_type_find_by_uuid(id);
-        if (!pt)
-                return _ARCHITECTURE_INVALID;
-
-        return pt->arch;
-}
-
 bool gpt_label_is_valid(const char *s) {
         size_t n = 0;
 
