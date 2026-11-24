@@ -23,10 +23,6 @@
         _Pragma("GCC diagnostic push");                                 \
         _Pragma("GCC diagnostic ignored \"-Wstringop-overread\"")
 
-#define DISABLE_WARNING_INCOMPATIBLE_POINTER_TYPES                      \
-        _Pragma("GCC diagnostic push");                                 \
-        _Pragma("GCC diagnostic ignored \"-Wincompatible-pointer-types\"")
-
 #define DISABLE_WARNING_TYPE_LIMITS                                     \
         _Pragma("GCC diagnostic push");                                 \
         _Pragma("GCC diagnostic ignored \"-Wtype-limits\"")
