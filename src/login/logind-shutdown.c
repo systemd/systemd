@@ -151,8 +151,8 @@ int manager_verify_shutdown_creds(
                                 return sd_varlink_errorbo(
                                                 link,
                                                 "io.systemd.Shutdown.BlockedByInhibitor",
-                                                SD_JSON_BUILD_PAIR_STRING("who", offending->who),
-                                                SD_JSON_BUILD_PAIR_STRING("why", offending->why));
+                                                SD_JSON_BUILD_PAIR_STRING("who", strempty(offending->who)),
+                                                SD_JSON_BUILD_PAIR_STRING("why", strempty(offending->why)));
                         if (error)
                                 return sd_bus_error_set(error, BUS_ERROR_BLOCKED_BY_INHIBITOR_LOCK,
                                                         "Operation denied due to active block inhibitor");

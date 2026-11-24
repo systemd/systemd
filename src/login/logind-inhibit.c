@@ -127,12 +127,12 @@ static int inhibitor_save(Inhibitor *i) {
 
         /* For historical reasons there's double escaping applied here: once here via cescape(), and once by
          * env_file_fputs_assignment() */
-        _cleanup_free_ char *who_escaped = cescape(i->who);
+        _cleanup_free_ char *who_escaped = cescape(strempty(i->who));
         if (!who_escaped)
                 return log_oom();
         env_file_fputs_assignment(f, "WHO=", who_escaped);
 
-        _cleanup_free_ char *why_escaped = cescape(i->why);
+        _cleanup_free_ char *why_escaped = cescape(strempty(i->why));
         if (!why_escaped)
                 return log_oom();
         env_file_fputs_assignment(f, "WHY=", why_escaped);
