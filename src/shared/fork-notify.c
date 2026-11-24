@@ -7,6 +7,7 @@
 #include "build-path.h"
 #include "chase.h"
 #include "chattr-util.h"
+#include "env-util.h"
 #include "escape.h"
 #include "event-util.h"
 #include "exit-status.h"
@@ -16,10 +17,12 @@
 #include "notify-recv.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidfd-util.h"
 #include "pidref.h"
 #include "process-util.h"
 #include "runtime-scope.h"
 #include "signal-util.h"
+#include "socket-netlink.h"
 #include "strv.h"
 
 static int on_child_exit(sd_event_source *s, const siginfo_t *si, void *userdata) {
@@ -92,7 +95,13 @@ static int on_child_notify(sd_event_source *s, int fd, uint32_t revents, void *u
         return 0;
 }
 
-int fork_notify(char * const *argv, fork_notify_handler_t child_handler, void *child_userdata, PidRef *ret_pidref) {
+static int fork_notify_full(
+                char * const *argv,
+                int listen_fd,
+                fork_notify_handler_t child_handler,
+                void *child_userdata,
+                PidRef *ret_pidref) {
+
         int r;
 
         assert(argv);
@@ -132,9 +141,10 @@ int fork_notify(char * const *argv, fork_notify_handler_t child_handler, void *c
         r = pidref_safe_fork_full(
                         "(fork-notify)",
                         (const int[3]) { -EBADF, STDOUT_FILENO, STDERR_FILENO },
-                        /* except_fds= */ NULL,
-                        /* n_except_fds= */ 0,
-                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_REARRANGE_STDIO,
+                        listen_fd >= 0 ? (int[]) { listen_fd } : NULL,
+                        listen_fd >= 0 ? 1 : 0,
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_REARRANGE_STDIO|
+                        (listen_fd >= 0 ? FORK_PACK_FDS|FORK_CLOEXEC_OFF : 0),
                         &child);
         if (r < 0)
                 return r;
@@ -144,6 +154,28 @@ int fork_notify(char * const *argv, fork_notify_handler_t child_handler, void *c
                 if (setenv("NOTIFY_SOCKET", addr_string, /* overwrite= */ true) < 0) {
                         log_debug_errno(errno, "Failed to set $NOTIFY_SOCKET: %m");
                         _exit(EXIT_MEMORY);
+                }
+
+                if (listen_fd >= 0) {
+                        r = setenvf("LISTEN_PID", /* overwrite= */ true, PID_FMT, child.pid);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to set $LISTEN_PID: %m");
+                                _exit(EXIT_MEMORY);
+                        }
+
+                        uint64_t pidfdid;
+                        if (pidfd_get_inode_id_self_cached(&pidfdid) >= 0) {
+                                r = setenvf("LISTEN_PIDFDID", /* overwrite= */ true, "%" PRIu64, pidfdid);
+                                if (r < 0) {
+                                        log_debug_errno(r, "Failed to set $LISTEN_PIDFDID: %m");
+                                        _exit(EXIT_MEMORY);
+                                }
+                        }
+
+                        if (setenv("LISTEN_FDS", "1", /* overwrite= */ true) < 0) {
+                                log_debug_errno(errno, "Failed to set $LISTEN_FDS: %m");
+                                _exit(EXIT_MEMORY);
+                        }
                 }
 
                 /* After fork and before exec one can execute custom code in this function
@@ -176,6 +208,10 @@ int fork_notify(char * const *argv, fork_notify_handler_t child_handler, void *c
         *ret_pidref = TAKE_PIDREF(child);
 
         return 0;
+}
+
+int fork_notify(char * const *argv, fork_notify_handler_t child_handler, void *child_userdata, PidRef *ret_pidref) {
+        return fork_notify_full(argv, /* listen_fd= */ -EBADF, child_handler, child_userdata, ret_pidref);
 }
 
 static void fork_notify_terminate_internal(PidRef *pidref) {
@@ -281,11 +317,6 @@ int fork_journal_remote(
         if (r < 0)
                 log_debug_errno(r, "Failed to set NOCOW flag on journal directory for '%s', ignoring: %m", output);
 
-        _cleanup_free_ char *sd_socket_activate = NULL;
-        r = find_executable("systemd-socket-activate", &sd_socket_activate);
-        if (r < 0)
-                return log_error_errno(r, "Failed to find systemd-socket-activate binary: %m");
-
         _cleanup_free_ char *sd_journal_remote = NULL;
         r = find_executable("systemd-journal-remote", &sd_journal_remote);
         if (r == -ENOENT)
@@ -299,9 +330,11 @@ int fork_journal_remote(
         if (r < 0)
                 return log_error_errno(r, "Failed to find systemd-journal-remote binary: %m");
 
+        _cleanup_close_ int listen_fd = make_socket_fd(LOG_DEBUG, listen_address, SOCK_STREAM, SOCK_CLOEXEC);
+        if (listen_fd < 0)
+                return listen_fd;
+
         _cleanup_strv_free_ char **argv = strv_new(
-                        sd_socket_activate,
-                        "--listen", listen_address,
                         sd_journal_remote,
                         "--output", output,
                         "--split-mode", endswith(output, ".journal") ? "none" : "host");
@@ -324,5 +357,5 @@ int fork_journal_remote(
             strv_extendf(&argv, "--max-files=%" PRIu64, max_files) < 0)
                 return log_oom();
 
-        return fork_notify(argv, set_journal_remote_config, /* child_userdata= */ NULL, ret_pidref);
+        return fork_notify_full(argv, listen_fd, set_journal_remote_config, /* child_userdata= */ NULL, ret_pidref);
 }

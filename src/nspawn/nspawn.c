@@ -6888,15 +6888,6 @@ static int run(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                union sockaddr_union sa;
-                r = sockaddr_un_set_path(&sa.un, socket_path);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to set AF_UNIX path to '%s': %m", socket_path);
-                        goto finish;
-                }
-
-                (void) sockaddr_un_unlink(&sa.un);
-
                 r = fork_journal_remote(
                                 socket_path,
                                 arg_forward_journal,
