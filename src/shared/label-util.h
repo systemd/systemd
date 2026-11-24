@@ -19,9 +19,6 @@ static inline int label_fix(const char *path, LabelFixFlags flags) {
 int symlink_label(const char *old_path, const char *new_path, LabelContext *label_context);
 
 int mknodat_label(int dirfd, const char *pathname, mode_t mode, dev_t dev, LabelContext *label_context);
-static inline int mknod_label(const char *pathname, mode_t mode, dev_t dev) {
-        return mknodat_label(AT_FDCWD, pathname, mode, dev, /* label_context= */ NULL);
-}
 
 int btrfs_subvol_make_label(const char *path, LabelContext *label_context);
 
