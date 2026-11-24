@@ -524,7 +524,7 @@ extra       /6a9857a393724b7a981ebb5b8495b9ea/1.2.3/debug.addon.efi</programlist
     <programlisting>title Some Other OS
 efi-next-boot /EFI/someotheros/loader.efi</programlisting>
 
-    <xi:include href="version-info.xml" xpointer="v264"/>
+    <xi:include href="version-info.xml" xpointer="v263"/>
   </refsect1>
 
   <refsect1>
