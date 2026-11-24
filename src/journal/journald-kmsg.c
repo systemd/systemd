@@ -30,6 +30,7 @@
 #include "process-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "time-util.h"
 
 void manager_forward_kmsg(
                 Manager *m,
@@ -96,6 +97,52 @@ static bool is_us(const char *identifier, pid_t pid) {
                streq(identifier, program_invocation_short_name);
 }
 
+/* If CLOCK_BOOTTIME and CLOCK_MONOTONIC differ by less than this, i.e. the system has (pretty much) not been
+ * suspended so far during this boot, we consider the two clocks equivalent. */
+#define KMSG_CLOCK_EQUIVALENT_USEC (1 * USEC_PER_SEC)
+
+/* local_clock() drifts relative to the timekeeping clocks (~0.01% has been observed), hence when checking
+ * if a kmsg timestamp is ahead of CLOCK_MONOTONIC, allow it to be ahead by this fraction of the uptime
+ * (i.e. 0.1%). */
+#define KMSG_CLOCK_DRIFT_DIVISOR UINT64_C(1000)
+
+static int dev_kmsg_classify_timestamp(usec_t usec) {
+        /* Returns CLOCK_MONOTONIC or CLOCK_BOOTTIME, depending on which clock the specified kmsg timestamp
+         * appears to be in, or -ENOTUNIQ if we cannot tell, because the two clocks are (pretty much) the
+         * same so far.
+         *
+         * The timestamp the kernel attaches to kmsg records is taken from local_clock(), which is neither
+         * CLOCK_MONOTONIC nor CLOCK_BOOTTIME: it is derived from sched_clock() rather than from the
+         * timekeeping clocksource (and hence drifts relative to both), and it is not accessible from
+         * userspace. Moreover, depending on hardware and suspend mode it either includes the time spent in
+         * suspend or not: for example, on x86 with suspend-to-idle the TSC keeps running while suspended,
+         * and the clock behaves roughly like CLOCK_BOOTTIME, while in other cases it is stopped during
+         * suspend, and behaves roughly like CLOCK_MONOTONIC.
+         *
+         * Hence, let's use a heuristic to decide which of the two clocks the timestamp is closer to: as long
+         * as the system has not been suspended so far, CLOCK_BOOTTIME and CLOCK_MONOTONIC are (pretty much)
+         * the same, and the timestamp is a good approximation for both. Afterwards, since we typically read
+         * kmsg records shortly after they have been generated, the timestamp will be close to the current
+         * time in the clock the kernel's clock behaves like, and far from the other, as the two are apart by
+         * all the time spent in suspend so far.
+         *
+         * This alone might pick the wrong clock for records generated before a suspend and read after it,
+         * which happens regularly, as the kernel logs a couple of records while suspending, after userspace
+         * has been frozen already. Hence, let's first check if the timestamp is in the future of
+         * CLOCK_MONOTONIC by more than clock drift could explain: if so it cannot be in that clock. */
+
+        usec_t m = now(CLOCK_MONOTONIC), b = now(CLOCK_BOOTTIME);
+
+        /* Note that CLOCK_BOOTTIME might be smaller than CLOCK_MONOTONIC, if time namespaces are used. */
+        if (ABS_DIFF(b, m) < KMSG_CLOCK_EQUIVALENT_USEC)
+                return -ENOTUNIQ;
+
+        if (usec > usec_add(m, KMSG_CLOCK_EQUIVALENT_USEC + m / KMSG_CLOCK_DRIFT_DIVISOR))
+                return CLOCK_BOOTTIME;
+
+        return ABS_DIFF(usec, m) < ABS_DIFF(usec, b) ? CLOCK_MONOTONIC : CLOCK_BOOTTIME;
+}
+
 void dev_kmsg_record(Manager *m, char *p, size_t l) {
 
         _cleanup_free_ char *message = NULL, *syslog_identifier = NULL;
@@ -160,7 +207,7 @@ void dev_kmsg_record(Manager *m, char *p, size_t l) {
                 *m->kernel_seqnum = serial + 1;
         }
 
-        /* CLOCK_BOOTTIME timestamp */
+        /* Timestamp, see dev_kmsg_classify_timestamp() for details. */
         l -= (e - p) + 1;
         p = e + 1;
         e = memchr(p, ',', l);
@@ -259,15 +306,19 @@ void dev_kmsg_record(Manager *m, char *p, size_t l) {
                 }
         }
 
-        char source_boot_time[STRLEN("_SOURCE_BOOTTIME_TIMESTAMP=") + DECIMAL_STR_MAX(unsigned long long)];
-        xsprintf(source_boot_time, "_SOURCE_BOOTTIME_TIMESTAMP=%llu", usec);
-        iovec[n++] = IOVEC_MAKE_STRING(source_boot_time);
+        int kmsg_clock = dev_kmsg_classify_timestamp(usec);
 
-        /* Historically, we stored the timestamp 'usec' as _SOURCE_MONOTONIC_TIMESTAMP, so we cannot remove
-         * the field as it is already used in other projects. This is for backward compatibility. */
         char source_monotonic_time[STRLEN("_SOURCE_MONOTONIC_TIMESTAMP=") + DECIMAL_STR_MAX(unsigned long long)];
-        xsprintf(source_monotonic_time, "_SOURCE_MONOTONIC_TIMESTAMP=%llu", usec);
-        iovec[n++] = IOVEC_MAKE_STRING(source_monotonic_time);
+        if (kmsg_clock != CLOCK_BOOTTIME) {
+                xsprintf(source_monotonic_time, "_SOURCE_MONOTONIC_TIMESTAMP=%llu", usec);
+                iovec[n++] = IOVEC_MAKE_STRING(source_monotonic_time);
+        }
+
+        char source_boot_time[STRLEN("_SOURCE_BOOTTIME_TIMESTAMP=") + DECIMAL_STR_MAX(unsigned long long)];
+        if (kmsg_clock != CLOCK_MONOTONIC) {
+                xsprintf(source_boot_time, "_SOURCE_BOOTTIME_TIMESTAMP=%llu", usec);
+                iovec[n++] = IOVEC_MAKE_STRING(source_boot_time);
+        }
 
         iovec[n++] = IOVEC_MAKE_STRING("_TRANSPORT=kernel");
 
