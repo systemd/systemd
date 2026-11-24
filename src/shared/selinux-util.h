@@ -97,7 +97,6 @@ void mac_selinux_disable_logging(void);
 
 int mac_selinux_fix_full(int atfd, const char *inode_path, const char *label_path, LabelFixFlags flags, LabelContext *label_context);
 
-int mac_selinux_apply(const char *path, const char *label);
 int mac_selinux_apply_fd(int fd, const char *path, const char *label);
 
 int mac_selinux_get_create_label_from_exe(const char *exe, char **ret_label);
