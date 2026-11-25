@@ -2041,7 +2041,6 @@ TEST(upgrade_async) {
 }
 
 static int upgrade_pipelining_client_fiber(void *arg) {
-        union sockaddr_union sa = {};
         _cleanup_close_ int fd = -EBADF;
 
         /* Connect a raw socket and pipeline: upgrade JSON + \0 + raw data in a single write.
@@ -2049,9 +2048,7 @@ static int upgrade_pipelining_client_fiber(void *arg) {
          * doesn't consume the raw data into the varlink input buffer. */
         fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
         ASSERT_FD(fd);
-        int addrlen = sockaddr_un_set_path(&sa.un, arg);
-        ASSERT_OK(addrlen);
-        ASSERT_OK_ERRNO(connect(fd, &sa.sa, addrlen));
+        ASSERT_OK(connect_unix_path(fd, AT_FDCWD, arg));
 
         /* Build pipelined message: upgrade JSON + \0 + raw payload, all in one write */
         static const char upgrade_msg[] = "{\"method\":\"io.test.Upgrade\",\"upgrade\":true}";

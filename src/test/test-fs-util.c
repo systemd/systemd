@@ -859,9 +859,9 @@ TEST(xopenat_socket) {
         ASSERT_OK(fd);
 
         const char *sockpath = strjoina(t, "/test.sock");
-        union sockaddr_union sa = { .un.sun_family = AF_UNIX };
-        strncpy(sa.un.sun_path, sockpath, sizeof(sa.un.sun_path) - 1);
-        ASSERT_OK_ERRNO(bind(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sockpath) + 1));
+        union sockaddr_union sa;
+        socklen_t salen = ASSERT_OK(sockaddr_un_set_path(&sa.un, sockpath));
+        ASSERT_OK_ERRNO(bind(fd, &sa.sa, salen));
         fd = safe_close(fd);
 
         /* XO_SOCKET requires O_PATH. */
