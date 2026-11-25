@@ -19,7 +19,7 @@
   <refnamediv>
     <refname>resolvectl</refname>
     <refname>resolvconf</refname>
-    <refpurpose>Resolve domain names, IPV4 and IPv6 addresses, DNS resource records, and services; introspect and reconfigure the DNS resolver</refpurpose>
+    <refpurpose>Resolve domain names, IPv4 and IPv6 addresses, DNS resource records, and services; introspect and reconfigure the DNS resolver</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -234,12 +234,12 @@
       <varlistentry>
         <term><command>revert <replaceable>LINK</replaceable></command></term>
 
-        <listitem><para>Revert the per-interface DNS configuration. If the DNS configuration is reverted all
-        per-interface DNS setting are reset to their defaults, undoing all effects of <command>dns</command>,
-        <command>domain</command>, <command>default-route</command>, <command>llmnr</command>,
-        <command>mdns</command>, <command>dnssec</command>, <command>dnsovertls</command>,
-        <command>nta</command>. Note that when a network interface disappears all configuration is lost
-        automatically, an explicit reverting is not necessary in that case.</para>
+        <listitem><para>Revert the per-interface DNS configuration. If the DNS configuration is
+        reverted all per-interface DNS settings are reset to their defaults, undoing all effects
+        of <command>dns</command>, <command>domain</command>, <command>default-route</command>,
+        <command>llmnr</command>, <command>mdns</command>, <command>dnssec</command>,
+        <command>dnsovertls</command>, <command>nta</command>. Note that when a network interface disappears
+        all configuration is lost automatically, an explicit reverting is not necessary in that case.</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
@@ -247,15 +247,14 @@
       <varlistentry>
         <term><command>monitor</command></term>
 
-        <listitem><para>Show a continuous stream of local client resolution queries and their
-        responses. When a local query completes, its DNS question, transport, and answer records are shown.
-        The client's PID, UID, and cgroup path, or its socket address and port, are also shown when available.
-        Note that this displays queries issued locally only, and does not immediately
-        relate to DNS requests submitted to configured DNS servers or the LLMNR or MulticastDNS zones, as
-        lookups may be answered from the local cache, or might result in multiple DNS transactions (for
-        example to validate DNSSEC information). If CNAME/CNAME redirection chains are followed, a separate
-        query will be displayed for each element of the chain. Use <option>--json=</option> to enable JSON
-        output.</para>
+        <listitem><para>Show a continuous stream of local client resolution queries and their responses. When
+        a local query completes, its DNS question, transport, and answer records are shown. The client's PID,
+        UID, and cgroup path, or its socket address and port, are also shown when available. Note that this
+        displays queries issued locally only, and does not immediately relate to DNS requests submitted to
+        configured DNS servers or the LLMNR or MulticastDNS zones, as lookups may be answered from the local
+        cache, or might result in multiple DNS transactions (for example to validate DNSSEC information). If
+        CNAME/DNAME redirection chains are followed, a separate query will be displayed for each element of
+        the chain. Use <option>--json=</option> to enable JSON output.</para>
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
@@ -347,10 +346,10 @@
         <para>Without these options <command>resolvectl query</command> provides high-level domain name to
         address and address to domain name resolution. With these options it provides low-level DNS resource
         record resolution. The search domain logic is automatically turned off when these options are used,
-        i.e. specified domain names need to be fully qualified domain names. Moreover, IDNA internal domain
-        name translation is turned off as well, i.e. international domain names should be specified in
-        <literal>xn--…</literal> notation, unless look-up in MulticastDNS/LLMNR is desired, in which case
-        UTF-8 characters should be used.</para>
+        i.e. specified domain names need to be fully qualified domain names. Moreover, IDNA translation is
+        turned off as well, i.e. international domain names should be specified in <literal>xn--…</literal>
+        notation, unless look-up in MulticastDNS/LLMNR is desired, in which case UTF-8 characters should be
+        used.</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
@@ -475,9 +474,9 @@
 
         <listitem><para>Dump the answer records as binary data. If there is no argument or if the argument is
         <literal>payload</literal>, the payload of the resource record data is exported, i.e. not the whole
-        "RDATA", but just primary contents. If the argument is <literal>packet</literal>,
-        the whole resource record is dumped in wire format, prefixed by length specified as a little-endian
-        64-bit integer. This format allows multiple record to be dumped and unambiguously parsed.</para>
+        "RDATA", but just primary contents. If the argument is <literal>packet</literal>, the whole resource
+        record is dumped in wire format, prefixed by length specified as a little-endian 64-bit integer. This
+        format allows multiple records to be dumped and unambiguously parsed.</para>
 
         <para>Note that <literal>payload</literal> is only supported for a small subset of resource record
         types: SSHFP, TLSA, OPENPGPKEY where this dumps the key material only; and A, AAAA where
