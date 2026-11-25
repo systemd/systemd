@@ -32,6 +32,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "vconsole-util.h"
 #include "verbs.h"
 
@@ -42,6 +43,11 @@ COMMAND(
         .man_page = "systemd-vconsole-setup.service(8)",
         .option_namespace = "common",
 );
+
+/* How many times we try to configure the source VC if it gets hung up under our feet, and how long we wait
+ * between attempts. */
+#define VC_SETUP_ATTEMPTS_MAX 5U
+#define VC_SETUP_RETRY_DELAY_USEC (200 * USEC_PER_MSEC)
 
 typedef struct Context {
         char *keymap;
@@ -302,6 +308,15 @@ static int verify_vc_display_mode(int fd) {
                 return -errno;
 
         return mode != KD_TEXT ? -EBUSY : 0;
+}
+
+static bool vc_is_hung_up(int fd) {
+        /* When a tty is hung up, be it via vhangup()/TIOCVHANGUP or by the kernel when a session leader that
+         * has the tty as its controlling terminal exits (e.g. a unit with StandardInput=tty finishing), every
+         * file descriptor that is open on it at that moment is switched to hung_up_tty_fops. From then on all
+         * ioctls on such an fd fail with EIO, while freshly opened fds work fine. */
+
+        return verify_vc_kbmode(fd) == -EIO;
 }
 
 static int verify_vc_support_font(int fd) {
@@ -739,10 +754,82 @@ static int verify_source_vc(char **ret_path, const char *src_vc) {
         return TAKE_FD(fd);
 }
 
+static int open_source_vc(const char *src_vc, char **ret_path, unsigned *ret_idx, int *ret_fd) {
+        int fd;
+
+        assert(ret_path);
+        assert(ret_idx);
+        assert(ret_fd);
+
+        /* Returns 1 and the fd of the source VC, 0 if only busy VCs were found, or a negative errno (already
+         * logged) on failure. */
+
+        if (src_vc) {
+                fd = verify_source_vc(ret_path, src_vc);
+                if (fd < 0)
+                        return fd;
+
+                *ret_idx = 0;
+        } else {
+                fd = find_source_vc(ret_path, ret_idx);
+                if (fd == -EBUSY)
+                        return 0;
+                if (fd < 0)
+                        return log_error_errno(fd, "No virtual console that can be configured found: %m");
+        }
+
+        *ret_fd = fd;
+        return 1;
+}
+
+static int setup_vcs(int fd, const char *vc, unsigned idx, Context *c, bool utf8) {
+        _cleanup_close_ int lock_fd = -EBADF;
+
+        assert(fd >= 0);
+        assert(vc);
+        assert(c);
+
+        /* Returns 1 on success, 0 if setting up the VC failed (already logged), or -EIO if the source VC got
+         * hung up while we were at it, in which case the caller should retry with a freshly opened fd. */
+
+        /* Take lock around the remaining operation to avoid being interrupted by a tty reset operation
+         * performed for services with TTYVHangup=yes. */
+        lock_fd = lock_dev_console();
+        if (ERRNO_IS_NEG_DEVICE_ABSENT(lock_fd))
+                log_debug_errno(lock_fd, "Device /dev/console does not exist, proceeding without lock: %m");
+        else if (lock_fd < 0)
+                log_warning_errno(lock_fd, "Failed to lock /dev/console, proceeding without lock: %m");
+
+        (void) toggle_utf8_vc(vc, fd, utf8);
+
+        int setfont_status = font_load_and_wait(fd, vc, c);
+        int loadkeys_status = keyboard_load_and_wait(vc, c, utf8);
+
+        /* The lock above only protects us against PID1 resetting the TTY. It does not help against the
+         * kernel hanging up the VC when a session leader that has it as its controlling terminal exits, or
+         * against anybody else calling vhangup(). If that happened while we were busy, the failures seen
+         * above are not genuine, and even if everything appeared to succeed, the hangup reset the termios
+         * settings. Retrying on the hung up fd can never succeed, hence let the caller start over with a
+         * fresh one, without bothering with the remaining VCs. */
+        if (vc_is_hung_up(fd))
+                return -EIO;
+
+        if (idx > 0) {
+                if (setfont_status == 0)
+                        log_notice("Configuration of first virtual console was skipped, ignoring remaining ones.");
+                else if (setfont_status < 0)
+                        log_warning("Configuration of first virtual console failed, ignoring remaining ones.");
+                else
+                        setup_remaining_vcs(fd, idx, utf8);
+        }
+
+        return setfont_status >= 0 && loadkeys_status >= 0;
+}
+
 static int run(int argc, char **argv) {
         _cleanup_(context_done) Context c = CONTEXT_NULL;
         _cleanup_free_ char *vc = NULL;
-        _cleanup_close_ int fd = -EBADF, lock_fd = -EBADF;
+        _cleanup_close_ int fd = -EBADF;
         bool utf8;
         unsigned idx = 0;
         int r;
@@ -756,20 +843,14 @@ static int run(int argc, char **argv) {
 
         umask(0022);
 
-        if (args[0]) {
-                fd = verify_source_vc(&vc, args[0]);
-                if (fd < 0)
-                        return fd;
-        } else {
-                fd = find_source_vc(&vc, &idx);
-                if (fd < 0 && fd != -EBUSY)
-                        return log_error_errno(fd, "No virtual console that can be configured found: %m");
-        }
+        r = open_source_vc(args[0], &vc, &idx, &fd);
+        if (r < 0)
+                return r;
 
         utf8 = is_locale_utf8();
         (void) toggle_utf8_sysfs(utf8);
 
-        if (fd < 0) {
+        if (r == 0) {
                 /* We found only busy VCs, which might happen during the boot process when the boot splash is
                  * displayed on the only allocated VC. In this case we don't interfere and avoid initializing
                  * the VC partially as some operations are likely to fail. */
@@ -779,29 +860,33 @@ static int run(int argc, char **argv) {
 
         context_load_config(&c);
 
-        /* Take lock around the remaining operation to avoid being interrupted by a tty reset operation
-         * performed for services with TTYVHangup=yes. */
-        lock_fd = lock_dev_console();
-        if (ERRNO_IS_NEG_DEVICE_ABSENT(lock_fd))
-                log_debug_errno(lock_fd, "Device /dev/console does not exist, proceeding without lock: %m");
-        else if (lock_fd < 0)
-                log_warning_errno(lock_fd, "Failed to lock /dev/console, proceeding without lock: %m");
+        for (unsigned attempt = 1;; attempt++) {
+                r = setup_vcs(fd, vc, idx, &c, utf8);
+                if (r != -EIO)
+                        return r > 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 
-        (void) toggle_utf8_vc(vc, fd, utf8);
+                if (attempt >= VC_SETUP_ATTEMPTS_MAX)
+                        return log_error_errno(r, "Virtual console %s was hung up while being configured, giving up after %u attempts.",
+                                               vc, attempt);
 
-        int setfont_status = font_load_and_wait(fd, vc, &c);
-        int loadkeys_status = keyboard_load_and_wait(vc, &c, utf8);
+                log_notice("Virtual console %s was hung up while being configured, retrying (attempt %u/%u).",
+                           vc, attempt + 1, VC_SETUP_ATTEMPTS_MAX);
 
-        if (idx > 0) {
-                if (setfont_status == 0)
-                        log_notice("Configuration of first virtual console was skipped, ignoring remaining ones.");
-                else if (setfont_status < 0)
-                        log_warning("Configuration of first virtual console failed, ignoring remaining ones.");
-                else
-                        setup_remaining_vcs(fd, idx, utf8);
+                fd = safe_close(fd);
+                vc = mfree(vc);
+
+                (void) usleep_safe(VC_SETUP_RETRY_DELAY_USEC);
+
+                r = open_source_vc(args[0], &vc, &idx, &fd);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        /* The VCs became busy (e.g. taken over by a boot splash or a display server) while we
+                         * were waiting to retry. Whoever owns them now is in charge, leave them alone. */
+                        log_notice("All allocated virtual consoles became busy, not retrying to configure key mapping and font.");
+                        return EXIT_SUCCESS;
+                }
         }
-
-        return (setfont_status >= 0 && loadkeys_status >= 0) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
