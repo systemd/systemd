@@ -1265,8 +1265,47 @@ static int enforce_user(
         return 0;
 }
 
-#if HAVE_PAM
+static int attach_to_subcgroup(
+                const ExecContext *context,
+                const CGroupContext *cgroup_context,
+                const ExecParameters *params,
+                const char *prefix) { /* may be NULL */
 
+        _cleanup_free_ char *subgroup = NULL;
+        int r;
+
+        assert(context);
+        assert(cgroup_context);
+        assert(params);
+
+        /* If we're a control process that needs a subgroup, we've already been spawned into it as otherwise
+         * we'd violate the "no inner processes" rule, so no need to do anything. */
+        if (exec_params_needs_control_subcgroup(params))
+                return 0;
+
+        r = exec_params_get_cgroup_path(params, cgroup_context, prefix, &subgroup);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire cgroup path: %m");
+        /* No subgroup required? Then there's nothing to do. */
+        if (r == 0)
+                return 0;
+
+        r = cg_attach(subgroup, /* pid= */ 0);
+        if (r == -EUCLEAN)
+                return log_error_errno(r,
+                                "Failed to attach process " PID_FMT " to cgroup '%s', "
+                                "because the cgroup or one of its parents or "
+                                "siblings is in the threaded mode.",
+                                getpid_cached(), subgroup);
+        if (r < 0)
+                return log_error_errno(r,
+                                "Failed to attach process " PID_FMT " to cgroup %s: %m",
+                                getpid_cached(), subgroup);
+
+        return 0;
+}
+
+#if HAVE_PAM
 static int log_oom_return_pam_buf_err(void) {
         log_oom();
         return PAM_BUF_ERR;
@@ -1411,49 +1450,7 @@ static int null_conv(
         /* A conversation function that refuses any conversation. */
         return PAM_CONV_ERR;
 }
-#endif
 
-static int attach_to_subcgroup(
-                const ExecContext *context,
-                const CGroupContext *cgroup_context,
-                const ExecParameters *params,
-                const char *prefix) { /* may be NULL */
-
-        _cleanup_free_ char *subgroup = NULL;
-        int r;
-
-        assert(context);
-        assert(cgroup_context);
-        assert(params);
-
-        /* If we're a control process that needs a subgroup, we've already been spawned into it as otherwise
-         * we'd violate the "no inner processes" rule, so no need to do anything. */
-        if (exec_params_needs_control_subcgroup(params))
-                return 0;
-
-        r = exec_params_get_cgroup_path(params, cgroup_context, prefix, &subgroup);
-        if (r < 0)
-                return log_error_errno(r, "Failed to acquire cgroup path: %m");
-        /* No subgroup required? Then there's nothing to do. */
-        if (r == 0)
-                return 0;
-
-        r = cg_attach(subgroup, /* pid= */ 0);
-        if (r == -EUCLEAN)
-                return log_error_errno(r,
-                                "Failed to attach process " PID_FMT " to cgroup '%s', "
-                                "because the cgroup or one of its parents or "
-                                "siblings is in the threaded mode.",
-                                getpid_cached(), subgroup);
-        if (r < 0)
-                return log_error_errno(r,
-                                "Failed to attach process " PID_FMT " to cgroup %s: %m",
-                                getpid_cached(), subgroup);
-
-        return 0;
-}
-
-#if HAVE_PAM
 static int exec_context_get_tty_for_pam(const ExecContext *context, char **ret) {
         _cleanup_free_ char *tty = NULL;
         int r;
