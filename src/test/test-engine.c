@@ -4,14 +4,22 @@
 
 #include "sd-bus.h"
 
+#include "fd-util.h"
+#include "fdset.h"
+#include "fileio.h"
 #include "manager.h"
 #include "manager-dump.h"
+#include "path-util.h"
 #include "rm-rf.h"
+#include "serialize.h"
 #include "service.h"
 #include "slice.h"
 #include "special.h"
+#include "strv.h"
 #include "tests.h"
 #include "unit-serialize.h"
+
+static bool have_cgroup_subroot;
 
 static void verify_dependency_atoms(void) {
         UnitDependencyAtom combined = 0, multi_use_atoms = 0;
@@ -290,6 +298,101 @@ TEST(engine) {
         ASSERT_NOT_NULL(unit_has_dependency(zupa, UNIT_ATOM_REFERENCED_BY, tomato));
 }
 
+static Unit* reload_test_unit(Unit *u) {
+        Manager *m = u->manager;
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_fdset_free_ FDSet *fds = NULL;
+        _cleanup_free_ char *id = NULL;
+
+        ASSERT_NOT_NULL(fds = fdset_new());
+        ASSERT_OK(open_serialization_file("test-owned-directories", &f));
+        ASSERT_OK(unit_serialize_state(u, f, fds, /* switching_root= */ false));
+        ASSERT_OK(finish_serialization_file(f));
+        unit_free(u);
+        ASSERT_OK_POSITIVE(deserialize_read_line(f, &id));
+        ASSERT_OK(manager_load_unit(m, id, /* path= */ NULL, /* e= */ NULL, &u));
+        ASSERT_OK(unit_deserialize_state(u, f, fds, /* restore_owned_directories= */ true));
+        return u;
+}
+
+static void wait_for_service_dead(Unit *u) {
+        usec_t deadline = usec_add(now(CLOCK_MONOTONIC), 30 * USEC_PER_SEC);
+
+        while (!IN_SET(SERVICE(u)->state, SERVICE_DEAD, SERVICE_FAILED)) {
+                usec_t left = usec_sub_unsigned(deadline, now(CLOCK_MONOTONIC));
+                ASSERT_GT(left, 0U);
+                ASSERT_OK_POSITIVE(sd_event_run(u->manager->event, left));
+        }
+        ASSERT_EQ(SERVICE(u)->state, SERVICE_DEAD);
+}
+
+static int exit_test_manager(sd_event_source *source, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+
+        m->objective = MANAGER_EXIT;
+        return 0;
+}
+
+TEST(owned_directory_gc) {
+        _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
+        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *exit_source = NULL;
+        _cleanup_free_ char *file = NULL, *dir = NULL, *link = NULL;
+        _cleanup_strv_free_ char **paths = NULL;
+        const char *name = "test-owned-directory.service";
+        Unit *u;
+        int r;
+
+        if (!have_cgroup_subroot)
+                return (void) log_tests_skipped("No cgroup subroot for executing a test unit");
+
+        ASSERT_NOT_NULL(runtime_dir = setup_fake_runtime_dir());
+        ASSERT_NOT_NULL(file = path_join(runtime_dir, name));
+        ASSERT_NOT_NULL(dir = path_join(runtime_dir, "data"));
+        ASSERT_NOT_NULL(link = path_join(runtime_dir, "alias"));
+        ASSERT_OK(setenv_unit_path(runtime_dir));
+        ASSERT_OK(write_string_file(file, "[Unit]\nDefaultDependencies=no\n[Service]\n"
+                                    "Type=oneshot\nExecStart=true\nStandardOutput=null\n"
+                                    "RuntimeDirectory=data:alias\nRuntimeDirectoryPreserve=yes\n", WRITE_STRING_FILE_CREATE));
+        r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_BASIC|MANAGER_TEST_RUN_IGNORE_DEPENDENCIES, &m);
+        if (manager_errno_skip_test(r))
+                return (void) log_tests_skipped_errno(r, "manager_new");
+        ASSERT_OK(r);
+        ASSERT_OK(manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL));
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, name, /* path= */ NULL, LOG_ERR, &u));
+        ASSERT_OK(unit_start(u, /* details= */ NULL));
+        wait_for_service_dead(u);
+        ASSERT_STRV_EQ_SET(u->owned_directories[EXEC_DIRECTORY_RUNTIME], dir, link);
+
+        /* A replacement fragment contributes its configured paths without replacing the recorded paths. */
+        ASSERT_OK(write_string_file(file, "[Service]\nExecStart=true\nRuntimeDirectory=replacement\n",
+                                    WRITE_STRING_FILE_TRUNCATE));
+        u = reload_test_unit(u);
+        ASSERT_EQ(u->load_state, UNIT_LOADED);
+        ASSERT_OK(unit_get_clean_directories(u, EXEC_CLEAN_RUNTIME, &paths));
+        ASSERT_STRV_EQ_SET(paths, strjoina(runtime_dir, "/replacement"),
+                           strjoina(runtime_dir, "/private/replacement"), dir, link);
+
+        /* With no fragment left, only the paths the executor confirmed survive. */
+        ASSERT_OK_ERRNO(unlink(file));
+        u = reload_test_unit(u);
+        ASSERT_EQ(u->load_state, UNIT_NOT_FOUND);
+        ASSERT_STRV_EQ_SET(u->owned_directories[EXEC_DIRECTORY_RUNTIME], dir, link);
+        ASSERT_FALSE(unit_may_gc(u));
+        ASSERT_OK(unit_clean(u, EXEC_CLEAN_RUNTIME));
+        wait_for_service_dead(u);
+
+        ASSERT_EQ(unit_owned_directory_mask(u), EXEC_CLEAN_NONE);
+        ASSERT_ERROR_ERRNO(access(dir, F_OK), ENOENT);
+        ASSERT_ERROR_ERRNO(faccessat(AT_FDCWD, link, F_OK, AT_SYMLINK_NOFOLLOW), ENOENT);
+
+        /* Let the manager deliver pending notifications and dispatch its GC and cleanup queues. */
+        ASSERT_OK(sd_event_add_defer(m->event, &exit_source, exit_test_manager, m));
+        ASSERT_OK(sd_event_source_set_priority(exit_source, SD_EVENT_PRIORITY_IDLE));
+        ASSERT_OK_EQ(manager_loop(m), MANAGER_EXIT);
+        ASSERT_NULL(manager_get_unit(m, name));
+}
+
 static int intro(void) {
         int r;
 
@@ -298,6 +401,8 @@ static int intro(void) {
                 return log_tests_skipped("cgroupfs not available");
         if (r < 0)
                 log_debug_errno(r, "Failed to enter cgroup subroot, ignoring: %m");
+        else
+                have_cgroup_subroot = true;
 
         return EXIT_SUCCESS;
 }

@@ -101,9 +101,6 @@
 #include "virt.h"
 #include "watchdog.h"
 
-/* Make sure clients notifying us don't block */
-#define MANAGER_SOCKET_RCVBUF_SIZE (8*U64_MB)
-
 /* Initial delay and the interval for printing status messages about running jobs */
 #define JOBS_IN_PROGRESS_WAIT_USEC (2*USEC_PER_SEC)
 #define JOBS_IN_PROGRESS_QUIET_WAIT_USEC (25*USEC_PER_SEC)
@@ -950,6 +947,7 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                 .notify_fd = -EBADF,
                 .signal_fd = -EBADF,
                 .user_lookup_fds = EBADF_PAIR,
+                .directory_report_fds = EBADF_PAIR,
                 .handoff_timestamp_fds = EBADF_PAIR,
                 .pidref_transport_fds = EBADF_PAIR,
                 .private_listen_fd = -EBADF,
@@ -1780,6 +1778,7 @@ Manager* manager_free(Manager *m) {
         sd_event_source_unref(m->jobs_in_progress_event_source);
         sd_event_source_unref(m->run_queue_event_source);
         sd_event_source_unref(m->user_lookup_event_source);
+        sd_event_source_unref(m->directory_report_event_source);
         sd_event_source_unref(m->handoff_timestamp_event_source);
         sd_event_source_unref(m->pidref_event_source);
         FOREACH_ARRAY(pressure_event_source, m->pressure_event_source, _PRESSURE_RESOURCE_MAX)
@@ -1788,6 +1787,7 @@ Manager* manager_free(Manager *m) {
         safe_close(m->signal_fd);
         safe_close(m->notify_fd);
         safe_close_pair(m->user_lookup_fds);
+        safe_close_pair(m->directory_report_fds);
         safe_close_pair(m->handoff_timestamp_fds);
         safe_close_pair(m->pidref_transport_fds);
 

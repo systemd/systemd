@@ -16,6 +16,9 @@
 
 struct libmnt_monitor;
 
+/* Make sure clients notifying us don't block. */
+#define MANAGER_SOCKET_RCVBUF_SIZE (8*U64_MB)
+
 /* Enforce upper limit on how many names we allow */
 #define MANAGER_MAX_NAMES 131072 /* 128K */
 /* Unprivileged callers have to be authorized for every unit of a batch separately, which takes one polkit
@@ -288,6 +291,9 @@ typedef struct Manager {
 
         int user_lookup_fds[2];
         sd_event_source *user_lookup_event_source;
+
+        int directory_report_fds[2];
+        sd_event_source *directory_report_event_source;
 
         int handoff_timestamp_fds[2];
         sd_event_source *handoff_timestamp_event_source;

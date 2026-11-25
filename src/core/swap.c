@@ -1533,7 +1533,7 @@ static int swap_clean(Unit *u, ExecCleanMask mask) {
         if (s->state != SWAP_DEAD)
                 return -EBUSY;
 
-        r = exec_context_get_clean_directories(&s->exec_context, u->manager->prefix, mask, &l);
+        r = unit_get_clean_directories(u, mask, &l);
         if (r < 0)
                 return r;
 

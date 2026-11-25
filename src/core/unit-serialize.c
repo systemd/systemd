@@ -7,11 +7,15 @@
 #include "cgroup.h"
 #include "condition.h"
 #include "dbus.h"
+#include "escape.h"
+#include "exec-directory.h"
 #include "extract-word.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "glyph-util.h"
+#include "manager.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "serialize.h"
 #include "set.h"
 #include "string-util.h"
@@ -108,6 +112,7 @@ int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
 
         (void) serialize_bool(f, "transient", u->transient);
         (void) serialize_bool(f, "in-audit", u->in_audit);
+        (void) serialize_item(f, "access-selinux-context", u->access_selinux_context);
 
         (void) serialize_bool(f, "debug-invocation", u->debug_invocation);
 
@@ -135,6 +140,19 @@ int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
                 (void) serialize_item(f, "ref", *i);
 
         if (!switching_root) {
+                for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
+                        if (strv_isempty(u->owned_directories[t]))
+                                continue;
+
+                        _cleanup_free_ char *key = strjoin("owned-directory-", exec_resource_type_to_string(t));
+                        if (!key)
+                                return -ENOMEM;
+
+                        r = serialize_strv(f, key, u->owned_directories[t]);
+                        if (r < 0)
+                                return r;
+                }
+
                 if (u->job) {
                         fputs("job\n", f);
                         job_serialize(u->job, f);
@@ -200,7 +218,7 @@ static int unit_deserialize_job(Unit *u, FILE *f) {
                 _deserialize_matched;                                   \
         })
 
-int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
+int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds, bool restore_owned_directories) {
         int r;
 
         assert(u);
@@ -211,6 +229,7 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                 _cleanup_free_ char *l  = NULL;
                 size_t k;
                 char *v;
+                const char *type;
 
                 r = deserialize_read_line(f, &l);
                 if (r < 0)
@@ -294,7 +313,29 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                 else if (MATCH_DESERIALIZE("exported-log-rate-limit-burst", l, v, parse_boolean, u->exported_log_ratelimit_burst))
                         continue;
 
-                else if (streq(l, "ref-uid")) {
+                else if (streq(l, "access-selinux-context")) {
+                        /* A freshly loaded fragment supplies its own label. If it disappeared, keep using
+                         * the original label for operations on the unit's remaining resources. */
+                        if (!u->fragment_path && !u->access_selinux_context) {
+                                r = free_and_strdup(&u->access_selinux_context, v);
+                                if (r < 0)
+                                        return r;
+                        }
+                        continue;
+
+                } else if ((type = startswith(l, "owned-directory-"))) {
+                        if (!restore_owned_directories)
+                                continue;
+
+                        _cleanup_free_ char *path = NULL;
+                        r = cunescape(v, /* flags= */ 0, &path);
+                        if (r >= 0)
+                                r = unit_add_owned_directory(u, exec_resource_type_from_string(type), path);
+                        if (r < 0)
+                                log_unit_warning_errno(u, r, "Failed to restore '%s=%s', ignoring: %m", l, v);
+                        continue;
+
+                } else if (streq(l, "ref-uid")) {
                         uid_t uid;
 
                         r = parse_uid(v, &uid);
@@ -365,6 +406,15 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                                 log_unit_warning(u, "Failed to deserialize unit parameter '%s', ignoring.", l);
                 }
         }
+
+        /* Only our own transient fragment belongs to us. Without it a lazy load must read a replacement
+         * from disk, and a replacement that was already loaded must not be unlinked at collection. */
+        if (u->transient &&
+            (!u->fragment_path || !u->manager->lookup_paths.transient ||
+             !path_startswith(u->fragment_path, u->manager->lookup_paths.transient)))
+                u->transient = false;
+
+        unit_prune_owned_directories(u);
 
         /* Let's make sure that everything that is deserialized also gets any potential new cgroup settings
          * applied after we are done. For that we invalidate anything already realized, so that we can

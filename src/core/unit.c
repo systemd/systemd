@@ -28,6 +28,7 @@
 #include "env-util.h"
 #include "escape.h"
 #include "exec-credential.h"
+#include "exec-directory.h"
 #include "execute.h"
 #include "exit-status.h"
 #include "fd-util.h"
@@ -395,6 +396,18 @@ static bool unit_success_failure_handler_has_jobs(Unit *unit) {
         return false;
 }
 
+static void unit_destroy_runtime_directory(Unit *u, const ExecContext *context) {
+        int r;
+
+        assert(u);
+        assert(u->manager);
+
+        r = exec_context_destroy_runtime_directory(context, u->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
+        if (r < 0)
+                log_unit_warning_errno(u, r, "Failed to remove runtime directories, ignoring: %m");
+        unit_prune_owned_directories(u);
+}
+
 void unit_release_resources(Unit *u) {
         UnitActiveState state;
         ExecContext *ec;
@@ -415,14 +428,16 @@ void unit_release_resources(Unit *u) {
                 return;
 
         ec = unit_get_exec_context(u);
-        if (ec && ec->runtime_directory_preserve_mode == EXEC_PRESERVE_RESTART)
-                exec_context_destroy_runtime_directory(ec, u->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
+        if (ec && ec->runtime_directory_preserve_mode == EXEC_PRESERVE_RESTART) {
+                unit_destroy_runtime_directory(u, ec);
+                unit_add_to_gc_queue(u);
+        }
 
         if (UNIT_VTABLE(u)->release_resources)
                 UNIT_VTABLE(u)->release_resources(u);
 }
 
-bool unit_may_gc(Unit *u) {
+static bool unit_may_gc_fast(Unit *u) {
         UnitActiveState state;
         int r;
 
@@ -495,6 +510,18 @@ bool unit_may_gc(Unit *u) {
         return UNIT_VTABLE(u)->may_gc(u);
 }
 
+bool unit_may_gc(Unit *u) {
+        if (!unit_may_gc_fast(u))
+                return false;
+
+        if (!IN_SET(u->load_state, UNIT_LOADED, UNIT_NOT_FOUND))
+                return true;
+
+        /* Only check the filesystem at sweep time, not every time the unit is queued. */
+        unit_prune_owned_directories(u);
+        return unit_owned_directory_mask(u) == 0;
+}
+
 void unit_add_to_load_queue(Unit *u) {
         assert(u);
         assert(u->type != _UNIT_TYPE_INVALID);
@@ -522,7 +549,7 @@ void unit_add_to_gc_queue(Unit *u) {
         if (u->in_gc_queue || u->in_cleanup_queue)
                 return;
 
-        if (!unit_may_gc(u))
+        if (!unit_may_gc_fast(u))
                 return;
 
         LIST_PREPEND(gc_queue, u->manager->gc_unit_queue, u);
@@ -898,6 +925,8 @@ Unit* unit_free(Unit *u) {
         free(u->fragment_path);
         free(u->source_path);
         strv_free(u->dropin_paths);
+        FOREACH_ELEMENT(d, u->owned_directories)
+                strv_free(*d);
         free(u->instance);
 
         free(u->job_timeout_reboot_arg);
@@ -2812,6 +2841,9 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
         /* Make sure the cgroup and state files are always removed when we become inactive */
         if (UNIT_IS_INACTIVE_OR_FAILED(ns)) {
+                if (os == UNIT_MAINTENANCE)
+                        unit_prune_owned_directories(u);
+
                 SET_FLAG(u->markers,
                          (1u << UNIT_MARKER_NEEDS_RELOAD)|(1u << UNIT_MARKER_NEEDS_RESTART)|(1u << UNIT_MARKER_NEEDS_STOP),
                          false);
@@ -5489,6 +5521,7 @@ bool unit_is_pristine(Unit *u) {
          */
 
         return IN_SET(u->load_state, UNIT_NOT_FOUND, UNIT_LOADED) &&
+               unit_owned_directory_mask(u) == 0 &&
                !u->fragment_path &&
                !u->source_path &&
                !u->job &&
@@ -5831,6 +5864,11 @@ int unit_fork_and_watch_rm_rf(Unit *u, char **paths, PidRef *ret_pid) {
 
         assert(u);
         assert(ret_pid);
+
+        /* A unit whose fragment disappeared may not have acquired a slice on load. */
+        r = unit_set_default_slice(u);
+        if (r < 0)
+                return r;
 
         r = unit_fork_helper_process(u, "(sd-rmrf)", /* into_cgroup= */ true, &pid);
         if (r < 0)
@@ -6516,10 +6554,47 @@ void unit_destroy_runtime_data(Unit *u, const ExecContext *context, bool destroy
 
         /* EXEC_PRESERVE_RESTART is handled via unit_release_resources()! */
         if (destroy_runtime_dir && context->runtime_directory_preserve_mode == EXEC_PRESERVE_NO)
-                exec_context_destroy_runtime_directory(context, u->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
+                unit_destroy_runtime_directory(u, context);
 
         exec_context_destroy_credentials(context, u->manager->prefix[EXEC_DIRECTORY_RUNTIME], u->id);
         exec_context_destroy_mount_ns_dir(u);
+}
+
+ExecCleanMask unit_owned_directory_mask(const Unit *u) {
+        ExecCleanMask mask = 0;
+
+        assert(u);
+
+        for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++)
+                if (!strv_isempty(u->owned_directories[t]))
+                        mask |= 1U << t;
+
+        return mask;
+}
+
+int unit_get_clean_directories(Unit *u, ExecCleanMask mask, char ***ret) {
+        _cleanup_strv_free_ char **paths = NULL;
+        int r;
+
+        assert(u);
+        assert(ret);
+
+        if (u->load_state == UNIT_LOADED) {
+                r = exec_context_get_clean_directories(ASSERT_PTR(unit_get_exec_context(u)), u->manager->prefix, mask, &paths);
+                if (r < 0)
+                        return r;
+        }
+
+        for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
+                if (!BIT_SET(mask, t))
+                        continue;
+                r = strv_extend_strv(&paths, u->owned_directories[t], /* filter_duplicates= */ true);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(paths);
+        return 0;
 }
 
 int unit_clean(Unit *u, ExecCleanMask mask) {
@@ -6541,7 +6616,7 @@ int unit_clean(Unit *u, ExecCleanMask mask) {
         if (mask == 0)
                 return -EUNATCH;
 
-        if (u->load_state != UNIT_LOADED)
+        if (u->load_state != UNIT_LOADED && !(u->load_state == UNIT_NOT_FOUND && unit_owned_directory_mask(u) != 0))
                 return -EBUSY;
 
         if (u->job)
@@ -6555,19 +6630,22 @@ int unit_clean(Unit *u, ExecCleanMask mask) {
 }
 
 int unit_can_clean(Unit *u, ExecCleanMask *ret) {
+        ExecCleanMask mask = 0;
+        int r;
+
         assert(u);
         assert(ret);
 
-        if (!UNIT_VTABLE(u)->clean ||
-            u->load_state != UNIT_LOADED) {
-                *ret = 0;
-                return 0;
+        ExecCleanMask owned = unit_owned_directory_mask(u);
+        if (UNIT_VTABLE(u)->clean && (u->load_state == UNIT_LOADED || (u->load_state == UNIT_NOT_FOUND && owned != 0))) {
+                r = UNIT_VTABLE(u)->can_clean(u, &mask);
+                if (r < 0)
+                        return r;
+                mask |= owned;
         }
 
-        /* When the clean() method is set, can_clean() really should be set too */
-        assert(UNIT_VTABLE(u)->can_clean);
-
-        return UNIT_VTABLE(u)->can_clean(u, ret);
+        *ret = mask;
+        return 0;
 }
 
 bool unit_can_start_refuse_manual(Unit *u) {
