@@ -14,7 +14,30 @@ ci:
         source_project: system:systemd
         source_package: systemd
         target_project: system:systemd:ci
-    # Also prepare some images, but disabled by default to avoid wasting cpu/disk
+    - set_flags:
+        flags:
+          # Ubuntu's i586 is a partial architecture so builds don't work
+          - type: build
+            status: disable
+            project: system:systemd:ci
+            package: systemd
+            repository: Ubuntu_24.04
+            architecture: i586
+          - type: build
+            status: disable
+            project: system:systemd:ci
+            package: systemd
+            repository: Ubuntu_26.04
+            architecture: i586
+  filters:
+    event: pull_request
+    branches:
+      only:
+        - main
+# When the obs-build-images label is set on the PR, prepare and build the images
+on-demand:
+  steps:
+    # Prepare some images
     - link_package:
         source_project: system:systemd
         source_package: particleos-fedora
@@ -23,7 +46,7 @@ ci:
         source_project: system:systemd
         source_package: uki-fedora
         target_project: system:systemd:ci
-    # Also prepare sysexts, also disabled by default
+    # Also prepare sysexts
     - link_package:
         source_project: system:systemd
         source_package: systemd-sysext-rh
@@ -41,31 +64,73 @@ ci:
         source_package: systemd-sysext-arch
         target_project: system:systemd:ci
     - set_flags:
+        # The images build only for their respective distro, so disable each one first for all targets, then enable the right one
         flags:
-          # First disable all builds (including images linked in above)
           - type: build
             status: disable
             project: system:systemd:ci
-          # Ubuntu's i586 is a partial architecture so builds don't work
-          - type: build
-            status: disable
-            project: system:systemd:ci
-            package: systemd
-            repository: Ubuntu_24.04
-            architecture: i586
-          - type: build
-            status: disable
-            project: system:systemd:ci
-            package: systemd
-            repository: Ubuntu_26.04
-            architecture: i586
-          # Then enable systemd package builds only, so that images stay disabled
+            package: particleos-fedora
           - type: build
             status: enable
             project: system:systemd:ci
-            package: systemd
+            package: particleos-fedora
+            repository: fedora_45_images
+            architecture: x86_64
+          - type: build
+            status: disable
+            project: system:systemd:ci
+            package: uki-fedora
+          - type: build
+            status: enable
+            project: system:systemd:ci
+            package: uki-fedora
+            repository: fedora_45_images
+            architecture: x86_64
+          - type: build
+            status: disable
+            project: system:systemd:ci
+            package: systemd-sysext-rh
+          - type: build
+            status: enable
+            project: system:systemd:ci
+            package: systemd-sysext-rh
+            repository: fedora_45_images
+            architecture: x86_64
+          - type: build
+            status: disable
+            project: system:systemd:ci
+            package: systemd-sysext-suse
+          - type: build
+            status: enable
+            project: system:systemd:ci
+            package: systemd-sysext-suse
+            repository: openSUSE_Tumbleweed_images
+            architecture: x86_64
+          - type: build
+            status: disable
+            project: system:systemd:ci
+            package: systemd-sysext-deb
+          - type: build
+            status: enable
+            project: system:systemd:ci
+            package: systemd-sysext-deb
+            repository: ubuntu_26.04_images
+            architecture: x86_64
+          - type: build
+            status: disable
+            project: system:systemd:ci
+            package: systemd-sysext-arch
+          - type: build
+            status: enable
+            project: system:systemd:ci
+            package: systemd-sysext-arch
+            repository: arch_images
+            architecture: x86_64
   filters:
     event: pull_request
     branches:
       only:
         - main
+    labels:
+      only:
+        - obs-build-images
