@@ -924,7 +924,7 @@ jobs:
             [correctness]="logic errors, edge cases, error paths, invalid memory access, leaks, integer and buffer errors, and wrong return-value handling"
             [lifetimes]="ownership, reference counting, cleanup, reentrancy, event-loop and asynchronous behavior, locking, signal safety, and state machine invariants"
             [security]="untrusted input, parsing, bounds, denial of service, privilege boundaries, filesystem attacks, format strings, and TOCTOU races"
-            [architecture]="subsystem design, internal interfaces, layering, and integration with existing systemd components"
+            [architecture]="subsystem design, internal interfaces, layering, integration with existing systemd components, and flag algorithms that are quadratic or worse, or recursive, as must-fix"
             [api]="public API and ABI compatibility, caller-visible behavior, CLI and configuration contracts (including unit files), D-Bus and Varlink contracts, protocol compliance, and consistency between definitions and implementations"
             [style]="docs/CODING_STYLE.md, the rules in AGENTS.md, systemd idioms, naming, error propagation, cleanup patterns, dead code, and needless complexity"
             [tests]="whether tests exercise the changed behavior and its failure paths, and whether existing tests or fixtures need updating"
