@@ -291,11 +291,39 @@ EOF
     systemctl daemon-reload
 }
 
+assert_pressure_policy() {
+    local dump=${1:?} path=${2:?} limit=${3:?} duration=${4:?} context
+
+    context="$(grep -F -A2 "Path: $path" <<<"$dump")"
+    assert_in "Memory Pressure Limit: $limit" "$context"
+    assert_in "Memory Pressure Duration: $duration" "$context"
+}
+
 testcase_reload() {
     # Check if the oomd.conf drop-in config is loaded.
     assert_in 'Swap Used Limit: 90.00%' "$(oomctl)"
     assert_in 'Default Memory Pressure Limit: 60.00%' "$(oomctl)"
     assert_in 'Default Memory Pressure Duration: 2s' "$(oomctl)"
+
+    local limit_unit=TEST-55-OOMD-reload-limit.service
+    local duration_unit=TEST-55-OOMD-reload-duration.service
+    local limit_path duration_path dump
+
+    # Use explicit overrides equal to the old defaults to distinguish them from inherited values.
+    systemd-run --collect --unit="$limit_unit" \
+        -p ManagedOOMMemoryPressure=kill -p ManagedOOMMemoryPressureLimit=60% sleep infinity
+    systemd-run --collect --unit="$duration_unit" \
+        -p ManagedOOMMemoryPressure=kill -p ManagedOOMMemoryPressureDurationSec=2s sleep infinity
+
+    limit_path="$(systemctl show -P ControlGroup "$limit_unit")"
+    duration_path="$(systemctl show -P ControlGroup "$duration_unit")"
+    # The child shell expands $path.
+    # shellcheck disable=SC2016
+    timeout 1m bash -o pipefail -c '
+        for path; do
+            until oomctl | grep -F "Path: $path" >/dev/null; do sleep 1; done
+        done
+    ' _ "${limit_path:?}" "${duration_path:?}"
 
     # Test oomd reload
     mkdir -p /run/systemd/oomd.conf.d/
@@ -307,9 +335,27 @@ testcase_reload() {
     } >/run/systemd/oomd.conf.d/99-oomd-test.conf
 
     systemctl reload systemd-oomd.service
-    assert_in 'Swap Used Limit: 80.00%' "$(oomctl)"
-    assert_in 'Default Memory Pressure Limit: 55.00%' "$(oomctl)"
-    assert_in 'Default Memory Pressure Duration: 5s' "$(oomctl)"
+    dump="$(oomctl)"
+    assert_in 'Swap Used Limit: 80.00%' "$dump"
+    assert_in 'Default Memory Pressure Limit: 55.00%' "$dump"
+    assert_in 'Default Memory Pressure Duration: 5s' "$dump"
+    assert_pressure_policy "$dump" "$limit_path" 60.00% 5s
+    assert_pressure_policy "$dump" "$duration_path" 55.00% 2s
+
+    # Exceed the parser's 1 MiB line limit after setting a different pressure limit.
+    {
+        echo "[OOM]"
+        echo "DefaultMemoryPressureLimit=75%"
+        printf '%*s\n' "$((1024 * 1024 + 1))" ''
+    } >/run/systemd/oomd.conf.d/99-oomd-test.conf
+
+    systemctl reload systemd-oomd.service
+    dump="$(oomctl)"
+    assert_in 'Swap Used Limit: 80.00%' "$dump"
+    assert_in 'Default Memory Pressure Limit: 55.00%' "$dump"
+    assert_in 'Default Memory Pressure Duration: 5s' "$dump"
+    assert_pressure_policy "$dump" "$limit_path" 60.00% 5s
+    assert_pressure_policy "$dump" "$duration_path" 55.00% 2s
 
     # Set back to default via reload
     mkdir -p /run/systemd/oomd.conf.d/
@@ -323,6 +369,8 @@ testcase_reload() {
     assert_in 'Swap Used Limit: 90.00%' "$(oomctl)"
     assert_in 'Default Memory Pressure Limit: 60.00%' "$(oomctl)"
     assert_in 'Default Memory Pressure Duration: 2s' "$(oomctl)"
+
+    systemctl stop "$limit_unit" "$duration_unit"
 }
 
 testcase_kernel_oom() {

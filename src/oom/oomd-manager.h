@@ -58,9 +58,7 @@ typedef struct Manager {
         Hashmap *polkit_registry;
 
         bool dry_run;
-        int swap_used_limit_permyriad;
-        loadavg_t default_mem_pressure_limit;
-        usec_t default_mem_pressure_duration_usec;
+        OomdConfig config;
 
         /* k: cgroup paths -> v: OomdCGroupContext
          * Used to detect when to take action. */
@@ -86,7 +84,6 @@ typedef struct Manager {
          * managers to report changes in ManagedOOM settings (oomd server - systemd client). */
         sd_varlink_server *varlink_server;
 
-        usec_t prekill_timeout;
         Set *kill_states; /* currently ongoing OomdKillState operations */
         Hashmap *rulesets;
 } Manager;
