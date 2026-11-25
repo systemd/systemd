@@ -12,7 +12,9 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fs-util.h"
+#include "socket-util.h"
 #include "terminal-util.h"
 #include "tests.h"
 #include "time-util.h"
@@ -758,15 +760,22 @@ TEST(fiber_io_recv_dontwait) {
         ASSERT_OK_EQ(sd_future_result(fs), 4);
 }
 
+static socklen_t make_abstract_address(const char *prefix, union sockaddr_union *ret) {
+        _cleanup_free_ char *p = NULL;
+
+        ASSERT_OK_ERRNO(asprintf(&p, "@%s-" PID_FMT, prefix, getpid()));
+        return ASSERT_OK(sockaddr_un_set_path(&ret->un, p));
+}
+
 static int socket_connect_fiber(void *userdata) {
-        struct sockaddr_un *addr = userdata;
+        union sockaddr_union *addr = userdata;
         _cleanup_close_ int sockfd = -EBADF;
 
         sockfd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (sockfd < 0)
                 return -errno;
 
-        return sd_fiber_connect(sockfd, (struct sockaddr*) addr, sizeof(*addr));
+        return sd_fiber_connect(sockfd, &addr->sa, sockaddr_un_len(&addr->un));
 }
 
 TEST(fiber_io_connect) {
@@ -778,14 +787,10 @@ TEST(fiber_io_connect) {
         _cleanup_close_ int listen_fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         ASSERT_OK(listen_fd);
 
-        /* Use abstract socket (starts with null byte) */
-        struct sockaddr_un addr = {
-                .sun_family = AF_UNIX,
-        };
-        addr.sun_path[0] = '\0';
-        snprintf(addr.sun_path + 1, sizeof(addr.sun_path) - 1, "test-fiber-connect-%d", getpid());
+        union sockaddr_union addr;
+        socklen_t addr_len = make_abstract_address("test-fiber-connect", &addr);
 
-        ASSERT_OK(bind(listen_fd, (struct sockaddr*) &addr, sizeof(addr)));
+        ASSERT_OK_ERRNO(bind(listen_fd, &addr.sa, addr_len));
         ASSERT_OK(listen(listen_fd, 1));
 
         /* Create fiber to connect */
@@ -901,10 +906,7 @@ static int socket_sendmsg_fd_fiber(void *userdata) {
         int sockfd = args[0];
         int fd_to_send = args[1];
         struct iovec iov = IOVEC_MAKE_BYTE('X');
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int))];
-        } control = {};
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int))) control = {};
         struct msghdr msg = {
                 .msg_iov = &iov,
                 .msg_iovlen = 1,
@@ -929,10 +931,7 @@ static int socket_recvmsg_fd_fiber(void *userdata) {
                 .iov_base = buf,
                 .iov_len = sizeof(buf),
         };
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int))];
-        } control = {};
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int))) control = {};
         struct msghdr msg = {
                 .msg_iov = &iov,
                 .msg_iovlen = 1,
@@ -1060,13 +1059,10 @@ TEST(fiber_io_accept_basic) {
         _cleanup_close_ int listen_fd = -EBADF;
         ASSERT_OK_ERRNO(listen_fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0));
 
-        struct sockaddr_un addr = {
-                .sun_family = AF_UNIX,
-        };
-        addr.sun_path[0] = '\0';
-        snprintf(addr.sun_path + 1, sizeof(addr.sun_path) - 1, "test-fiber-accept-%d", getpid());
+        union sockaddr_union addr;
+        socklen_t addr_len = make_abstract_address("test-fiber-accept", &addr);
 
-        ASSERT_OK_ERRNO(bind(listen_fd, (struct sockaddr*) &addr, sizeof(addr)));
+        ASSERT_OK_ERRNO(bind(listen_fd, &addr.sa, addr_len));
         ASSERT_OK_ERRNO(listen(listen_fd, 1));
 
         /* Create fiber to accept connection */
@@ -1076,7 +1072,7 @@ TEST(fiber_io_accept_basic) {
         /* Connect from outside fiber context */
         _cleanup_close_ int connect_fd = -EBADF;
         ASSERT_OK(connect_fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0));
-        ASSERT_OK(connect(connect_fd, (struct sockaddr*) &addr, sizeof(addr)));
+        ASSERT_OK_ERRNO(connect(connect_fd, &addr.sa, addr_len));
 
         /* Run the event loop - accept should complete */
         ASSERT_OK(sd_event_loop(e));
@@ -1113,13 +1109,10 @@ TEST(fiber_io_accept_multiple) {
         _cleanup_close_ int listen_fd = -EBADF;
         ASSERT_OK(listen_fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0));
 
-        struct sockaddr_un addr = {
-                .sun_family = AF_UNIX,
-        };
-        addr.sun_path[0] = '\0';
-        snprintf(addr.sun_path + 1, sizeof(addr.sun_path) - 1, "test-fiber-accept-multi-%d", getpid());
+        union sockaddr_union addr;
+        socklen_t addr_len = make_abstract_address("test-fiber-accept-multi", &addr);
 
-        ASSERT_OK(bind(listen_fd, (struct sockaddr*) &addr, sizeof(addr)));
+        ASSERT_OK_ERRNO(bind(listen_fd, &addr.sa, addr_len));
         ASSERT_OK(listen(listen_fd, 5));
 
         /* Create fiber to accept multiple connections */
@@ -1131,7 +1124,7 @@ TEST(fiber_io_accept_multiple) {
         for (size_t i = 0; i < 3; i++) {
                 connect_fds[i] = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
                 ASSERT_OK(connect_fds[i]);
-                ASSERT_OK(connect(connect_fds[i], (struct sockaddr*) &addr, sizeof(addr)));
+                ASSERT_OK_ERRNO(connect(connect_fds[i], &addr.sa, addr_len));
         }
 
         /* Run the event loop */
@@ -1173,13 +1166,10 @@ TEST(fiber_io_accept_and_read) {
         _cleanup_close_ int listen_fd = -EBADF;
         ASSERT_OK(listen_fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0));
 
-        struct sockaddr_un addr = {
-                .sun_family = AF_UNIX,
-        };
-        addr.sun_path[0] = '\0';
-        snprintf(addr.sun_path + 1, sizeof(addr.sun_path) - 1, "test-fiber-accept-read-%d", getpid());
+        union sockaddr_union addr;
+        socklen_t addr_len = make_abstract_address("test-fiber-accept-read", &addr);
 
-        ASSERT_OK(bind(listen_fd, (struct sockaddr*) &addr, sizeof(addr)));
+        ASSERT_OK_ERRNO(bind(listen_fd, &addr.sa, addr_len));
         ASSERT_OK(listen(listen_fd, 1));
 
         /* Create fiber to accept and read */
@@ -1189,7 +1179,7 @@ TEST(fiber_io_accept_and_read) {
         /* Connect and send data */
         _cleanup_close_ int connect_fd = -EBADF;
         ASSERT_OK(connect_fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0));
-        ASSERT_OK(connect(connect_fd, (struct sockaddr*) &addr, sizeof(addr)));
+        ASSERT_OK_ERRNO(connect(connect_fd, &addr.sa, addr_len));
         ASSERT_OK_EQ_ERRNO(write(connect_fd, "hello", 5), 5);
 
         /* Run the event loop */
@@ -1739,7 +1729,7 @@ TEST(fiber_io_blocking_fd_preserved) {
 }
 
 static int socket_connect_blocking_fiber(void *userdata) {
-        struct sockaddr_un *addr = userdata;
+        union sockaddr_union *addr = userdata;
         _cleanup_close_ int sockfd = -EBADF;
 
         /* Use a blocking socket (no SOCK_NONBLOCK). Without io_uring, sd_fiber_connect() should
@@ -1749,7 +1739,7 @@ static int socket_connect_blocking_fiber(void *userdata) {
         if (sockfd < 0)
                 return -errno;
 
-        int r = sd_fiber_connect(sockfd, (struct sockaddr*) addr, sizeof(*addr));
+        int r = sd_fiber_connect(sockfd, &addr->sa, sockaddr_un_len(&addr->un));
         if (r < 0)
                 return r;
 
@@ -1772,13 +1762,10 @@ TEST(fiber_io_connect_blocking) {
         _cleanup_close_ int listen_fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         ASSERT_OK(listen_fd);
 
-        struct sockaddr_un addr = {
-                .sun_family = AF_UNIX,
-        };
-        addr.sun_path[0] = '\0';
-        snprintf(addr.sun_path + 1, sizeof(addr.sun_path) - 1, "test-fiber-connect-blocking-%d", getpid());
+        union sockaddr_union addr;
+        socklen_t addr_len = make_abstract_address("test-fiber-connect-blocking", &addr);
 
-        ASSERT_OK(bind(listen_fd, (struct sockaddr*) &addr, sizeof(addr)));
+        ASSERT_OK_ERRNO(bind(listen_fd, &addr.sa, addr_len));
         ASSERT_OK(listen(listen_fd, 1));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
