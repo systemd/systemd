@@ -7,6 +7,8 @@
 #include "sd-event.h"
 
 #include "dhcp6-internal.h"
+#include "dhcp6-lease-internal.h"
+#include "event-util.h"
 #include "fd-util.h"
 #include "fuzz.h"
 #include "tests.h"
@@ -66,6 +68,41 @@ static void fuzz_client(sd_dhcp6_client *client, const uint8_t *data, size_t siz
         test_dhcp_fd[1] = safe_close(test_dhcp_fd[1]);
 }
 
+static void fuzz_reconfigure(sd_dhcp6_client *client, const uint8_t *data, size_t size, bool information_request) {
+        static const uint8_t duid[] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
+        static const uint8_t serverid[] = { 0x00, 0x02, 0x00, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05 };
+        _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease = NULL;
+
+        /* Fixed IDs and key, so that the corpus can contain valid Reconfigure messages. */
+        ASSERT_OK(sd_dhcp6_client_set_duid_raw(client, /* duid_type= */ 0xffff, duid, sizeof(duid)));
+        ASSERT_OK(sd_dhcp6_client_set_information_request(client, information_request));
+        ASSERT_OK(sd_dhcp6_client_start(client));
+
+        /* Only Reconfigure messages are processed when bound, or when stopped with a lease in the
+         * information request mode. */
+        ASSERT_OK(dhcp6_lease_new(&lease));
+        ASSERT_OK(dhcp6_lease_set_serverid(lease, serverid, sizeof(serverid)));
+        sd_dhcp6_lease_unref(client->lease);
+        client->lease = TAKE_PTR(lease);
+        client->reconfigure_key = (DHCPRKAPKey) { .set = true, .key = { 1, 2, 3 } };
+        client->state = information_request ? DHCP6_STATE_STOPPED : DHCP6_STATE_BOUND;
+        (void) event_source_disable(client->timeout_resend);
+
+        ASSERT_EQ(write(test_dhcp_fd[1], data, size), (ssize_t) size);
+
+        ASSERT_OK_POSITIVE(sd_event_run(sd_dhcp6_client_get_event(client), UINT64_MAX));
+
+        if (information_request)
+                ASSERT_TRUE(IN_SET(client->state, DHCP6_STATE_STOPPED, DHCP6_STATE_INFORMATION_REQUEST));
+        else
+                ASSERT_TRUE(IN_SET(client->state, DHCP6_STATE_BOUND, DHCP6_STATE_RENEW, DHCP6_STATE_REBIND,
+                                   DHCP6_STATE_INFORMATION_REQUEST));
+
+        ASSERT_OK(sd_dhcp6_client_stop(client));
+
+        test_dhcp_fd[1] = safe_close(test_dhcp_fd[1]);
+}
+
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
@@ -97,6 +134,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         ASSERT_OK(sd_dhcp6_option_new(456, v2_data, strlen(v2_data), 45678, &v2));
         ASSERT_OK(sd_dhcp6_client_add_vendor_option(client, v1));
         ASSERT_OK(sd_dhcp6_client_add_vendor_option(client, v2));
+        ASSERT_OK(sd_dhcp6_client_set_accept_reconfigure(client, /* enable= */ true));
 
         fuzz_client(client, data, size, DHCP6_STATE_INFORMATION_REQUEST);
         fuzz_client(client, data, size, DHCP6_STATE_SOLICITATION);
@@ -107,6 +145,10 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 return 0;
 
         fuzz_client(client, data, size, DHCP6_STATE_REQUEST);
+
+        /* These set a fixed DUID, hence run them last. */
+        fuzz_reconfigure(client, data, size, /* information_request= */ false);
+        fuzz_reconfigure(client, data, size, /* information_request= */ true);
 
         return 0;
 }
