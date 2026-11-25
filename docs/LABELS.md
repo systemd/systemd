@@ -19,5 +19,5 @@ adding tests, making non-major changes to newly introduced and unused daemons/li
 
 A maintainer may apply this label to such a pull request and merge it once CI passes, claude-review
 is happy, and at least a working day has passed. The `please-review` label should be kept on the
-PR so it still pops up in maintainer review queues. Do not use this label for changes that alter 
+PR so it still pops up in maintainer review queues. Do not use this label for changes that alter
 behavior, add features, or touch interfaces.
