@@ -1107,6 +1107,19 @@ static int dissect_image_from_unpartitioned(
         return 0;
 }
 
+bool dm_verity_require_signatures(void) {
+        int r;
+
+        r = read_boolean_file("/sys/module/dm_verity/parameters/require_signatures");
+        if (r < 0) {
+                if (r != -ENOENT)
+                        log_warning_errno(r, "Failed to read dm_verity.require_signatures kernel module parameter, assuming it is off: %m");
+                return false;
+        }
+
+        return r > 0;
+}
+
 static int dissect_image(
                 DissectedImage *m,
                 int fd,
