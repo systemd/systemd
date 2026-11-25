@@ -4380,6 +4380,19 @@ int verity_settings_compare_func(const VeritySettings *x, const VeritySettings *
 
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(verity_settings_hash_ops, VeritySettings, verity_settings_hash_func, verity_settings_compare_func, VeritySettings, verity_settings_free);
 
+bool dm_verity_require_signatures(void) {
+        int r;
+
+        r = read_boolean_file("/sys/module/dm_verity/parameters/require_signatures");
+        if (r < 0) {
+                if (r != -ENOENT)
+                        log_warning_errno(r, "Failed to read dm_verity.require_signatures kernel module parameter, assuming it is off: %m");
+                return false;
+        }
+
+        return r > 0;
+}
+
 int verity_settings_load(
                 VeritySettings *verity,
                 const char *image,
