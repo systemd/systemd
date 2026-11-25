@@ -1301,15 +1301,15 @@ EOF
 fi
 
 # Check that extensions cannot contain os-release
-mkdir -p /run/extensions/app-reject/usr/lib/{extension-release.d/,systemd/system}
-echo "ID=_any" >/run/extensions/app-reject/usr/lib/extension-release.d/extension-release.app-reject
-echo "ID=_any" >/run/extensions/app-reject/usr/lib/os-release
-touch /run/extensions/app-reject/usr/lib/systemd/system/other_file
+mkdir -p /var/lib/extensions/app-reject/usr/lib/{extension-release.d/,systemd/system}
+echo "ID=_any" >/var/lib/extensions/app-reject/usr/lib/extension-release.d/extension-release.app-reject
+echo "ID=_any" >/var/lib/extensions/app-reject/usr/lib/os-release
+touch /var/lib/extensions/app-reject/usr/lib/systemd/system/other_file
 (! systemd-sysext merge)
 test ! -e /usr/lib/systemd/system/some_file
 test ! -e /usr/lib/systemd/system/other_file
 systemd-sysext unmerge
-rm -rf /run/extensions/app-reject
+rm -rf /var/lib/extensions/app-reject
 rm /var/lib/extensions/app-nodistro.raw
 
 # Some super basic test that RootImage= works with .v/ dirs
@@ -1394,15 +1394,15 @@ rm -f "$BLANK_IMAGE"
 (! systemd-dissect --relax "$MINIMAL_IMAGE.raw")
 
 # check for confext functionality
-mkdir -p /run/confexts/test/etc/extension-release.d
-echo "ID=_any" >/run/confexts/test/etc/extension-release.d/extension-release.test
-echo "ARCHITECTURE=_any" >>/run/confexts/test/etc/extension-release.d/extension-release.test
-echo "MARKER_CONFEXT_123" >/run/confexts/test/etc/testfile
-cat <<EOF >/run/confexts/test/etc/testscript
+mkdir -p /var/lib/confexts/test/etc/extension-release.d
+echo "ID=_any" >/var/lib/confexts/test/etc/extension-release.d/extension-release.test
+echo "ARCHITECTURE=_any" >>/var/lib/confexts/test/etc/extension-release.d/extension-release.test
+echo "MARKER_CONFEXT_123" >/var/lib/confexts/test/etc/testfile
+cat <<EOF >/var/lib/confexts/test/etc/testscript
 #!/usr/bin/env bash
 echo "This should not happen"
 EOF
-chmod +x /run/confexts/test/etc/testscript
+chmod +x /var/lib/confexts/test/etc/testscript
 systemd-confext merge
 grep -q -F "MARKER_CONFEXT_123" /etc/testfile
 (! /etc/testscript)
@@ -1410,7 +1410,41 @@ systemd-confext status
 systemd-confext status --json=pretty | jq -e 'any(.[]; .hierarchy == "/etc" and .extensions == ["test"] and .since != null)' >/dev/null
 systemd-confext unmerge
 systemd-confext status --json=pretty | jq -e 'any(.[]; .hierarchy == "/etc" and .extensions == [] and .since == null)' >/dev/null
-rm -rf /run/confexts/
+rm -rf /var/lib/confexts/test
+
+# Check DirectoryPolicy=: by default ("auto") directory images are only considered if they are below /usr/ or
+# /var/, on dm-crypt or dm-verity storage, or on the file system of /, /usr/ or /var/. Hence a directory confext
+# in /run/ (tmpfs) is skipped, unless DirectoryPolicy=yes is set. With DirectoryPolicy=no even a directory
+# confext in /var/ is skipped.
+mkdir -p /run/confexts/test-dirpolicy/etc/extension-release.d
+echo "ID=_any" >/run/confexts/test-dirpolicy/etc/extension-release.d/extension-release.test-dirpolicy
+echo "MARKER_DIRPOLICY_TMPFS" >/run/confexts/test-dirpolicy/etc/test-dirpolicy-tmpfs
+mkdir -p /var/lib/confexts/test-dirpolicy-var/etc/extension-release.d
+echo "ID=_any" >/var/lib/confexts/test-dirpolicy-var/etc/extension-release.d/extension-release.test-dirpolicy-var
+echo "MARKER_DIRPOLICY_VAR" >/var/lib/confexts/test-dirpolicy-var/etc/test-dirpolicy-var
+systemd-confext merge
+test ! -e /etc/test-dirpolicy-tmpfs
+grep -F "MARKER_DIRPOLICY_VAR" /etc/test-dirpolicy-var >/dev/null
+systemd-confext unmerge
+mkdir -p /run/systemd/confext.conf.d
+cat >/run/systemd/confext.conf.d/50-test-dirpolicy.conf <<EOF
+[ConfExt]
+DirectoryPolicy=yes
+EOF
+systemd-confext merge
+grep -F "MARKER_DIRPOLICY_TMPFS" /etc/test-dirpolicy-tmpfs >/dev/null
+grep -F "MARKER_DIRPOLICY_VAR" /etc/test-dirpolicy-var >/dev/null
+systemd-confext unmerge
+cat >/run/systemd/confext.conf.d/50-test-dirpolicy.conf <<EOF
+[ConfExt]
+DirectoryPolicy=no
+EOF
+systemd-confext merge
+test ! -e /etc/test-dirpolicy-tmpfs
+test ! -e /etc/test-dirpolicy-var
+systemd-confext unmerge
+rm -f /run/systemd/confext.conf.d/50-test-dirpolicy.conf
+rm -rf /run/confexts/test-dirpolicy /var/lib/confexts/test-dirpolicy-var
 
 cleanup_sysupdate_notify_confext_mutable() {
     local mutable_marker="$1"
@@ -1426,7 +1460,7 @@ cleanup_sysupdate_notify_confext_mutable() {
     rm -f "/var/lib/extensions.mutable/etc/${mutable_marker#/etc/}"
     systemd-confext unmerge || :
     rm -f /run/systemd/confext.conf.d/50-test-mutable.conf
-    rm -rf /run/confexts/
+    rm -rf /var/lib/confexts/test
     rmdir /var/lib/extensions.mutable/etc /var/lib/extensions.mutable 2>/dev/null || :
 }
 
@@ -1446,10 +1480,10 @@ test_sysupdate_notify_confext_mutable() {
 [ConfExt]
 Mutable=yes
 EOF
-    mkdir -p /run/confexts/test/etc/extension-release.d
-    echo "ID=_any" >/run/confexts/test/etc/extension-release.d/extension-release.test
-    echo "ARCHITECTURE=_any" >>/run/confexts/test/etc/extension-release.d/extension-release.test
-    echo "MARKER_CONFEXT_123" >/run/confexts/test/etc/testfile
+    mkdir -p /var/lib/confexts/test/etc/extension-release.d
+    echo "ID=_any" >/var/lib/confexts/test/etc/extension-release.d/extension-release.test
+    echo "ARCHITECTURE=_any" >>/var/lib/confexts/test/etc/extension-release.d/extension-release.test
+    echo "MARKER_CONFEXT_123" >/var/lib/confexts/test/etc/testfile
     systemd-confext merge
     echo "MARKER_CONFEXT_MUTABLE" >"$mutable_marker"
     systemctl start systemd-sysupdate-notify-sysext.socket
@@ -1473,7 +1507,7 @@ cleanup_sysupdate_notify_confext_before_sysext() {
     systemctl stop test-order-foo.service || :
     systemd-sysext unmerge || :
     systemd-confext unmerge || :
-    rm -rf /run/extensions/test-order /run/confexts/test-order
+    rm -rf /var/lib/extensions/test-order /var/lib/confexts/test-order
     rm -f /run/test-order-marker
 }
 
@@ -1492,25 +1526,25 @@ test_sysupdate_notify_confext_before_sysext() {
     # the unit affected by the drop-in. Only if the confext is merged first the unit picks up the drop-in.
     # This is just one example the general scenario when a confext has to create state before a sysext's
     # service is started and the confext does not know what sysext's services would be affected.
-    mkdir -p /run/confexts/test-order/etc/extension-release.d /run/confexts/test-order/etc/systemd/system/test-order-.service.d
-    cat >/run/confexts/test-order/etc/extension-release.d/extension-release.test-order <<EOF
+    mkdir -p /var/lib/confexts/test-order/etc/extension-release.d /var/lib/confexts/test-order/etc/systemd/system/test-order-.service.d
+    cat >/var/lib/confexts/test-order/etc/extension-release.d/extension-release.test-order <<EOF
 ID=_any
 ARCHITECTURE=_any
 EXTENSION_RELOAD_MANAGER=1
 EOF
-    cat >/run/confexts/test-order/etc/systemd/system/test-order-.service.d/10-marker.conf <<EOF
+    cat >/var/lib/confexts/test-order/etc/systemd/system/test-order-.service.d/10-marker.conf <<EOF
 [Service]
 Environment=MARKER=from-confext
 EOF
 
-    mkdir -p /run/extensions/test-order/usr/lib/extension-release.d /run/extensions/test-order/usr/lib/systemd/system
-    cat >/run/extensions/test-order/usr/lib/extension-release.d/extension-release.test-order <<EOF
+    mkdir -p /var/lib/extensions/test-order/usr/lib/extension-release.d /var/lib/extensions/test-order/usr/lib/systemd/system
+    cat >/var/lib/extensions/test-order/usr/lib/extension-release.d/extension-release.test-order <<EOF
 ID=_any
 ARCHITECTURE=_any
 EXTENSION_RELOAD_MANAGER=1
 EXTENSION_RESTART_UNITS=test-order-foo.service
 EOF
-    cat >/run/extensions/test-order/usr/lib/systemd/system/test-order-foo.service <<'EOF'
+    cat >/var/lib/extensions/test-order/usr/lib/systemd/system/test-order-foo.service <<'EOF'
 [Service]
 Type=oneshot
 RemainAfterExit=yes
