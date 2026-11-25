@@ -1,8 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/mount.h>
+
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "errno-util.h"
+#include "fd-util.h"
+#include "fs-util.h"
+#include "mountpoint-util.h"
+#include "namespace-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "string-util.h"
@@ -70,6 +76,25 @@ TEST(cg_create) {
 
         ASSERT_OK_ZERO(cg_attach(here, /* pid= */ 0));
         ASSERT_OK(cg_trim(test_b, /* delete_root= */ true));
+}
+
+TEST(cg_open_delegation_attribute) {
+        _cleanup_close_ int cg = ASSERT_OK(cg_path_open("/"));
+        _cleanup_close_ int attr = ASSERT_OK(cg_open_delegation_attribute(cg, "cgroup.procs"));
+
+        _cleanup_close_ int root = ASSERT_OK(xopenat(AT_FDCWD, "/", O_PATH|O_DIRECTORY));
+        ASSERT_ERROR(cg_open_delegation_attribute(root, "proc"), EXDEV);
+
+        /* A bind mount of a file onto itself keeps both its device and inode number. Only the mount changes. */
+        int r = detach_mount_namespace();
+        if (ERRNO_IS_NEG_PRIVILEGE(r))
+                return (void) log_tests_skipped_errno(r, "Cannot test a private bind mount");
+        ASSERT_OK(r);
+        ASSERT_OK(mount_nofollow("/proc/version", "/proc/version", /* filesystemtype= */ NULL, MS_BIND, /* data= */ NULL));
+
+        _cleanup_close_ int proc = ASSERT_OK(xopenat(AT_FDCWD, "/proc", O_PATH|O_DIRECTORY));
+        ASSERT_ERROR(cg_open_delegation_attribute(proc, "version"), EXDEV);
+        ASSERT_OK_ERRNO(umount2("/proc/version", MNT_DETACH));
 }
 
 static int intro(void) {
