@@ -5,7 +5,7 @@
   SPDX-License-Identifier: LGPL-2.1-or-later
 -->
 
-<refsect1>
+<refsect1 xmlns:xi="http://www.w3.org/2001/XInclude">
   <title/>
 
   <variablelist class='network-directives'>
@@ -44,6 +44,64 @@
         <para>Configures the unique identifier of the class. It is specified as the major and minor numbers in
         hexadecimal in the range 0x1–0xffff separated with a colon (<literal>major:minor</literal>).
         Defaults to unset.</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry id='tfilter-parent'>
+      <term><varname>Parent=</varname></term>
+      <listitem>
+        <para>Configures the Queueing Discipline (qdisc) or class to attach this filter to. Takes one of
+        <literal>ingress</literal>, <literal>egress</literal>, or the identifier of a qdisc or class.
+        <literal>ingress</literal> refers to the ingress hook of the <literal>ingress</literal> or
+        <literal>clsact</literal> qdisc, and <literal>egress</literal> to the egress hook of the
+        <literal>clsact</literal> qdisc. An identifier is specified as the major number in the range
+        0x1–0xffff and the minor number in the range 0x0–0xffff, both in hexadecimal, separated with a
+        colon (<literal>major:minor</literal>), where the minor number is <literal>0</literal> for a qdisc.
+        This setting is mandatory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry id='tfilter-handle'>
+      <term><varname>Handle=</varname></term>
+      <listitem>
+        <para>Configures the filter handle. Takes a non-zero unsigned integer, in decimal, or in hexadecimal
+        when prefixed with <literal>0x</literal>. For <literal>[FirewallFilter]</literal> this is the
+        firewall mark to match. This setting is mandatory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry id='tfilter-protocol'>
+      <term><varname>Protocol=</varname></term>
+      <listitem>
+        <para>Specifies the protocol to match. Takes one of <literal>ip</literal>, <literal>ipv6</literal>,
+        <literal>all</literal>, or a non-zero EtherType number. This setting is mandatory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry id='tfilter-priority'>
+      <term><varname>Priority=</varname></term>
+      <listitem>
+        <para>Specifies the priority of the filter. Filters with lower priority values are evaluated first.
+        Takes an unsigned integer in the range 1–65535. This setting is mandatory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry id='tfilter-flowid'>
+      <term><varname>FlowId=</varname></term>
+      <listitem>
+        <para>Specifies the target class identifier to which matching packets are directed. It is specified
+        as the major and minor numbers in hexadecimal in the range 0x1–0xffff separated with a colon
+        (<literal>major:minor</literal>). This setting is mandatory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/>
       </listitem>
     </varlistentry>
   </variablelist>

@@ -275,6 +275,7 @@ static Link* link_free(Link *link) {
         link->addresses = set_free(link->addresses);
         link->qdiscs = set_free(link->qdiscs);
         link->tclasses = set_free(link->tclasses);
+        link->tfilters = set_free(link->tfilters);
 
         link->dhcp_pd_prefixes = set_free(link->dhcp_pd_prefixes);
 
