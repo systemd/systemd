@@ -193,10 +193,6 @@ static const struct {
         }
 };
 
-static int parse_mutable_mode(const char *p) {
-        return mutable_mode_from_string(p);
-}
-
 static DEFINE_CONFIG_PARSE_ENUM(config_parse_mutable_mode, mutable_mode, MutableMode);
 
 typedef struct Context {
@@ -242,10 +238,10 @@ static void parse_env_image_class_config(Context *c) {
 
         env_var = secure_getenv(image_class_info[c->image_class].mode_env);
         if (env_var) {
-                r = parse_mutable_mode(env_var);
+                r = mutable_mode_from_string(env_var);
                 if (r < 0)
-                        log_warning("Failed to parse %s environment variable value '%s'. Ignoring.",
-                                    image_class_info[c->image_class].mode_env, env_var);
+                        log_warning_errno(r, "Failed to parse %s environment variable value '%s', ignoring: %m",
+                                          image_class_info[c->image_class].mode_env, env_var);
                 else {
                         c->mutable = r;
                         c->mutable_set = true;
@@ -3215,7 +3211,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                                 return DUMP_STRING_TABLE(mutable_mode, MutableMode, _MUTABLE_MAX);
                         }
 
-                        r = parse_mutable_mode(opts.arg);
+                        r = mutable_mode_from_string(opts.arg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse argument to --mutable=: %s", opts.arg);
                         arg_mutable = r;
