@@ -8,6 +8,7 @@
 #include "generator.h"
 #include "initrd-util.h"
 #include "log.h"
+#include "module-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
@@ -141,6 +142,16 @@ static int generate_swtpm_symlink(Tpm2Support support) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine if 'swtpm' is available: %m");
 
+        /* Make sure the kernel module needed by the software TPM is available, so that we do not pull in
+         * tpm2.target and then wait for a TPM2 device that can never appear. */
+        r = module_is_loadable("tpm_vtpm_proxy");
+        if (r == 0) {
+                log_warning("TPM software fallback requested but the 'tpm_vtpm_proxy' kernel module is not available, not pulling in software TPM unit.");
+                return 0;
+        }
+        if (r < 0)
+                log_warning_errno(r, "Failed to determine whether the 'tpm_vtpm_proxy' kernel module is available, ignoring: %m");
+
         r = generator_add_symlink(arg_dest, SPECIAL_SYSINIT_TARGET, "wants", SYSTEM_DATA_UNIT_DIR "/systemd-tpm2-swtpm.service");
         if (r < 0)
                 return log_error_errno(r, "Failed to hook in systemd-tpm2-swtpm.service: %m");
@@ -186,9 +197,14 @@ static int generate_now(void) {
         }
 
         /* We are supposed to sync on TPM or do a software fallback, let's first and unconditionally validate this makes sense at
-         * all, i.e. if we have a suitable kernel+userspace. */
+         * all, i.e. if we have a suitable kernel+userspace.
+         *
+         * Note that the tpm subsystem might be built as a kernel module that has not been loaded yet, as generators run before
+         * udev's coldplug processing. Hence, when the software TPM fallback is requested explicitly, do not require the
+         * subsystem to be available: the generated units load the necessary kernel modules themselves. */
         Tpm2Support support = tpm2_support();
-        if (!FLAGS_SET(support, TPM2_SUPPORT_SYSTEM|TPM2_SUPPORT_SUBSYSTEM|TPM2_SUPPORT_LIBRARIES)) {
+        if (!FLAGS_SET(support, TPM2_SUPPORT_SYSTEM|TPM2_SUPPORT_LIBRARIES) ||
+            (!arg_tpm2_software_fallback && !FLAGS_SET(support, TPM2_SUPPORT_SUBSYSTEM))) {
 
                 /* Raise log level if things were explicitly configured */
                 log_full((arg_tpm2_wait > 0 ||
@@ -219,6 +235,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
 
         assert_se(arg_dest = dest);
 
+        LIBKMOD_NOTE(suggested);
         LIBTSS2_ESYS_NOTE(suggested);
         LIBTSS2_MU_NOTE(suggested);
         LIBTSS2_RC_NOTE(suggested);

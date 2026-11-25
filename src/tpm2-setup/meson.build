@@ -45,6 +45,7 @@ executables += [
                         'HAVE_TPM2',
                 ],
                 'dependencies' : [
+                        libkmod_cflags,
                         libopenssl_cflags,
                         tpm2_cflags,
                 ],
