@@ -98,7 +98,6 @@ jobs:
           - distro: nura
             release: edge
             libc: musl
-            skip: TEST-92-TPM2-SWTPM
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -248,7 +247,6 @@ jobs:
             TEST_NO_QEMU="${{ matrix.no_qemu || 0 }}" \
             TEST_NO_KVM="${{ matrix.no_kvm || 0 }}" \
             TEST_RUNNER="${{ matrix.runner || 'ubuntu-24.04' }}" \
-            TEST_SKIP="${{ matrix.skip }}" \
             meson test \
             -C build \
             --timeout-multiplier="${timeout_multiplier:-1}" \
