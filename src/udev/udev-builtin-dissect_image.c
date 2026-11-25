@@ -159,7 +159,7 @@ static int verb_probe(UdevEvent *event, sd_device *dev) {
                         DISSECT_IMAGE_USR_NO_ROOT|
                         DISSECT_IMAGE_ALLOW_EMPTY,
                         &image);
-        if (r == -ERFKILL && !in_initrd()) {
+        if (IN_SET(r, -ERFKILL, -EDESTADDRREQ) && !in_initrd()) {
                 /* If we transitioned into the main system and we couldn't dissect the image with the full
                  * policy, let's see if it works if we set the policies for /usr/ and the root fs out of the
                  * policy. After all, we already made our choices, there's no point in insisting on the
@@ -175,17 +175,15 @@ static int verb_probe(UdevEvent *event, sd_device *dev) {
                 };
 
                 _cleanup_(image_policy_freep) ImagePolicy *image_policy_mangled = NULL;
-                r = image_policy_ignore_designators(
+                int k = image_policy_ignore_designators(
                                 image_policy,
                                 ignore_designators,
                                 ELEMENTSOF(ignore_designators),
                                 &image_policy_mangled);
-                if (r < 0)
-                        return log_device_debug_errno(dev, r, "Failed to remove root/usr partitions from image policy: %m");
+                if (k < 0)
+                        return log_device_debug_errno(dev, k, "Failed to remove root/usr partitions from image policy: %m");
 
-                if (image_policy_equal(image_policy, image_policy_mangled))
-                        r = -ERFKILL; /* restore original error, if this didn't change anything */
-                else {
+                if (!image_policy_equal(image_policy, image_policy_mangled)) {
                         if (DEBUG_LOGGING) {
                                 _cleanup_free_ char *a = NULL, *b = NULL;
 
@@ -207,12 +205,13 @@ static int verb_probe(UdevEvent *event, sd_device *dev) {
                                         DISSECT_IMAGE_ALLOW_EMPTY,
                                         &image);
                 }
+                /* If the mangled policy is the same, r keeps the original error. */
         }
         if (IN_SET(r, -ENOPKG, -ENOMSG, -ENXIO, -ENOTUNIQ)) {
                 log_device_debug_errno(dev, r, "Device does not carry a GPT disk label with suitable partitions, ignoring.");
                 return 0;
         }
-        if (r == -ERFKILL) {
+        if (IN_SET(r, -ERFKILL, -EDESTADDRREQ)) {
                 log_device_debug_errno(dev, r, "Device carries GPT disk label that doesn't match our image policy, ignoring.");
                 return 0;
         }
