@@ -20,6 +20,16 @@ typedef struct Neighbor {
 } Neighbor;
 
 DECLARE_TRIVIAL_REF_UNREF_FUNC(Neighbor, neighbor);
+DEFINE_SECTION_CLEANUP_FUNCTIONS(Neighbor, neighbor_unref);
+
+typedef int (*neighbor_netlink_handler_t)(
+                sd_netlink *rtnl,
+                sd_netlink_message *m,
+                Request *req,
+                Link *link,
+                Neighbor *neighbor);
+
+int neighbor_new(Neighbor **ret);
 
 int neighbor_get(Link *link, const Neighbor *in, Neighbor **ret);
 int neighbor_remove(Neighbor *neighbor, Link *link);
@@ -29,6 +39,11 @@ int network_drop_invalid_neighbors(Network *network);
 int link_drop_static_neighbors(Link *link);
 int link_drop_unmanaged_neighbors(Link *link);
 
+int link_request_neighbor(
+                Link *link,
+                const Neighbor *neighbor,
+                unsigned *message_counter,
+                neighbor_netlink_handler_t netlink_handler);
 int link_request_static_neighbors(Link *link);
 
 int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
