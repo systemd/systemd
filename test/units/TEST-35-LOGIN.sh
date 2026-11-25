@@ -21,7 +21,8 @@ cleanup_test_user() (
 
 setup_test_user() {
     mkdir -p /var/spool/cron /var/spool/mail
-    useradd -m -s /usr/bin/bash logind-test-user
+    # Sometimes test VMs reboot
+    getent passwd logind-test-user >/dev/null || useradd -m -s /usr/bin/bash logind-test-user
     trap cleanup_test_user EXIT
 }
 
