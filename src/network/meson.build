@@ -89,6 +89,8 @@ networkctl_export_sources = files(
         'networkd-wiphy.c',
         'networkd-wwan.c',
         'networkd-wwan-bus.c',
+        'networkd-xlat.c',
+        'networkd-xlat-packet.c',
         'tc/cake.c',
         'tc/codel.c',
         'tc/drr.c',
@@ -204,6 +206,7 @@ executables += [
                         libselinux_cflags,
                 ],
                 'bpf_programs': [
+                        'clat',
                         'sysctl-monitor',
                 ],
                 'install' : get_option('link-networkd-shared') ? 'yes' : 'static',
@@ -241,6 +244,9 @@ executables += [
         },
         network_test_template + {
                 'sources' : files('test-networkd-util.c'),
+        },
+        network_test_template + {
+                'sources' : files('test-networkd-xlat.c'),
         },
         test_template + {
                 'sources' : files('test-modem-manager-mock.c'),

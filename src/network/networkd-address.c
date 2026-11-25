@@ -31,6 +31,7 @@
 #include "networkd-queue.h"
 #include "networkd-route.h"
 #include "networkd-route-util.h"
+#include "networkd-xlat.h"
 #include "ordered-set.h"
 #include "parse-util.h"
 #include "set.h"
@@ -875,6 +876,7 @@ static int address_update(Address *address) {
 
         link_update_operstate(link, /* also_update_master= */ true);
         link_check_ready(link);
+        xlat_address_changed(link, address);
         return 0;
 }
 
@@ -973,6 +975,9 @@ static int address_drop(Address *in, bool removed_by_us) {
         (void) link_dhcp_relay_address_dropped(link, address);
 
         address_detach(address);
+
+        /* This has to be done after the address was detached, so that it cannot be picked again */
+        xlat_address_dropped(link, address);
 
         if (!removed_by_us) {
                 r = address_removed_maybe_kernel_dad(link, address);

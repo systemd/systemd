@@ -1018,6 +1018,90 @@ DuplicateAddressDetection=none</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>CLAT=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When enabled, <command>systemd-networkd</command> acts as the customer-side
+          translator (CLAT) of 464XLAT on the interface, so that IPv4-only applications of the host work on
+          an IPv6-only network with NAT64, see
+          <ulink url="https://tools.ietf.org/html/rfc6877">RFC 6877</ulink>. IPv4 packets sent from
+          192.0.0.1 (see <ulink url="https://tools.ietf.org/html/rfc7335">RFC 7335</ulink>) are translated
+          to IPv6, with the destination embedded in the NAT64 prefix, and the replies are translated back.
+          Traffic forwarded for other hosts is not translated. Defaults to false.</para>
+
+          <para>The NAT64 prefix is either configured with <varname>Pref64Prefix=</varname>, or discovered
+          from Router Advertisements, which requires <varname>IPv6AcceptRA=</varname> and
+          <varname>UsePREF64=</varname> in the [IPv6AcceptRA] section. If multiple prefixes are discovered,
+          the numerically smallest one is used. CLAT starts once the interface is configured, a prefix and an
+          IPv6 address are available, and the interface has no native IPv4 default route. It is stopped when
+          such a route appears.</para>
+
+          <para>TCP, UDP, ICMP Echo and ICMP error messages are translated as described in
+          <ulink url="https://tools.ietf.org/html/rfc7915">RFC 7915</ulink>, hence path MTU discovery works
+          through the translator. Fragments of TCP and UDP datagrams are translated, too. Fragmented ICMP
+          messages cannot be translated statelessly, e.g. large ICMP Echo replies that the NAT64 had to
+          fragment are lost. Other protocols and ICMP extensions
+          (<ulink url="https://tools.ietf.org/html/rfc4884">RFC 4884</ulink>) are not supported.
+          With the Well-Known Prefix 64:ff9b::/96, packets to or from non-global IPv4 addresses are dropped, as
+          required by <ulink url="https://tools.ietf.org/html/rfc6052">RFC 6052</ulink> section 3.1.</para>
+
+          <para>The translated traffic uses a dedicated IPv6 address, see RFC 6877 section 6.3, so that native
+          IPv6 traffic of the host, e.g. to NAT64 addresses synthesized by DNS64, is not affected. It is
+          derived from the machine ID, the interface name and the prefix of an address of the interface: its
+          /64, or its own prefix if that is longer. For a /128 address, e.g. assigned by DHCPv6, an on-link
+          prefix from the routes of the interface is used, and CLAT does not start if there is none. The
+          address is added to the interface as a deprecated address, so that applications do not select it as
+          a source address.</para>
+
+          <para>On Ethernet interfaces, packets are translated in the kernel by eBPF programs, if
+          <command>systemd-networkd</command> was built with BPF support and the kernel supports TCX (Linux
+          6.6 or newer). In this case 192.0.0.1/32 is assigned to the interface, and an IPv4 default route
+          with a metric of 2048 through the on-link gateway 192.0.0.2 is added, together with a permanent
+          neighbor entry for the gateway. In this mode, IPv4 packets with options are dropped. Otherwise, a
+          TUN device is created, named <literal>cl-</literal> followed by the interface name, or
+          <literal>clat</literal> followed by the interface index if that name would be too long, and packets
+          are translated in userspace. The address and the default route are configured on that device, and a
+          routing policy rule with priority 1000 prevents the kernel from answering return traffic itself.
+          In both cases the MTU of the IPv4 route is the MTU of the interface minus 28 bytes, which leaves room
+          for the longer IPv6 header and for the fragment header of fragmented datagrams.</para>
+
+          <para>Loading the eBPF programs requires <constant>CAP_BPF</constant>, which
+          <command>systemd-networkd</command> drops at startup unless a <filename>.network</filename> file
+          sets <varname>CLAT=</varname>. Hence, after enabling this setting for the first time, restart
+          <command>systemd-networkd</command> instead of reloading it. Until then, the TUN device is
+          used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Pref64Prefix=</varname></term>
+        <listitem>
+          <para>Specifies the NAT64 prefix used by <varname>CLAT=</varname>, instead of the one discovered
+          from Router Advertisements, e.g. when the routers do not send the PREF64 option
+          (<ulink url="https://tools.ietf.org/html/rfc8781">RFC 8781</ulink>). Takes an IPv6 prefix with a
+          prefix length of 32, 40, 48, 56, 64, or 96 as defined in
+          <ulink url="https://tools.ietf.org/html/rfc6052">RFC 6052</ulink>. When unset, which is the
+          default, the prefix is discovered.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CLATDropZeroChecksumUDP=</varname></term>
+        <listitem>
+          <para>Takes a boolean. IPv4 UDP datagrams may be sent without checksum, which IPv6 does not allow.
+          If false, <varname>CLAT=</varname> computes the checksum for them, which is slower. If true, they
+          are dropped. See <ulink url="https://tools.ietf.org/html/rfc7915">RFC 7915</ulink> section 4.5.
+          Fragmented datagrams without checksum are always dropped. Defaults to false. The in-kernel translation can compute checksums of datagrams of up to 9216
+          bytes, drops larger ones, and logs the number of dropped datagrams when CLAT is stopped.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>IPv6DuplicateAddressDetection=</varname></term>
         <listitem>
           <para>Configures the amount of IPv6 Duplicate Address Detection (DAD) probes to send. When

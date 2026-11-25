@@ -49,6 +49,25 @@ typedef struct RoutingPolicyRule {
 DECLARE_STRING_TABLE_LOOKUP(fr_act_type, int);
 
 DECLARE_TRIVIAL_REF_UNREF_FUNC(RoutingPolicyRule, routing_policy_rule);
+DEFINE_SECTION_CLEANUP_FUNCTIONS(RoutingPolicyRule, routing_policy_rule_unref);
+
+typedef int (*routing_policy_rule_netlink_handler_t)(
+                sd_netlink *rtnl,
+                sd_netlink_message *m,
+                Request *req,
+                Link *link,
+                RoutingPolicyRule *rule);
+
+int routing_policy_rule_new(RoutingPolicyRule **ret);
+int routing_policy_rule_get(Manager *m, const RoutingPolicyRule *in, int family, RoutingPolicyRule **ret);
+int routing_policy_rule_remove(RoutingPolicyRule *rule, Manager *manager);
+int routing_policy_rule_configure_handler_internal(sd_netlink_message *m, Link *link, RoutingPolicyRule *rule);
+int link_request_routing_policy_rule(
+                Link *link,
+                const RoutingPolicyRule *rule,
+                int family,
+                unsigned *message_counter,
+                routing_policy_rule_netlink_handler_t netlink_handler);
 
 void network_drop_invalid_routing_policy_rules(Network *network);
 

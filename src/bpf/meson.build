@@ -332,11 +332,20 @@ endif
 conf.set10('HAVE_LSM_INTEGRITY_TYPE', have_lsm_integrity_type)
 
 conf.set10('ENABLE_SYSCTL_BPF', conf.get('HAVE_VMLINUX_H') == 1 and libbpf.version().version_compare('>= 0.7'))
+conf.set10('ENABLE_CLAT_BPF', conf.get('HAVE_VMLINUX_H') == 1 and libbpf.version().version_compare('>= 0.7'))
 
 bpf_programs = [
         {
                 'source' : files('bind-iface.bpf.c'),
                 'condition' : 'BPF_FRAMEWORK',
+        },
+        {
+                'source' : files('clat.bpf.c'),
+                'condition' : 'ENABLE_CLAT_BPF',
+                # Without CAP_PERFMON the verifier rejects 32 bit writes to stack slots that held a pointer, which
+                # clang emits when it reuses them with the v3 instruction set, the default of recent versions.
+                'args' : ['-mcpu=v2'],
+                'depend_files' : [files('clat.h'), vmlinux_h_depend_files],
         },
         {
                 'source' : files('restrict-fsaccess.bpf.c'),
@@ -387,7 +396,7 @@ foreach program : bpf_programs
         bpf_o_unstripped = custom_target(
                 input : source,
                 output : name + '.bpf.unstripped.o',
-                command : bpf_o_unstripped_cmd,
+                command : bpf_o_unstripped_cmd + program.get('args', []),
                 depend_files : program.get('depend_files', []))
 
         bpf_o = custom_target(
