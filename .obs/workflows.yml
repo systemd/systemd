@@ -23,6 +23,23 @@ ci:
         source_project: system:systemd
         source_package: uki-fedora
         target_project: system:systemd:ci
+    # Also prepare sysexts, also disabled by default
+    - link_package:
+        source_project: system:systemd
+        source_package: systemd-sysext-rh
+        target_project: system:systemd:ci
+    - link_package:
+        source_project: system:systemd
+        source_package: systemd-sysext-suse
+        target_project: system:systemd:ci
+    - link_package:
+        source_project: system:systemd
+        source_package: systemd-sysext-deb
+        target_project: system:systemd:ci
+    - link_package:
+        source_project: system:systemd
+        source_package: systemd-sysext-arch
+        target_project: system:systemd:ci
     - set_flags:
         flags:
           # First disable all builds (including images linked in above)
