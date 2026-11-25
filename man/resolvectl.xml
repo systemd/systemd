@@ -357,9 +357,9 @@
       <varlistentry>
         <term><option>--service-address=<replaceable>BOOL</replaceable></option></term>
 
-        <listitem><para>Takes a boolean parameter. If true (the default), when doing a service lookup with
-        <option>--service</option> the hostnames contained in the <constant class='dns'>SRV</constant>
-        resource records are resolved as well.</para>
+        <listitem><para>Takes a boolean parameter. If true (the default), when doing a service
+        lookup with the <command>service</command> command, the hostnames contained in the
+        <constant class='dns'>SRV</constant> resource records are resolved as well.</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
@@ -367,9 +367,9 @@
       <varlistentry>
         <term><option>--service-txt=<replaceable>BOOL</replaceable></option></term>
 
-        <listitem><para>Takes a boolean parameter. If true (the default), when doing a DNS-SD service lookup
-        with <option>--service</option> the <constant class='dns'>TXT</constant> service metadata record is
-        resolved as well.</para>
+        <listitem><para>Takes a boolean parameter. If true (the default), when doing a DNS-SD service
+        lookup with the <command>service</command> command, the <constant class='dns'>TXT</constant> service
+        metadata record is resolved as well.</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
