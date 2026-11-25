@@ -1322,6 +1322,7 @@ jobs:
 
             let posted = 0;
             let duplicates = 0;
+            let newMustFix = 0;
             const listed = [];
             for (const c of inlineComments) {
               if (seen.has(`${c.commit}:${c.path}:${c.side}:${c.line}`)) {
@@ -1330,6 +1331,9 @@ jobs:
                 listed.push(c);
                 continue;
               }
+
+              if (c.severity === "must-fix")
+                newMustFix++;
 
               console.log(`  Posting comment on ${c.path}:${c.line}`);
               try {
@@ -1622,3 +1626,39 @@ jobs:
               core.setFailed(`Could not post any of ${attempted} inline comment(s) — see warnings above.`);
             else if (posted < attempted)
               core.warning(`${attempted - posted}/${attempted} inline comment(s) could not be posted.`);
+
+            /* Count this run's new findings, including those reported only in the tracking comment. */
+            if (attempted <= 10 && newMustFix < 2)
+              return;
+
+            try {
+              const {data: pr} = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+              if (pr.state !== "open" || pr.head.sha !== headSha) {
+                console.log("Not changing labels: the PR was closed or updated during review.");
+                return;
+              }
+              if (pr.draft || pr.labels.some((l) => l.name.startsWith("good-to-merge/")) ||
+                  !pr.labels.some((l) => l.name === "please-review")) {
+                console.log("Not changing labels: the PR is not awaiting review.");
+                return;
+              }
+
+              const issue = { owner, repo, issue_number: prNumber };
+              /* Only mark the PR for rework if we took it off the review queue ourselves. */
+              try {
+                await github.rest.issues.removeLabel({ ...issue, name: "please-review" });
+              } catch (e) {
+                if (e.status !== 404)
+                  throw e;
+                console.log("Not changing labels: please-review was already removed.");
+                return;
+              }
+              try {
+                await github.rest.issues.addLabels({ ...issue, labels: ["reviewed/needs-rework 🔨"] });
+              } catch (e) {
+                core.warning(`Failed to mark the PR for rework: ${e.message}; restoring please-review.`);
+                await github.rest.issues.addLabels({ ...issue, labels: ["please-review"] });
+              }
+            } catch (e) {
+              core.warning(`Failed to update labels: ${e.message}`);
+            }
