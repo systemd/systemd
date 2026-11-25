@@ -1994,8 +1994,25 @@ static int dissect_image(
                 }
 
                 r = image_policy_check_protection(policy, di, found_flags);
-                if (r < 0)
+                if (r < 0) {
+                        /* If the partition is protected by Verity without a signature, the policy requires
+                         * a signature, and the kernel refuses Verity volumes without one
+                         * (dm_verity.require_signatures=1), then no image policy could allow the volume,
+                         * only a key in a kernel keyring could. Report the missing signature instead of a
+                         * policy mismatch, so that callers don't suggest a policy change, or ask for a
+                         * stronger authorization that cannot change the result, like mountfsd does with
+                         * polkit. A signature supplied by the client may still be validated by the kernel,
+                         * hence keep the policy mismatch in that case. */
+                        if (r == -ERFKILL &&
+                            FLAGS_SET(found_flags, PARTITION_POLICY_VERITY) &&
+                            !FLAGS_SET(found_flags, PARTITION_POLICY_SIGNED) &&
+                            (!verity || !iovec_is_set(&verity->root_hash_sig)) &&
+                            dm_verity_require_signatures())
+                                return log_debug_errno(SYNTHETIC_ERRNO(EDESTADDRREQ),
+                                                       "Partition %s is protected by Verity without a signature, and the kernel requires signatures, refusing.",
+                                                       partition_designator_to_string(di));
                         return r;
+                }
 
                 if (m->partitions[di].found) {
                         r = image_policy_check_partition_flags(policy, di, m->partitions[di].gpt_flags);
@@ -2297,6 +2314,9 @@ int dissect_log_error(int log_level, int r, const char *name, const VeritySettin
                                       "Combining partitioned images (such as '%s') with external Verity data (such as '%s') not supported. "
                                       "(Consider setting $SYSTEMD_DISSECT_VERITY_SIDECAR=0 to disable automatic discovery of external Verity data.)",
                                       name, strna(verity ? verity->data_path : NULL));
+
+        case -EDESTADDRREQ:
+                return log_full_errno(log_level, r, "%s: Image lacks recognized signature.", name);
 
         case -ERFKILL:
                 return log_full_errno(log_level, r, "%s: Image does not match image policy.", name);
@@ -3707,10 +3727,16 @@ static int do_crypt_activate_verity(
                         log_debug("Verity activation via userspace signature logic worked, activating by root hash.");
                         measure_signature = true;
                 }
-        } else if (!FLAGS_SET(policy_flags, PARTITION_POLICY_VERITY))
+        } else if (!FLAGS_SET(policy_flags, PARTITION_POLICY_VERITY)) {
+                /* No signature is available, and the policy requires one. If the kernel refuses Verity
+                 * volumes without a signature too, no image policy could allow the volume, so report the
+                 * missing signature instead of a policy mismatch, like in dissect_image() above. */
+                if (dm_verity_require_signatures())
+                        return log_debug_errno(SYNTHETIC_ERRNO(EDESTADDRREQ),
+                                               "No-signature activation of Verity volume not allowed by policy, and the kernel requires signatures, refusing.");
                 return log_debug_errno(SYNTHETIC_ERRNO(ERFKILL),
                                        "No-signature activation of Verity volume not allowed by policy, refusing.");
-        else
+        } else
                 measure_signature = false;
 
         r = sym_crypt_activate_by_volume_key(
@@ -4096,7 +4122,8 @@ int dissected_image_decrypt(
          *      -ENOKEY       → dm-crypt: there's something to decrypt but no decryption key was supplied (or
          *                      TPM2 unlocking was requested via DISSECT_IMAGE_TPM2_UNLOCK, but didn't succeed)
          *      -EKEYREJECTED → dm-crypt: Passed key was not correct
-         *      -EDESTADDRREQ → dm-verity: the image policy requires a signature that no trusted key validates
+         *      -EDESTADDRREQ → dm-verity: the image policy requires a signature that no trusted key validates,
+         *                      or the kernel requires signatures (dm_verity.require_signatures=1) and the image has none
          *      -EBUSY        → dm-verity: Generic Verity error (kernel is not very explanatory)
          *      -ERFKILL      → image policy not compatible with request
          *      -EEXIST       → DM device already exists under the specified name
@@ -4379,6 +4406,19 @@ int verity_settings_compare_func(const VeritySettings *x, const VeritySettings *
 }
 
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(verity_settings_hash_ops, VeritySettings, verity_settings_hash_func, verity_settings_compare_func, VeritySettings, verity_settings_free);
+
+bool dm_verity_require_signatures(void) {
+        int r;
+
+        r = read_boolean_file("/sys/module/dm_verity/parameters/require_signatures");
+        if (r < 0) {
+                if (r != -ENOENT)
+                        log_warning_errno(r, "Failed to read dm_verity.require_signatures kernel module parameter, assuming it is off: %m");
+                return false;
+        }
+
+        return r > 0;
+}
 
 int verity_settings_load(
                 VeritySettings *verity,
