@@ -40,3 +40,5 @@ We have a security bug bounty program sponsored by the [Sovereign Tech Fund](htt
 
 Repositories with distribution packages built from git main are [available on OBS](https://software.opensuse.org//download.html?project=system%3Asystemd&package=systemd),
 and also repositories with [packages built from the latest stable release](https://software.opensuse.org//download.html?project=system%3Asystemd%3Astable&package=systemd)
+
+System extension images (`systemd-X.Y.<arch>.sysext.raw.zst`) built from git main are also available on OBS for [Fedora](https://download.opensuse.org/repositories/system:/systemd/fedora_45_images/), [openSUSE](https://download.opensuse.org/repositories/system:/systemd/openSUSE_Tumbleweed_images/), [Arch Linux](https://download.opensuse.org/repositories/system:/systemd/arch_images/) and [Ubuntu](https://download.opensuse.org/repositories/system:/systemd/ubuntu_26.04_images/).
