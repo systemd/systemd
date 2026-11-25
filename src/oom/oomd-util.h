@@ -36,6 +36,8 @@ struct OomdCGroupContext {
         ManagedOOMPreference preference;
 
         /* These are only used for acting on high memory pressure. */
+        bool mem_pressure_limit_overridden;
+        bool mem_pressure_duration_overridden;
         loadavg_t mem_pressure_limit;
         usec_t mem_pressure_limit_hit_start;
         usec_t last_had_mem_reclaim;

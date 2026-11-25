@@ -428,7 +428,7 @@ static int send_prekill_message(
         r = sd_varlink_set_description(link, "oomd prekill hook");
         if (r < 0)
                 return log_debug_errno(r, "Failed to set varlink description: %m");
-        (void) sd_varlink_set_relative_timeout(link, ks->manager->prekill_timeout);
+        (void) sd_varlink_set_relative_timeout(link, ks->manager->config.prekill_timeout);
 
         r = sd_varlink_attach_event(link, e, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
@@ -461,7 +461,7 @@ static int oomd_prekill_hook(Manager *m, OomdKillState *ks) {
         assert(ks);
         assert(ks->ctx);
 
-        if (m->prekill_timeout == 0) {
+        if (m->config.prekill_timeout == 0) {
                 log_debug("Zero oomd prekill timeout configured, skipping prekill hooks.");
                 return 0;
         }
@@ -814,6 +814,8 @@ int oomd_insert_cgroup_context(Hashmap *old_h, Hashmap *new_h, const char *path)
         old_ctx = hashmap_get(old_h, path);
         if (old_ctx) {
                 curr_ctx->last_pgscan = old_ctx->pgscan;
+                curr_ctx->mem_pressure_limit_overridden = old_ctx->mem_pressure_limit_overridden;
+                curr_ctx->mem_pressure_duration_overridden = old_ctx->mem_pressure_duration_overridden;
                 curr_ctx->mem_pressure_limit = old_ctx->mem_pressure_limit;
                 curr_ctx->mem_pressure_limit_hit_start = old_ctx->mem_pressure_limit_hit_start;
                 curr_ctx->mem_pressure_duration_usec = old_ctx->mem_pressure_duration_usec;
