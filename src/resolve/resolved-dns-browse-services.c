@@ -832,9 +832,6 @@ int dns_subscribe_browse_service(
         if (hashmap_contains(m->dns_service_browsers, link))
                 return -EBUSY;
 
-        if (ifindex < 0)
-                return sd_varlink_error_invalid_parameter_name(link, "ifindex");
-
         if (ifindex == 0)
                 log_debug("BrowseServices: browsing all mDNS interfaces");
 
