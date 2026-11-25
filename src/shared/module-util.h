@@ -38,6 +38,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct kmod_list*, sym_kmod_module_unref
 
 int module_load_and_warn(struct kmod_ctx *ctx, const char *module, bool verbose);
 int module_setup_context(struct kmod_ctx **ret);
+int module_is_loadable(const char *module);
 
 #else
 
@@ -48,6 +49,10 @@ static inline int module_setup_context(struct kmod_ctx **ret) {
 }
 
 static inline int module_load_and_warn(struct kmod_ctx *ctx, const char *module, bool verbose) {
+        return -EOPNOTSUPP;
+}
+
+static inline int module_is_loadable(const char *module) {
         return -EOPNOTSUPP;
 }
 
