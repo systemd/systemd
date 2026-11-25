@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 # Integrates Claude Code as an AI assistant for reviewing pull requests.
-# Mention @claude in any PR comment to request a review. Claude authenticates
+# Apply the claude-review label to a PR to request a review. Claude authenticates
 # via AWS Bedrock using OIDC — no long-lived API keys required.
 #
 # Architecture: The workflow is split into three jobs for least-privilege:
@@ -12,8 +12,8 @@
 # The tracking comment carries a hidden state line with the number of completed
 # reviews and the last reviewed head. Every completed review raises the bar for
 # new inline comments: the first review may post everything, the second drops
-# nits, and from the third on only must-fix findings are posted. Commenting
-# "@claude review full" resets the count for that run.
+# nits, and from the third on only must-fix findings are posted. Reapplying the
+# claude-review label starts this sequence over.
 #
 # The tracking comment also lists the findings of all reviews so far as a
 # checklist. It is rebuilt by the post job from the review threads on the pull
@@ -26,44 +26,24 @@ name: Claude Review
 on:
   pull_request_target:
     types: [opened, synchronize, reopened, labeled]
-  # Strangely enough you have to use issue_comment to react to regular comments on PRs.
-  # See https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request_comment-use-issue_comment.
-  issue_comment:
-    types: [created]
-  pull_request_review_comment:
-    types: [created]
-  pull_request_review:
-    types: [submitted]
 
 concurrency:
-  group: claude-review-${{ github.event.pull_request.number || github.event.issue.number }}
+  group: claude-review-${{ github.event.pull_request.number }}
 
 jobs:
   setup:
     runs-on: ubuntu-latest
     env:
-      PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
-      TRIGGER_BODY: ${{ github.event.comment.body || github.event.review.body || '' }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
 
     if: |
       contains(fromJSON('["systemd/systemd","daandemeyer/systemd"]'), github.repository) &&
-      ((github.event_name == 'pull_request_target' &&
-        (github.event.action == 'labeled' && github.event.label.name == 'claude-review' && github.event.sender.login != 'github-actions[bot]' ||
-         github.event.action != 'labeled' && contains(github.event.pull_request.labels.*.name, 'claude-review') ||
-         github.event.action == 'opened' &&
-         github.event.pull_request.base.ref == 'main' &&
-         contains(fromJSON('["MEMBER","OWNER","COLLABORATOR"]'), github.event.pull_request.author_association) &&
-         github.event.pull_request.user.login != 'YHNdnzj')) ||
-       (github.event_name == 'issue_comment' &&
-        github.event.issue.pull_request &&
-        contains(github.event.comment.body, '@claude review') &&
-        contains(fromJSON('["MEMBER","OWNER","COLLABORATOR"]'), github.event.comment.author_association)) ||
-       (github.event_name == 'pull_request_review_comment' &&
-        contains(github.event.comment.body, '@claude review') &&
-        contains(fromJSON('["MEMBER","OWNER","COLLABORATOR"]'), github.event.comment.author_association)) ||
-       (github.event_name == 'pull_request_review' &&
-        contains(github.event.review.body, '@claude review') &&
-        contains(fromJSON('["MEMBER","OWNER","COLLABORATOR"]'), github.event.review.author_association)))
+      (github.event.action == 'labeled' && github.event.label.name == 'claude-review' && github.event.sender.login != 'github-actions[bot]' ||
+       github.event.action != 'labeled' && contains(github.event.pull_request.labels.*.name, 'claude-review') ||
+       github.event.action == 'opened' &&
+       github.event.pull_request.base.ref == 'main' &&
+       contains(fromJSON('["MEMBER","OWNER","COLLABORATOR"]'), github.event.pull_request.author_association) &&
+       github.event.pull_request.user.login != 'YHNdnzj')
 
     permissions:
       pull-requests: write
@@ -80,7 +60,7 @@ jobs:
 
     steps:
       - name: Auto-add claude-review label for trusted contributors
-        if: github.event_name == 'pull_request_target' && github.event.action == 'opened'
+        if: github.event.action == 'opened'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh pr edit --repo "${{ github.repository }}" "$PR_NUMBER" --add-label claude-review
@@ -144,29 +124,25 @@ jobs:
             ]);
 
             /* A README.md that still carries the AI review notice has not been
-             * looked at by its author yet, so there is nothing to review. An
-             * explicit "@claude review" answers the notice, so only the automatic
-             * triggers are skipped, and a check that cannot run reviews anyway. */
-            if (context.eventName === "pull_request_target") {
-              let notice = false;
-              try {
-                const readme = await github.rest.repos.getContent({
-                  owner,
-                  repo,
-                  path: "README.md",
-                  ref: pr.data.head.sha,
-                });
-                notice = Buffer.from(readme.data.content, "base64").toString()
-                  .includes("Remove this line to confirm you've reviewed this PR before submitting.");
-              } catch (e) {
-                console.log(`Failed to read README.md, assuming it has been reviewed: ${e.message}`);
-              }
+             * looked at by its author yet, so there is nothing to review. */
+            let notice = false;
+            try {
+              const readme = await github.rest.repos.getContent({
+                owner,
+                repo,
+                path: "README.md",
+                ref: pr.data.head.sha,
+              });
+              notice = Buffer.from(readme.data.content, "base64").toString()
+                .includes("Remove this line to confirm you've reviewed this PR before submitting.");
+            } catch (e) {
+              console.log(`Failed to read README.md, assuming it has been reviewed: ${e.message}`);
+            }
 
-              if (notice) {
-                console.log("README.md still carries the review notice, skipping.");
-                core.setOutput("skip", "true");
-                return;
-              }
+            if (notice) {
+              console.log("README.md still carries the review notice, skipping.");
+              core.setOutput("skip", "true");
+              return;
             }
 
             /* Find or create tracking comment. */
@@ -178,6 +154,10 @@ jobs:
             if (existing) {
               console.log(`Updating existing tracking comment ${existing.id}.`);
               state = parseState(existing.body);
+              /* Applying the label requests a full review, but keeps prior dismissals. */
+              if (context.payload.action === "labeled")
+                state = { ...state, count: 0, head: null };
+
               /* Prepend a re-reviewing banner but keep the previous review visible.
                * Any banner left by a previous run is dropped, not stacked. */
               const prevBody = stripBanner(existing.body)
@@ -198,13 +178,6 @@ jobs:
                 body: `Claude is reviewing this PR… ([workflow run](${runUrl})) ${BANNER}\n\n${MARKER}`,
               });
               commentId = created.id;
-            }
-
-            if (/@claude review full\b/.test(process.env.TRIGGER_BODY)) {
-              console.log("Full review requested, resetting the review count.");
-              /* Dismissals are decisions about earlier findings, not about the
-               * review round, so they are kept. */
-              state = { ...state, count: 0, head: null };
             }
 
             const severities = allowedSeverities(state.count);
@@ -1030,7 +1003,7 @@ jobs:
           REVIEW_RESULT: ${{ needs.review.result }}
           # Taken from the event rather than from setup's outputs, which are not
           # guaranteed to propagate out of a failed job.
-          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           COMMENT_ID: ${{ needs.setup.outputs.comment_id }}
           HEAD_SHA: ${{ needs.setup.outputs.head_sha }}
           REVIEW_COUNT: ${{ needs.setup.outputs.review_count }}
