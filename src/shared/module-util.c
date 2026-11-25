@@ -165,6 +165,27 @@ int module_setup_context(struct kmod_ctx **ret) {
         return 0;
 }
 
+int module_is_loadable(const char *module) {
+        _cleanup_(kmod_unrefp) struct kmod_ctx *ctx = NULL;
+        _cleanup_(kmod_module_unref_listp) struct kmod_list *list = NULL;
+        int r;
+
+        assert(module);
+
+        /* Checks whether the module can be found as a kernel module or is built into the kernel,
+         * without loading it. */
+
+        r = module_setup_context(&ctx);
+        if (r < 0)
+                return r;
+
+        r = sym_kmod_module_new_from_lookup(ctx, module, &list);
+        if (r < 0)
+                return r;
+
+        return !!list;
+}
+
 #endif
 
 int dlopen_libkmod(int log_level) {
