@@ -48,7 +48,6 @@ See [reporting of security vulnerabilities](https://systemd.io/SECURITY).
 * If the pull request stalls without review, post a ping in a comment after some time has passed.
   We are always short on reviewer time, and pull requests which haven't seen any recent activity can be easily forgotten.
 * Github will automatically add the `please-review` label when a pull request is opened or updated.
-  If you need more information after a review, you can comment `/please-review` on the pull request to have Github add the `please-review` label to the pull request.
 
 ## Policy on the use of Large Language Models (LLMs) and AI tooling
 
