@@ -1234,7 +1234,7 @@ static int vl_method_browse_services(sd_varlink* link, sd_json_variant* paramete
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "domain",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParamatersBrowseServices, domain),  SD_JSON_NULLABLE     },
                 { "type",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParamatersBrowseServices, type),    SD_JSON_NULLABLE     },
-                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,          offsetof(LookupParamatersBrowseServices, ifindex), SD_JSON_NULL_TO_ZERO },
+                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,         offsetof(LookupParamatersBrowseServices, ifindex), SD_JSON_RELAX        },
                 { "flags",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(LookupParamatersBrowseServices, flags),   SD_JSON_NULL_TO_ZERO },
                 {}
         };
