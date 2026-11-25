@@ -145,9 +145,29 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 ## Features
 
-- vpick: honour manifest
+- in storagetm also provide http, and in particular a uapi16 manifest of the
+  downloadable resources
 
-- sysupdate: add http header to sources in uapi16
+- allow to parameterize http netboot urls via ? suffixes in the url, and accept
+  them in TOFU style
+
+- sysupdate notifications should mention which components are still on the list
+  to update
+
+- portabled auto-reattach/restart on sysupdate completion
+
+- pid1: if we receive a certain new SIGRT then dispatch it as
+  sigrt@<parameter>.target. i.e. like SIGPWR and sigpwr.target but with
+  a 32bit param
+
+- in unit files add a new knob RestartKillSignal= for configuring an
+  alternative signal to send instead of KillSignal= if a start job is qeueued
+  alrady. REstartTimeoutSec= that applies here.
+
+- service health varlink dir, per-service policy on what should happen if
+  varlink dir fails: reboot, count down vpick, invalidat whole system
+
+- vpick: honour manifest
 
 - systemd-repart: support squashing DDIs in sysext/confext overlayfs style, so
   that we take a combination of base DDI plus multiple sysext/confext and turn
