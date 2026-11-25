@@ -18,7 +18,7 @@ DefaultDependencies=no
 # Waiting for network-online.target could then form an ordering cycle.
 Wants=systemd-imdsd.socket systemd-networkd-wait-online.service
 After=systemd-imdsd.socket systemd-networkd-wait-online.service
-Before=sysinit.target systemd-firstboot.service
+Before=sysinit.target systemd-firstboot.service systemd-keyring-setup.service
 Conflicts=shutdown.target initrd-switch-root.target
 Before=shutdown.target initrd-switch-root.target
 
