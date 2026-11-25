@@ -67,6 +67,7 @@
 #include "networkd-sysctl.h"
 #include "networkd-wifi.h"
 #include "networkd-wwan-bus.h"
+#include "networkd-xlat.h"
 #include "ordered-set.h"
 #include "set.h"
 #include "socket-util.h"
@@ -261,6 +262,8 @@ static void link_free_engines(Link *link) {
         ndisc_flush(link);
 
         link->radv = sd_radv_unref(link->radv);
+
+        xlat_stop(link);
 }
 
 static Link* link_free(Link *link) {
@@ -423,6 +426,9 @@ int link_stop_engines(Link *link, bool may_keep_dynamic) {
 
                 ndisc_flush(link);
         }
+
+        /* The translation ends with this process, hence its configuration is never kept */
+        xlat_stop(link);
 
         r = sd_dhcp_relay_interface_stop(link->dhcp_relay_interface);
         if (r < 0)
@@ -659,6 +665,8 @@ void link_check_ready(Link *link) {
         }
 
         link_set_state(link, LINK_STATE_CONFIGURED);
+
+        xlat_start(link);
 }
 
 static int link_request_static_configs(Link *link) {
@@ -1168,6 +1176,16 @@ int link_drop_requests(Link *link, NetworkConfigSource source) {
                                 RET_GATHER(ret, route_remove(route, link->manager));
                         break;
                 }
+                case REQUEST_TYPE_ROUTING_POLICY_RULE: {
+                        RoutingPolicyRule *rule = ASSERT_PTR(req->userdata);
+
+                        if (source >= 0 && rule->source != source)
+                                continue;
+
+                        if (remove && routing_policy_rule_get(link->manager, rule, rule->family, /* ret= */ NULL) < 0)
+                                RET_GATHER(ret, routing_policy_rule_remove(rule, link->manager));
+                        break;
+                }
                 default:
                         /* If a source is specified, then ignore all other kinds of requests. */
                         if (source >= 0)
@@ -1189,6 +1207,8 @@ static Link *link_drop(Link *link) {
         bool notify = link_has_local_lease_domain(link);
 
         link_set_state(link, LINK_STATE_LINGER);
+
+        xlat_stop(link);
 
         /* Drop all references from other links and manager. Note that async netlink calls may have
          * references to the link, and they will be dropped when we receive replies. */
@@ -1431,6 +1451,10 @@ static int link_get_network(Link *link, Network **ret) {
         assert(link->manager);
         assert(ret);
 
+        /* The TUN devices of CLAT are configured by CLAT itself */
+        if (xlat_manager_owns_ifindex(link->manager, link->ifindex))
+                return log_link_debug_errno(link, SYNTHETIC_ERRNO(ENOENT), "CLAT device, not matching .network files.");
+
         ORDERED_HASHMAP_FOREACH(network, link->manager->networks) {
                 bool warn = false;
 
@@ -1587,6 +1611,10 @@ int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags) {
 
         /* Then, apply new .network file */
         link->network = network_ref(network);
+
+        /* Stop CLAT, so that the new settings take effect. It is started again once the link is configured. */
+        xlat_stop(link);
+        link->clat_dad_failures = 0;
 
         if (FLAGS_SET(network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC) ||
             !FLAGS_SET(flags, LINK_RECONFIGURE_CLEANLY)) {
@@ -2635,6 +2663,8 @@ static int link_update_mtu(Link *link, sd_netlink_message *message) {
                                link->min_mtu, link->max_mtu);
 
         link->mtu = mtu;
+
+        xlat_mtu_changed(link);
 
         if (IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 /* The kernel resets IPv6 MTU after changing device MTU. So, we need to re-set IPv6 MTU again. */

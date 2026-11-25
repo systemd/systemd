@@ -21,6 +21,7 @@
 #include "networkd-queue.h"
 #include "networkd-route.h"
 #include "networkd-route-util.h"
+#include "networkd-xlat.h"
 #include "ordered-set.h"
 #include "parse-util.h"
 #include "set.h"
@@ -1218,6 +1219,9 @@ static int process_route_one(
                         link_enter_failed(link);
                 }
         }
+
+        /* The remembered route is gone after removal, hence pass the received one then */
+        xlat_route_changed(link, type == RTM_NEWROUTE ? route : tmp, type == RTM_DELROUTE);
 
         return 1;
 }

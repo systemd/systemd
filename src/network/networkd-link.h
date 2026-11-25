@@ -192,6 +192,11 @@ typedef struct Link {
         unsigned ndisc_messages;
         bool ndisc_configured;
 
+        /* CLAT (464XLAT) */
+        Clat *clat;
+        unsigned clat_messages;
+        uint8_t clat_dad_failures;
+
         sd_radv *radv;
 
         sd_dhcp6_client *dhcp6_client;

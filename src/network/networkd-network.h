@@ -377,6 +377,10 @@ typedef struct Network {
         bool ndisc_quickack;
         bool ndisc_use_captive_portal;
         bool ndisc_use_pref64;
+        bool clat;
+        struct in6_addr clat_pref64_prefix;
+        uint8_t clat_pref64_prefix_len;
+        bool clat_drop_udp_zero_checksum;
         bool active_slave;
         bool primary_slave;
         UseDomains ndisc_use_domains;

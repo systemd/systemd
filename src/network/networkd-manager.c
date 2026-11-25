@@ -42,6 +42,7 @@
 #include "networkd-manager-bus.h"
 #include "networkd-manager-varlink.h"
 #include "networkd-neighbor.h"
+#include "networkd-network.h"
 #include "networkd-nexthop.h"
 #include "networkd-queue.h"
 #include "networkd-resolve-hook.h"
@@ -872,6 +873,18 @@ Manager* manager_free(Manager *m) {
         return mfree(m);
 }
 
+static bool manager_has_clat_network(Manager *m) {
+        Network *network;
+
+        assert(m);
+
+        ORDERED_HASHMAP_FOREACH(network, m->networks)
+                if (network->clat)
+                        return true;
+
+        return false;
+}
+
 int manager_start(Manager *m) {
         Link *link;
         int r;
@@ -882,15 +895,21 @@ int manager_start(Manager *m) {
 
         (void) manager_install_sysctl_monitor(m);
 
-        /* Loading BPF programs requires CAP_SYS_ADMIN and CAP_BPF.
-         * Drop the capabilities here, regardless if the load succeeds or not. */
+        /* Loading the sysctl monitor requires CAP_SYS_ADMIN and CAP_BPF. Drop the capabilities here,
+         * regardless if the load succeeds or not. */
         r = drop_capability(CAP_SYS_ADMIN);
         if (r < 0)
                 log_warning_errno(r, "Failed to drop CAP_SYS_ADMIN, ignoring: %m.");
 
-        r = drop_capability(CAP_BPF);
-        if (r < 0)
-                log_warning_errno(r, "Failed to drop CAP_BPF, ignoring: %m.");
+        /* CLAT, if enabled by a .network file, loads its BPF programs later, once a NAT64 prefix is known.
+         * That needs CAP_BPF (and CAP_NET_ADMIN). */
+        if (ENABLE_CLAT_BPF && manager_has_clat_network(m))
+                log_debug("CLAT= is enabled, keeping CAP_BPF for loading its BPF programs later.");
+        else {
+                r = drop_capability(CAP_BPF);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to drop CAP_BPF, ignoring: %m.");
+        }
 
         manager_set_sysctl(m);
 
