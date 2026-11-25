@@ -38,6 +38,79 @@ testcase_list() {
     varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "{\"invocationID\": \"$invocation_id\"}"
 }
 
+check_list_fields_computed() {
+    local unit="${1:?}" preset state live_mount reload
+
+    preset="$(systemctl show -P UnitFilePreset -- "$unit")"
+    state="$(systemctl show -P UnitFileState -- "$unit")"
+    live_mount="$(systemctl show -P CanLiveMount -- "$unit")"
+    reload="$(systemctl show -P NeedDaemonReload -- "$unit")"
+    varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List \
+               "$(jq -cn --arg u "$unit" '{name: $u, fields: ["context.UnitFilePreset", "runtime.UnitFileState", "runtime.CanLiveMount", "runtime.NeedDaemonReload"]}')" |
+        jq -e --arg preset "$preset" --arg state "$state" --arg live_mount "$live_mount" --arg reload "$reload" \
+           '(.context.UnitFilePreset // "") == $preset and (.runtime.UnitFileState // "") == $state and
+            .runtime.CanLiveMount == ($live_mount == "yes") and .runtime.NeedDaemonReload == ($reload == "yes")'
+}
+
+testcase_list_fields() {
+    local m=/run/systemd/io.systemd.Manager
+
+    # Only the fields asked for
+    varlinkctl call "$m" io.systemd.Unit.List '{"name": "multi-user.target", "fields": ["runtime.ActiveState", "runtime.SubState"]}' |
+        jq -e '(keys == ["runtime"]) and (.runtime | keys == ["ActiveState", "SubState"])'
+    varlinkctl call "$m" io.systemd.Unit.List '{"name": "multi-user.target", "fields": ["context.ID", "runtime.LoadState"]}' |
+        jq -e '. == {"context": {"ID": "multi-user.target"}, "runtime": {"LoadState": "loaded"}}'
+    # A whole output parameter
+    varlinkctl call "$m" io.systemd.Unit.List '{"name": "multi-user.target", "fields": ["runtime"]}' |
+        jq -e '(keys == ["runtime"]) and .runtime.LoadState == "loaded"'
+    # A field that is an object is returned whole
+    varlinkctl call "$m" io.systemd.Unit.List '{"pid": {"pid": 1}, "fields": ["runtime.CGroup"]}' |
+        jq -e '(keys == ["runtime"]) and (.runtime | keys == ["CGroup"]) and .runtime.CGroup.Path == "/init.scope"'
+    # A whole output parameter and one of its fields (in either order) is the whole output parameter
+    varlinkctl call "$m" io.systemd.Unit.List '{"name": "multi-user.target", "fields": ["runtime.LoadState", "runtime"]}' |
+        jq -e '.runtime | has("LoadState") and has("ActiveState")'
+    varlinkctl call "$m" io.systemd.Unit.List '{"name": "multi-user.target", "fields": ["runtime", "runtime.LoadState"]}' |
+        jq -e '.runtime | has("LoadState") and has("ActiveState")'
+    varlinkctl call "$m" io.systemd.Unit.List '{"name": "multi-user.target", "fields": ["context.ID", "context"]}' |
+        jq -e '(keys == ["context"]) and (.context | has("ID") and has("Description"))'
+    # Fields the unit doesn't have (another unit type's) are left out
+    varlinkctl call "$m" io.systemd.Unit.List '{"name": "multi-user.target", "fields": ["runtime.Service"]}' |
+        jq -e '. == {}'
+    # Empty or null means everything
+    varlinkctl call "$m" io.systemd.Unit.List '{"name": "multi-user.target", "fields": []}' |
+        jq -e 'has("context") and has("runtime")'
+    varlinkctl call "$m" io.systemd.Unit.List '{"name": "multi-user.target", "fields": null}' |
+        jq -e 'has("context") and has("runtime")'
+    # All units
+    varlinkctl --more call "$m" io.systemd.Unit.List '{"fields": ["context.ID", "runtime.ActiveState"]}' |
+        jq --seq -s -e 'length > 0 and all(.[]; (keys == ["context", "runtime"]) and (.context | keys == ["ID"]) and (.runtime | keys == ["ActiveState"]))'
+
+    # The values that are only computed when asked for match systemctl's, NeedDaemonReload also after
+    # adding a drop-in
+    for unit in systemd-journald.service multi-user.target -.mount; do
+        check_list_fields_computed "$unit"
+    done
+    mkdir -p /run/systemd/system/multi-user.target.d
+    printf '[Unit]\n' >/run/systemd/system/multi-user.target.d/50-varlinkctl-list-fields.conf
+    [[ "$(systemctl show -P NeedDaemonReload multi-user.target)" == "yes" ]]
+    check_list_fields_computed multi-user.target
+    rm /run/systemd/system/multi-user.target.d/50-varlinkctl-list-fields.conf
+    rmdir --ignore-fail-on-non-empty /run/systemd/system/multi-user.target.d
+    systemctl daemon-reload
+
+    # Paths that aren't fields of the reply, or go below a field of context or runtime
+    for field in '' 'name' 'fields' 'contexts' 'runtimeActiveState' '.runtime' 'runtime.' 'runtime..ActiveState' 'runtime.NoSuchField' \
+                 'runtime.ActiveState.Foo' 'runtime.CGroup.Path' 'context.CGroup.IODeviceWeight.Path'; do
+        varlinkctl call --graceful=org.varlink.service.InvalidParameter "$m" io.systemd.Unit.List \
+                   "$(jq -cn --arg f "$field" '{name: "multi-user.target", fields: [$f]}')" |
+            jq -e '.parameter == "fields"'
+    done
+    # Too many
+    varlinkctl call --graceful=org.varlink.service.InvalidParameter "$m" io.systemd.Unit.List \
+               "$(jq -cn '{name: "multi-user.target", fields: [range(257) | "runtime.ActiveState"]}')" |
+        jq -e '.parameter == "fields"'
+}
+
 testcase_set_properties() {
     varlinkctl call --graceful=io.systemd.Unit.NoSuchUnit /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties '{"runtime": true, "name": "non-existent.service", "properties": {"Markers": ["needs-restart"]}}' |& grep "io.systemd.Unit.NoSuchUnit"
 
