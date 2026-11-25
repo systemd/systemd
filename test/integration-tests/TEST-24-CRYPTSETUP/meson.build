@@ -12,6 +12,10 @@ integration_tests += [
                         'luks.name=0d318174-56b0-4d6e-a324-ac1e7e7d235d=test24_varcrypt',
                         'luks.key=0d318174-56b0-4d6e-a324-ac1e7e7d235d=/keyfile:LABEL=varcrypt_keydev',
                         'luks.options=0d318174-56b0-4d6e-a324-ac1e7e7d235d=x-initrd.attach',
+                        # The initrd sets up two ext4 file systems (the root and the key device for
+                        # the encrypted /var) and they race on the kernel's lazy ext4 module load.
+                        # Load it early to avoid a spurious "unknown filesystem type 'ext4'" failure.
+                        'modules-load=ext4',
                 ],
                 'qemu-args' : [
                         '-drive', 'id=keydev,if=none,format=raw,cache=unsafe,file=@0@'.format(meson.project_build_root() / 'mkosi.output/keydev.raw'),
