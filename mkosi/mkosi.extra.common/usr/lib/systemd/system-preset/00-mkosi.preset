@@ -6,8 +6,8 @@ disable sshd.service
 
 # These are started manually in integration tests so don't start them by default.
 disable dnsmasq.service
-disable isc-dhcp-server.service
-disable isc-dhcp-server6.service
+disable kea-dhcp6.service
+disable kea-dhcp6-server.service
 
 # Make sure dbus-broker is started by default on Debian/Ubuntu.
 enable dbus-broker.service
