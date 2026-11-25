@@ -497,6 +497,8 @@ static int link_apply_bearer_impl(Link *link, Bearer *b) {
                         if (r < 0)
                                 return log_link_warning_errno(link, r, "Failed to start DHCPv6 client: %m");
                 } else {
+                        link_dhcp6_addr_reg_flush(link);
+
                         r = sd_dhcp6_client_stop(link->dhcp6_client);
                         if (r < 0)
                                 ret = log_link_warning_errno(link, r, "Could not stop DHCPv6 client: %m");

@@ -400,6 +400,9 @@ int link_stop_engines(Link *link, bool may_keep_dynamic) {
                 (link->manager->state == MANAGER_RESTARTING ||
                  FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC_ON_STOP));
 
+        /* RFC 9686 section 4.4: stop registering addresses only when disconnecting from the link. */
+        link_dhcp6_addr_reg_flush(link);
+
         if (!keep_dynamic) {
                 r = sd_dhcp_client_stop(link->dhcp_client);
                 if (r < 0)
