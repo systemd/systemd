@@ -2,16 +2,20 @@
 
 #include <linux/audit.h>
 #include <linux/filter.h>
+#include <linux/netlink.h>
 #include <linux/seccomp.h>
 #include <signal.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/prctl.h>
 #include <sys/socket.h>
 #include <sys/syscall.h>
+#include <sys/un.h>
 #include <unistd.h>
 
+#include "errno-util.h"
 #include "fuzz-network.h"
 
 #if defined(__x86_64__)
@@ -95,4 +99,27 @@ void fuzz_forbid_network(void) {
 #endif
 
         installed = true;
+}
+
+/* For fuzzers that feed data to code which receives it on a netlink socket: binds the AF_UNIX datagram
+ * socket fd that the data is sent from to an abstract address that the receiver, which reads the address
+ * of the sender as struct sockaddr_nl, sees as the given netlink port ID (0 for the kernel) and multicast
+ * groups. nl_pad overlaps the first two bytes of sun_path and is zero, which makes the address abstract.
+ * What follows nl_groups makes it unique. */
+int fuzz_bind_netlink_address(int fd, uint32_t nl_pid, uint32_t nl_groups) {
+        static unsigned counter = 0;
+        struct {
+                struct sockaddr_nl nl;
+                char unique[sizeof(struct sockaddr_un) - sizeof(struct sockaddr_nl)];
+        } address = {
+                .nl.nl_family = AF_UNIX,
+                .nl.nl_pid = nl_pid,
+                .nl.nl_groups = nl_groups,
+        };
+        int n;
+
+        n = snprintf(address.unique, sizeof(address.unique), "fuzz/%i/%u", (int) getpid(), counter++);
+        assert(n > 0 && (size_t) n < sizeof(address.unique));
+
+        return RET_NERRNO(bind(fd, (const struct sockaddr*) &address, sizeof(address.nl) + n));
 }
