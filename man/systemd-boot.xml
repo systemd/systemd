@@ -513,9 +513,9 @@ extra       /6a9857a393724b7a981ebb5b8495b9ea/1.2.3/debug.addon.efi</programlist
     covers all EFI binaries invoked during boot, including <command>systemd-boot</command> itself), as it
     ensures the PCR state they see does not change whenever <command>systemd-boot</command> is updated.
     If the <literal>options</literal> key is used, the specified options are stored as optional data in the
-    firmware boot option, which the firmware passes to the binary as load options, and only a firmware boot
-    option with matching optional data is reused. If it is not used, any firmware boot option referencing
-    the file is reused regardless of its optional data, except for ones created by
+    firmware boot option, which the firmware passes to the binary as load options, and only an active
+    firmware boot option with matching optional data is reused. If it is not used, any active firmware boot
+    option referencing the file is reused regardless of its optional data, except for ones created by
     <command>systemd-boot</command> itself, which are only reused if they carry no optional data. If
     setting up the firmware boot option fails, the binary is chainloaded directly, as a fallback.</para>
 

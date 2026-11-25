@@ -154,15 +154,14 @@ int context_sign_report(
 
         /* When generating a signed report we switch to JSON-SEQ. We'll put the report as first object in the
          * stream, and then signature objects after it, that cover the precise binary representation of the
-         * first object. We normalize the report JSON first, but this is not load bearing, as the signature
-         * is about the binary representation of the JSON object sent over the wire, not the JSON object
-         * itself. */
+         * first object. Note that the signature is about the binary representation of the JSON object sent
+         * over the wire, not the JSON object itself. */
 
         if (!output)
                 output = stdout;
 
-        /* For the report itself we'll use the normalized, dense formatting, in order to make things as
-         * reproducible as possible. */
+        /* For the report itself we'll use the dense formatting, in order to make things as reproducible as
+         * possible. */
         _cleanup_free_ char *text = NULL;
         r = sd_json_variant_format(report, SD_JSON_FORMAT_SEQ, &text);
         if (r < 0)
