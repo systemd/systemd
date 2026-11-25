@@ -135,7 +135,7 @@ static void pam_bus_data_destroy(pam_handle_t *pamh, void *data, int error_statu
 
         PamBusData *d = data;
         if (d->bus && bus_origin_changed(d->bus))
-                /* Please adjust test/units/end.sh when updating the log message. */
+                /* Please adjust test/units/post.sh when updating the log message. */
                 sym_pam_syslog(pamh, LOG_DEBUG,
                                "Warning: cannot close sd-bus connection (%s) after fork when it was opened before the fork.",
                                strna(d->cache_id));
