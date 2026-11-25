@@ -1,5 +1,24 @@
 systemd System and Service Manager
 
+CHANGES WITH 265 in spe:
+
+        Feature Removals and Incompatible Changes:
+
+        * systemd-sysext and systemd-confext gained a new DirectoryPolicy=
+          setting in sysext.conf/confext.conf, which controls whether plain
+          directory (and btrfs subvolume) extension images are considered.
+          It takes a boolean or the special value "auto", and defaults to
+          the latter. In "auto" mode directory images are only merged if
+          they are located below /usr/ or /var/, if the file system they
+          are located on is backed by dm-crypt or dm-verity storage, or if
+          it is the same file system that backs the root directory, /usr/
+          or /var/. Previously, directory images were merged
+          regardless of where they were located. This means directory
+          images placed on unprotected storage, such as the ESP, or on
+          other file systems (including tmpfs, e.g. directories placed
+          directly in /run/extensions/), are now ignored by default.
+          Set DirectoryPolicy=yes to restore the old behaviour.
+
 CHANGES WITH 263 in spe:
 
         Announcements of Future Feature Removals and Incompatible Changes:

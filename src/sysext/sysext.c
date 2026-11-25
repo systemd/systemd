@@ -13,6 +13,7 @@
 #include "argv-util.h"
 #include "blkid-util.h"
 #include "blockdev-util.h"
+#include "btrfs-util.h"
 #include "build.h"
 #include "bus-common-errors.h"
 #include "bus-locator.h"
@@ -94,6 +95,22 @@ static const char* const mutable_mode_table[_MUTABLE_MAX] = {
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(mutable_mode, MutableMode, MUTABLE_YES);
+
+typedef enum DirectoryPolicy {
+        DIRECTORY_POLICY_NO,   /* never consider directory images */
+        DIRECTORY_POLICY_YES,  /* always consider directory images */
+        DIRECTORY_POLICY_AUTO, /* only consider directory images on protected or OS storage */
+        _DIRECTORY_POLICY_MAX,
+        _DIRECTORY_POLICY_INVALID = -EINVAL,
+} DirectoryPolicy;
+
+static const char* const directory_policy_table[_DIRECTORY_POLICY_MAX] = {
+        [DIRECTORY_POLICY_NO]   = "no",
+        [DIRECTORY_POLICY_YES]  = "yes",
+        [DIRECTORY_POLICY_AUTO] = "auto",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(directory_policy, DirectoryPolicy, DIRECTORY_POLICY_YES);
 
 enum {
         MERGE_NOTHING_FOUND,
@@ -198,6 +215,7 @@ static int parse_mutable_mode(const char *p) {
 }
 
 static DEFINE_CONFIG_PARSE_ENUM(config_parse_mutable_mode, mutable_mode, MutableMode);
+static DEFINE_CONFIG_PARSE_ENUM(config_parse_directory_policy, directory_policy, DirectoryPolicy);
 
 typedef struct Context {
         ImageClass image_class;
@@ -215,13 +233,15 @@ typedef struct Context {
          * context owns it and frees it in context_done(). */
         bool image_policy_owned;
         const char *overlayfs_mount_options;
+        DirectoryPolicy directory_policy;
 } Context;
 
-#define CONTEXT_NULL                            \
-        (Context) {                             \
-                .image_class = IMAGE_SYSEXT,    \
-                .noexec = -1,                   \
-                .mutable = MUTABLE_NO,          \
+#define CONTEXT_NULL                                            \
+        (Context) {                                             \
+                .image_class = IMAGE_SYSEXT,                    \
+                .noexec = -1,                                   \
+                .mutable = MUTABLE_NO,                          \
+                .directory_policy = DIRECTORY_POLICY_AUTO,      \
         }
 
 static void context_done(Context *c) {
@@ -271,6 +291,7 @@ static int parse_config_file(Context *c) {
         const ConfigTableItem items[] = {
                 { section, "Mutable",           config_parse_mutable_mode,      0,      &config_mutable            },
                 { section, "ImagePolicy",       config_parse_image_policy,      0,      &config_image_policy       },
+                { section, "DirectoryPolicy",   config_parse_directory_policy,  0,      &c->directory_policy       },
                 {}
         };
 
@@ -2677,8 +2698,157 @@ static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) 
         return ret;
 }
 
+static int fd_get_superblock_devnum(int fd, dev_t *ret) {
+        struct stat st;
+        int r;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        /* Returns a dev_t identifying the file system the specified fd is located on. Note that btrfs
+         * assigns a separate anonymous st_dev to each subvolume, hence in case of an anonymous st_dev look
+         * for the backing btrfs block device, and only fall back to st_dev for file systems without one
+         * (tmpfs, overlayfs, btrfs RAID, …). */
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        if (major(st.st_dev) == 0) {
+                r = btrfs_get_block_device_fd(fd, ret);
+                if (r > 0)
+                        return 0;
+                if (r < 0 && r != -ENOTTY) /* ENOTTY: not btrfs */
+                        return r;
+        }
+
+        *ret = st.st_dev;
+        return 0;
+}
+
+static void acquire_os_superblocks(const Context *c, dev_t ret[static 4]) {
+        size_t n = 0;
+        int r;
+
+        assert(c);
+        assert(ret);
+
+        /* Determines the file systems backing /, /usr/ and /var/ of the OS tree we operate on. Fills in
+         * the array terminated by a zero dev_t. Note that if /usr/ is currently covered by our own overlayfs
+         * (i.e. on refresh) we'll get the overlayfs' st_dev here, but that's fine, since directory images
+         * below /usr/ are then accessed through the very same overlayfs, and hence report the same
+         * st_dev. */
+
+        FOREACH_STRING(p, "/", "/usr", "/var") {
+                _cleanup_free_ char *j = NULL;
+                _cleanup_close_ int fd = -EBADF;
+
+                /* We do not allow these to be symlinks, hence do not resolve them */
+                j = path_join(strempty(c->root), p);
+                if (!j) {
+                        log_oom_debug();
+                        continue;
+                }
+
+                fd = xopenat(AT_FDCWD, j, O_PATH|O_DIRECTORY|O_NOFOLLOW);
+                if (fd < 0) {
+                        log_full_errno(fd == -ENOENT ? LOG_DEBUG : LOG_WARNING, fd,
+                                       "Failed to open '%s', ignoring: %m", j);
+                        continue;
+                }
+
+                r = fd_get_superblock_devnum(fd, ret + n);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to determine file system of '%s', ignoring: %m", j);
+                        continue;
+                }
+
+                n++;
+        }
+
+        ret[n] = 0;
+}
+
+static bool directory_image_permitted(
+                const Context *c,
+                const Image *img,
+                const dev_t *os_superblocks) {
+
+        _cleanup_free_ char *resolved = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        const char *p;
+        dev_t devnum;
+        int r;
+
+        assert(c);
+        assert(img);
+
+        if (!IN_SET(img->type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME))
+                return true;
+
+        switch (c->directory_policy) {
+
+        case DIRECTORY_POLICY_YES:
+                return true;
+
+        case DIRECTORY_POLICY_NO:
+                log_info("Skipping directory image '%s', as directory images are disabled via DirectoryPolicy=no.", img->path);
+                return false;
+
+        case DIRECTORY_POLICY_AUTO:
+                break;
+
+        default:
+                assert_not_reached();
+        }
+
+        assert(os_superblocks);
+
+        /* In "auto" mode, only consider directory images that are located on storage that is either
+         * authenticated/encrypted (i.e. dm-verity or dm-crypt), or in or on the same file system as the OS
+         * itself (i.e. /, /usr/ or /var/), so that directories placed on unprotected storage such as the
+         * ESP are not merged. */
+
+        r = chase(img->path, c->root, CHASE_MUST_BE_DIRECTORY, &resolved, &fd);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to open directory image '%s', skipping: %m", img->path);
+                return false;
+        }
+
+        /* chase() includes the root directory in the returned path, strip it again */
+        p = empty_or_root(c->root) ? resolved : path_startswith_full(resolved, c->root, PATH_STARTSWITH_RETURN_LEADING_SLASH);
+        if (p && PATH_STARTSWITH_SET(p, "/usr", "/var")) {
+                log_debug("Directory image '%s' is located below /usr/ or /var/, permitting.", resolved);
+                return true;
+        }
+
+        /* Note that fd_is_encrypted() checks for the "CRYPT-" prefix of the DM UUID, which covers both
+         * dm-crypt and dm-verity devices set up via libcryptsetup (the latter use "CRYPT-VERITY-"). */
+        r = fd_is_encrypted(fd);
+        if (r < 0)
+                log_debug_errno(r, "Failed to determine whether directory image '%s' is backed by dm-crypt/dm-verity storage, assuming not: %m", resolved);
+        else if (r > 0) {
+                log_debug("Directory image '%s' is backed by dm-crypt/dm-verity storage, permitting.", resolved);
+                return true;
+        }
+
+        r = fd_get_superblock_devnum(fd, &devnum);
+        if (r < 0)
+                log_debug_errno(r, "Failed to determine file system of directory image '%s', assuming foreign: %m", resolved);
+        else
+                for (const dev_t *d = os_superblocks; *d != 0; d++)
+                        if (*d == devnum) {
+                                log_debug("Directory image '%s' is located on the file system of /, /usr/ or /var/, permitting.", resolved);
+                                return true;
+                        }
+
+        log_notice("Skipping directory image '%s', as it is neither backed by dm-crypt/dm-verity storage nor located on the file system of /, /usr/ or /var/ (see DirectoryPolicy= in %s.conf).",
+                   resolved, image_class_info[c->image_class].short_identifier);
+        return false;
+}
+
 static int image_discover_and_read_metadata(const Context *c, Hashmap **ret_images) {
         _cleanup_hashmap_free_ Hashmap *images = NULL;
+        dev_t os_superblocks[4] = {};
         Image *img;
         int r;
 
@@ -2688,6 +2858,13 @@ static int image_discover_and_read_metadata(const Context *c, Hashmap **ret_imag
         r = image_discover(RUNTIME_SCOPE_SYSTEM, c->image_class, c->root, &images);
         if (r < 0)
                 return log_error_errno(r, "Failed to discover images: %m");
+
+        if (c->directory_policy == DIRECTORY_POLICY_AUTO)
+                acquire_os_superblocks(c, os_superblocks);
+
+        HASHMAP_FOREACH(img, images)
+                if (!directory_image_permitted(c, img, os_superblocks))
+                        image_unref(hashmap_remove(images, img->name));
 
         HASHMAP_FOREACH(img, images) {
                 r = image_read_metadata(img, c->root, image_class_info[c->image_class].default_image_policy, RUNTIME_SCOPE_SYSTEM, DISSECT_IMAGE_TPM2_UNLOCK);
