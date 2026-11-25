@@ -415,7 +415,7 @@ node /org/freedesktop/resolve1 {
 
       <para>The <function>SetLinkDNSOverTLS()</function> method enables or disables DNS-over-TLS.
       C.f. <varname>DNSOverTLS=</varname> in
-      <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
       for details.</para>
 
       <para>Network management software integrating with <filename>systemd-resolved</filename> should call
@@ -662,8 +662,8 @@ node /org/freedesktop/resolve1 {
       DNSSEC is supported by DNS servers until it verifies that this is not the case. Thus, the reported
       value may initially be true, until the first transactions are executed.</para>
 
-      <para>The <varname>DNSOverTLS</varname> boolean property reports whether DNS-over-TLS is enabled.
-      </para>
+      <para>The <varname>DNSOverTLS</varname> string property reports the configured DNS-over-TLS mode.
+      It is one of <literal>yes</literal>, <literal>no</literal>, or <literal>opportunistic</literal>.</para>
 
       <para>The <varname>ResolvConfMode</varname> property exposes how <filename>/etc/resolv.conf</filename>
       is managed on the host. Currently, the values <literal>uplink</literal>, <literal>stub</literal>,
