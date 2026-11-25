@@ -1897,6 +1897,16 @@ static int dns_packet_append_zone(DnsPacket *p, DnsTransaction *t, DnsResourceKe
         return dns_packet_append_answer(p, answer, nscount);
 }
 
+static bool mdns_transaction_allows_known_answers(DnsTransaction *t) {
+        assert(t);
+
+        /* Responders do not repeat records listed as known answers (RFC 6762, Section 7.1). A query that
+         * bypasses the cache would then time out, as it cannot use the cached records. Continuous queries
+         * of a service browser are the exception: the browser reports services from the cache. */
+        return !FLAGS_SET(t->query_flags, SD_RESOLVED_NO_CACHE) ||
+                FLAGS_SET(t->query_flags, SD_RESOLVED_QUERY_CONTINUOUS);
+}
+
 static int mdns_make_dummy_packet(DnsTransaction *t, DnsPacket **ret_packet, Set **ret_keys) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         _cleanup_set_free_ Set *keys = NULL;
@@ -1923,6 +1933,8 @@ static int mdns_make_dummy_packet(DnsTransaction *t, DnsPacket **ret_packet, Set
 
         if (dns_key_is_shared(dns_transaction_key(t)))
                 add_known_answers = true;
+
+        bool known_answers_allowed = mdns_transaction_allows_known_answers(t);
 
         r = dns_packet_append_zone(p, t, dns_transaction_key(t), /* nscount= */ NULL);
         if (r < 0)
@@ -1987,12 +1999,18 @@ static int mdns_make_dummy_packet(DnsTransaction *t, DnsPacket **ret_packet, Set
                 if (dns_key_is_shared(dns_transaction_key(other)))
                         add_known_answers = true;
 
+                /* The known answers are not tied to a question, hence omit them for every question. */
+                if (!mdns_transaction_allows_known_answers(other))
+                        known_answers_allowed = false;
+
                 qdcount++;
                 if (qdcount >= UINT16_MAX)
                         break;
         }
 
         DNS_PACKET_HEADER(p)->qdcount = htobe16(qdcount);
+
+        add_known_answers = add_known_answers && known_answers_allowed;
 
         /* Append known answers section if we're asking for any shared record */
         if (add_known_answers) {
