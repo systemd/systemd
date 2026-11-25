@@ -248,18 +248,14 @@
         the certificate is checked against the server's IP.
         If the DNS server does not support DNS-over-TLS all DNS requests will fail.</para>
 
-        <para>When set to <literal>opportunistic</literal>
-        DNS request are attempted to send encrypted with DNS-over-TLS.
-        If the DNS server does not support TLS, DNS-over-TLS is disabled.
-        Note that this mode makes DNS-over-TLS vulnerable to "downgrade"
-        attacks, where an attacker might be able to trigger a downgrade
-        to non-encrypted mode by synthesizing a response that suggests
-        DNS-over-TLS was not supported. If set to false, DNS lookups
-        are send over UDP.</para>
+        <para>When set to <literal>opportunistic</literal>, DNS requests are sent encrypted with DNS-over-TLS
+        when possible. If the DNS server does not support TLS, DNS-over-TLS is disabled. Note that this mode
+        makes DNS-over-TLS vulnerable to "downgrade" attacks, where an attacker might be able to trigger
+        a downgrade to non-encrypted mode by synthesizing a response that suggests DNS-over-TLS was not
+        supported. If set to false, DNS lookups are sent unencrypted.</para>
 
-        <para>Note that DNS-over-TLS requires additional data to be
-        send for setting up an encrypted connection, and thus results
-        in a small DNS look-up time penalty.</para>
+        <para>Note that DNS-over-TLS requires additional data to be sent for setting up an encrypted
+        connection, and thus results in a small DNS look-up time penalty.</para>
 
         <para>Note that in <literal>opportunistic</literal> mode the
         resolver is not capable of authenticating the server, so it is
@@ -293,9 +289,9 @@
 
       <varlistentry>
         <term><varname>CacheFromLocalhost=</varname></term>
-        <listitem><para>Takes a boolean as argument. If <literal>no</literal> (the default), and response cames from
-        host-local IP address (such as 127.0.0.1 or ::1), the result would not be cached in order to avoid
-        potential duplicate local caching.</para>
+        <listitem><para>Takes a boolean argument. If set to <literal>no</literal> (the default) and a
+        response comes from a host-local IP address (such as 127.0.0.1 or ::1), the result will not be cached
+        in order to avoid potential duplicate local caching.</para>
 
         <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
@@ -361,15 +357,15 @@
       <varlistentry>
         <term><varname>DNSStubListenerExtra=</varname></term>
         <listitem><para>Takes an IPv4 or IPv6 address to listen on. The address may be optionally
-        prefixed with a protocol name (<literal>udp</literal> or <literal>tcp</literal>) separated with
-        <literal>:</literal>. If the protocol is not specified, the service will listen on both UDP and
-        TCP. It may be also optionally suffixed by a numeric port number with separator
-        <literal>:</literal>. When an IPv6 address is specified with a port number, then the address
-        must be in the square brackets. If the port is not specified, then the service uses port 53.
-        Note that this is independent of the primary DNS stub configured with
-        <varname>DNSStubListener=</varname>, and only configures <emphasis>additional</emphasis>
-        sockets to listen on. This option can be specified multiple times. If an empty string is
-        assigned, then the all previous assignments are cleared. Defaults to unset.</para>
+        prefixed with a protocol name (<literal>udp</literal> or <literal>tcp</literal>) separated
+        with <literal>:</literal>. If the protocol is not specified, the service will listen on
+        both UDP and TCP. It may be also optionally suffixed by a numeric port number with separator
+        <literal>:</literal>. When an IPv6 address is specified with a port number, then the address must
+        be in the square brackets. If the port is not specified, then the service uses port 53. Note that
+        this is independent of the primary DNS stub configured with <varname>DNSStubListener=</varname>, and
+        only configures <emphasis>additional</emphasis> sockets to listen on. This option can be specified
+        multiple times. If an empty string is assigned, then all previous assignments are cleared. Defaults
+        to unset.</para>
 
         <para>Examples:
         <programlisting>DNSStubListenerExtra=192.168.10.10
