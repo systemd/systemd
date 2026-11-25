@@ -20,6 +20,7 @@
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "fs-util.h"
 #include "format-util.h"
 #include "hashmap.h"
@@ -251,6 +252,19 @@ static bool policy_requires_signature(const ImagePolicy *policy, const VeritySet
 
         f = image_policy_get_exhaustively(policy, verity->designator >= 0 ? verity->designator : PARTITION_ROOT);
         return f >= 0 && !FLAGS_SET(f, PARTITION_POLICY_VERITY);
+}
+
+static bool dm_verity_require_signatures(void) {
+        int r;
+
+        r = read_boolean_file("/sys/module/dm_verity/parameters/require_signatures");
+        if (r < 0) {
+                if (r != -ENOENT)
+                        log_warning_errno(r, "Failed to read dm_verity.require_signatures kernel module parameter, assuming it is off: %m");
+                return false;
+        }
+
+        return r > 0;
 }
 
 static int determine_image_policy(
@@ -675,10 +689,13 @@ static int vl_method_mount_image(
                          * change the policy. We intersect the policy for trusted images with the client's
                          * policy. If the client's policy requires a signature that no trusted key validates,
                          * the policy for trusted images refuses the image too. A polkit prompt then can't
-                         * change the result. */
+                         * change the result. The same holds with dm_verity.require_signatures=1: the kernel
+                         * then refuses a Verity volume without a signature that one of its keyrings
+                         * validates, and no image policy allows that. */
                         if (!use_trusted_policy &&
                             !(key_not_found &&
-                              (policy_requires_signature(p.image_policy, &verity) ||
+                              (dm_verity_require_signatures() ||
+                               policy_requires_signature(p.image_policy, &verity) ||
                                (p.pin_image_policy && policy_requires_signature(pinned_policy, &verity))))) {
                                 log_debug("%s. Trying a stronger polkit authentication before continuing.",
                                           key_not_found ? "Missing verity key in kernel and userspace" : "Denied by image policy");
