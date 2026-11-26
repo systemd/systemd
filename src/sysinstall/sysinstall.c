@@ -51,6 +51,20 @@
 #include "varlink-util.h"
 #include "verbs.h"
 
+typedef enum CredentialsMode {
+        CREDENTIALS_MODE_LOCAL,   /* Encrypt credentials, locked to the local TPM if available */
+        CREDENTIALS_MODE_TOFU,    /* Wrap credentials in unsigned addons, trusted on first use by systemd-stub */
+        _CREDENTIALS_MODE_MAX,
+        _CREDENTIALS_MODE_INVALID = -EINVAL,
+} CredentialsMode;
+
+static const char *credentials_mode_table[_CREDENTIALS_MODE_MAX] = {
+        [CREDENTIALS_MODE_LOCAL] = "local",
+        [CREDENTIALS_MODE_TOFU]  = "tofu",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(credentials_mode, CredentialsMode);
+
 static char *arg_node = NULL;
 static bool arg_device_auto = false;
 static usec_t arg_device_auto_timeout = 30 * USEC_PER_SEC;
@@ -63,6 +77,7 @@ static char *arg_kernel_image = NULL;
 static bool arg_reboot = false;
 static int arg_touch_variables = -1;  /* tri-state */
 static MachineCredentialContext arg_credentials = {};
+static CredentialsMode arg_credentials_mode = CREDENTIALS_MODE_LOCAL;
 static bool arg_copy_locale = true;
 static bool arg_copy_keymap = true;
 static bool arg_copy_timezone = true;
@@ -84,6 +99,7 @@ COMMAND(
 
 typedef enum ProgressPhase {
         PROGRESS_ENCRYPT_CREDENTIALS,
+        PROGRESS_MAKE_CREDENTIAL_ADDONS,
         PROGRESS_INSTALL_PARTITIONS,
         PROGRESS_MOUNT_PARTITIONS,
         PROGRESS_INSTALL_KERNEL,
@@ -94,23 +110,25 @@ typedef enum ProgressPhase {
 } ProgressPhase;
 
 static const char *progress_phase_table[_PROGRESS_PHASE_MAX] = {
-        [PROGRESS_ENCRYPT_CREDENTIALS] = "encrypt-credentials",
-        [PROGRESS_INSTALL_PARTITIONS]  = "install-partitions",
-        [PROGRESS_MOUNT_PARTITIONS]    = "mount-partitions",
-        [PROGRESS_INSTALL_KERNEL]      = "install-kernel",
-        [PROGRESS_INSTALL_BOOTLOADER]  = "install-bootloader",
-        [PROGRESS_UNMOUNT_PARTITIONS]  = "unmount-partitions",
+        [PROGRESS_ENCRYPT_CREDENTIALS]    = "encrypt-credentials",
+        [PROGRESS_MAKE_CREDENTIAL_ADDONS] = "make-credential-addons",
+        [PROGRESS_INSTALL_PARTITIONS]     = "install-partitions",
+        [PROGRESS_MOUNT_PARTITIONS]       = "mount-partitions",
+        [PROGRESS_INSTALL_KERNEL]         = "install-kernel",
+        [PROGRESS_INSTALL_BOOTLOADER]     = "install-bootloader",
+        [PROGRESS_UNMOUNT_PARTITIONS]     = "unmount-partitions",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(progress_phase, ProgressPhase);
 
 static const char *progress_phase_log_table[_PROGRESS_PHASE_MAX] = {
-        [PROGRESS_ENCRYPT_CREDENTIALS] = "Encrypting credentials...",
-        [PROGRESS_INSTALL_PARTITIONS]  = "Installing partitions...",
-        [PROGRESS_MOUNT_PARTITIONS]    = "Mounting partitions...",
-        [PROGRESS_INSTALL_KERNEL]      = "Installing kernel...",
-        [PROGRESS_INSTALL_BOOTLOADER]  = "Installing boot loader...",
-        [PROGRESS_UNMOUNT_PARTITIONS]  = "Unmounting partitions...",
+        [PROGRESS_ENCRYPT_CREDENTIALS]    = "Encrypting credentials...",
+        [PROGRESS_MAKE_CREDENTIAL_ADDONS] = "Generating credential addons...",
+        [PROGRESS_INSTALL_PARTITIONS]     = "Installing partitions...",
+        [PROGRESS_MOUNT_PARTITIONS]       = "Mounting partitions...",
+        [PROGRESS_INSTALL_KERNEL]         = "Installing kernel...",
+        [PROGRESS_INSTALL_BOOTLOADER]     = "Installing boot loader...",
+        [PROGRESS_UNMOUNT_PARTITIONS]     = "Unmounting partitions...",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(progress_phase_log, ProgressPhase);
@@ -138,6 +156,7 @@ typedef struct SysInstallContext {
         bool copy_keymap;
         bool copy_timezone;
         MachineCredentialContext credentials;
+        CredentialsMode credentials_mode;
         char **definitions;
         bool erase;
         char *node;
@@ -260,6 +279,15 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
+                        break;
+
+                OPTION_LONG("credentials-mode", "MODE", "How to protect credentials installed to the target system (local, tofu)"):
+                        if (streq(opts.arg, "help"))
+                                return DUMP_STRING_TABLE(credentials_mode, CredentialsMode, _CREDENTIALS_MODE_MAX);
+
+                        arg_credentials_mode = credentials_mode_from_string(opts.arg);
+                        if (arg_credentials_mode < 0)
+                                return log_error_errno(arg_credentials_mode, "Failed to parse --credentials-mode= parameter: %s", opts.arg);
                         break;
 
                 OPTION_LONG("copy-locale", "no", "Don't copy current locale to target system"):
@@ -1234,7 +1262,7 @@ static int invoke_bootctl_link(
                 int root_fd,
                 const char *kernel_filename,
                 int kernel_fd,
-                char **encrypted_credentials) {
+                sd_json_variant *extra_files) {
         int r;
 
         assert(link);
@@ -1246,20 +1274,6 @@ static int invoke_bootctl_link(
         r = connect_to_bootctl(link);
         if (r < 0)
                 return r;
-
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
-        STRV_FOREACH_PAIR(name, value, encrypted_credentials) {
-                _cleanup_free_ char *j = strjoin(*name, ".cred");
-                if (!j)
-                        return log_oom();
-
-                r = sd_json_variant_append_arraybo(
-                                &array,
-                                SD_JSON_BUILD_PAIR_STRING("filename", j),
-                                SD_JSON_BUILD_PAIR_BASE64("data", *value, strlen(*value)));
-                if (r < 0)
-                        return log_error_errno(r, "Failed to append credential to message: %m");
-        }
 
         int root_fd_idx = sd_varlink_push_dup_fd(*link, root_fd);
         if (root_fd_idx < 0)
@@ -1279,7 +1293,7 @@ static int invoke_bootctl_link(
                         SD_JSON_BUILD_PAIR_STRING("rootDirectory", root_dir),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("kernelFilename", kernel_filename),
                         SD_JSON_BUILD_PAIR_INTEGER("kernelFileDescriptor", kernel_fd_idx),
-                        SD_JSON_BUILD_PAIR_CONDITION(!!array, "extraFiles", SD_JSON_BUILD_VARIANT(array)));
+                        SD_JSON_BUILD_PAIR_CONDITION(!!extra_files, "extraFiles", SD_JSON_BUILD_VARIANT(extra_files)));
         if (r < 0)
                 return r;
 
@@ -1433,12 +1447,12 @@ static int connect_to_creds(sd_varlink **link) {
         return 1;
 }
 
-static int encrypt_one_credential(sd_varlink **link, const MachineCredential *input, char ***encrypted) {
+static int encrypt_one_credential(sd_varlink **link, const MachineCredential *input, sd_json_variant **extra_files) {
         int r;
 
         assert(link);
         assert(input);
-        assert(encrypted);
+        assert(extra_files);
 
         log_info("Encrypting credential '%s'...", input->id);
 
@@ -1471,21 +1485,106 @@ static int encrypt_one_credential(sd_varlink **link, const MachineCredential *in
         if (r < 0)
                 return r;
 
-        r = strv_extend_many(encrypted, input->id, blob);
+        _cleanup_free_ char *filename = strjoin(input->id, ".cred");
+        if (!filename)
+                return log_oom();
+
+        /* The encrypted credential is stored in its Base64 serialization, which systemd-creds accepts too */
+        r = sd_json_variant_append_arraybo(
+                        extra_files,
+                        SD_JSON_BUILD_PAIR_STRING("filename", filename),
+                        SD_JSON_BUILD_PAIR_BASE64("data", blob, strlen(blob)));
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to append credential to message: %m");
 
         return 0;
 }
 
-static int encrypt_credentials(sd_varlink **link, MachineCredentialContext *credentials, char ***encrypted) {
+static int make_one_credential_addon(sd_varlink **link, const MachineCredential *input, sd_json_variant **extra_files) {
         int r;
 
         assert(link);
-        assert(encrypted);
+        assert(input);
+        assert(extra_files);
+
+        log_info("Wrapping credential '%s' in addon...", input->id);
+
+        r = connect_to_creds(link);
+        if (r < 0)
+                return r;
+
+        sd_json_variant *reply = NULL;
+        const char *error_id = NULL;
+        r = sd_varlink_callbo(
+                        *link,
+                        "io.systemd.Credentials.MakeAddon",
+                        &reply,
+                        &error_id,
+                        SD_JSON_BUILD_PAIR_STRING("name", input->id),
+                        SD_JSON_BUILD_PAIR_BASE64("data", input->data, input->size));
+        if (r < 0)
+                return log_error_errno(r, "Failed to issue io.systemd.Credentials.MakeAddon() varlink call: %m");
+        if (streq_ptr(error_id, "io.systemd.Credentials.NoAddonStub"))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "systemd-stub addon stub not installed, cannot generate credential addons.");
+        if (error_id) {
+                r = sd_varlink_error_to_errno(error_id, reply); /* If this is a system errno style error, output it with %m */
+                if (r != -EBADR)
+                        return log_error_errno(r, "Failed to generate addon for credential '%s': %m", input->id);
+
+                return log_error_errno(r, "Failed to generate addon for credential '%s': %s", input->id, error_id);
+        }
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "blob", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, SD_JSON_MANDATORY },
+                {}
+        };
+
+        const char *blob = NULL;
+        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &blob);
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ char *filename = strjoin(input->id, ".addon.efi");
+        if (!filename)
+                return log_oom();
+
+        /* The blob is the Base64 encoded addon PE binary already, which is what bootctl expects in 'data' */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *entry = NULL;
+        r = sd_json_buildo(
+                        &entry,
+                        SD_JSON_BUILD_PAIR_STRING("filename", filename),
+                        SD_JSON_BUILD_PAIR_STRING("data", blob));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build credential addon object: %m");
+
+        /* The addon carries the credential in plaintext. (This propagates to the array we add it to.) */
+        sd_json_variant_sensitive(entry);
+
+        r = sd_json_variant_append_array(extra_files, entry);
+        if (r < 0)
+                return log_error_errno(r, "Failed to append credential addon to message: %m");
+
+        return 0;
+}
+
+static int prepare_credentials(
+                sd_varlink **link,
+                const MachineCredentialContext *credentials,
+                CredentialsMode mode,
+                sd_json_variant **extra_files) {
+
+        int r;
+
+        assert(link);
+        assert(credentials);
+        assert(mode >= 0 && mode < _CREDENTIALS_MODE_MAX);
+        assert(extra_files);
 
         FOREACH_ARRAY(cred, credentials->credentials, credentials->n_credentials) {
-                r = encrypt_one_credential(link, cred, encrypted);
+                if (mode == CREDENTIALS_MODE_TOFU)
+                        r = make_one_credential_addon(link, cred, extra_files);
+                else
+                        r = encrypt_one_credential(link, cred, extra_files);
                 if (r < 0)
                         return r;
         }
@@ -1591,11 +1690,15 @@ static int sysinstall_context_run(SysInstallContext *context) {
 
         assert(context);
 
-        (void) sysinstall_context_notify(context, PROGRESS_ENCRYPT_CREDENTIALS, /* object= */ NULL, UINT_MAX);
+        (void) sysinstall_context_notify(
+                        context,
+                        context->credentials_mode == CREDENTIALS_MODE_TOFU ? PROGRESS_MAKE_CREDENTIAL_ADDONS : PROGRESS_ENCRYPT_CREDENTIALS,
+                        /* object= */ NULL,
+                        UINT_MAX);
 
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *creds_link = NULL;
-        _cleanup_strv_free_ char **encrypted_credentials = NULL;
-        r = encrypt_credentials(&creds_link, &context->credentials, &encrypted_credentials);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *extra_files = NULL;
+        r = prepare_credentials(&creds_link, &context->credentials, context->credentials_mode, &extra_files);
         if (r < 0)
                 return r;
 
@@ -1635,7 +1738,7 @@ static int sysinstall_context_run(SysInstallContext *context) {
         (void) sysinstall_context_notify(context, PROGRESS_INSTALL_KERNEL, /* object= */ NULL, UINT_MAX);
 
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *bootctl_link = NULL;
-        r = invoke_bootctl_link(&bootctl_link, root_dir, root_fd, context->kernel_filename, context->kernel_fd, encrypted_credentials);
+        r = invoke_bootctl_link(&bootctl_link, root_dir, root_fd, context->kernel_filename, context->kernel_fd, extra_files);
         if (r < 0)
                 return r;
 
@@ -1937,6 +2040,7 @@ typedef struct RunParameters {
         bool copy_keymap;
         bool copy_timezone;
         sd_json_variant *credentials;
+        CredentialsMode credentials_mode;
 } RunParameters;
 
 static void run_parameters_done(RunParameters *p) {
@@ -1987,6 +2091,8 @@ static int credentials_from_json_array(MachineCredentialContext *credentials, sd
         return 0;
 }
 
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_credentials_mode, CredentialsMode, credentials_mode_from_string);
+
 static int vl_method_run(
                 sd_varlink *link,
                 sd_json_variant *parameters,
@@ -2002,7 +2108,8 @@ static int vl_method_run(
                 { "copyLocale",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(RunParameters, copy_locale),   SD_JSON_NULLABLE                   },
                 { "copyKeymap",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(RunParameters, copy_keymap),   SD_JSON_NULLABLE                   },
                 { "copyTimezone",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(RunParameters, copy_timezone), SD_JSON_NULLABLE                   },
-                { "credentials",     SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_variant, offsetof(RunParameters, credentials),   SD_JSON_NULLABLE                   },
+                { "credentials",     SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_variant,       offsetof(RunParameters, credentials),      SD_JSON_NULLABLE                   },
+                { "credentialsMode", SD_JSON_VARIANT_STRING,  json_dispatch_credentials_mode, offsetof(RunParameters, credentials_mode), SD_JSON_NULLABLE                   },
                 {}
         };
 
@@ -2022,7 +2129,9 @@ static int vl_method_run(
         if (r <= 0)
                 return r;
 
-        _cleanup_(run_parameters_done) RunParameters p = {};
+        _cleanup_(run_parameters_done) RunParameters p = {
+                .credentials_mode = CREDENTIALS_MODE_LOCAL,
+        };
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
@@ -2031,6 +2140,7 @@ static int vl_method_run(
                 .copy_locale = p.copy_locale,
                 .copy_keymap = p.copy_keymap,
                 .copy_timezone = p.copy_timezone,
+                .credentials_mode = p.credentials_mode < 0 ? CREDENTIALS_MODE_LOCAL : p.credentials_mode,
                 .erase = p.erase,
                 .touch_variables = p.variables,
                 .node = TAKE_PTR(p.node),
@@ -2129,6 +2239,7 @@ static int run(int argc, char *argv[]) {
                 .copy_keymap = arg_copy_keymap,
                 .copy_timezone = arg_copy_timezone,
                 .credentials = TAKE_STRUCT(arg_credentials),
+                .credentials_mode = arg_credentials_mode,
                 .kernel_fd = -EBADF,
         };
 

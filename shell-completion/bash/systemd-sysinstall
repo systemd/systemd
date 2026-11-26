@@ -48,7 +48,8 @@ _systemd_sysinstall() {
                --definitions
                --kernel
                --set-credential
-               --load-credential'
+               --load-credential
+               --credentials-mode'
     )
 
     _init_completion || return
@@ -60,6 +61,9 @@ _systemd_sysinstall() {
                 ;;
             --erase|--variables)
                 comps='yes no auto'
+                ;;
+            --credentials-mode)
+                comps='local tofu'
                 ;;
             --definitions)
                 comps=$(compgen -A directory -- "$cur")
