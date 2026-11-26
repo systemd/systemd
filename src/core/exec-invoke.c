@@ -6756,6 +6756,7 @@ int exec_invoke(
         uint64_t capability_ambient_set = context->capability_ambient_set;
 #if HAVE_PAM
         pam_handle_t *pam_handle = NULL;
+        bool pam_keep_caps = false;
 #endif
 
         /* Check CAP_SYS_ADMIN before we enter user namespace to see if we can mount /proc even though its masked. */
@@ -7182,6 +7183,21 @@ int exec_invoke(
 
                 bset = context->capability_bounding_set;
 
+#if HAVE_PAM
+                /* pam_cap with "defer" needs the permitted set to survive until pam_end(). Check before
+                 * seccomp also enables KEEP_CAPS, so we can tell whether it was already set on entry. */
+                if (pam_handle && uid_is_valid(uid) && uid != 0 && getuid() == 0) {
+                        int bits = prctl_safe(PR_GET_SECUREBITS, 0, 0, 0, 0);
+                        if (bits >= 0 && (bits & (SECBIT_KEEP_CAPS|SECBIT_NO_SETUID_FIXUP)) == 0) {
+                                r = prctl_safe(PR_SET_KEEPCAPS, 1, 0, 0, 0);
+                                if (r < 0)
+                                        log_debug_errno(r, "Failed to enable keep capabilities flag for PAM, ignoring: %m");
+                                else
+                                        pam_keep_caps = true;
+                        }
+                }
+#endif
+
 #if HAVE_SECCOMP
                 /* If the service has any form of a seccomp filter and it allows dropping privileges, we'll
                  * keep the needed privileges to apply it even if we're not root. */
@@ -7240,25 +7256,6 @@ int exec_invoke(
 
         if (needs_setuid) {
                 if (uid_is_valid(uid)) {
-#if HAVE_PAM
-                        bool pam_keep_caps = false;
-
-                        /* If we have a PAM session, the modules might want to set capabilities in pam_end(),
-                         * which we call after the UID change, see below. This is only possible if the
-                         * permitted set survives the UID change. (pam_cap with the "defer" option doesn't
-                         * enable keep-caps on its own, but expects this from the application.) If the UID
-                         * doesn't actually change there's nothing to preserve. Use PR_SET_KEEPCAPS here
-                         * rather than the secure bits, since it requires no privileges, and don't fail if
-                         * this doesn't work, as most PAM modules don't care. */
-                        if (pam_handle && uid != getuid() && prctl_safe(PR_GET_KEEPCAPS, 0, 0, 0, 0) == 0) {
-                                r = prctl_safe(PR_SET_KEEPCAPS, 1, 0, 0, 0);
-                                if (r < 0)
-                                        log_debug_errno(r, "Failed to enable keep capabilities flag for PAM, ignoring: %m");
-                                else
-                                        pam_keep_caps = true;
-                        }
-#endif
-
                         r = enforce_user(context, uid, capability_ambient_set);
                         if (r < 0) {
                                 *exit_status = EXIT_USER;
@@ -7276,7 +7273,7 @@ int exec_invoke(
 
                         /* If we turned on the keep capabilities flag for PAM, turn it off again, it has
                          * served its purpose. The secure bits are brought into their final state below. */
-                        if (pam_keep_caps) {
+                        if (pam_keep_caps && !keep_seccomp_privileges) {
                                 r = prctl_safe(PR_SET_KEEPCAPS, 0, 0, 0, 0);
                                 if (r < 0)
                                         log_debug_errno(r, "Failed to disable keep capabilities flag, ignoring: %m");
@@ -7396,6 +7393,25 @@ int exec_invoke(
                                 return log_error_errno(r, "Failed to set process secure bits: %m");
                         }
                 }
+
+#if HAVE_PAM
+                /* Don't change what enforce_user() would have retained for AmbientCapabilities= or
+                 * SecureBits= without PAM, or undo keep-caps policy inherited from the manager. Ambient
+                 * capabilities supplied by PAM itself are accounted for by capability_drop_to_ambient(). */
+                const bool drop_pam_caps = pam_keep_caps &&
+                        context->capability_ambient_set == 0 && context->secure_bits == 0 &&
+                        (MAX(inherited_secure_bits, 0) & (SECBIT_KEEP_CAPS|SECBIT_NO_SETUID_FIXUP)) == 0;
+
+                /* NoNewPrivileges= uses the old permitted set as the ceiling for file capabilities.
+                 * Drop the excess before filters can deny capset(), unless we still need it for seccomp. */
+                if (drop_pam_caps && !keep_seccomp_privileges) {
+                        r = capability_drop_to_ambient();
+                        if (r < 0) {
+                                *exit_status = EXIT_CAPABILITIES;
+                                return log_error_errno(r, "Failed to drop capabilities retained for PAM: %m");
+                        }
+                }
+#endif
 
                 if (context_has_no_new_privileges(context)) {
                         r = proc_set_nnp();
@@ -7564,6 +7580,18 @@ int exec_invoke(
                                 *exit_status = EXIT_USER;
                                 return log_error_errno(r, "Failed to drop keep capabilities flag: %m");
                         }
+
+#if HAVE_PAM
+                        /* The bounding set is now restored, and seccomp_allows_drop_privileges() ensured
+                         * that this filter allows us to drop the remaining capabilities. */
+                        if (drop_pam_caps) {
+                                r = capability_drop_to_ambient();
+                                if (r < 0) {
+                                        *exit_status = EXIT_CAPABILITIES;
+                                        return log_error_errno(r, "Failed to drop capabilities retained for PAM: %m");
+                                }
+                        }
+#endif
                 }
 #endif
         }
