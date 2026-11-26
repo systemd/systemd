@@ -9,8 +9,8 @@
 #	The latest version can be obtained from
 #		http://www.linux-usb.org/usb.ids
 #
-# Version: 2026.06.26
-# Date:    2026-06-26 20:34:02
+# Version: 2026.11.25
+# Date:    2026-11-25 20:34:02
 #
 
 # Vendors, devices and interfaces. Please keep sorted.
@@ -20985,10 +20985,13 @@
 1de6  MICRORISC s.r.o.
 1df7  SDRplay
 	2500  RSP1
-	3000  RSP1a
+	3000  RSP1A
 	3010  RSP2/RSP2pro
 	3020  RSPduo
 	3030  RSPdx
+	3040  nRSP-ST
+	3050  RSP1B
+	3060  RSPdxR2
 1e0e  Qualcomm / Option
 	f000  iCON 210 UMTS Surfstick
 1e10  Point Grey Research, Inc.
