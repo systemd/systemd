@@ -1955,6 +1955,12 @@ static int unmerge(const Context *c) {
         return 0;
 }
 
+static bool image_type_supported(ImageType t) {
+        /* The image types we know how to merge into a hierarchy. Others (i.e. .mstack/ directories) are
+         * found by image_discover() too, but are skipped. */
+        return IN_SET(t, IMAGE_DIRECTORY, IMAGE_SUBVOLUME, IMAGE_RAW, IMAGE_BLOCK);
+}
+
 static int merge_subprocess(
                 const Context *c,
                 Hashmap *images,
@@ -2023,6 +2029,13 @@ static int merge_subprocess(
         HASHMAP_FOREACH(img, images) {
                 _cleanup_free_ char *p = NULL, *path_without_root = NULL;
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *verity_hash = NULL;
+
+                if (!image_type_supported(img->type)) {
+                        log_warning("Image '%s' is of type '%s', which is not supported for %s images, ignoring.",
+                                    img->path, image_type_to_string(img->type), image_class_info[c->image_class].short_identifier);
+                        n_ignored++;
+                        continue;
+                }
 
                 p = path_join(workspace, image_class_info[c->image_class].short_identifier_plural, img->name);
                 if (!p)
@@ -2686,6 +2699,9 @@ static int image_discover_and_read_metadata(const Context *c, Hashmap **ret_imag
                 return log_error_errno(r, "Failed to discover images: %m");
 
         HASHMAP_FOREACH(img, images) {
+                if (!image_type_supported(img->type))
+                        continue; /* Skipped with a warning in merge_subprocess() */
+
                 r = image_read_metadata(img, c->root, image_class_info[c->image_class].default_image_policy, RUNTIME_SCOPE_SYSTEM, DISSECT_IMAGE_TPM2_UNLOCK);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read metadata for image %s: %m", img->name);

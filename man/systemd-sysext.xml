@@ -107,6 +107,11 @@
     are unlocked via the local TPM2 automatically, without any passphrase. This may be turned off via the
     <varname>$SYSTEMD_DISSECT_TPM2_UNLOCK</varname> environment variable.</para>
 
+    <para>Note that <filename>.mstack/</filename> directories (see
+    <citerefentry><refentrytitle>systemd.mstack</refentrytitle><manvolnum>7</manvolnum></citerefentry>)
+    are not supported as system or configuration extension images. If found in the search directories
+    listed below, they are ignored with a warning when merging.</para>
+
     <para>System extensions are searched for in the directories
     <filename>/etc/extensions/</filename>, <filename>/run/extensions/</filename> and
     <filename>/var/lib/extensions/</filename>. The first two listed directories are not suitable for
