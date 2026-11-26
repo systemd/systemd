@@ -2142,6 +2142,221 @@ fi
 )
 
 ( init_trap
+: "Check that running units an extension masks are stopped when listed for restart or reload"
+# Talks to the real service manager, skip the --root= variant (it is a no-op there)
+if [ "$roots_dir" != "" ]; then
+    exit 0
+fi
+
+unit_ext_name="test-mask-unit-extension"
+unit_ext_dir="/var/lib/extensions/$unit_ext_name"
+mask_ext_name="test-mask-extension"
+mask_ext_dir="/var/lib/extensions/$mask_ext_name"
+mask_ext_dir_moved="/var/lib/$mask_ext_name.moved"
+unit="test-mask.service"
+restart_unit="test-mask-restart.service"
+dep_unit="test-mask-dep.service"
+requiring_unit="test-mask-requiring.service"
+
+# The units come from an extension as well, because a mask below /usr/ cannot override a unit file in /run/
+mkdir -p "$unit_ext_dir/usr/lib/extension-release.d" "$unit_ext_dir/usr/lib/systemd/system"
+prepend_trap "rm -rf ${unit_ext_dir@Q}"
+prepend_trap "systemctl stop ${unit@Q} ${restart_unit@Q} ${requiring_unit@Q} ${dep_unit@Q} 2>/dev/null || :"
+cat >"$unit_ext_dir/usr/lib/extension-release.d/extension-release.$unit_ext_name" <<EOF
+ID=_any
+ARCHITECTURE=_any
+EXTENSION_RELOAD_MANAGER=1
+EOF
+for u in "$unit" "$restart_unit" "$dep_unit"; do
+    cat >"$unit_ext_dir/usr/lib/systemd/system/$u" <<EOF
+[Service]
+Type=simple
+ExecStart=sleep 9999
+EOF
+done
+cat >"$unit_ext_dir/usr/lib/systemd/system/$requiring_unit" <<EOF
+[Unit]
+Requires=$dep_unit
+
+[Service]
+Type=simple
+ExecStart=sleep 9999
+EOF
+
+systemd-sysext merge
+systemctl start "$unit" "$restart_unit" "$requiring_unit"
+requiring_pid_before=$(systemctl show -P MainPID "$requiring_unit")
+
+# The masks go to /usr/local/lib/systemd/system/, which has a higher priority than /usr/lib/systemd/system/
+mkdir -p "$mask_ext_dir/usr/lib/extension-release.d" "$mask_ext_dir/usr/local/lib/systemd/system"
+prepend_trap "rm -rf ${mask_ext_dir@Q} ${mask_ext_dir_moved@Q}"
+cat >"$mask_ext_dir/usr/lib/extension-release.d/extension-release.$mask_ext_name" <<EOF
+ID=_any
+ARCHITECTURE=_any
+EXTENSION_RESTART_UNITS="$restart_unit $requiring_unit"
+EXTENSION_RELOAD_OR_RESTART_UNITS="$unit"
+EOF
+for u in "$unit" "$restart_unit" "$dep_unit"; do
+    ln -s /dev/null "$mask_ext_dir/usr/local/lib/systemd/system/$u"
+done
+
+# refresh: the service manager keeps the masked units running -> fallback to StopUnit
+systemd-sysext refresh
+for u in "$unit" "$restart_unit"; do
+    if [ "$(systemctl show -P LoadState "$u")" != "masked" ]; then
+        echo >&2 "Missing mask of unit $u"
+        exit 1
+    fi
+    if systemctl --quiet is-active "$u"; then
+        echo >&2 "Missing stop of masked unit $u"
+        exit 1
+    fi
+done
+# The restart of a unit is also refused as masked when only a dependency is masked -> no fallback to StopUnit
+if ! systemctl --quiet is-active "$requiring_unit"; then
+    echo >&2 "Unexpected stop of unit with masked dependency"
+    exit 1
+fi
+if [ "$(systemctl show -P MainPID "$requiring_unit")" != "$requiring_pid_before" ]; then
+    echo >&2 "Unexpected restart of unit with masked dependency"
+    exit 1
+fi
+
+# refresh without the masks: the units are still listed by the extension that was merged before -> started
+# again. The extension is moved away and not removed, to not change a lower layer of the mounted overlayfs.
+mv "$mask_ext_dir" "$mask_ext_dir_moved"
+systemd-sysext refresh
+for u in "$unit" "$restart_unit"; do
+    if [ "$(systemctl show -P LoadState "$u")" != "loaded" ]; then
+        echo >&2 "Mask of unit $u is still in place"
+        exit 1
+    fi
+    if ! systemctl --quiet is-active "$u"; then
+        echo >&2 "Missing start of unit $u after its mask was dropped"
+        exit 1
+    fi
+done
+
+systemd-sysext unmerge
+)
+
+( init_trap
+: "Check refresh also handles the units listed by an extension that is gone or replaced afterwards"
+# Talks to the real service manager, skip the --root= variant (it is a no-op there)
+if [ "$roots_dir" != "" ]; then
+    exit 0
+fi
+
+ext_name="test-refresh-drop-extension"
+ext_dir="/var/lib/extensions/$ext_name"
+ext_dir_moved="/var/lib/$ext_name.moved"
+keep_ext_name="test-refresh-keep-extension"
+keep_ext_dir="/var/lib/extensions/$keep_ext_name"
+host_unit="test-refresh-drop-host.service"
+host_unit_file="/run/systemd/system/$host_unit"
+ext_unit="test-refresh-drop-ext.service"
+host_stamp="/run/test-refresh-drop-host.stamp"
+
+cat >"$host_unit_file" <<EOF
+[Service]
+Type=simple
+ExecStart=sleep 9999
+ExecReload=touch $host_stamp
+EOF
+prepend_trap "rm -f ${host_unit_file@Q} ${host_stamp@Q}; systemctl stop ${host_unit@Q} 2>/dev/null || :"
+systemctl daemon-reload
+systemctl start "$host_unit"
+
+mkdir -p "$ext_dir/usr/lib/extension-release.d" "$ext_dir/usr/lib/systemd/system"
+prepend_trap "rm -rf ${ext_dir@Q} ${ext_dir_moved@Q}; systemctl stop ${ext_unit@Q} 2>/dev/null || :"
+cat >"$ext_dir/usr/lib/extension-release.d/extension-release.$ext_name" <<EOF
+ID=_any
+ARCHITECTURE=_any
+EXTENSION_RESTART_UNITS="$host_unit $ext_unit"
+EOF
+cat >"$ext_dir/usr/lib/systemd/system/$ext_unit" <<EOF
+[Service]
+Type=simple
+ExecStart=sleep 9999
+EOF
+
+# A second extension that stays, so that the refresh below merges again instead of unmerging
+mkdir -p "$keep_ext_dir/usr/lib/extension-release.d"
+prepend_trap "rm -rf ${keep_ext_dir@Q}"
+cat >"$keep_ext_dir/usr/lib/extension-release.d/extension-release.$keep_ext_name" <<EOF
+ID=_any
+ARCHITECTURE=_any
+EOF
+
+systemd-sysext merge
+if ! systemctl --quiet is-active "$ext_unit"; then
+    echo >&2 "Missing start of extension unit"
+    exit 1
+fi
+host_pid_merged=$(systemctl show -P MainPID "$host_unit")
+
+# refresh without the first extension: nothing lists the units anymore, but the host unit file is still
+# in /run -> restart (new PID), and the extension unit file is gone -> fallback to StopUnit.
+# The extension is moved away and not removed, to not change a lower layer of the mounted overlayfs.
+mv "$ext_dir" "$ext_dir_moved"
+systemd-sysext refresh
+host_pid_refreshed=$(systemctl show -P MainPID "$host_unit")
+if [ "$host_pid_merged" = "$host_pid_refreshed" ]; then
+    echo >&2 "Missing restart of host unit after its extension was dropped"
+    exit 1
+fi
+if ! systemctl --quiet is-active "$host_unit"; then
+    echo >&2 "Unexpected stop of host unit after its extension was dropped"
+    exit 1
+fi
+if systemctl --quiet is-active "$ext_unit"; then
+    echo >&2 "Missing stop of extension unit after its extension was dropped"
+    exit 1
+fi
+
+# refresh with the first extension again: the extension unit is started
+mv "$ext_dir_moved" "$ext_dir"
+systemd-sysext refresh
+if ! systemctl --quiet is-active "$ext_unit"; then
+    echo >&2 "Missing start of extension unit after its extension came back"
+    exit 1
+fi
+host_pid_merged=$(systemctl show -P MainPID "$host_unit")
+
+# refresh with a new version of the first extension, which does not ship the extension unit anymore and
+# only asks for a reload of the host unit: the old version listed the host unit for restart, which takes
+# precedence -> restart (new PID, no stamp file), and the extension unit file is gone -> fallback to StopUnit
+mv "$ext_dir" "$ext_dir_moved"
+mkdir -p "$ext_dir/usr/lib/extension-release.d"
+cat >"$ext_dir/usr/lib/extension-release.d/extension-release.$ext_name" <<EOF
+ID=_any
+ARCHITECTURE=_any
+EXTENSION_RELOAD_OR_RESTART_UNITS="$host_unit"
+EOF
+rm -f "$host_stamp"
+systemd-sysext refresh
+host_pid_refreshed=$(systemctl show -P MainPID "$host_unit")
+if [ "$host_pid_merged" = "$host_pid_refreshed" ]; then
+    echo >&2 "Missing restart of host unit after its extension was replaced"
+    exit 1
+fi
+if ! systemctl --quiet is-active "$host_unit"; then
+    echo >&2 "Unexpected stop of host unit after its extension was replaced"
+    exit 1
+fi
+if [ -e "$host_stamp" ]; then
+    echo >&2 "Unexpected reload of host unit after its extension was replaced (should have restarted only)"
+    exit 1
+fi
+if systemctl --quiet is-active "$ext_unit"; then
+    echo >&2 "Missing stop of extension unit after its extension was replaced"
+    exit 1
+fi
+
+systemd-sysext unmerge
+)
+
+( init_trap
 : "Nested tmpfs submounts under the hierarchy survive merge/refresh/unmerge round-trip"
 fake_root=${roots_dir:+"$roots_dir/nested-submounts"}
 hierarchy=/opt
