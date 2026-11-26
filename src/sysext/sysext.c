@@ -620,6 +620,68 @@ static int move_submounts(const char *src, const char *dst) {
         return 0;
 }
 
+static int attach_submounts(
+                SubMount *submounts,
+                size_t n_submounts,
+                const char *src,
+                const char *dst) {
+
+        int r, ret = 0;
+
+        assert(submounts || n_submounts == 0);
+        assert(src);
+        assert(dst);
+
+        /* Continue on failure, so that as many submounts as possible end up in place. The clones we cannot
+         * attach are lost once the caller frees them. */
+
+        FOREACH_ARRAY(m, submounts, n_submounts) {
+                _cleanup_free_ char *t = NULL;
+                const char *suffix;
+                struct stat st;
+
+                assert_se(suffix = path_startswith(m->path, src));
+
+                if (fstat(m->mount_fd, &st) < 0) {
+                        RET_GATHER(ret, log_error_errno(errno, "Failed to stat %s: %m", m->path));
+                        continue;
+                }
+
+                t = path_join(dst, suffix);
+                if (!t)
+                        return log_oom();
+
+                _cleanup_free_ char *fn = NULL;
+                _cleanup_close_ int fd = -EBADF;
+                r = chase(t, /* root= */ NULL, CHASE_PARENT|CHASE_EXTRACT_FILENAME|CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755, &fn, &fd);
+                if (r < 0) {
+                        RET_GATHER(ret, log_error_errno(r, "Failed to create and pin parent directory of %s: %m", t));
+                        continue;
+                }
+
+                r = make_mount_point_inode_from_mode(fd, fn, st.st_mode, 0755);
+                if (r < 0 && r != -EEXIST) {
+                        RET_GATHER(ret, log_error_errno(r, "Failed to create mountpoint %s: %m", t));
+                        continue;
+                }
+
+                _cleanup_close_ int child_fd = xopenat(fd, fn, O_PATH);
+                if (child_fd < 0) {
+                        RET_GATHER(ret, log_error_errno(child_fd, "Failed to pin mountpoint %s: %m", t));
+                        continue;
+                }
+
+                /* Instead of a bind mount we attach the detached clone produced by
+                 * open_tree_attr_with_fallback() from get_sub_mounts() because that has no propagation
+                 * relationship with the original anymore. */
+                r = RET_NERRNO(move_mount(m->mount_fd, "", child_fd, "", MOVE_MOUNT_F_EMPTY_PATH|MOVE_MOUNT_T_EMPTY_PATH));
+                if (r < 0)
+                        RET_GATHER(ret, log_error_errno(r, "Failed to move mount '%s' to '%s': %m", m->path, t));
+        }
+
+        return ret;
+}
+
 static int daemon_reload(void) {
          _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
@@ -1875,13 +1937,27 @@ static int read_work_dir_at(
         return 1;
 }
 
-static int unmerge_hierarchy(const Context *c, const char *p, const char *submounts_path) {
+static int unmerge_hierarchy(
+                const Context *c,
+                const char *p,
+                SubMount **ret_submounts,
+                size_t *ret_n_submounts) {
+
         _cleanup_free_ char *dot_dir = NULL;
+        SubMount *submounts = NULL;
+        size_t n_submounts = 0;
         int n_unmerged = 0;
         int r;
 
         assert(c);
         assert(p);
+        assert(ret_submounts);
+        assert(ret_n_submounts);
+
+        CLEANUP_ARRAY(submounts, n_submounts, sub_mount_array_free);
+
+        /* Detached clones of the submounts below the hierarchy are returned for the caller to attach them
+         * where they belong now. */
 
         dot_dir = path_join(p, image_class_info[c->image_class].dot_directory_name);
         if (!dot_dir)
@@ -1889,6 +1965,10 @@ static int unmerge_hierarchy(const Context *c, const char *p, const char *submou
 
         for (;;) {
                 _cleanup_free_ char *work_dir = NULL;
+                SubMount *layer_submounts = NULL;
+                size_t n_layer_submounts = 0;
+
+                CLEANUP_ARRAY(layer_submounts, n_layer_submounts, sub_mount_array_free);
 
                 /* We only unmount /usr/ if it is a mount point and really one of ours, in order not to break
                  * systems where /usr/ is a mount point of its own already. */
@@ -1912,56 +1992,77 @@ static int unmerge_hierarchy(const Context *c, const char *p, const char *submou
                                 return log_error_errno(r, "Failed to unmount '%s': %m", dot_dir);
                 }
 
-                /* After we've unmounted the metadata directory, save all other submounts so we can restore
-                 * them after unmerging the hierarchy. */
-                r = move_submounts(p, submounts_path);
+                /* After we've unmounted the metadata directory, save all other submounts so that they can
+                 * be restored after unmerging the hierarchy. */
+                r = get_sub_mounts(p, &layer_submounts, &n_layer_submounts);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to get submounts for %s: %m", p);
+
+                if (!GREEDY_REALLOC(submounts, n_submounts + n_layer_submounts))
+                        return log_oom();
+                FOREACH_ARRAY(m, layer_submounts, n_layer_submounts)
+                        submounts[n_submounts++] = (SubMount) {
+                                .path = TAKE_PTR(m->path),
+                                .mount_fd = TAKE_FD(m->mount_fd),
+                        };
 
                 r = umount_verbose(LOG_ERR, p, MNT_DETACH|UMOUNT_NOFOLLOW);
                 if (r < 0)
                         return r;
 
+                /* Note that on the error paths from here on (and in further iterations for stacked
+                 * overlayfs mounts) the clones collected so far are destroyed without being returned, while
+                 * the originals are gone with the unmounted overlayfs already, hence the submounts are lost
+                 * for the caller. We could hand out what we have on error, too, so that the caller can put
+                 * it back in place, but that is probably not worth the complexity. */
+
                 if (work_dir) {
                         r = rm_rf(work_dir, REMOVE_ROOT | REMOVE_MISSING_OK | REMOVE_PHYSICAL);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to remove '%s': %m", work_dir);
+                                return log_error_errno(r, "Failed to remove '%s', submounts of '%s' might be lost: %m", work_dir, p);
                 }
 
                 log_info("Unmerged '%s'.", p);
                 n_unmerged++;
         }
 
+        *ret_submounts = TAKE_PTR(submounts);
+        *ret_n_submounts = n_submounts;
+        n_submounts = 0;
+
         return n_unmerged;
 }
 
-static int unmerge_subprocess(
-                const Context *c,
-                const char *workspace) {
-
-        int r, ret = 0;
+static int unmerge_hierarchy_in_place(const Context *c, const char *p) {
+        SubMount *submounts = NULL;
+        size_t n_submounts = 0;
+        int r, n_unmerged;
 
         assert(c);
-        assert(workspace);
-        assert(path_startswith(workspace, "/run/"));
+        assert(p);
 
-        /* Mark the whole of /run as MS_SLAVE, so that we can mount stuff below it that doesn't show up on
-         * the host otherwise. */
-        r = mount_nofollow_verbose(LOG_ERR, /* what= */ NULL, "/run", /* fstype= */ NULL, MS_SLAVE|MS_REC, /* options= */ NULL);
+        CLEANUP_ARRAY(submounts, n_submounts, sub_mount_array_free);
+
+        /* Unmerges the hierarchy and puts its submounts back in place on the bare hierarchy. */
+
+        n_unmerged = unmerge_hierarchy(c, p, &submounts, &n_submounts);
+        if (n_unmerged <= 0)
+                return n_unmerged;
+
+        r = attach_submounts(submounts, n_submounts, p, p);
         if (r < 0)
                 return r;
 
-        /* Let's create the workspace if it's missing */
-        r = mkdir_p(workspace, 0700);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create '%s': %m", workspace);
+        return n_unmerged;
+}
+
+static int unmerge_hierarchies(const Context *c) {
+        int r, ret = 0;
+
+        assert(c);
 
         STRV_FOREACH(h, c->hierarchies) {
-                _cleanup_free_ char *submounts_path = NULL, *resolved = NULL;
-
-                submounts_path = path_join(workspace, "submounts", *h);
-                if (!submounts_path)
-                        return log_oom();
+                _cleanup_free_ char *resolved = NULL;
 
                 r = chase(*h, c->root, CHASE_PREFIX_ROOT, &resolved, /* ret_fd= */ NULL);
                 if (r == -ENOENT) {
@@ -1973,20 +2074,7 @@ static int unmerge_subprocess(
                         continue;
                 }
 
-                r = unmerge_hierarchy(c, resolved, submounts_path);
-                if (r < 0) {
-                        RET_GATHER(ret, r);
-                        continue;
-                }
-                if (r == 0)
-                        continue;
-
-                /* If we unmerged something, then we have to move the submounts from the hierarchy back into
-                 * place in the host's original hierarchy. */
-
-                r = move_submounts(submounts_path, resolved);
-                if (r < 0)
-                        return r;
+                RET_GATHER(ret, unmerge_hierarchy_in_place(c, resolved));
         }
 
         return ret;
@@ -2010,22 +2098,9 @@ static int unmerge(const Context *c) {
         if (r < 0)
                 return r;
 
-        r = pidref_safe_fork(
-                        "(sd-unmerge)",
-                        FORK_WAIT|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_NEW_MOUNTNS,
-                        /* ret= */ NULL);
+        r = unmerge_hierarchies(c);
         if (r < 0)
                 return r;
-        if (r == 0) {
-                /* Child with its own mount namespace */
-
-                r = unmerge_subprocess(c, "/run/systemd/sysext");
-
-                /* Our namespace ceases to exist here, also implicitly detaching all temporary mounts we
-                 * created below /run. Nice! */
-
-                _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
-        }
 
         if (need_to_reload) {
                 r = daemon_reload();
@@ -2536,11 +2611,20 @@ static int merge_subprocess(
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve hierarchy '%s%s': %m", strempty(c->root), *h);
 
-                r = unmerge_hierarchy(c, resolved, submounts_path);
+                SubMount *submounts = NULL;
+                size_t n_submounts = 0;
+                CLEANUP_ARRAY(submounts, n_submounts, sub_mount_array_free);
+
+                r = unmerge_hierarchy(c, resolved, &submounts, &n_submounts);
                 if (r < 0)
                         return r;
-                if (r > 0)
+                if (r > 0) {
+                        r = attach_submounts(submounts, n_submounts, resolved, submounts_path);
+                        if (r < 0)
+                                return r;
+
                         continue;
+                }
 
                 /* If we didn't unmerge anything, then we have to move the submounts from the host's
                  * original hierarchy. */
