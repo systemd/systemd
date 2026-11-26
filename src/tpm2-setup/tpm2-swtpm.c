@@ -1,11 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/vtpm_proxy.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"
 
 #include "alloc-util.h"
 #include "chase.h"
+#include "devnum-util.h"
 #include "dlopen-note.h"
 #include "errno-util.h"
 #include "escape.h"
@@ -36,6 +39,9 @@ COMMAND(
 );
 
 #define BOOT_SECRET_SIZE 32U
+
+/* The name of the vTPM proxy device fd in the service's fdstore */
+#define VTPM_PROXY_FDNAME "vtpm-proxy"
 
 static int load_boot_secret(struct iovec *ret) {
         _cleanup_(iovec_done_erase) struct iovec buf = {};
@@ -151,6 +157,99 @@ static int setup_swtpm(const char *state_dir, int state_fd, const char *secret) 
         return manufacture_swtpm(state_dir, secret);
 }
 
+static int take_vtpm_proxy_from_fdstore(void) {
+        /* Returns the vTPM proxy device fd from the fdstore, or -ENOENT if there is none.
+         *
+         * We allocate the vTPM proxy device ourselves (rather than letting swtpm do it), and keep its fd in
+         * our fdstore. This way the kernel TPM device stays around while swtpm is stopped, i.e. across
+         * service restarts and in particular across the initrd→host transition: the device is never
+         * released and reallocated, hence it keeps its device number (i.e. stays /dev/tpm0), and kernel
+         * users (such as trusted.ko) that took a reference to the TPM chip keep a working TPM. */
+
+        _cleanup_strv_free_ char **names = NULL;
+        int n = sd_listen_fds_with_names(/* unset_environment= */ true, &names);
+        if (n < 0)
+                return log_error_errno(n, "Failed to determine passed file descriptors: %m");
+
+        _cleanup_close_ int fd = -EBADF;
+        for (int i = 0; i < n; i++) {
+                _cleanup_close_ int k = SD_LISTEN_FDS_START + i;
+
+                if (fd >= 0 || !streq_ptr(names[i], VTPM_PROXY_FDNAME)) {
+                        log_warning("Passed file descriptor with unexpected name '%s', closing.", strna(names[i]));
+                        continue;
+                }
+
+                fd = TAKE_FD(k);
+        }
+
+        if (fd < 0)
+                return -ENOENT;
+
+        log_info("Reusing vTPM proxy device from file descriptor store.");
+        return TAKE_FD(fd);
+}
+
+static int allocate_vtpm_proxy(const char *runtime_dir) {
+        int r;
+
+        assert(runtime_dir);
+
+        _cleanup_close_ int vtpmx_fd = xopenat(AT_FDCWD, "/dev/vtpmx", O_RDWR);
+        if (vtpmx_fd < 0)
+                return log_error_errno(vtpmx_fd, "Failed to open /dev/vtpmx: %m");
+
+        struct vtpm_proxy_new_dev d = {
+                .flags = VTPM_PROXY_FLAG_TPM2,
+        };
+        if (ioctl(vtpmx_fd, VTPM_PROXY_IOC_NEW_DEV, &d) < 0)
+                return log_error_errno(errno, "Failed to allocate vTPM proxy device: %m");
+
+        _cleanup_close_ int fd = fd_move_above_stdio((int) d.fd);
+
+        /* We are just a polyfill for systems lacking a TPM. If the device we got is not tpm0, then someone
+         * else already provides a TPM, and we should not have been started in the first place. Closing the
+         * fd releases the device again. */
+        if (d.tpm_num != 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EBUSY),
+                                       "Allocated vTPM proxy device is /dev/tpm%" PRIu32 " rather than /dev/tpm0, another TPM is already present, refusing.",
+                                       d.tpm_num);
+
+        log_info("Allocated vTPM proxy device /dev/tpm0 (%" PRIu32 ":%" PRIu32 ").", d.major, d.minor);
+
+        /* Don't let PID 1 poll on the fd: the device side never hangs up while it is open, and the fd
+         * becomes readable whenever the kernel issues a TPM command, which is none of PID 1's business. */
+        r = sd_pid_notify_with_fds(
+                        /* pid= */ 0,
+                        /* unset_environment= */ false,
+                        "FDSTORE=1\n"
+                        "FDNAME=" VTPM_PROXY_FDNAME "\n"
+                        "FDPOLL=0",
+                        &fd,
+                        1);
+        if (r < 0)
+                log_warning_errno(r, "Failed to push vTPM proxy device to file descriptor store, ignoring: %m");
+        else if (r == 0)
+                log_debug("Not running as a service, not pushing vTPM proxy device to file descriptor store.");
+        else {
+                /* The device survives us now, hence tell systemd-tpm2-generator that this TPM is ours, so
+                 * that after the initrd→host transition it pulls us in again, even though a TPM exists. */
+                _cleanup_free_ char *p = path_join(runtime_dir, SWTPM_DEVNO_FILENAME);
+                if (!p)
+                        return log_oom();
+
+                r = write_string_filef(
+                                p,
+                                WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC,
+                                DEVNUM_FORMAT_STR,
+                                DEVNUM_FORMAT_VAL(makedev(d.major, d.minor)));
+                if (r < 0)
+                        log_warning_errno(r, "Failed to write '%s', ignoring: %m", p);
+        }
+
+        return TAKE_FD(fd);
+}
+
 static int run(int argc, char *argv[]) {
         int r;
 
@@ -161,6 +260,11 @@ static int run(int argc, char *argv[]) {
         r = common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ 0, /* ret_args= */ NULL);
         if (r <= 0)
                 return r;
+
+        /* Do this first, so that the passed fds are marked O_CLOEXEC before we fork off swtpm_setup */
+        _cleanup_close_ int vtpm_fd = take_vtpm_proxy_from_fdstore();
+        if (vtpm_fd < 0 && vtpm_fd != -ENOENT)
+                return vtpm_fd;
 
         _cleanup_free_ char *runtime_dir = NULL;
         r = runtime_directory(RUNTIME_SCOPE_SYSTEM, "systemd/swtpm", &runtime_dir);
@@ -221,16 +325,35 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
+        /* Allocate a new device only now, right before invoking swtpm, since the kernel starts talking to
+         * the TPM as soon as the device exists. */
+        if (vtpm_fd < 0) {
+                vtpm_fd = allocate_vtpm_proxy(runtime_dir);
+                if (vtpm_fd < 0)
+                        return vtpm_fd;
+        }
+
+        /* swtpm shall inherit the fd */
+        r = fd_cloexec(vtpm_fd, false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to disable O_CLOEXEC on vTPM proxy device fd: %m");
+
+        /* Since we pass the vTPM proxy device fd in instead of using --vtpm-proxy, we need to explicitly
+         * turn on what --vtpm-proxy implies: no CMD_INIT needed, and the kernel's SetLocality commands are
+         * accepted. */
         _cleanup_strv_free_ char **args =
                 strv_new(swtpm,
                          "chardev",
-                         "--vtpm-proxy",
                          "--tpm2",
+                         "--locality=allow-set-locality",
                          /* Make sure that in the initrd swtpm never sends TPM2_Shutdown() for us, we want to
                           * be able to stop the daemon after all temporarily during the initrd→host
                           * transition. */
-                         in_initrd() ? "--flags=startup-clear,disable-auto-shutdown" : "--flags=startup-clear");
+                         in_initrd() ? "--flags=not-need-init,startup-clear,disable-auto-shutdown" : "--flags=not-need-init,startup-clear");
         if (!args)
+                return log_oom();
+
+        if (strv_extendf(&args, "--fd=%i", vtpm_fd) < 0)
                 return log_oom();
 
         if (strv_extendf(&args, "--ctrl=type=unixio,path=%s/socket", runtime_dir) < 0)

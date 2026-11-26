@@ -7,12 +7,16 @@ set -o pipefail
 # without a hardware/firmware TPM and with "systemd.tpm2_software_fallback=yes" (see the test's meson.build),
 # so systemd-tpm2-generator manufactures a software TPM on the ESP in the initrd and chainloads swtpm.
 #
-#   boot 0: the TPM is manufactured in the initrd; seal a secret to it and stash the blob.
+#   boot 0: the TPM is manufactured in the initrd; seal a secret to it and stash the blob. Then restart the
+#           service and check that the vTPM proxy device survived in the fdstore.
 #   boot 1: the TPM state persisted on the ESP across the reboot, so the secret still unseals. Then mimic a
 #           manufacture that was interrupted before it completed (drop everything but the config files, so the
 #           ".manufactured" marker is gone) and reboot.
 #   boot 2: setup_swtpm() must notice the missing marker and re-manufacture, rather than mistaking the
 #           leftover config files for a complete TPM and starting swtpm against a stateless directory.
+#
+# In every boot the vTPM proxy device must have been allocated exactly once (in the initrd) and then been
+# handed over to the host via the service's fdstore, so that it is still /dev/tpm0.
 #
 # See systemd-tpm2-swtpm.service(8).
 
@@ -38,27 +42,49 @@ if [[ ! -x /usr/lib/systemd/systemd-tpm2-swtpm ]] || ! command -v swtpm >/dev/nu
 fi
 
 assert_swtpm_up() {
-    local deadline tpm_device tpm_index tpmrm_device tpmrm_devices
+    local n
 
     systemctl is-active systemd-tpm2-swtpm.service
 
-    deadline=$((SECONDS + 30))
-    while (( SECONDS < deadline )); do
-        mapfile -t tpmrm_devices < <(compgen -G '/sys/class/tpmrm/tpmrm*' || :)
-        ((${#tpmrm_devices[@]} == 1)) && break
-        sleep .1
-    done
-    assert_eq "${#tpmrm_devices[@]}" 1
+    # The vTPM proxy device allocated in the initrd is kept in the fdstore across the initrd→host
+    # transition, hence it is never released and reallocated and keeps its device number.
+    TPM2_DEVICE=/dev/tpmrm0
+    udevadm wait --timeout=30 --settle "$TPM2_DEVICE" /dev/tpm0
+    assert_eq "$(compgen -G '/sys/class/tpmrm/tpmrm*')" /sys/class/tpmrm/tpmrm0
+    assert_eq "$(systemctl show -P NFileDescriptorStore systemd-tpm2-swtpm.service)" 1
+    systemd-analyze fdstore systemd-tpm2-swtpm.service
+    assert_in 'vtpm-proxy' "$(systemd-analyze fdstore systemd-tpm2-swtpm.service)"
+    # The device number is recorded so that systemd-tpm2-generator recognizes the device as ours after the
+    # initrd→host transition.
+    assert_eq "$(cat /run/systemd/swtpm/devno)" "$(cat /sys/devices/virtual/tpm/tpm0/dev)"
 
-    # The old initrd device number may still be reserved when the host swtpm starts, so do not assume tpm0.
-    tpmrm_device="${tpmrm_devices[0]##*/}"
-    tpm_index="${tpmrm_device#tpmrm}"
-    TPM2_DEVICE="/dev/$tpmrm_device"
-    tpm_device="/dev/tpm$tpm_index"
+    # The device must have been allocated once (in the initrd), and been reused after the transition.
+    journalctl --sync
+    n="$(journalctl -b -u systemd-tpm2-swtpm.service -o cat --grep '^Allocated vTPM proxy device' | wc -l || :)"
+    assert_eq "$n" 1
+    n="$(journalctl -b -u systemd-tpm2-swtpm.service -o cat --grep '^Reusing vTPM proxy device from file descriptor store' | wc -l || :)"
+    (( n >= 1 ))
 
-    udevadm wait --timeout=30 --settle "$TPM2_DEVICE" "$tpm_device"
     # No firmware TPM here, so has-tpm2 reports "partial"; assert the software driver is present.
     assert_in '\+driver' "$(systemd-analyze has-tpm2 || :)"
+}
+
+# Restart swtpm and check that the vTPM proxy device stays around while it is stopped and is reused after.
+check_swtpm_restart() {
+    local ino
+
+    ino="$(stat -L -c %i /sys/class/tpm/tpm0)"
+
+    systemctl stop systemd-tpm2-swtpm.service
+    test -e /sys/class/tpm/tpm0
+    assert_eq "$(systemctl show -P NFileDescriptorStore systemd-tpm2-swtpm.service)" 1
+    assert_eq "$(cat /run/systemd/swtpm/devno)" "$(cat /sys/devices/virtual/tpm/tpm0/dev)"
+
+    systemctl start systemd-tpm2-swtpm.service
+    systemctl is-active systemd-tpm2-swtpm.service
+    # Still the very same kernel device (sysfs inode numbers are not reused right away)
+    assert_eq "$(stat -L -c %i /sys/class/tpm/tpm0)" "$ino"
+    assert_eq "$(compgen -G '/sys/class/tpmrm/tpmrm*')" /sys/class/tpmrm/tpmrm0
 }
 
 # Locate swtpm's state directory on the ESP.
@@ -76,6 +102,8 @@ case "$REBOOT_COUNT" in
         # Seal a secret to the software TPM and keep the blob for the next boot.
         echo -n "$PLAINTEXT" >/tmp/swtpm-plaintext
         systemd-creds --tpm2-device="$TPM2_DEVICE" encrypt --name= --with-key=tpm2 /tmp/swtpm-plaintext "$CRED"
+        systemd-creds --tpm2-device="$TPM2_DEVICE" decrypt --name= "$CRED" - | cmp /tmp/swtpm-plaintext -
+        check_swtpm_restart
         systemd-creds --tpm2-device="$TPM2_DEVICE" decrypt --name= "$CRED" - | cmp /tmp/swtpm-plaintext -
         systemctl_final reboot
         exec sleep infinity
