@@ -138,6 +138,90 @@ static int swtpm_find_best_profile(const char *swtpm_setup, char **ret) {
         return 0;
 }
 
+/* Check whether swtpm advertises the given feature in the capabilities JSON printed by
+ * "swtpm chardev --print-capabilities". Returns 1 if it does, 0 if it does not (in particular when swtpm
+ * is too old to know --print-capabilities or the feature), or a negative errno on failure. */
+int swtpm_has_feature(const char *swtpm, const char *feature) {
+        int r;
+
+        assert(swtpm);
+        assert(feature);
+
+        _cleanup_strv_free_ char **args = strv_new(
+                        swtpm,
+                        "chardev",
+                        "--print-capabilities");
+        if (!args)
+                return log_oom();
+
+        _cleanup_close_ int mfd = memfd_new("swtpm-capabilities");
+        if (mfd < 0)
+                return log_error_errno(mfd, "Failed to allocate memfd: %m");
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *cmdline = quote_command_line(args, SHELL_ESCAPE_EMPTY);
+                log_debug("About to spawn: %s", strnull(cmdline));
+        }
+
+        r = pidref_safe_fork_full(
+                        "(swtpm-caps)",
+                        (int[]) { -EBADF, mfd, STDERR_FILENO },
+                        /* except_fds= */ NULL,
+                        /* n_except_fds= */ 0,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_REARRANGE_STDIO|FORK_LOG|FORK_WAIT,
+                        /* ret= */ NULL);
+        if (r == 0) {
+                /* Child */
+                r = execvp_safe(args[0], args);
+                log_error_errno(r, "Failed to execute '%s': %m", args[0]);
+                _exit(EXIT_FAILURE);
+        }
+        if (r == -EPROTO) {
+                /* swtpm exited with a failure or was killed by a signal, which WAIT_LOG logged already.
+                 * This includes swtpm versions that do not know --print-capabilities. */
+                log_debug("swtpm failed to report its capabilities, assuming the implementation is too old to know the feature '%s'.", feature);
+                return 0;
+        } else if (r < 0)
+                return log_error_errno(r, "Failed to run swtpm: %m");
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        r = sd_json_parse_fd(
+                        "swtpm-capabilities",
+                        mfd,
+                        SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SEEK0,
+                        &j,
+                        /* reterr_line= */ NULL,
+                        /* reterr_column= */ NULL);
+        if (r < 0) {
+                log_debug("Failed to parse swtpm's --print-capabilities output as JSON, assuming the implementation is too old to know the feature '%s'.", feature);
+                return 0;
+        }
+
+        sd_json_variant *v = sd_json_variant_by_key(j, "features");
+        if (!v) {
+                log_debug("swtpm's capabilities JSON has no 'features' field, assuming the implementation is too old to know the feature '%s'.", feature);
+                return 0;
+        }
+
+        if (!sd_json_variant_is_array(v)) {
+                log_debug("'features' field is not an array, assuming the implementation is too old to know the feature '%s'.", feature);
+                return 0;
+        }
+
+        sd_json_variant *i;
+        JSON_VARIANT_ARRAY_FOREACH(i, v) {
+                if (!sd_json_variant_is_string(i)) {
+                        log_debug("Entry in 'features' array is not a string, ignoring.");
+                        continue;
+                }
+
+                if (streq(sd_json_variant_string(i), feature))
+                        return 1;
+        }
+
+        return 0;
+}
+
 int manufacture_swtpm(const char *state_dir, const char *secret) {
         int r;
 
