@@ -2353,6 +2353,13 @@ static int dispatch_target_identifier(const char *name, sd_json_variant *variant
         };
         int r;
 
+        /* For methods where the target is optional, leave the class unset to indicate that it was omitted */
+        if (sd_json_variant_is_null(variant)) {
+                target_identifier_done(t);
+                t->class = _TARGET_CLASS_INVALID;
+                return 0;
+        }
+
         r = sd_json_dispatch(variant, dispatch, flags, t);
         if (r < 0)
                 return r;
@@ -2952,6 +2959,126 @@ static int vl_method_list_features(sd_varlink *link, sd_json_variant *parameters
                         SD_JSON_BUILD_PAIR_VARIANT("features", l));
 }
 
+typedef struct ComponentAvailable {
+        char *component;   /* NULL for the default, component-less installation */
+        char *available;   /* NULL if no new version is available */
+} ComponentAvailable;
+
+static void component_available_array_free(ComponentAvailable *array, size_t n) {
+        FOREACH_ARRAY(i, array, n) {
+                free(i->component);
+                free(i->available);
+        }
+
+        free(array);
+}
+
+static int component_available_to_json(const ComponentAvailable *ca, sd_json_variant **ret) {
+        assert(ca);
+        assert(ret);
+
+        return sd_json_buildo(
+                        ret,
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("component", ca->component),
+                        SD_JSON_BUILD_PAIR_STRING("available", ca->available)); /* NULL → null */
+}
+
+static int component_available_array_add(
+                ComponentAvailable **array,
+                size_t *n,
+                const char *component,
+                const UpdateSet *candidate) {
+
+        assert(array);
+        assert(n);
+
+        _cleanup_free_ char *cn = NULL, *cv = NULL;
+        if (strdup_to(&cn, component) < 0 ||
+            strdup_to(&cv, candidate ? candidate->version : NULL) < 0)
+                return log_oom();
+
+        if (!GREEDY_REALLOC(*array, *n + 1))
+                return log_oom();
+
+        (*array)[(*n)++] = (ComponentAvailable) {
+                .component = TAKE_PTR(cn),
+                .available = TAKE_PTR(cv),
+        };
+
+        return 0;
+}
+
+static int context_check_new_all(
+                Context *c,
+                ComponentAvailable **ret_components,
+                size_t *ret_n_components) {
+
+        int r;
+
+        assert(c);
+        assert(c->component_select == SELECT_ALL);
+        assert(ret_components);
+        assert(ret_n_components);
+
+        /* Checks for a new version of the default, component-less installation (if there is one) and of
+         * every enabled component. Returns an array with one entry for each of them, in this order, with the
+         * new version available, or NULL if there is none. */
+
+        ComponentAvailable *components = NULL;
+        size_t n_components = 0;
+        CLEANUP_ARRAY(components, n_components, component_available_array_free);
+
+        /* Check the default installation first. This also ensures the image (if any) is mounted and
+         * c->root is set, so that we enumerate the components inside the image rather than on the
+         * host. A missing default installation (ENOENT) is not an error in this mode. */
+        r = context_load_online(
+                        c,
+                        PROCESS_IMAGE_READ_ONLY,
+                        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS|
+                        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
+        if (r < 0 && r != -ENOENT)
+                return r;
+        if (r >= 0) {
+                r = component_available_array_add(&components, &n_components, /* component= */ NULL, c->candidate);
+                if (r < 0)
+                        return r;
+        }
+
+        _cleanup_strv_free_ char **component_names = NULL;
+        r = context_list_components(c, &component_names, /* ret_has_default_component= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate components: %m");
+
+        STRV_FOREACH(name, component_names) {
+                _cleanup_(context_done) Context cc = CONTEXT_NULL;
+
+                r = context_from_base_with_component(c, *name, &cc);
+                if (r < 0)
+                        return r;
+
+                r = context_load_online(
+                                &cc,
+                                PROCESS_IMAGE_READ_ONLY,
+                                READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS|
+                                READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS|
+                                READ_DEFINITIONS_REQUIRES_ENABLED_COMPONENT);
+                if (IN_SET(r, -EHOSTDOWN, -ENOENT)) { /* Component disabled or without transfers → skip it */
+                        log_debug_errno(r, "Skipping component '%s': %m", *name);
+                        continue;
+                }
+                if (r < 0)
+                        return r;
+
+                r = component_available_array_add(&components, &n_components, *name, cc.candidate);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret_components = TAKE_PTR(components);
+        *ret_n_components = TAKE_GENERIC(n_components, size_t, 0);
+        return 0;
+}
+
 VERB_NOARG(verb_check_new, "check-new",
            "Check if there's a new version available");
 static int verb_check_new(int argc, char *argv[], uintptr_t _data, void *userdata) {
@@ -2966,8 +3093,77 @@ static int verb_check_new(int argc, char *argv[], uintptr_t _data, void *userdat
 
         if (context.feature_select != SELECT_EXPLICIT)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--feature-all/--feature-suggested is not supported for '%s'.", argv[0]);
-        if (context.component_select != SELECT_EXPLICIT)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all/--component-suggested currently not supported for '%s'.", argv[0]);
+        if (!IN_SET(context.component_select, SELECT_EXPLICIT, SELECT_ALL))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-suggested currently not supported for '%s'.", argv[0]);
+
+        if (context.component_select == SELECT_ALL) {
+                ComponentAvailable *components = NULL;
+                size_t n_components = 0;
+                CLEANUP_ARRAY(components, n_components, component_available_array_free);
+
+                r = context_check_new_all(&context, &components, &n_components);
+                if (r < 0)
+                        return r;
+
+                bool any = false;
+                FOREACH_ARRAY(i, components, n_components)
+                        if (i->available) {
+                                any = true;
+                                break;
+                        }
+
+                if (!sd_json_format_enabled(arg_json_format_flags)) {
+                        if (n_components == 0) {
+                                log_info("No components defined.");
+                                return EXIT_FAILURE;
+                        }
+
+                        _cleanup_(table_unrefp) Table *t = table_new("component", "available");
+                        if (!t)
+                                return log_oom();
+
+                        table_set_ersatz_string(t, TABLE_ERSATZ_DASH);
+
+                        FOREACH_ARRAY(i, components, n_components) {
+                                r = table_add_many(
+                                                t,
+                                                TABLE_STRING, i->component ?: "<default>",
+                                                TABLE_SET_COLOR, i->component ? NULL : ansi_highlight(),
+                                                TABLE_STRING, i->available);
+                                if (r < 0)
+                                        return table_log_add_error(r);
+                        }
+
+                        r = table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
+                        if (r < 0)
+                                return r;
+                } else {
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+
+                        r = sd_json_variant_new_array(&array, /* array= */ NULL, 0);
+                        if (r < 0)
+                                return log_oom();
+
+                        FOREACH_ARRAY(i, components, n_components) {
+                                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                                r = component_available_to_json(i, &v);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to create JSON: %m");
+
+                                r = sd_json_variant_append_array(&array, v);
+                                if (r < 0)
+                                        return log_oom();
+                        }
+
+                        r = sd_json_variant_dump(array, arg_json_format_flags, stdout, /* prefix= */ NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to print JSON: %m");
+                }
+
+                /* As in the single component case, return success only if there's a new version available */
+                return any ? EXIT_SUCCESS : EXIT_FAILURE;
+        }
 
         r = context_load_online(
                         &context,
@@ -3012,7 +3208,7 @@ static int vl_method_check_new(sd_varlink *link, sd_json_variant *parameters, sd
         assert(link);
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "target", SD_JSON_VARIANT_OBJECT, dispatch_target_identifier, voffsetof(context, target_identifier), SD_JSON_MANDATORY },
+                { "target", SD_JSON_VARIANT_OBJECT, dispatch_target_identifier, voffsetof(context, target_identifier), SD_JSON_NULLABLE },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {},
         };
@@ -3020,6 +3216,16 @@ static int vl_method_check_new(sd_varlink *link, sd_json_variant *parameters, sd
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &context);
         if (r != 0)
                 return r;
+
+        /* If no target is specified, check the host's default installation and all of its enabled
+         * components, and send one reply for each. */
+        if (context.target_identifier.class < 0) {
+                if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                        return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, /* parameters= */ NULL);
+
+                context.target_identifier.class = TARGET_HOST;
+                context.component_select = SELECT_ALL;
+        }
 
         r = verify_polkit(&context, link, "org.freedesktop.sysupdate1.check",
                         (const char**) STRV_MAKE(
@@ -3034,6 +3240,42 @@ static int vl_method_check_new(sd_varlink *link, sd_json_variant *parameters, sd
 
         /* CheckNew is always online */
         context.offline = false;
+
+        if (context.component_select == SELECT_ALL) {
+                ComponentAvailable *components = NULL;
+                size_t n_components = 0;
+                CLEANUP_ARRAY(components, n_components, component_available_array_free);
+
+                r = context_load_paths_from_target(&context);
+                if (r < 0)
+                        return r;
+
+                r = context_check_new_all(&context, &components, &n_components);
+                if (r < 0)
+                        return r;
+
+                /* Send one reply for each component we checked, including those without a new version, so
+                 * that the client sees the full list. If there's nothing to check at all, return an error
+                 * rather than an empty reply, since the latter would be indistinguishable from the reply for
+                 * the default installation without a new version available. */
+                r = sd_varlink_set_sentinel(link, "io.systemd.SysUpdate.NoSuchTarget");
+                if (r < 0)
+                        return r;
+
+                FOREACH_ARRAY(i, components, n_components) {
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                        r = component_available_to_json(i, &v);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_varlink_reply(link, v);
+                        if (r < 0)
+                                return r;
+                }
+
+                return 0;
+        }
 
         r = context_load_online_from_target(
                         &context,
