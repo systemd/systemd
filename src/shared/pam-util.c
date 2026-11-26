@@ -123,21 +123,29 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(PamBusData*, pam_bus_data_free);
 
 static void pam_bus_data_destroy(pam_handle_t *pamh, void *data, int error_status) {
         /* Destructor when called from PAM. Note that error_status is supposed to tell us via PAM_DATA_SILENT
-         * whether we are called in a forked off child of the PAM session or in the original parent. We don't
-         * bother with that however, and instead rely on the PID checks that sd_bus_flush_close_unref() does
-         * internally anyway. That said, we still generate a warning message, since this really shouldn't
-         * happen. */
+         * whether we are called in the process that is about to execute the payload of the PAM session or
+         * in the one that sticks around to clean up. Which one of the two is the forked off child depends on
+         * the application: for login(1) it is the former, for the service manager the latter. Hence, to
+         * detect the forked off child we rely on the PID checks that sd_bus_flush_close_unref() does
+         * internally anyway, and generate a warning message if the connection was passed across a fork(),
+         * since this really shouldn't happen. */
 
         if (!data)
                 return;
 
         PamBusData *d = data;
-        if (FLAGS_SET(error_status, PAM_DATA_SILENT) &&
-            d->bus && bus_origin_changed(d->bus))
-                /* Please adjust test/units/end.sh when updating the log message. */
+        if (d->bus && bus_origin_changed(d->bus))
+                /* Please adjust test/units/post.sh when updating the log message. */
                 sym_pam_syslog(pamh, LOG_DEBUG,
                                "Warning: cannot close sd-bus connection (%s) after fork when it was opened before the fork.",
                                strna(d->cache_id));
+        else if (FLAGS_SET(error_status, PAM_DATA_SILENT))
+                /* We are called in the process that opened the connection, and which is about to execute
+                 * the payload. The fds of the connection might already be closed there, and their numbers
+                 * might be in use for something else (that's the case in the service manager), hence
+                 * don't flush or close the connection, but forget about it. It goes away on exec or exit
+                 * anyway. */
+                TAKE_PTR(d->bus);
 
         pam_bus_data_free(data);
 }
@@ -260,13 +268,14 @@ void pam_cleanup_free(pam_handle_t *pamh, void *data, int error_status) {
 }
 
 void pam_cleanup_close(pam_handle_t *pamh, void *data, int error_status) {
-
         /* A generic destructor for pam_set_data() that just closes the specified fd.
          *
-         * As per pam_set_data() docs: the PAM_DATA_SILENT indicates whether we are called in the forked off
-         * payload child of the new session. However, all file descriptors are most likely already closed
-         * there (that's what /bin/login does after all), hence let's simply turn this into a NOP in the
-         * child, and only close the fd in the parent. */
+         * As per pam_end() docs: PAM_DATA_SILENT indicates that we are called in the process that is about
+         * to execute the payload of the new session, while some other process takes care of the cleanup.
+         * (For login(1) this is the forked off child, for the service manager it is the parent, with the
+         * forked off (sd-pam) child cleaning up.) The file descriptor might already be closed there, or will
+         * be closed on exec anyway, hence let's simply turn this into a noop in this process, and only close
+         * the fd in the one that cleans up. */
         if (FLAGS_SET(error_status, PAM_DATA_SILENT))
                 return;
 
