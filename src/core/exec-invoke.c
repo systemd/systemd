@@ -6756,6 +6756,7 @@ int exec_invoke(
         uint64_t capability_ambient_set = context->capability_ambient_set;
 #if HAVE_PAM
         pam_handle_t *pam_handle = NULL;
+        bool pam_keep_caps = false;
 #endif
 
         /* Check CAP_SYS_ADMIN before we enter user namespace to see if we can mount /proc even though its masked. */
@@ -7241,21 +7242,21 @@ int exec_invoke(
         if (needs_setuid) {
                 if (uid_is_valid(uid)) {
 #if HAVE_PAM
-                        bool pam_keep_caps = false;
-
                         /* If we have a PAM session, the modules might want to set capabilities in pam_end(),
                          * which we call after the UID change, see below. This is only possible if the
                          * permitted set survives the UID change. (pam_cap with the "defer" option doesn't
-                         * enable keep-caps on its own, but expects this from the application.) If the UID
-                         * doesn't actually change there's nothing to preserve. Use PR_SET_KEEPCAPS here
-                         * rather than the secure bits, since it requires no privileges, and don't fail if
-                         * this doesn't work, as most PAM modules don't care. */
-                        if (pam_handle && uid != getuid() && prctl_safe(PR_GET_KEEPCAPS, 0, 0, 0, 0) == 0) {
-                                r = prctl_safe(PR_SET_KEEPCAPS, 1, 0, 0, 0);
-                                if (r < 0)
-                                        log_debug_errno(r, "Failed to enable keep capabilities flag for PAM, ignoring: %m");
-                                else
-                                        pam_keep_caps = true;
+                         * enable keep-caps on its own, but expects this from the application.) Only take
+                         * responsibility for dropping the set if the kernel would otherwise clear it. */
+                        if (pam_handle && uid != 0 && getuid() == 0) {
+                                int bits = prctl_safe(PR_GET_SECUREBITS, 0, 0, 0, 0);
+                                if (bits >= 0 && (bits & (SECBIT_KEEP_CAPS|SECBIT_NO_SETUID_FIXUP)) == 0) {
+                                        /* PR_SET_KEEPCAPS requires no privileges. Most PAM modules don't need it. */
+                                        r = prctl_safe(PR_SET_KEEPCAPS, 1, 0, 0, 0);
+                                        if (r < 0)
+                                                log_debug_errno(r, "Failed to enable keep capabilities flag for PAM, ignoring: %m");
+                                        else
+                                                pam_keep_caps = true;
+                                }
                         }
 #endif
 
@@ -7396,6 +7397,19 @@ int exec_invoke(
                                 return log_error_errno(r, "Failed to set process secure bits: %m");
                         }
                 }
+
+#if HAVE_PAM
+                /* Clearing KEEP_CAPS doesn't undo the capabilities retained across setresuid(). Now that
+                 * pam_end() has finalized the ambient set and setting securebits no longer needs CAP_SETPCAP,
+                 * drop the excess: NoNewPrivileges= uses the old permitted set as the ceiling for file caps. */
+                if (pam_keep_caps) {
+                        r = capability_drop_to_ambient();
+                        if (r < 0) {
+                                *exit_status = EXIT_CAPABILITIES;
+                                return log_error_errno(r, "Failed to drop capabilities retained for PAM: %m");
+                        }
+                }
+#endif
 
                 if (context_has_no_new_privileges(context)) {
                         r = proc_set_nnp();

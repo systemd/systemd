@@ -205,6 +205,44 @@ TEST(apply_ambient_caps) {
         }
 }
 
+TEST(drop_to_ambient) {
+        const uint64_t chown = UINT64_C(1) << CAP_CHOWN;
+        CapabilityQuintet expected, actual;
+        int r;
+
+        if (getuid() != 0 || test_uid == UID_INVALID || userns_has_single_user())
+                return (void) log_tests_skipped("need root and a non-root UID");
+        if (!run_ambient || have_effective_cap(CAP_CHOWN) <= 0 || have_effective_cap(CAP_SETUID) <= 0)
+                return (void) log_tests_skipped("required capabilities not available");
+
+        r = ASSERT_OK(pidref_safe_fork("test-cap", FORK_WAIT|FORK_DEATHSIG_SIGKILL|FORK_LOG, /* ret= */ NULL));
+        if (r != 0)
+                return;
+
+        /* Follow the executor's UID change, deferred PAM ambient setup and final securebits setup. */
+        ASSERT_OK(prctl_safe(PR_SET_KEEPCAPS, 1, 0, 0, 0));
+        ASSERT_OK_ERRNO(setresuid(test_uid, test_uid, test_uid));
+        ASSERT_OK(capability_ambient_set_apply(chown, /* also_inherit= */ true));
+        ASSERT_OK(prctl_safe(PR_SET_KEEPCAPS, 0, 0, 0, 0));
+        ASSERT_OK(capability_gain_cap_setpcap());
+
+        PidRef self = PIDREF_MAKE_FROM_PID(getpid_cached());
+        ASSERT_OK(pidref_get_capability(&self, &expected));
+        ASSERT_OK(capability_drop_to_ambient());
+        expected.permitted = chown;
+        expected.effective &= chown;
+        ASSERT_OK(pidref_get_capability(&self, &actual));
+        ASSERT_TRUE(capability_quintet_equal(&expected, &actual));
+
+        /* An empty ambient set must clear permitted and effective, but leave inheritable alone. */
+        ASSERT_OK(prctl_safe(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0));
+        ASSERT_OK(capability_drop_to_ambient());
+        expected.ambient = expected.permitted = expected.effective = 0;
+        ASSERT_OK(pidref_get_capability(&self, &actual));
+        ASSERT_TRUE(capability_quintet_equal(&expected, &actual));
+        _exit(EXIT_SUCCESS);
+}
+
 TEST(ensure_cap_64_bit) {
         unsigned long p = 0;
         int r;
