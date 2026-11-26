@@ -94,13 +94,75 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("The configured features."),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(features, Feature, SD_VARLINK_ARRAY));
 
-static SD_VARLINK_DEFINE_METHOD(
+static SD_VARLINK_DEFINE_METHOD_FULL(
                 CheckNew,
-                SD_VARLINK_FIELD_COMMENT("Target to check for updates for."),
-                SD_VARLINK_DEFINE_INPUT_BY_TYPE(target, TargetIdentifier, 0),
+                SD_VARLINK_SUPPORTS_MORE,
+                SD_VARLINK_FIELD_COMMENT("Target to check for updates for. If not specified, the default installation of the host (if there is one) and all of its enabled components are checked, similar to the --component-all switch of systemd-sysupdate(8). In that case the 'more' flag must be set, and one reply is sent for each of them, regardless of whether a new version is available. If there is nothing to check, the NoSuchTarget error is returned."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(target, TargetIdentifier, SD_VARLINK_NULLABLE),
                 VARLINK_DEFINE_POLKIT_INPUT,
-                SD_VARLINK_FIELD_COMMENT("The version string for the new version which is available."),
-                SD_VARLINK_DEFINE_OUTPUT(available, SD_VARLINK_STRING, 0));
+                SD_VARLINK_FIELD_COMMENT("If no target is specified, the component the reply refers to. Unset for the default installation."),
+                SD_VARLINK_DEFINE_OUTPUT(component, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The version string for the new version which is available. If no target is specified and no new version is available for the component, this is null. (If a target is specified, the NoUpdateNeeded error is returned instead in that case.)"),
+                SD_VARLINK_DEFINE_OUTPUT(available, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_ENUM_TYPE(
+                UpdateAction,
+                SD_VARLINK_FIELD_COMMENT("Acquire (download) the new version and install it, see the 'update' command of systemd-sysupdate(8)."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(update),
+                SD_VARLINK_FIELD_COMMENT("Only acquire (download) the new version, see the 'acquire' command of systemd-sysupdate(8)."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(acquire),
+                SD_VARLINK_FIELD_COMMENT("Only install a previously acquired new version, see 'update --offline' in systemd-sysupdate(8)."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(install));
+
+static SD_VARLINK_DEFINE_ENUM_TYPE(
+                UpdatePhase,
+                SD_VARLINK_FIELD_COMMENT("Waiting for another update of the same component to finish."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(waiting_for_lock),
+                SD_VARLINK_FIELD_COMMENT("Loading the definitions and determining the version to update to."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(preparing),
+                SD_VARLINK_FIELD_COMMENT("Removing old versions to make room for the new one."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(vacuuming),
+                SD_VARLINK_FIELD_COMMENT("Acquiring (downloading) a transfer of the new version."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(acquiring),
+                SD_VARLINK_FIELD_COMMENT("Installing the new version."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(installing),
+                SD_VARLINK_FIELD_COMMENT("Notifying other components about the new version."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(notifying));
+
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                Update,
+                SD_VARLINK_SUPPORTS_MORE,
+                SD_VARLINK_FIELD_COMMENT("Target to update. If not specified, the default installation of the host and all of its enabled components are updated, similar to the --component-all switch of systemd-sysupdate(8)."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(target, TargetIdentifier, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The version to update to. If not specified, updates to the newest version available."),
+                SD_VARLINK_DEFINE_INPUT(version, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("What to do. Defaults to 'update'."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(action, UpdateAction, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The maximum number of update iterations to run, see the --loop= switch of systemd-sysupdate(8). Values above 1 are only permitted for the 'update' and 'install' actions. Defaults to 1, like the command line tool, but for unattended updates a higher value such as 16 (which is what systemd-sysupdate-update.service uses) is recommended."),
+                SD_VARLINK_DEFINE_INPUT(loop, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether to remove resources of components that are no longer installed, see the --cleanup= switch of systemd-sysupdate(8). Defaults to false."),
+                SD_VARLINK_DEFINE_INPUT(cleanup, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_FIELD_COMMENT("If used with the 'more' flag, the phase of the update is sent in progress notifications. Note that phases might be added in later versions, and clients should ignore phases they do not know."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(phase, UpdatePhase, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If used with the 'more' flag, the update iteration (counting from 1) the progress notification refers to, see the 'loop' parameter."),
+                SD_VARLINK_DEFINE_OUTPUT(iteration, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If used with the 'more' flag, the component the progress notification refers to. Unset for the default installation."),
+                SD_VARLINK_DEFINE_OUTPUT(component, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If used with the 'more' flag, the identifier of the transfer the progress notification refers to, if any."),
+                SD_VARLINK_DEFINE_OUTPUT(transfer, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If used with the 'more' flag, the version the progress notification refers to, if known."),
+                SD_VARLINK_DEFINE_OUTPUT(version, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If used with the 'more' flag, a progress percentage, specific to the phase, component and transfer. Only sent if known."),
+                SD_VARLINK_DEFINE_OUTPUT(progress, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If used with the 'more' flag, the time in µs that passed since the transfer started. Only sent along with a progress percentage."),
+                SD_VARLINK_DEFINE_OUTPUT(timeElapsedUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If used with the 'more' flag, the estimated total time in µs the transfer is going to take, i.e. the time left is this minus 'timeElapsedUSec'. Only sent once an estimate is known, which typically takes a few seconds into the transfer."),
+                SD_VARLINK_DEFINE_OUTPUT(timeTotalUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("In the final reply, whether a new version was installed."),
+                SD_VARLINK_DEFINE_OUTPUT(installed, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("In the final reply, whether a reboot is needed to activate the newly installed version. Only set for targets of class 'host', and only if the booted version is known."),
+                SD_VARLINK_DEFINE_OUTPUT(rebootNeeded, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
                 ListTargets,
@@ -123,6 +185,8 @@ SD_VARLINK_DEFINE_INTERFACE_FULL(
                 &vl_method_CheckNew,
                 SD_VARLINK_SYMBOL_COMMENT("Show targets"),
                 &vl_method_ListTargets,
+                SD_VARLINK_SYMBOL_COMMENT("Update a target to a new version. If invoked with the 'more' flag, reports progress via notifications, otherwise only replies once the update is complete. Note that the update is not affected if the client disconnects before it is complete."),
+                &vl_method_Update,
 
                 /* Types */
                 SD_VARLINK_SYMBOL_COMMENT("Class of a Target."),
@@ -137,9 +201,13 @@ SD_VARLINK_DEFINE_INTERFACE_FULL(
                 &vl_type_Target,
                 SD_VARLINK_SYMBOL_COMMENT("Type containing a configured sysupdate feature."),
                 &vl_type_Feature,
+                SD_VARLINK_SYMBOL_COMMENT("The action to execute when updating."),
+                &vl_type_UpdateAction,
+                SD_VARLINK_SYMBOL_COMMENT("Phase of an update, reported in progress notifications."),
+                &vl_type_UpdatePhase,
 
                 /* Errors */
                 SD_VARLINK_SYMBOL_COMMENT("Error indicating that no update is currently available to update to."),
                 &vl_error_NoUpdateNeeded,
-                SD_VARLINK_SYMBOL_COMMENT("Error indicating the specified target doesn’t exist"),
+                SD_VARLINK_SYMBOL_COMMENT("Error indicating the specified target doesn’t exist, or, if no target is specified, that there's nothing to operate on"),
                 &vl_error_NoSuchTarget);

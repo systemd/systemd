@@ -1450,6 +1450,26 @@ static int helper_on_exit(sd_event_source *s, const siginfo_t *si, void *userdat
         return sd_event_exit(sd_event_source_get_event(s), r);
 }
 
+static usec_t parse_time_field(char *s, const char *what) {
+        usec_t t;
+        int r;
+
+        assert(what);
+
+        if (!s)
+                return USEC_INFINITY;
+
+        truncate_nl(s);
+
+        r = safe_atou64(s, &t);
+        if (r < 0) {
+                log_warning_errno(r, "Got invalid %s value '%s', ignoring: %m", what, s);
+                return USEC_INFINITY;
+        }
+
+        return t;
+}
+
 static int helper_on_notify(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         CalloutContext *ctx = ASSERT_PTR(userdata);
         int r;
@@ -1469,7 +1489,12 @@ static int helper_on_notify(sd_event_source *s, int fd, uint32_t revents, void *
                 return 0;
         }
 
-        char *errno_str = find_line_startswith(buf, "ERRNO=");
+        /* Look for all fields before truncating any of them, since truncate_nl() cuts off the buffer */
+        char *errno_str = find_line_startswith(buf, "ERRNO="),
+                *progress_str = find_line_startswith(buf, "X_IMPORT_PROGRESS="),
+                *time_elapsed_str = find_line_startswith(buf, "X_IMPORT_TIME_ELAPSED_USEC="),
+                *time_total_str = find_line_startswith(buf, "X_IMPORT_TIME_TOTAL_USEC=");
+
         if (errno_str) {
                 truncate_nl(errno_str);
                 r = parse_errno(errno_str);
@@ -1481,7 +1506,6 @@ static int helper_on_notify(sd_event_source *s, int fd, uint32_t revents, void *
                 }
         }
 
-        char *progress_str = find_line_startswith(buf, "X_IMPORT_PROGRESS=");
         if (progress_str) {
                 truncate_nl(progress_str);
 
@@ -1489,7 +1513,12 @@ static int helper_on_notify(sd_event_source *s, int fd, uint32_t revents, void *
                 if (progress < 0)
                         log_warning("Got invalid percent value '%s', ignoring.", progress_str);
                 else {
-                        r = ctx->callback(ctx->transfer, ctx->instance, progress);
+                        /* The helper sends the time elapsed along with the progress, and an estimate of
+                         * the total time, once it has one */
+                        usec_t time_elapsed = parse_time_field(time_elapsed_str, "time elapsed"),
+                                time_total = parse_time_field(time_total_str, "total time");
+
+                        r = ctx->callback(ctx->transfer, ctx->instance, progress, time_elapsed, time_total);
                         if (r < 0)
                                 return r;
                 }
@@ -1561,6 +1590,13 @@ static int run_callout(
         if (r == 0) {
                 /* Child */
                 if (setenv("NOTIFY_SOCKET", bind_name, 1) < 0) {
+                        log_error_errno(errno, "setenv() failed: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                /* The helper reports progress via X_IMPORT_PROGRESS=, and we draw the progress bar
+                 * ourselves, hence tell it not to draw its own. */
+                if (setenv("SYSTEMD_PROGRESS_BAR", "0", /* overwrite= */ true) < 0) {
                         log_error_errno(errno, "setenv() failed: %m");
                         _exit(EXIT_FAILURE);
                 }
