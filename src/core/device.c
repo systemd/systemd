@@ -335,7 +335,19 @@ static void device_catchup(Unit *u) {
          * Note that we only enumerate ready devices in device_enumerate(). So, here we should not drop the
          * DEVICE_FOUND_UDEV_EXIST flag if we verified that the device exists. See device_coldplug() and
          * device_deserialize_sysfs(). */
+
         DeviceFound found = d->enumerated_found | (d->found & DEVICE_FOUND_UDEV_EXIST);
+
+        if (!d->sysfs)
+                /* The device unit has no sysfs path, i.e. we know nothing about this device besides the
+                 * fact that the kernel references it. Do not drop the mount/swap flags: they are facts
+                 * from the kernel, and they are dropped by device_found_node() when the corresponding
+                 * entry really disappears from /proc/self/mountinfo or /proc/swaps. If they were dropped
+                 * here for other reasons (e.g. a transient failure in device_found_node() or in the
+                 * enumeration), 'found' would become zero, the device would be judged to be dead in
+                 * device_found_changed(), and mounts or swaps may be stopped unexpectedly. */
+                found |= d->found & (DEVICE_FOUND_MOUNT | DEVICE_FOUND_SWAP);
+
         device_update_found_one(d, found, _DEVICE_FOUND_MASK);
 }
 
@@ -1258,8 +1270,8 @@ void device_found_node(Manager *m, const char *node, DeviceFound found, DeviceFo
 
         /* If the device is known in the kernel and newly appeared, then we'll create a device unit for it,
          * under the name referenced in /proc/swaps or /proc/self/mountinfo. But first, let's validate if
-         * everything is alright with the device node. Note that we're fine with missing device nodes, but
-         * not with badly set up ones. */
+         * everything is alright with the device node. Note that we're fine with missing device nodes and
+         * with failures to open them, but not with paths that are not device nodes at all. */
 
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         r = sd_device_new_from_devname(&dev, node);
@@ -1268,7 +1280,13 @@ void device_found_node(Manager *m, const char *node, DeviceFound found, DeviceFo
         else if (r == -EINVAL)
                 return; /* Not a device node. */
         else if (r < 0)
-                return (void) log_warning_errno(r, "Failed to open device node '%s', ignoring: %m", node);
+                /* The device node is referenced by /proc/swaps or /proc/self/mountinfo, hence the kernel
+                 * uses it regardless of our failure to open it. Let's continue without the device node,
+                 * as if the device node is missing. If we bailed out here, the device unit would lack
+                 * the mount/swap flag, and the device may be judged to be dead in device_catchup() even
+                 * though the kernel still references it, and the mount/swap unit may be stopped
+                 * unexpectedly. */
+                log_warning_errno(r, "Failed to open device node '%s', continuing without device node: %m", node);
 
         (void) device_setup_unit(m, dev, node, found); /* 'dev' may be NULL. */
 }
