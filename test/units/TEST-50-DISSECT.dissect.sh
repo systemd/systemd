@@ -1300,6 +1300,18 @@ EOF
     systemctl try-reload-or-restart polkit.service
 fi
 
+# The directory images used below are placed in /run/ (i.e. on tmpfs), which the default directory policy
+# ("auto") refuses. Permit them via a drop-in, the directory policy itself is tested further down.
+mkdir -p /run/systemd/sysext.conf.d /run/systemd/confext.conf.d
+cat >/run/systemd/sysext.conf.d/10-test-directory-policy.conf <<EOF
+[SysExt]
+DirectoryPolicy=yes
+EOF
+cat >/run/systemd/confext.conf.d/10-test-directory-policy.conf <<EOF
+[ConfExt]
+DirectoryPolicy=yes
+EOF
+
 # Check that extensions cannot contain os-release
 mkdir -p /run/extensions/app-reject/usr/lib/{extension-release.d/,systemd/system}
 echo "ID=_any" >/run/extensions/app-reject/usr/lib/extension-release.d/extension-release.app-reject
@@ -1411,6 +1423,55 @@ systemd-confext status --json=pretty | jq -e 'any(.[]; .hierarchy == "/etc" and 
 systemd-confext unmerge
 systemd-confext status --json=pretty | jq -e 'any(.[]; .hierarchy == "/etc" and .extensions == [] and .since == null)' >/dev/null
 rm -rf /run/confexts/
+
+# Check DirectoryPolicy=/--directory-policy=: in "auto" mode (the default) directory images are only
+# considered if they are below /usr/ or /var/, on dm-crypt or dm-verity storage, or on the file system of
+# /, /usr/ or /var/. Hence a directory confext in /run/ (tmpfs) is refused. With "no" even a directory
+# confext in /var/ is refused. Note that the drop-in created above sets DirectoryPolicy=yes, and the
+# command line switch and the environment variable take precedence over it.
+mkdir -p /run/confexts/test-dirpolicy/etc/extension-release.d
+echo "ID=_any" >/run/confexts/test-dirpolicy/etc/extension-release.d/extension-release.test-dirpolicy
+echo "MARKER_DIRPOLICY_TMPFS" >/run/confexts/test-dirpolicy/etc/test-dirpolicy-tmpfs
+mkdir -p /var/lib/confexts/test-dirpolicy-var/etc/extension-release.d
+echo "ID=_any" >/var/lib/confexts/test-dirpolicy-var/etc/extension-release.d/extension-release.test-dirpolicy-var
+echo "MARKER_DIRPOLICY_VAR" >/var/lib/confexts/test-dirpolicy-var/etc/test-dirpolicy-var
+# A refused directory image hides a disk image of the same name in a directory of lower priority, i.e. the
+# name is skipped entirely.
+mkdir -p /run/confexts/test-dirpolicy-shadow/etc/extension-release.d
+echo "ID=_any" >/run/confexts/test-dirpolicy-shadow/etc/extension-release.d/extension-release.test-dirpolicy-shadow
+echo "MARKER_DIRPOLICY_SHADOW_DIR" >/run/confexts/test-dirpolicy-shadow/etc/test-dirpolicy-shadow
+mkdir -p /tmp/test-dirpolicy-shadow/etc/extension-release.d
+echo "ID=_any" >/tmp/test-dirpolicy-shadow/etc/extension-release.d/extension-release.test-dirpolicy-shadow
+echo "MARKER_DIRPOLICY_SHADOW_RAW" >/tmp/test-dirpolicy-shadow/etc/test-dirpolicy-shadow
+mksquashfs /tmp/test-dirpolicy-shadow/ /var/lib/confexts/test-dirpolicy-shadow.raw -noappend
+rm -rf /tmp/test-dirpolicy-shadow
+systemd-confext merge
+grep -F "MARKER_DIRPOLICY_TMPFS" /etc/test-dirpolicy-tmpfs >/dev/null
+grep -F "MARKER_DIRPOLICY_VAR" /etc/test-dirpolicy-var >/dev/null
+grep -F "MARKER_DIRPOLICY_SHADOW_DIR" /etc/test-dirpolicy-shadow >/dev/null
+systemd-confext unmerge
+systemd-confext merge --directory-policy=auto
+test ! -e /etc/test-dirpolicy-tmpfs
+grep -F "MARKER_DIRPOLICY_VAR" /etc/test-dirpolicy-var >/dev/null
+test ! -e /etc/test-dirpolicy-shadow
+# The directory policy is not taken into account when listing images
+systemd-confext list --directory-policy=auto --json=short | \
+    jq -e 'any(.[]; .name == "test-dirpolicy" and .path == "/run/confexts/test-dirpolicy")' >/dev/null
+systemd-confext list --directory-policy=auto --json=short | \
+    jq -e 'any(.[]; .name == "test-dirpolicy-shadow" and .path == "/run/confexts/test-dirpolicy-shadow")' >/dev/null
+systemd-confext unmerge
+SYSTEMD_CONFEXT_DIRECTORY_POLICY=no systemd-confext merge
+test ! -e /etc/test-dirpolicy-tmpfs
+test ! -e /etc/test-dirpolicy-var
+test ! -e /etc/test-dirpolicy-shadow
+systemd-confext unmerge
+rm -rf /run/confexts/test-dirpolicy /run/confexts/test-dirpolicy-shadow
+# Without the shadowing directory the disk image is used again
+systemd-confext merge --directory-policy=no
+grep -F "MARKER_DIRPOLICY_SHADOW_RAW" /etc/test-dirpolicy-shadow >/dev/null
+test ! -e /etc/test-dirpolicy-var
+systemd-confext unmerge
+rm -rf /var/lib/confexts/test-dirpolicy-var /var/lib/confexts/test-dirpolicy-shadow.raw
 
 cleanup_sysupdate_notify_confext_mutable() {
     local mutable_marker="$1"
@@ -1530,6 +1591,8 @@ EOF
 }
 
 test_sysupdate_notify_confext_before_sysext
+
+rm -f /run/systemd/sysext.conf.d/10-test-directory-policy.conf /run/systemd/confext.conf.d/10-test-directory-policy.conf
 
 unsquashfs -force -no-xattrs -d /tmp/img "$MINIMAL_IMAGE.raw"
 systemd-run --unit=test-root-ephemeral \
