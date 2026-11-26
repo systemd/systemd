@@ -3,7 +3,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "sd-daemon.h"
 #include "sd-event.h"
 #include "sd-varlink.h"
 
@@ -71,6 +70,7 @@ typedef struct TarImport {
 
         unsigned last_percent;
         RateLimit progress_ratelimit;
+        ImportProgress progress;
 } TarImport;
 
 TarImport* tar_import_unref(TarImport *i) {
@@ -168,17 +168,22 @@ static void tar_import_report_progress(TarImport *i) {
         if (!ratelimit_below(&i->progress_ratelimit))
                 return;
 
-        sd_notifyf(/* unset_environment= */ false, "X_IMPORT_PROGRESS=%u%%", percent);
+        usec_t left = import_progress_estimate(&i->progress, i->written_compressed, (uint64_t) i->input_stat.st_size);
+
+        import_notify_progress(&i->progress, percent, left);
+
+        _cleanup_free_ char *left_str = import_format_time_left(left);
 
         if (isatty_safe(STDERR_FILENO))
                 (void) draw_progress_barf(
                                 percent,
-                                "%s %s/%s",
+                                "%s %s/%s%s",
                                 glyph(GLYPH_ARROW_RIGHT),
                                 FORMAT_BYTES(i->written_compressed),
-                                FORMAT_BYTES(i->input_stat.st_size));
+                                FORMAT_BYTES(i->input_stat.st_size),
+                                strempty(left_str));
         else
-                log_info("Imported %u%%.", percent);
+                log_info("Imported %u%%%s.", percent, strempty(left_str));
 
         i->last_percent = percent;
 }
