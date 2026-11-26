@@ -172,6 +172,11 @@
         <command>acquire</command> and, if so, this pre-acquired version is the one which will be updated
         to.</para>
 
+        <para>When operating on the host, updates (and acquisitions) of the same component are serialized:
+        a lock is taken before a component (or the default, component-less installation) is updated, and
+        released afterwards. If the lock is currently held by another process, the update waits until it is
+        released.</para>
+
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 

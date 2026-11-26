@@ -946,6 +946,39 @@ printf '[Component]\nFailureAction=fail\n' >/run/sysupdate.act-a.component
 test ! -e "$ACTIONDIR/target-b/act-b-1.bin"
 grep -F "Failed to update component 'act-a', aborting" "$ACTIONDIR/log" >/dev/null
 
+# Runs the specified command while holding an OFD lock on the specified file, like flock(1) does for BSD
+# locks. The locked file descriptor is passed on to the command, hence the lock is held until the command
+# (and all of its children) exit.
+ofd_lock() {
+    python3 - "$@" <<'EOF'
+import fcntl, os, struct, sys
+fd = os.open(sys.argv[1], os.O_RDWR|os.O_CREAT, 0o600)
+fcntl.fcntl(fd, fcntl.F_OFD_SETLKW, struct.pack('hhqqixxxx', fcntl.F_WRLCK, os.SEEK_SET, 0, 0, 0))
+os.set_inheritable(fd, True)
+os.execvp(sys.argv[2], sys.argv[2:])
+EOF
+}
+
+# Updates of the same component are serialized via a lock file in /run/, hence while the lock is held by
+# somebody else the update must wait.
+action_reset
+mkdir -p /run/systemd/sysupdate/lock
+(! ofd_lock /run/systemd/sysupdate/lock/component-act-a timeout 10 "$SYSUPDATE" --component=act-a --verify=no update) |& tee "$ACTIONDIR/log"
+grep -F "Component 'act-a' is currently being updated by another process, waiting." "$ACTIONDIR/log" >/dev/null
+test ! -e "$ACTIONDIR/target-a/act-a-1.bin"
+# … and so must vacuuming and cleaning up
+(! ofd_lock /run/systemd/sysupdate/lock/component-act-a timeout 10 "$SYSUPDATE" --component=act-a vacuum) |& tee "$ACTIONDIR/log"
+grep -F "Component 'act-a' is currently being updated by another process, waiting." "$ACTIONDIR/log" >/dev/null
+(! ofd_lock /run/systemd/sysupdate/lock/component-act-a timeout 10 "$SYSUPDATE" --component=act-a cleanup) |& tee "$ACTIONDIR/log"
+grep -F "Component 'act-a' is currently being updated by another process, waiting." "$ACTIONDIR/log" >/dev/null
+# … but other components are not affected
+ofd_lock /run/systemd/sysupdate/lock/component-act-a "$SYSUPDATE" --component=act-b --verify=no update
+cmp "$ACTIONDIR/source/act-b-1.bin" "$ACTIONDIR/target-b/act-b-1.bin"
+"$SYSUPDATE" --component=act-a --verify=no update
+cmp "$ACTIONDIR/source/act-a-1.bin" "$ACTIONDIR/target-a/act-a-1.bin"
+# The lock file is removed again when the lock is released
+test ! -e /run/systemd/sysupdate/lock/component-act-a
+
 rm -rf "$ACTIONDIR" /run/sysupdate.act-a.d /run/sysupdate.act-b.d \
     /run/sysupdate.act-a.component /run/sysupdate.act-b.component \
     /var/lib/systemd/sysupdate/installdb.act-a /var/lib/systemd/sysupdate/installdb.act-b
