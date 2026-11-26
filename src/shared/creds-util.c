@@ -429,7 +429,7 @@ static void warn_not_encrypted(int fd, CredentialSecretFlags flags, const char *
         if (!FLAGS_SET(flags, CREDENTIAL_SECRET_WARN_NOT_ENCRYPTED))
                 return;
 
-        r = fd_is_encrypted(fd);
+        r = fd_is_encrypted(fd, BLOCK_DEVICE_ENCRYPTED_DM_CRYPT|BLOCK_DEVICE_ENCRYPTED_DM_VERITY);
         if (r < 0)
                 log_debug_errno(r, "Failed to determine if credential secret file '%s/%s' is encrypted.",
                                 dirname, filename);

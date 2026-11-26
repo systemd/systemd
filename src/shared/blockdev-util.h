@@ -39,8 +39,14 @@ int lock_whole_block_device(dev_t devt, int open_flags, int operation);
 int blockdev_partscan_enabled(sd_device *d);
 int blockdev_partscan_enabled_fd(int fd);
 
-int fd_is_encrypted(int fd);
-int path_is_encrypted(const char *path);
+typedef enum BlockDeviceEncryptedFlags {
+        BLOCK_DEVICE_ENCRYPTED_DM_CRYPT  = 1 << 0, /* dm-crypt devices pass the check (LUKS, plain,
+                                                    * BitLocker, …) */
+        BLOCK_DEVICE_ENCRYPTED_DM_VERITY = 1 << 1, /* dm-verity devices pass the check */
+} BlockDeviceEncryptedFlags;
+
+int fd_is_encrypted(int fd, BlockDeviceEncryptedFlags flags);
+int path_is_encrypted(const char *path, BlockDeviceEncryptedFlags flags);
 
 int fd_get_whole_disk(int fd, bool backing, dev_t *ret);
 int path_get_whole_disk(const char *path, bool backing, dev_t *ret);
