@@ -167,6 +167,7 @@ openssl x509 -req -days 7 \
              -in /run/systemd/remote-pki/server.csr \
              -CA /run/systemd/remote-pki/ca.crt \
              -CAkey /run/systemd/remote-pki/ca.key \
+             -extfile <(echo 'subjectAltName=DNS:localhost') \
              -out /run/systemd/remote-pki/server.crt
 chown -R systemd-journal-remote:systemd-journal /run/systemd/remote-pki
 chmod -R g+rwX /run/systemd/remote-pki
