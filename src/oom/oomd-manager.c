@@ -150,6 +150,12 @@ static int process_managed_oom_message(Manager *m, uid_t uid, sd_json_variant *p
 
                 /* For OOMRules, only insert/update if rules are actually provided */
                 if (streq(message.property, "OOMRules")) {
+                        if (strv_length(message.rules) > 1000) {
+                                log_debug("Ignoring OOMRules update: more than %d rules.",
+                                        OOMD_MAX_OOM_RULES);
+                                continue;
+                        }
+
                         if (strv_isempty(message.rules))
                                 continue;
 
