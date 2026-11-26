@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-19 10:41+0000\n"
+"POT-Creation-Date: 2026-11-26 13:11+0000\n"
 "PO-Revision-Date: 2026-08-30 02:18+0000\n"
 "Last-Translator: Bone NI <bounkirdni@gmail.com>\n"
 "Language-Team: Lao <https://translate.fedoraproject.org/projects/systemd/"
@@ -146,82 +146,92 @@ msgstr "ຈັດການຄີການລົງລາຍເຊັນຂອງ
 msgid "Authentication is required to manage signing keys for home directories."
 msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຈັດການຄີການລົງລາຍເຊັນສຳລັບໂຟນເດີໂຮມ."
 
-#: src/home/pam_systemd_home.c:328
+#. ret_response=
+#: src/home/pam_systemd_home.c:324
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
 "device or backing file system."
 msgstr "ພື້ນທີ່ໂຮມຂອງຜູ້ໃຊ້ %s ບໍ່ມີຢູ່ໃນຕອນນີ້, ກະລຸນາສຽບອຸປະກອນເກັບຂໍ້ມູນທີ່ຈຳເປັນ ຫຼື ລະບົບໄຟລ໌ສຳຮອງ."
 
-#: src/home/pam_systemd_home.c:333
+#. ret_response=
+#: src/home/pam_systemd_home.c:329
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr "ມີການພະຍາຍາມເຂົ້າສູ່ລະບົບສຳລັບຜູ້ໃຊ້ %s ຫຼາຍເກີນໄປ, ກະລຸນາລອງໃໝ່ພາຍຫຼັງ."
 
-#: src/home/pam_systemd_home.c:345
+#: src/home/pam_systemd_home.c:341
 msgid "Password: "
 msgstr "ລະຫັດຜ່ານ: "
 
-#: src/home/pam_systemd_home.c:347
+#. ret_response=
+#: src/home/pam_systemd_home.c:343
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr "ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ ຫຼື ບໍ່ພຽງພໍສຳລັບການຢືນຢັນຕົວຕົນຂອງຜູ້ໃຊ້ %s."
 
-#: src/home/pam_systemd_home.c:348
+#: src/home/pam_systemd_home.c:344
 msgid "Sorry, try again: "
 msgstr "ຂໍອະໄພ, ກະລຸນາລອງໃໝ່: "
 
-#: src/home/pam_systemd_home.c:370
+#: src/home/pam_systemd_home.c:366
 msgid "Recovery key: "
 msgstr "ລະຫັດກູ້ຄືນ: "
 
-#: src/home/pam_systemd_home.c:372
+#. ret_response=
+#: src/home/pam_systemd_home.c:368
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
 "%s."
 msgstr "ລະຫັດຜ່ານ/ລະຫັດກູ້ຄືນ ບໍ່ຖືກຕ້ອງ ຫຼື ບໍ່ພຽງພໍສຳລັບການຢືນຢັນຕົວຕົນຂອງຜູ້ໃຊ້ %s."
 
-#: src/home/pam_systemd_home.c:373
+#: src/home/pam_systemd_home.c:369
 msgid "Sorry, reenter recovery key: "
 msgstr "ຂໍອະໄພ, ກະລຸນາປ້ອນລະຫັດກູ້ຄືນໃໝ່: "
 
-#: src/home/pam_systemd_home.c:393
+#. ret_response=
+#: src/home/pam_systemd_home.c:389
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "ບໍ່ໄດ້ສຽບໂທເຄັນຄວາມປອດໄພຂອງຜູ້ໃຊ້ %s."
 
-#: src/home/pam_systemd_home.c:394 src/home/pam_systemd_home.c:402
+#: src/home/pam_systemd_home.c:390 src/home/pam_systemd_home.c:398
 msgid "Try again with password: "
 msgstr "ລອງໃໝ່ດ້ວຍລະຫັດຜ່ານ: "
 
-#: src/home/pam_systemd_home.c:400
+#. ret_response=
+#: src/home/pam_systemd_home.c:396
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
 "%s not inserted."
 msgstr "ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ ຫຼື ບໍ່ພຽງພໍ, ແລະ ບໍ່ໄດ້ສຽບໂທເຄັນຄວາມປອດໄພທີ່ຕັ້ງຄ່າໄວ້ຂອງຜູ້ໃຊ້ %s."
 
-#: src/home/pam_systemd_home.c:421
+#: src/home/pam_systemd_home.c:417
 msgid "Security token PIN: "
 msgstr "ລະຫັດ PIN ຂອງໂທເຄັນຄວາມປອດໄພ: "
 
-#: src/home/pam_systemd_home.c:438
+#. ret_response=
+#: src/home/pam_systemd_home.c:434
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr "ກະລຸນາຢືນຢັນຕົວຕົນດ້ວຍຕົນເອງທີ່ໂທເຄັນຄວາມປອດໄພຂອງຜູ້ໃຊ້ %s."
 
-#: src/home/pam_systemd_home.c:449
+#. ret_response=
+#: src/home/pam_systemd_home.c:445
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr "ກະລຸນາຢືນຢັນການມີຕົວຕົນຢູ່ທີ່ໂທເຄັນຄວາມປອດໄພຂອງຜູ້ໃຊ້ %s."
 
-#: src/home/pam_systemd_home.c:460
+#. ret_response=
+#: src/home/pam_systemd_home.c:456
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr "ກະລຸນາກວດສອບຜູ້ໃຊ້ຢູ່ທີ່ໂທເຄັນຄວາມປອດໄພຂອງຜູ້ໃຊ້ %s."
 
-#: src/home/pam_systemd_home.c:469
+#. ret_response=
+#: src/home/pam_systemd_home.c:465
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
@@ -229,75 +239,90 @@ msgstr ""
 "ລະຫັດ PIN ຂອງໂທເຄັນຄວາມປອດໄພຖືກລັອກ, ກະລຸນາປົດລັອກກ່ອນ. (ຄຳແນະນຳ: "
 "ການຖອດອອກແລ້ວສຽບເຂົ້າໃໝ່ອາດຊ່ວຍໄດ້.)"
 
-#: src/home/pam_systemd_home.c:477
+#. ret_response=
+#: src/home/pam_systemd_home.c:473
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "ລະຫັດ PIN ຂອງໂທເຄັນຄວາມປອດໄພບໍ່ຖືກຕ້ອງສຳລັບຜູ້ໃຊ້ %s."
 
-#: src/home/pam_systemd_home.c:478 src/home/pam_systemd_home.c:497
-#: src/home/pam_systemd_home.c:516
+#: src/home/pam_systemd_home.c:474 src/home/pam_systemd_home.c:493
+#: src/home/pam_systemd_home.c:512
 msgid "Sorry, retry security token PIN: "
 msgstr "ຂໍອະໄພ, ລອງປ້ອນ PIN ຂອງໂທເຄັນຄວາມປອດໄພໃໝ່: "
 
-#: src/home/pam_systemd_home.c:496
+#. ret_response=
+#: src/home/pam_systemd_home.c:492
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr "ລະຫັດ PIN ຂອງໂທເຄັນຄວາມປອດໄພຂອງຜູ້ໃຊ້ %s ບໍ່ຖືກຕ້ອງ (ເຫຼືອການພະຍາຍາມອີກບໍ່ເທົ່າໃດຄັ້ງ!)"
 
-#: src/home/pam_systemd_home.c:515
+#. ret_response=
+#: src/home/pam_systemd_home.c:511
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr "ລະຫັດ PIN ຂອງໂທເຄັນຄວາມປອດໄພຂອງຜູ້ໃຊ້ %s ບໍ່ຖືກຕ້ອງ (ເຫຼືອການພະຍາຍາມອີກພຽງຄັ້ງດຽວ!)"
 
-#: src/home/pam_systemd_home.c:686
+#. ret_response=
+#: src/home/pam_systemd_home.c:682
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr "ພື້ນທີ່ໂຮມຂອງຜູ້ໃຊ້ %s ຍັງບໍ່ທັນເປີດໃຊ້ງານ, ກະລຸນາເຂົ້າສູ່ລະບົບໂດຍກົງຢູ່ເຄື່ອງກ່ອນ."
 
-#: src/home/pam_systemd_home.c:693
+#. ret_response=
+#: src/home/pam_systemd_home.c:689
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr "ພື້ນທີ່ໂຮມຂອງຜູ້ໃຊ້ %s ຖືກລັອກຢູ່, ກະລຸນາປົດລັອກໂດຍກົງຢູ່ເຄື່ອງກ່ອນ."
 
-#: src/home/pam_systemd_home.c:728
+#. ret_response=
+#: src/home/pam_systemd_home.c:724
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr "ມີການພະຍາຍາມເຂົ້າສູ່ລະບົບບໍ່ສຳເລັດຫຼາຍເກີນໄປສຳລັບຜູ້ໃຊ້ %s, ຂໍປະຕິເສດ."
 
-#: src/home/pam_systemd_home.c:1030
+#. ret_response=
+#: src/home/pam_systemd_home.c:1026
 msgid "User record is blocked, prohibiting access."
 msgstr "ຂໍ້ມູນຜູ້ໃຊ້ຖືກບລັອກ, ຫ້າມເຂົ້າເຖິງ."
 
-#: src/home/pam_systemd_home.c:1034
+#. ret_response=
+#: src/home/pam_systemd_home.c:1030
 msgid "User record is not valid yet, prohibiting access."
 msgstr "ຂໍ້ມູນຜູ້ໃຊ້ຍັງບໍ່ທັນມີຜົນໃຊ້ງານ, ຫ້າມເຂົ້າເຖິງ."
 
-#: src/home/pam_systemd_home.c:1038
+#. ret_response=
+#: src/home/pam_systemd_home.c:1034
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "ຂໍ້ມູນຜູ້ໃຊ້ບໍ່ມີຜົນໃຊ້ງານອີກຕໍ່ໄປ, ຫ້າມເຂົ້າເຖິງ."
 
-#: src/home/pam_systemd_home.c:1043 src/home/pam_systemd_home.c:1092
+#. ret_response=
+#: src/home/pam_systemd_home.c:1039 src/home/pam_systemd_home.c:1088
 msgid "User record not valid, prohibiting access."
 msgstr "ຂໍ້ມູນຜູ້ໃຊ້ບໍ່ຖືກຕ້ອງ, ຫ້າມເຂົ້າເຖິງ."
 
-#: src/home/pam_systemd_home.c:1053
+#. ret_response=
+#: src/home/pam_systemd_home.c:1049
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "ເຂົ້າສູ່ລະບົບຫຼາຍເກີນໄປ, ລອງໃໝ່ໃນອີກ %s."
 
-#: src/home/pam_systemd_home.c:1064
+#. ret_response=
+#: src/home/pam_systemd_home.c:1060
 msgid "Password change required."
 msgstr "ຈຳເປັນຕ້ອງປ່ຽນລະຫັດຜ່ານ."
 
-#: src/home/pam_systemd_home.c:1068
+#. ret_response=
+#: src/home/pam_systemd_home.c:1064
 msgid "Password expired, change required."
 msgstr "ລະຫັດຜ່ານໝົດອາຍຸ, ຈຳເປັນຕ້ອງປ່ຽນໃໝ່."
 
-#: src/home/pam_systemd_home.c:1074
+#. ret_response=
+#: src/home/pam_systemd_home.c:1070
 msgid "Password is expired, but can't change, refusing login."
 msgstr "ລະຫັດຜ່ານໝົດອາຍຸ ແຕ່ບໍ່ສາມາດປ່ຽນໄດ້, ຂໍປະຕິເສດການເຂົ້າສູ່ລະບົບ."
 
-#: src/home/pam_systemd_home.c:1078
+#. ret_response=
+#: src/home/pam_systemd_home.c:1074
 msgid "Password will expire soon, please change."
 msgstr "ລະຫັດຜ່ານຈະໝົດອາຍຸໃນໄວໆນີ້, ກະລຸນາປ່ຽນໃໝ່."
 
@@ -1223,39 +1248,39 @@ msgid ""
 "shall be enabled."
 msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຄວບຄຸມວ່າຈະໃຫ້ເປີດໃຊ້ການຊິງໂຄຣໄນເວລາຜ່ານເຄືອຂ່າຍຫຼືບໍ່."
 
-#: src/core/dbus-unit.c:372
+#: src/core/dbus-unit.c:373
 msgid "Authentication is required to start '$(unit)'."
 msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອເລີ່ມ '$(unit)'."
 
-#: src/core/dbus-unit.c:373
+#: src/core/dbus-unit.c:374
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຢຸດ '$(unit)'."
 
-#: src/core/dbus-unit.c:374
+#: src/core/dbus-unit.c:375
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອໂຫລດ '$(unit)' ຄືນໃໝ່."
 
-#: src/core/dbus-unit.c:375 src/core/dbus-unit.c:376
+#: src/core/dbus-unit.c:376 src/core/dbus-unit.c:377
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອເລີ່ມ '$(unit)' ໃໝ່."
 
-#: src/core/dbus-unit.c:594
+#: src/core/dbus-unit.c:595
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
 msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອສົ່ງສັນຍານ UNIX ໄປຫາໂພຣເຊສຂອງ '$(unit)'."
 
-#: src/core/dbus-unit.c:647
+#: src/core/dbus-unit.c:648
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
 msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອສົ່ງສັນຍານ UNIX ໄປຫາໂພຣເຊສຂອງກຸ່ມຍ່ອຍຂອງ '$(unit)'."
 
-#: src/core/dbus-unit.c:675
+#: src/core/dbus-unit.c:676
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕັ້ງສະຖານະ \"ຫຼົ້ມເຫຼວ\" (failed) ຂອງ '$(unit)' ຄືນໃໝ່."
 
-#: src/core/dbus-unit.c:705
+#: src/core/dbus-unit.c:706
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕັ້ງຄຸນສົມບັດ (properties) ຂອງ '$(unit)'."
 
@@ -1271,21 +1296,21 @@ msgid ""
 msgstr ""
 "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອແຊ່ແຂງ (freeze) ຫຼື ປົດແຊ່ແຂງ (thaw) ໂພຣເຊສຂອງໜ່ວຍງານ '$(unit)'."
 
-#: src/shared/libfido2-util.c:494 src/shared/libfido2-util.c:551
+#: src/shared/libfido2-util.c:697 src/shared/libfido2-util.c:754
 msgid "Please confirm presence on security token to unlock."
 msgstr "ກະລຸນາຢືນຢັນການມີຕົວຕົນຢູ່ທີ່ໂທເຄັນຄວາມປອດໄພເພື່ອປົດລັອກ."
 
-#: src/shared/libfido2-util.c:510
+#: src/shared/libfido2-util.c:713
 msgid "Please verify user on security token to unlock."
 msgstr "ກະລຸນາກວດສອບຜູ້ໃຊ້ຢູ່ທີ່ໂທເຄັນຄວາມປອດໄພເພື່ອປົດລັອກ."
 
-#: src/shared/libfido2-util.c:944
+#: src/shared/libfido2-util.c:1196
 #, c-format
 msgid ""
 "Please enter security token PIN (remaining attempts before lock-out: %d):"
 msgstr "ກະລຸນາປ້ອນລະຫັດ PIN ຂອງໂທເຄັນຄວາມປອດໄພ (ຈຳນວນຄັ້ງທີ່ຍັງເຫຼືອກ່ອນຈະຖືກລັອກ: %d):"
 
-#: src/shared/libfido2-util.c:955
+#: src/shared/libfido2-util.c:1207
 msgid "Please enter security token PIN:"
 msgstr "ກະລຸນາປ້ອນລະຫັດ PIN ຂອງໂທເຄັນຄວາມປອດໄພ:"
 

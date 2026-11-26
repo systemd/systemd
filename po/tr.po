@@ -10,7 +10,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-19 10:41+0000\n"
+"POT-Creation-Date: 2026-11-26 13:11+0000\n"
 "PO-Revision-Date: 2026-08-02 00:14+0000\n"
 "Last-Translator: Emir SARI <emir_sari@icloud.com>\n"
 "Language-Team: Turkish <https://translate.fedoraproject.org/projects/systemd/"
@@ -169,7 +169,8 @@ msgstr ""
 "Ana dizinler için olan imzalama anahtarlarını yönetmek için kimlik "
 "doğrulaması gereklidir."
 
-#: src/home/pam_systemd_home.c:328
+#. ret_response=
+#: src/home/pam_systemd_home.c:324
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
@@ -178,31 +179,34 @@ msgstr ""
 "%s kullanıcısının ana dizini şu anda mevcut değil, lütfen gerekli depolama "
 "aygıtını veya içeren dosya sistemini bağlayın."
 
-#: src/home/pam_systemd_home.c:333
+#. ret_response=
+#: src/home/pam_systemd_home.c:329
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr ""
 "%s kullanıcısı için çok sık oturum açma denemesi, daha sonra tekrar deneyin."
 
-#: src/home/pam_systemd_home.c:345
+#: src/home/pam_systemd_home.c:341
 msgid "Password: "
 msgstr "Parola: "
 
-#: src/home/pam_systemd_home.c:347
+#. ret_response=
+#: src/home/pam_systemd_home.c:343
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr ""
 "Parola yanlış veya %s kullanıcısının kimlik doğrulaması için yeterli değil."
 
-#: src/home/pam_systemd_home.c:348
+#: src/home/pam_systemd_home.c:344
 msgid "Sorry, try again: "
 msgstr "Üzgünüm, tekrar deneyin: "
 
-#: src/home/pam_systemd_home.c:370
+#: src/home/pam_systemd_home.c:366
 msgid "Recovery key: "
 msgstr "Kurtarma anahtarı: "
 
-#: src/home/pam_systemd_home.c:372
+#. ret_response=
+#: src/home/pam_systemd_home.c:368
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
@@ -211,20 +215,22 @@ msgstr ""
 "Parola/kurtarma anahtarı yanlış veya %s kullanıcısının kimlik doğrulaması "
 "için yeterli değil."
 
-#: src/home/pam_systemd_home.c:373
+#: src/home/pam_systemd_home.c:369
 msgid "Sorry, reenter recovery key: "
 msgstr "Üzgünüm, kurtarma anahtarını yeniden girin: "
 
-#: src/home/pam_systemd_home.c:393
+#. ret_response=
+#: src/home/pam_systemd_home.c:389
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "%s kullanıcısının güvenlik belirteci girilmedi."
 
-#: src/home/pam_systemd_home.c:394 src/home/pam_systemd_home.c:402
+#: src/home/pam_systemd_home.c:390 src/home/pam_systemd_home.c:398
 msgid "Try again with password: "
 msgstr "Parola ile tekrar deneyin: "
 
-#: src/home/pam_systemd_home.c:400
+#. ret_response=
+#: src/home/pam_systemd_home.c:396
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
@@ -233,29 +239,33 @@ msgstr ""
 "Parola yanlış veya yeterli değil ve %s kullanıcısının yapılandırılan "
 "güvenlik belirteci girilmedi."
 
-#: src/home/pam_systemd_home.c:421
+#: src/home/pam_systemd_home.c:417
 msgid "Security token PIN: "
 msgstr "Güvenlik belirteci PIN kodu: "
 
-#: src/home/pam_systemd_home.c:438
+#. ret_response=
+#: src/home/pam_systemd_home.c:434
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr ""
 "Lütfen %s kullanıcısının güvenlik belirteci ile fiziksel olarak kimlik "
 "doğrulaması yapın."
 
-#: src/home/pam_systemd_home.c:449
+#. ret_response=
+#: src/home/pam_systemd_home.c:445
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr "Lütfen %s kullanıcısının güvenlik belirtecinin varlığını doğrulayın."
 
-#: src/home/pam_systemd_home.c:460
+#. ret_response=
+#: src/home/pam_systemd_home.c:456
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr ""
 "Lütfen %s kullanıcısının güvenlik belirtecindeki kullanıcıyı doğrulayın."
 
-#: src/home/pam_systemd_home.c:469
+#. ret_response=
+#: src/home/pam_systemd_home.c:465
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
@@ -263,84 +273,99 @@ msgstr ""
 "Güvenlik belirteci PIN kodu kilitli, lütfen önce kilidini açın. (İpucu: "
 "Çıkarma ve yeniden takma yeterli olabilir.)"
 
-#: src/home/pam_systemd_home.c:477
+#. ret_response=
+#: src/home/pam_systemd_home.c:473
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "Güvenlik belirteci PIN kodu %s kullanıcısı için yanlış."
 
-#: src/home/pam_systemd_home.c:478 src/home/pam_systemd_home.c:497
-#: src/home/pam_systemd_home.c:516
+#: src/home/pam_systemd_home.c:474 src/home/pam_systemd_home.c:493
+#: src/home/pam_systemd_home.c:512
 msgid "Sorry, retry security token PIN: "
 msgstr "Üzgünüm, güvenlik belirteci PIN kodunu yeniden deneyin: "
 
-#: src/home/pam_systemd_home.c:496
+#. ret_response=
+#: src/home/pam_systemd_home.c:492
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
 "%s kullanıcısının güvenlik belirteci PIN kodu yanlış (sadece birkaç deneme "
 "kaldı!)"
 
-#: src/home/pam_systemd_home.c:515
+#. ret_response=
+#: src/home/pam_systemd_home.c:511
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
 "%s kullanıcısının güvenlik belirteci PIN kodu yanlış (sadece bir deneme "
 "kaldı!)"
 
-#: src/home/pam_systemd_home.c:686
+#. ret_response=
+#: src/home/pam_systemd_home.c:682
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
 "%s kullanıcısının ev dizini şu anda etkin değil, lütfen önce yerel olarak "
 "oturum açın."
 
-#: src/home/pam_systemd_home.c:693
+#. ret_response=
+#: src/home/pam_systemd_home.c:689
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
 "%s kullanıcısının ev dizini şu anda kilitli, lütfen önce yerel olarak "
 "kilidini açın."
 
-#: src/home/pam_systemd_home.c:728
+#. ret_response=
+#: src/home/pam_systemd_home.c:724
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr ""
 "%s kullanıcısı için çok fazla başarısız oturum açma denemesi, reddediliyor."
 
-#: src/home/pam_systemd_home.c:1030
+#. ret_response=
+#: src/home/pam_systemd_home.c:1026
 msgid "User record is blocked, prohibiting access."
 msgstr "Kullanıcı kaydı engellendi, erişim engelleniyor."
 
-#: src/home/pam_systemd_home.c:1034
+#. ret_response=
+#: src/home/pam_systemd_home.c:1030
 msgid "User record is not valid yet, prohibiting access."
 msgstr "Kullanıcı kaydı henüz geçerli değil, erişim engelleniyor."
 
-#: src/home/pam_systemd_home.c:1038
+#. ret_response=
+#: src/home/pam_systemd_home.c:1034
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "Kullanıcı kaydı artık geçerli değil, erişim engelleniyor."
 
-#: src/home/pam_systemd_home.c:1043 src/home/pam_systemd_home.c:1092
+#. ret_response=
+#: src/home/pam_systemd_home.c:1039 src/home/pam_systemd_home.c:1088
 msgid "User record not valid, prohibiting access."
 msgstr "Kullanıcı kaydı geçerli değil, erişim engelleniyor."
 
-#: src/home/pam_systemd_home.c:1053
+#. ret_response=
+#: src/home/pam_systemd_home.c:1049
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "Çok fazla oturum açıldı, %s içinde tekrar deneyin."
 
-#: src/home/pam_systemd_home.c:1064
+#. ret_response=
+#: src/home/pam_systemd_home.c:1060
 msgid "Password change required."
 msgstr "Parola değişikliği gerekli."
 
-#: src/home/pam_systemd_home.c:1068
+#. ret_response=
+#: src/home/pam_systemd_home.c:1064
 msgid "Password expired, change required."
 msgstr "Parolanın süresi doldu, değiştirilmesi gerekiyor."
 
-#: src/home/pam_systemd_home.c:1074
+#. ret_response=
+#: src/home/pam_systemd_home.c:1070
 msgid "Password is expired, but can't change, refusing login."
 msgstr "Parolanın süresi doldu ama değiştirilemiyor, oturum açma reddediliyor."
 
-#: src/home/pam_systemd_home.c:1078
+#. ret_response=
+#: src/home/pam_systemd_home.c:1074
 msgid "Password will expire soon, please change."
 msgstr "Parolanın süresi yakında dolacak, lütfen değiştirin."
 
@@ -1391,23 +1416,23 @@ msgid ""
 msgstr ""
 "Ağ zaman eş zamanlamasını denetlemek için kimlik doğrulaması gereklidir."
 
-#: src/core/dbus-unit.c:372
+#: src/core/dbus-unit.c:373
 msgid "Authentication is required to start '$(unit)'."
 msgstr "'$(unit)' başlatmak için kimlik doğrulaması gereklidir."
 
-#: src/core/dbus-unit.c:373
+#: src/core/dbus-unit.c:374
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "'$(unit)' durdurmak için kimlik doğrulaması gereklidir."
 
-#: src/core/dbus-unit.c:374
+#: src/core/dbus-unit.c:375
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "'$(unit)' yeniden yüklemek için kimlik doğrulaması gereklidir."
 
-#: src/core/dbus-unit.c:375 src/core/dbus-unit.c:376
+#: src/core/dbus-unit.c:376 src/core/dbus-unit.c:377
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "'$(unit)' yeniden başlatmak için kimlik doğrulaması gereklidir."
 
-#: src/core/dbus-unit.c:594
+#: src/core/dbus-unit.c:595
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
@@ -1415,7 +1440,7 @@ msgstr ""
 "'$(unit)' süreçlerine bir UNIX sinyali göndermek için kimlik doğrulaması "
 "gereklidir."
 
-#: src/core/dbus-unit.c:647
+#: src/core/dbus-unit.c:648
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
@@ -1423,13 +1448,13 @@ msgstr ""
 "'$(unit)' alt gruplarının süreçlerine bir UNIX sinyali göndermek için kimlik "
 "doğrulaması gereklidir."
 
-#: src/core/dbus-unit.c:675
+#: src/core/dbus-unit.c:676
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "'$(unit)'in \"failed\" (başarısız) durumunu sıfırlamak için kimlik "
 "doğrulaması gereklidir."
 
-#: src/core/dbus-unit.c:705
+#: src/core/dbus-unit.c:706
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
 "'$(unit)' üzerindeki özellikleri ayarlamak için kimlik doğrulaması "
@@ -1450,15 +1475,15 @@ msgstr ""
 "'$(unit)' biriminin işlemlerini dondurmak veya devam ettirmek için kimlik "
 "doğrulaması gereklidir."
 
-#: src/shared/libfido2-util.c:494 src/shared/libfido2-util.c:551
+#: src/shared/libfido2-util.c:697 src/shared/libfido2-util.c:754
 msgid "Please confirm presence on security token to unlock."
 msgstr "Kilidi açmak için lütfen güvenlik belirtecinin varlığını doğrulayın."
 
-#: src/shared/libfido2-util.c:510
+#: src/shared/libfido2-util.c:713
 msgid "Please verify user on security token to unlock."
 msgstr "Kilidi açmak için lütfen güvenlik belirteçinde kullanıcıyı doğrulayın."
 
-#: src/shared/libfido2-util.c:944
+#: src/shared/libfido2-util.c:1196
 #, c-format
 msgid ""
 "Please enter security token PIN (remaining attempts before lock-out: %d):"
@@ -1466,7 +1491,7 @@ msgstr ""
 "Lütfen güvenlik belirteci kodunu girin (kilitlenmeden önce kalan deneme "
 "sayısı: %d):"
 
-#: src/shared/libfido2-util.c:955
+#: src/shared/libfido2-util.c:1207
 msgid "Please enter security token PIN:"
 msgstr "Lütfen güvenlik belirteci kodunu girin:"
 
