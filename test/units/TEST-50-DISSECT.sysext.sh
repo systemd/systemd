@@ -2230,13 +2230,17 @@ test -f "$inner_mp/inner-marker"
 )
 
 # Run once with mounting beneath (the default) and once forcing the fallback path taken on kernels without
-# support for it, where the old overlayfs is unmounted before the new one is mounted
+# support for it, where the old overlayfs is unmounted before the new one is mounted. Also run both with the
+# overlayfs layers attached in a private mount namespace first, as on kernels before 6.15.
+for detached_layers in yes no; do
 for mount_beneath in yes no; do
 ( init_trap
-: "Failed refresh leaves the existing merge and its submounts untouched, successful refresh replaces it (mount beneath: $mount_beneath)"
+: "Failed refresh leaves the existing merge and its submounts untouched, successful refresh replaces it (mount beneath: $mount_beneath, detached layers: $detached_layers)"
 # shellcheck disable=SC2030,SC2031 # The setting is meant to be confined to this test case's subshell
 export SYSTEMD_SYSEXT_MOUNT_BENEATH=$mount_beneath
-fake_root=${roots_dir:+"$roots_dir/refresh-failure-$mount_beneath"}
+# shellcheck disable=SC2030,SC2031 # The setting is meant to be confined to this test case's subshell
+export SYSTEMD_OVERLAYFS_DETACHED_LAYERS=$detached_layers
+fake_root=${roots_dir:+"$roots_dir/refresh-failure-$mount_beneath-$detached_layers"}
 hierarchy=/opt
 
 # Identifies the overlayfs instance on the hierarchy by its unique mount ID from listmount. Without that
@@ -2357,6 +2361,7 @@ verify_single_mount "$nested_submount" "after unmerge"
 test -f "$nested_submount/nested-marker"
 )
 done
+done
 
 ( init_trap
 : "Refresh unmerges a hierarchy that is no longer provided by any extension"
@@ -2407,13 +2412,16 @@ verify_single_mount "$submount" "after unmerge"
 test -f "$submount/marker"
 )
 
-# As above, run once with mounting beneath and once forcing the fallback path
+# As above, run with and without mounting beneath, and with and without detached overlayfs layers
+for detached_layers in yes no; do
 for mount_beneath in yes no; do
 ( init_trap
-: "Refresh of a mutable merge switches to a new work directory and removes the old one (mount beneath: $mount_beneath)"
+: "Refresh of a mutable merge switches to a new work directory and removes the old one (mount beneath: $mount_beneath, detached layers: $detached_layers)"
 # shellcheck disable=SC2030,SC2031 # The setting is meant to be confined to this test case's subshell
 export SYSTEMD_SYSEXT_MOUNT_BENEATH=$mount_beneath
-fake_root=${roots_dir:+"$roots_dir/refresh-mutable-work-dir-$mount_beneath"}
+# shellcheck disable=SC2030,SC2031 # The setting is meant to be confined to this test case's subshell
+export SYSTEMD_OVERLAYFS_DETACHED_LAYERS=$detached_layers
+fake_root=${roots_dir:+"$roots_dir/refresh-mutable-work-dir-$mount_beneath-$detached_layers"}
 hierarchy=/opt
 extension_data_dir="$fake_root/var/lib/extensions.mutable$hierarchy"
 extension_data_dir_usr="$fake_root/var/lib/extensions.mutable/usr"
@@ -2451,7 +2459,7 @@ test -d "$fake_root/$WORKDIR1"
 # The mounted overlayfs must use the work directory recorded in the metadata. Its path only shows up in the
 # mount options if the layers were passed by fd directly, which needs Linux 6.15, before that they are
 # attached in a child and show up as /proc/self/fd/ paths.
-if systemd-analyze compare-versions "$(uname -r)" ge 6.15; then
+if [[ "$detached_layers" == yes ]] && systemd-analyze compare-versions "$(uname -r)" ge 6.15; then
     verify_sysext_mount_option "$fake_root$hierarchy" "workdir=$fake_root/$WORKDIR1"
 fi
 verify_work_dirs 2 "after merge"
@@ -2489,7 +2497,7 @@ if [ "$WORKDIR1" = "$WORKDIR2" ]; then
 fi
 test ! -e "$fake_root/$WORKDIR1"
 test -d "$fake_root/$WORKDIR2"
-if systemd-analyze compare-versions "$(uname -r)" ge 6.15; then
+if [[ "$detached_layers" == yes ]] && systemd-analyze compare-versions "$(uname -r)" ge 6.15; then
     verify_sysext_mount_option "$fake_root$hierarchy" "workdir=$fake_root/$WORKDIR2"
 fi
 verify_work_dirs 2 "after refresh"
@@ -2498,6 +2506,7 @@ run_systemd_sysext "$fake_root" unmerge
 extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
 verify_work_dirs 0 "after unmerge"
 )
+done
 done
 
 } # End of run_sysext_tests
