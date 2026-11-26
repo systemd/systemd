@@ -13,8 +13,8 @@ Documentation=man:systemd-tpm2-swtpm.service(8)
 DefaultDependencies=no
 Conflicts=shutdown.target initrd-switch-root.target
 After=systemd-sysusers.service
-Wants=modprobe@tpm_vtpm_proxy.service
-After=modprobe@tpm_vtpm_proxy.service
+Wants=modprobe@tpm_vtpm_proxy.service modprobe@trusted.service
+After=modprobe@tpm_vtpm_proxy.service modprobe@trusted.service
 Before=tpm2.target sysinit.target shutdown.target initrd-switch-root.target
 
 [Service]
