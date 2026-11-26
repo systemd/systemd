@@ -85,6 +85,37 @@
           <xi:include href="version-info.xml" xpointer="v259"/>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><varname>DirectoryPolicy=</varname></term>
+          <listitem><para>Controls whether plain directory (or btrfs subvolume) extension images are
+          considered. Takes a boolean or the special value <literal>auto</literal>. If true, directory
+          images are considered regardless of where they are located. If false, directory images are never
+          considered, and only disk images are merged. If set to <literal>auto</literal>, directory images
+          are only considered if they are located below <filename>/usr/</filename> or
+          <filename>/var/</filename>, if the file system they are located on is a <literal>tmpfs</literal>
+          (e.g. <filename>/run/</filename>), if it is backed by dm-crypt or dm-verity block devices, or if
+          it is the same file system that backs the root directory, <filename>/usr/</filename> or
+          <filename>/var/</filename> (regardless of where on that file system the directory is located).
+          <literal>tmpfs</literal> is permitted since its contents only exist at runtime, and hence cannot
+          be manipulated offline. This is useful to permit directory images in general, but refuse them if
+          they are placed on unprotected storage, such as the EFI System Partition (ESP), or other file
+          systems that are not authenticated or encrypted. Defaults to <literal>auto</literal>.</para>
+
+          <para>The directory policy is enforced when activating an extension, i.e. at the same time the
+          image policy is enforced for disk images. If the directory image found under an extension name is
+          refused, the extension name is skipped, i.e. a disk image of the same name in a directory of
+          lower priority is not considered either. When listing extension images the directory policy is
+          not taken into account. The <option>--directory-policy=</option> command line option of
+          <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          takes precedence over this setting.</para>
+
+          <para>Note that this setting has no effect on disk image files, which are subject to
+          <varname>ImagePolicy=</varname> instead.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
+          </listitem>
+        </varlistentry>
       </variablelist>
     </refsect2>
   </refsect1>
