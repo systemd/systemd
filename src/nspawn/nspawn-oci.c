@@ -39,9 +39,9 @@
  * how is unlimited pids tasks limit to be encoded?
  * what are the defaults for caps if not specified?
  * what are the default uid/gid mappings if one is missing but the other set, or when user ns is on but no namespace configured
- * the source field of "mounts" is really weird, as it cannot realistically be relative to the bundle, since we never know if that's what the fs wants
+ * relative sources are resolved against the bundle for bind mounts; the spec does not define how relative
+ * sources work for other mount types
  * spec contradicts itself on the mount "type" field, as the example uses "bind" as type, but it's not listed in /proc/filesystem, and is something made up by /bin/mount
- * if type of mount is left out, what shall be assumed? "bind"?
  * readonly mounts is entirely redundant?
  * should escaping be applied when joining mount options with ","?
  * devices cgroup support is bogus, "allow" and "deny" on the kernel level is about adding/removing entries, not about access
@@ -489,6 +489,7 @@ static int oci_mounts(const char *name, sd_json_variant *v, sd_json_dispatch_fla
                 _cleanup_free_ char *joined_options = NULL;
                 _cleanup_(oci_mount_data_done) oci_mount_data data = {};
                 CustomMount *m;
+                bool read_only = false;
 
                 r = oci_dispatch(e, table, flags, &data);
                 if (r < 0)
@@ -501,23 +502,63 @@ static int oci_mounts(const char *name, sd_json_variant *v, sd_json_dispatch_fla
                 if (oci_exclude_mount(data.destination))
                         continue;
 
+                bool is_bind = !data.type ||
+                               streq(data.type, "bind") ||
+                               strv_contains(data.options, "bind") ||
+                               strv_contains(data.options, "rbind");
+                bool use_bind_mount = is_bind;
+                if (is_bind) {
+                        STRV_FOREACH(option, data.options)
+                                if (!STR_IN_SET(*option,
+                                                "ro", "rw", "bind", "rbind", "norbind",
+                                                "idmap", "noidmap", "rootidmap", "owneridmap")) {
+                                        use_bind_mount = false;
+                                        break;
+                                }
+
+                        STRV_FOREACH(option, data.options) {
+                                if (streq(*option, "ro"))
+                                        read_only = true;
+                                else if (streq(*option, "rw"))
+                                        read_only = false;
+                                else if (use_bind_mount && streq(*option, "bind")) {
+                                        char *norbind;
+
+                                        norbind = strdup("norbind");
+                                        if (!norbind)
+                                                return log_oom();
+
+                                        free(*option);
+                                        *option = norbind;
+                                }
+                        }
+
+                        if (use_bind_mount) {
+                                strv_remove(data.options, "ro");
+                                strv_remove(data.options, "rw");
+                        } else if (!strv_contains(data.options, "bind") && !strv_contains(data.options, "rbind")) {
+                                if (strv_extend(&data.options, "rbind") < 0)
+                                        return log_oom();
+                        }
+                }
+
                 if (data.options) {
                         joined_options = strv_join(data.options, ",");
                         if (!joined_options)
                                 return log_oom();
                 }
 
-                if (!data.type || streq(data.type, "bind")) {
-                        if (data.source && !path_is_absolute(data.source)) {
-                                char *joined;
+                if (is_bind && data.source && !path_is_absolute(data.source)) {
+                        char *joined;
 
-                                joined = path_join(s->bundle, data.source);
-                                if (!joined)
-                                        return log_oom();
+                        joined = path_join(s->bundle, data.source);
+                        if (!joined)
+                                return log_oom();
 
-                                free_and_replace(data.source, joined);
-                        }
+                        free_and_replace(data.source, joined);
+                }
 
+                if (use_bind_mount) {
                         data.type = mfree(data.type);
 
                         m = custom_mount_add(&s->custom_mounts, &s->n_custom_mounts, CUSTOM_MOUNT_BIND);
@@ -530,6 +571,7 @@ static int oci_mounts(const char *name, sd_json_variant *v, sd_json_dispatch_fla
                 m->source = TAKE_PTR(data.source);
                 m->options = TAKE_PTR(joined_options);
                 m->type_argument = TAKE_PTR(data.type);
+                m->read_only = read_only;
         }
 
         return 0;

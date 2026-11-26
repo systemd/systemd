@@ -1104,7 +1104,17 @@ static int mount_arbitrary(const char *dest, CustomMount *m) {
                         return log_error_errno(r, "Creating mount point for mount %s failed: %m", where);
         }
 
-        return mount_nofollow_verbose(LOG_ERR, m->source, where, m->type_argument, /* flags= */ 0, m->options);
+        r = mount_nofollow_verbose(LOG_ERR, m->source, where, m->type_argument, /* flags= */ 0, m->options);
+        if (r < 0)
+                return r;
+
+        if (m->read_only) {
+                r = bind_remount_recursive(where, MS_RDONLY, MS_RDONLY, /* deny_list= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Read-only bind mount failed: %m");
+        }
+
+        return 0;
 }
 
 int mount_custom(
