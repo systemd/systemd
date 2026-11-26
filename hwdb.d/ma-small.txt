@@ -8687,6 +8687,12 @@ EE7000-EE7FFF     (base 16)		CIAB Tech, LLC
 8C-1F-64   (hex)		Private
 DF7000-DF7FFF     (base 16)		Private
 
+8C-1F-64   (hex)		BlueSpace TECHNOLOGY SA
+57F000-57FFFF     (base 16)		BlueSpace TECHNOLOGY SA
+				Soseaua Alexandriei, nr.82
+				Bragadiru  Ilfov  077025
+				RO
+
 8C-1F-64   (hex)		H Nu Pty Ltd
 005000-005FFF     (base 16)		H Nu Pty Ltd
 				2250Unit 3, 68 Railway Crescent
@@ -8698,6 +8704,24 @@ DF7000-DF7FFF     (base 16)		Private
 				2825 Cobb International Blvd NW
 				Kennesaw  GA  30152
 				US
+
+8C-1F-64   (hex)		BG Systems, Inc.
+B1C000-B1CFFF     (base 16)		BG Systems, Inc.
+				931 Commercial St.
+				Palo Alto  CA  94303
+				US
+
+8C-1F-64   (hex)		Sensia Solutions,S.L.
+89B000-89BFFF     (base 16)		Sensia Solutions,S.L.
+				Calle Margarita Salas 12
+				Leganés    28919
+				ES
+
+8C-1F-64   (hex)		MECT SRL
+DDC000-DDCFFF     (base 16)		MECT SRL
+				VIA E. FERMI 57/59
+				ALPIGNANO    10091
+				IT
 
 8C-1F-64   (hex)		Jacobs Technology, Inc.
 A98000-A98FFF     (base 16)		Jacobs Technology, Inc.
@@ -11164,12 +11188,6 @@ F80000-F80FFF     (base 16)		Guan Show Technologe Co., Ltd.
 				No.127, Jianguo 1st Rd., Lingya Dist.
 				 Kaohsiung City     802
 				TW
-
-70-B3-D5   (hex)		Pneumax S.p.A.
-A60000-A60FFF     (base 16)		Pneumax S.p.A.
-				Via Cascina Barbellina 10
-				Lurano    24050
-				IT
 
 00-1B-C5   (hex)		2 FRANCE MARINE
 029000-029FFF     (base 16)		2 FRANCE MARINE
@@ -17476,6 +17494,12 @@ EC7000-EC7FFF     (base 16)		Linglume (Shanghai) Technology Co., Ltd
 				1st Floor, Building 2, No. 18 Fangsi Highway
 				Shanghai  Shanghai  201601
 				CN
+
+70-B3-D5   (hex)		Pneumax Spa
+A60000-A60FFF     (base 16)		Pneumax Spa
+				Via Cascina Barbellina 10
+				Lurano    24050
+				IT
 
 8C-1F-64   (hex)		Vision Systems Safety Tech
 E6F000-E6FFFF     (base 16)		Vision Systems Safety Tech
@@ -25688,12 +25712,6 @@ C84000-C84FFF     (base 16)		Luceor
 				Inage-ku Chiba  Chiba  2630002
 				JP
 
-8C-1F-64   (hex)		ChamSys 
-143000-143FFF     (base 16)		ChamSys 
-				Unit 5Adanac Park
-				southampton  Hampshire   SO16 0BT
-				GB
-
 8C-1F-64   (hex)		Currux Vision LLC
 66B000-66BFFF     (base 16)		Currux Vision LLC
 				520 Post Oak Boulevard, Suite 260
@@ -26246,17 +26264,35 @@ DBC000-DBCFFF     (base 16)		QHR Mothership LLC
 				Kalispell    59901
 				US
 
+8C-1F-64   (hex)		Vardaan Electronics Industries Pvt. Ltd.
+9F3000-9F3FFF     (base 16)		Vardaan Electronics Industries Pvt. Ltd.
+				A-184, Sector-63, Noida, Uttar Pradesh - 201301
+				Noida  Uttar Pradesh  201301
+				IN
+
 8C-1F-64   (hex)		GVision Italia S.r.l.
 F00000-F00FFF     (base 16)		GVision Italia S.r.l.
 				Via Prealpi 13
 				Giussano  MB  20833
 				IT
 
-8C-1F-64   (hex)		Vardaan Electronics Industries Pvt. Ltd.
-9F3000-9F3FFF     (base 16)		Vardaan Electronics Industries Pvt. Ltd.
-				A-184, Sector-63, Noida, Uttar Pradesh - 201301
-				Noida  Uttar Pradesh  201301
-				IN
+8C-1F-64   (hex)		ArgusEye Tech. INC
+122000-122FFF     (base 16)		ArgusEye Tech. INC
+				Rm. 906, 9 F., No. 3-2, Park St., Nangang Dist., Taipei City 115603, Taiwan (R.O.C.)
+				Taipei    115603
+				TW
+
+8C-1F-64   (hex)		CU Medical Systems, Inc.
+6C0000-6C0FFF     (base 16)		CU Medical Systems, Inc.
+				14F 8F–9F, Building D, Gwacheon Penta 1, 117 Gwacheon-daero 12-gil
+				 Gwacheon-si, Gyeonggi-do    13824
+				KR
+
+8C-1F-64   (hex)		Chamsys Ltd
+143000-143FFF     (base 16)		Chamsys Ltd
+				Unit 5Adanac Park
+				southampton  Hampshire   SO16 0BT
+				GB
 
 8C-1F-64   (hex)		Flow Power
 82B000-82BFFF     (base 16)		Flow Power
@@ -34976,11 +35012,32 @@ EF6000-EF6FFF     (base 16)		UNCOMMON GROUP INC
 				Darmstadt    64295
 				DE
 
+8C-1F-64   (hex)		Safie Vietnam Co., Ltd.
+B5D000-B5DFFF     (base 16)		Safie Vietnam Co., Ltd.
+				7th Floor, 124 Dien Bien Phu st., Tan Dinh ward
+				Ho Chi Minh City    70000
+				VN
+
+8C-1F-64   (hex)		Shanghai Univista  Industrial Software Group Co.,Ltd.
+757000-757FFF     (base 16)		Shanghai Univista  Industrial Software Group Co.,Ltd.
+				29/F, Shanghai SK Building, Pudong New Area
+				Shanghai  Shanghai  201203
+				CN
+
 8C-1F-64   (hex)		Potter Electric Signal Company
 463000-463FFF     (base 16)		Potter Electric Signal Company
 				5757 Phantom Drive
 				Hazelwood  MO  63042
 				US
+
+8C-1F-64   (hex)		Private
+649000-649FFF     (base 16)		Private
+
+8C-1F-64   (hex)		Foshan Xizhaode Technology Co., Ltd.
+B38000-B38FFF     (base 16)		Foshan Xizhaode Technology Co., Ltd.
+				Room 708-2, 7th Floor, Building 1, No. 3 Zhanye Road, Honggang Community, Daliang Subdistrict, Shunde District, Foshan City, Guangdong Province
+				Foshan  Guangdong  528300
+				CN
 
 8C-1F-64   (hex)		Mobileye
 D63000-D63FFF     (base 16)		Mobileye
@@ -43622,17 +43679,11 @@ CE2000-CE2FFF     (base 16)		Kova, Corp.
 				Manahawkin  NJ  08050
 				US
 
-8C-1F-64   (hex)		ADL Systems
-EDB000-EDBFFF     (base 16)		ADL Systems
-				Olgi Berggolts 35A
-				Saint-Petersburg     192148
-				RU
-
-8C-1F-64   (hex)		OPEN Alliance
-172000-172FFF     (base 16)		OPEN Alliance
-				3855 SW 153rd Drive
-				Beaverton  OR  97003
-				US
+8C-1F-64   (hex)		Shenzhen Enatel Electronics Co,ltd.
+132000-132FFF     (base 16)		Shenzhen Enatel Electronics Co,ltd.
+				Building B2,Xinjianxing TechnologyIndustrial Park,No.3333 GuangqiaoAvenue,XinhuSubdistrict,Shenzhen,Guangdong
+				Shenzhen  Guangdong  518107
+				CN
 
 8C-1F-64   (hex)		FAH TECH CO.,LTD
 355000-355FFF     (base 16)		FAH TECH CO.,LTD
@@ -43640,14 +43691,50 @@ EDB000-EDBFFF     (base 16)		ADL Systems
 				ICHINOMIYA-CITY  AICHI  493-0006
 				JP
 
-8C-1F-64   (hex)		Shenzhen Enatel Electronics Co,ltd.
-132000-132FFF     (base 16)		Shenzhen Enatel Electronics Co,ltd.
-				Building B2,Xinjianxing TechnologyIndustrial Park,No.3333 GuangqiaoAvenue,XinhuSubdistrict,Shenzhen,Guangdong
-				Shenzhen  Guangdong  518107
-				CN
+8C-1F-64   (hex)		ADL Systems
+EDB000-EDBFFF     (base 16)		ADL Systems
+				Olgi Berggolts 35A
+				Saint-Petersburg     192148
+				RU
 
 8C-1F-64   (hex)		DataCatcher
 2E9000-2E9FFF     (base 16)		DataCatcher
 				380 Hyoryeong-ro, Seocho-gu
 				Seoul    06727
+				KR
+
+8C-1F-64   (hex)		OPEN Alliance
+172000-172FFF     (base 16)		OPEN Alliance
+				3855 SW 153rd Drive
+				Beaverton  OR  97003
+				US
+
+8C-1F-64   (hex)		Rax-Tech International
+D4B000-D4BFFF     (base 16)		Rax-Tech International
+				5th floor, 5/391 Kaleeswari towerTambaram-Velachery Main road, Medavakkam
+				Chennai  Tamil Nadu  600100
+				IN
+
+8C-1F-64   (hex)		Shenzhen Yahboom Technology Co.,Ltd.
+484000-484FFF     (base 16)		Shenzhen Yahboom Technology Co.,Ltd.
+				Rooms 701 and 704, Building B, Block 7, Shenzhen International Innovation Valley, Dashi 1st Road, Xili Community, Xili Subdistrict, Nanshan District
+				Shenzhen  Guangdong  518055
+				CN
+
+8C-1F-64   (hex)		Hubbell Power Systems
+446000-446FFF     (base 16)		Hubbell Power Systems
+				353 Powerville Road
+				Boonton Township  NJ  07005
+				US
+
+8C-1F-64   (hex)		ON LX Limited
+A53000-A53FFF     (base 16)		ON LX Limited
+				68 King William Street
+				London    EC4N 7HR
+				GB
+
+8C-1F-64   (hex)		TFE
+CDE000-CDEFFF     (base 16)		TFE
+				107 Banwol-dongByeongjeom-gu
+				Hwaseong-si  Gyeonggi-do  18384
 				KR

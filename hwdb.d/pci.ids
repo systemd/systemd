@@ -1,8 +1,8 @@
 #
 #	List of PCI IDs
 #
-#	Version: 2026.11.19
-#	Date:    2026-11-19 03:15:01
+#	Version: 2026.11.26
+#	Date:    2026-11-26 03:15:02
 #
 #	Maintained by Albert Pool, Martin Mares, and other volunteers from
 #	the PCI ID Project at https://pci-ids.ucw.cz/.
@@ -23589,6 +23589,7 @@
 	a2dd  BF4 Family Crypto enabled [BlueField-4 SoC Crypto enabled]
 	a2de  BF4 Family Crypto disabled [BlueField-4 SoC Crypto disabled]
 	a2df  BF4 Family integrated network controller [BlueField-4 integrated network controller]
+	a2e2  BF5 Family integrated network controller [BlueField-5 integrated network controller]
 	b200  ArcusE
 	b201  LibraE
 	b202  Arcus2
@@ -23601,6 +23602,7 @@
 	c2d4  MT43162 BlueField-3 Lx SoC Management Interface
 	c2d5  MT43244 BlueField-3 SoC Management Interface
 	c2d6  BF4 Family Management Interface [BlueField-4 SoC Management Interface]
+	c2d7  BF5 Family Management Interface [BlueField-5 SoC Management Interface]
 # SwitchX-2, 40GbE switch
 	c738  MT51136
 	c739  MT51136 GW
@@ -25942,6 +25944,7 @@
 	5028  PS5028-E28 PCIe5 NVMe Controller
 	5029  PS5029-E29T PCIe4 NVMe Controller (DRAM-less)
 	5031  PS5031-E31T PCIe5 NVMe Controller
+	5033  PS5033-E33T PCIe4 NVMe Controller
 	5037  PS5037-E37T PCIe5 NVMe Controller (DRAM-less)
 	5302  PS5302-X2 PCIe5 NVMe Controller
 1989  Montilio Inc.
@@ -27091,6 +27094,7 @@
 	7011  RX0xxx
 1bf5  Greenliant
 	1000  G7200 series U.2 NVMe SSD
+	e040  ArmourDrive NVMe SSD (DRAM-less)
 1bfc  Duagon AG
 1bfd  EeeTOP
 1c00  WCH (Nanjing Qinheng Microelectronics Co., Ltd.)
@@ -27506,6 +27510,7 @@
 	41c3  SM2P41C3 NVMe SSD (DRAM-less)
 	41c8  SM2P41C8 NVMe SSD (DRAM-less)
 	41d3  SM2P41D3 NVMe SSD (DRAM-less)
+	41d8  SM2P41D8Q NVMe SSD (DRAM-less)
 	5236  XPG GAMMIX S70 BLADE NVMe SSD
 	5350  XPG GAMMIX S50, S50 Lite NVMe SSD
 # PREMIUM NVMe SSD for PlayStation 5
@@ -31000,9 +31005,22 @@
 	e820  U.2 Gen5 SSD
 	e830  U.2 Gen5 SSD
 217a  Huaxun Group Limited
-	0041  SharQ PCIE 4,0 1.92TB
-# PCIE 4.0 SSD 1.6TB
-	0042  PCIE 4.0 SSD 1.6TB
+	0031  SQ9A4 M.2 SSD 480GB
+	0032  SQ9A4 M.2 SSD 960GB
+	0033  SQ9A4 M.2 SSD 1600GB
+	0034  SQ9A4 M.2 SSD 1920GB
+	0035  SQ9A4 M.2 SSD 3200GB
+	0036  SQ9A4 M.2 SSD 3840GB
+	0037  SQ9A4 M.2 SSD 6400GB
+	0038  SQ9A4 M.2 SSD 7680GB
+	0041  SharQ 9A4 PCIE4.0 1600GB
+	0042  SharQ 9A4 PCIE4.0 1920GB
+	0043  SharQ 9A4 PCIE4.0 3200GB
+	0044  SharQ 9A4 PCIE4.0 3840GB
+	0045  SharQ 9A4 PCIE4.0 6400GB
+	0046  SharQ 9A4 PCIE4.07680GB
+	0047  SharQ 9A4 PCIE4.0 12800GB
+	0048  SharQ 9A4 PCIE4.0 15360GB
 	0512  SHARQ 005 1600GB
 	0513  SHARQ 005 1920GB
 	0514  SQ005 U.2 SSD 3.2TB
@@ -35274,9 +35292,10 @@
 	2088  Sky Lake-E DDRIO Registers
 	208d  Sky Lake-E CHA Registers
 	208e  Sky Lake-E CHA Registers
-# Engineering sample GPU
-	2240  Larrabee
-	2241  Larrabee
+	2240  Larrabee E0
+	2241  Larrabee E1
+	2242  Larrabee Ec
+	2243  Larrabee E3
 	2249  Knights Ferry coprocessor
 	224a  Knights Ferry coprocessor
 	2250  Xeon Phi coprocessor 5100 series
@@ -43337,6 +43356,7 @@ edd8  ARK Logic Inc
 	a099  2000PV [Stingray]
 	a0a1  2000MT
 	a0a9  2000MI
+	a0b1  2000MI+ (Quadro64)
 efab  Enfabrica
 # Found on M2N68-AM Motherboard
 f043  ASUSTeK Computer Inc. (Wrong ID)
