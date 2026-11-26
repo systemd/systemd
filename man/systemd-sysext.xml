@@ -351,6 +351,113 @@
   </refsect1>
 
   <refsect1>
+    <title>Metadata</title>
+
+    <para>When merging extensions into a hierarchy, a metadata directory is placed in the top-level
+    directory of the resulting <literal>overlayfs</literal> file system: <filename>.systemd-sysext/</filename>
+    in <filename>/usr/</filename> and <filename>/opt/</filename> for system extensions, and
+    <filename>.systemd-confext/</filename> in <filename>/etc/</filename> for configuration extensions. It
+    contains the following files:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><filename>extensions</filename></term>
+        <term><filename>confexts</filename></term>
+
+        <listitem><para>A newline-separated list of the names of all merged extensions, ordered by version.
+        Note that this includes extensions that do not carry any files in this specific hierarchy (e.g. an
+        extension that only ships files in <filename>/usr/</filename> is also listed in
+        <filename>/opt/.systemd-sysext/extensions</filename>). The file is called
+        <filename>extensions</filename> in <filename>.systemd-sysext/</filename> and
+        <filename>confexts</filename> in <filename>.systemd-confext/</filename>.</para>
+
+        <para>The name of an extension is not a path, but is derived from the file name of the image (i.e. the
+        last component of its path, the containing directory is not included): the format suffix
+        (<filename>.raw</filename> for disk images, none for plain directories) is removed, and then the
+        optional image class suffix (<filename>.sysext</filename> or <filename>.confext</filename>) as well.
+        For block devices the file name of the device node is used unmodified. For example, an image
+        <filename>/var/lib/extensions/foo.raw</filename> or
+        <filename>/var/lib/extensions/foo.sysext.raw</filename> is listed as <literal>foo</literal>. For
+        versioned images in a <filename>.v/</filename> directory the name is derived the same way from the
+        name of the <filename>.v/</filename> directory (with <filename>.v</filename> removed first), and does
+        not include the version of the picked entry: <filename>/var/lib/extensions/foo.raw.v/</filename> is
+        listed as <literal>foo</literal>, too. This is the same name that the
+        <filename>extension-release.<replaceable>NAME</replaceable></filename> file inside the image has to
+        match, see above. The full paths of the images are recorded in the <filename>origin</filename> file,
+        see below.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>dev</filename></term>
+
+        <listitem><para>The device number (formatted as
+        <literal><replaceable>major</replaceable>:<replaceable>minor</replaceable></literal>) of the
+        <literal>overlayfs</literal> file system, i.e. its <varname>st_dev</varname>. If this matches the
+        <varname>st_dev</varname> of the hierarchy's top-level directory, the metadata directory belongs to the
+        currently mounted <literal>overlayfs</literal> instance, and is not, for example, a stale copy in an
+        unpacked file system tree.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>backing</filename></term>
+
+        <listitem><para>The device number (formatted as
+        <literal><replaceable>major</replaceable>:<replaceable>minor</replaceable></literal>) of the block
+        device backing the original, underlying hierarchy, i.e. the file system that is covered by the
+        <literal>overlayfs</literal> file system. This may be used to determine the actual file system backing
+        the hierarchy (if the <filename>dev</filename> file matches, see above). This file is not created if
+        the underlying hierarchy is not backed by a block device.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>origin</filename></term>
+
+        <listitem><para>A JSON object describing the merged extensions (paths, Verity root hashes or other
+        identifying information), the mutability mode and the mount options in effect. This is used to
+        determine whether a <option>refresh</option> may be skipped, because nothing changed (see
+        <option>--always-refresh=</option>).</para>
+
+        <para>The extensions are keyed by their name (see above), and the <literal>path</literal> field of
+        each one contains the absolute path of the image (for versioned images: of the picked entry inside
+        the <filename>.v/</filename> directory). The paths of the backing directories of mutable
+        hierarchies (keyed by the hierarchy, e.g. <filename>/usr</filename>) are absolute too. If
+        <option>--root=</option> is used, these paths are relative to the specified root directory, i.e.
+        they are absolute paths as seen from within the OS tree, with the root directory prefix
+        removed. Paths that are located outside of the root directory are recorded as absolute host
+        paths.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>work_dir</filename></term>
+
+        <listitem><para>The path of the <literal>overlayfs</literal> work directory, in case the hierarchy is
+        merged in a writable, non-ephemeral mode (see <option>--mutable=</option> below). The path is
+        C-style escaped. It is a relative path (without leading slash), relative to the root directory, i.e.
+        the host's root directory, or the directory specified with <option>--root=</option> if that is
+        used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>If the hierarchy is merged read-only (i.e. without a writable upper directory, see
+    <option>--mutable=</option> below), the modification time of the hierarchy's top-level directory (i.e.
+    the directory the metadata directory is located in) indicates when the hierarchy was merged. If it is
+    merged with a writable upper directory, the top-level directory reports the modification time of the
+    upper directory instead.</para>
+
+    <para>The metadata files should be considered read-only, and must not be modified.</para>
+  </refsect1>
+
+  <refsect1>
     <title>Commands</title>
 
     <para>The following commands are understood by both the sysext and confext concepts:</para>
