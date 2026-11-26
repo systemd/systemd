@@ -24,6 +24,11 @@ ExecStart={{LIBEXECDIR}}/systemd-tpm2-swtpm
 ExecStop=swtpm_ioctl --unix %t/systemd/swtpm/socket -v
 # Initiate graceful shutdown
 ExecStop=swtpm_ioctl --unix %t/systemd/swtpm/socket -s
+# Keep the vTPM proxy device around while swtpm is not running, in particular across the initrd→host
+# transition, so that the TPM device is not released and reallocated. If the service failed for good, release
+# it, so that clients do not hang on a TPM device nobody serves.
+FileDescriptorStoreMax=1
+FileDescriptorStorePreserve=on-success
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
 NoNewPrivileges=yes
@@ -42,6 +47,9 @@ RestrictRealtime=yes
 RestrictSUIDSGID=yes
 RuntimeDirectory=systemd/swtpm
 RuntimeDirectoryMode=0700
+# Keep the "devno" file (which identifies the vTPM proxy device in our fdstore) around when stopped, in
+# particular across the initrd→host transition
+RuntimeDirectoryPreserve=yes
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service
