@@ -27,6 +27,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "string-util.h"
+#include "strv.h"
 
 /* Chunk size to use when writing zeroes manually, see blockdev_zero_out() */
 #define ZERO_OUT_BUFFER_SIZE (64U*U64_KB)
@@ -524,7 +525,7 @@ int blockdev_partscan_enabled_fd(int fd) {
         return blockdev_partscan_enabled(dev);
 }
 
-static int blockdev_is_encrypted(const char *sysfs_path, unsigned depth_left) {
+static int blockdev_is_encrypted(const char *sysfs_path, BlockDeviceEncryptedFlags flags, unsigned depth_left) {
         _cleanup_free_ char *p = NULL, *uuids = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         int r, found_encrypted = false;
@@ -543,12 +544,26 @@ static int blockdev_is_encrypted(const char *sysfs_path, unsigned depth_left) {
                 if (r < 0)
                         return r;
 
-                /* The DM device's uuid attribute is prefixed with "CRYPT-" if this is a dm-crypt device. */
-                if (startswith(uuids, "CRYPT-"))
-                        return true;
+                /* The DM device's uuid attribute is prefixed with "CRYPT-" if the device has been set up
+                 * by libcryptsetup, followed by the type of the device. Standalone dm-integrity devices
+                 * ("CRYPT-INTEGRITY-") do not encrypt (and are not dm-verity either), hence never count
+                 * them. The same applies to internal helper devices libcryptsetup sets up below the actual
+                 * dm-crypt device ("CRYPT-SUBDEV-"), for example the dm-integrity device used for LUKS2
+                 * authenticated encryption: if such a device is used directly, nothing is encrypted.
+                 * Everything else except dm-verity is dm-crypt (LUKS, plain, BitLocker, TrueCrypt, …). */
+                const char *e = startswith(uuids, "CRYPT-");
+                if (e) {
+                        if (startswith(e, "VERITY-")) {
+                                if (FLAGS_SET(flags, BLOCK_DEVICE_ENCRYPTED_DM_VERITY))
+                                        return true;
+                        } else if (!STARTSWITH_SET(e, "INTEGRITY-", "SUBDEV-")) {
+                                if (FLAGS_SET(flags, BLOCK_DEVICE_ENCRYPTED_DM_CRYPT))
+                                        return true;
+                        }
+                }
         }
 
-        /* Not a dm-crypt device itself. But maybe it is on top of one? Follow the links in the "slaves/"
+        /* Not a matching device itself. But maybe it is on top of one? Follow the links in the "slaves/"
          * subdir. */
 
         p = mfree(p);
@@ -581,7 +596,7 @@ static int blockdev_is_encrypted(const char *sysfs_path, unsigned depth_left) {
                 if (!q)
                         return -ENOMEM;
 
-                r = blockdev_is_encrypted(q, depth_left - 1);
+                r = blockdev_is_encrypted(q, flags, depth_left - 1);
                 if (r < 0)
                         return r;
                 if (r == 0) /* we found one that is not encrypted? then propagate that immediately */
@@ -593,10 +608,21 @@ static int blockdev_is_encrypted(const char *sysfs_path, unsigned depth_left) {
         return found_encrypted;
 }
 
-int fd_is_encrypted(int fd) {
+int fd_is_encrypted(int fd, BlockDeviceEncryptedFlags flags) {
         char p[SYS_BLOCK_PATH_MAX("")];
         dev_t devt;
         int r;
+
+        assert(fd >= 0);
+
+        /* Checks whether the block device backing the file system the specified fd is located on is
+         * protected by dm-crypt and/or dm-verity, as selected by the flags parameter. A device passes the
+         * check if it is protected itself (the devices it is stacked on are not checked then), or if it is
+         * stacked on top of other block devices that all pass the check (recursively).
+         *
+         * Note that despite the name of this function, dm-verity devices pass the check too if
+         * BLOCK_DEVICE_ENCRYPTED_DM_VERITY is set in flags, even though dm-verity only authenticates and
+         * does not encrypt. */
 
         r = get_block_device_fd(fd, &devt);
         if (r < 0)
@@ -606,23 +632,22 @@ int fd_is_encrypted(int fd) {
 
         xsprintf_sys_block_path(p, NULL, devt);
 
-        return blockdev_is_encrypted(p, 10 /* safety net: maximum recursion depth */);
+        return blockdev_is_encrypted(p, flags, 10 /* safety net: maximum recursion depth */);
 }
 
-int path_is_encrypted(const char *path) {
-        char p[SYS_BLOCK_PATH_MAX("")];
-        dev_t devt;
-        int r;
+int path_is_encrypted(const char *path, BlockDeviceEncryptedFlags flags) {
+        _cleanup_close_ int fd = -EBADF;
 
-        r = get_block_device(path, &devt);
-        if (r < 0)
-                return r;
-        if (r == 0) /* doesn't have a block device */
-                return false;
+        assert(path);
 
-        xsprintf_sys_block_path(p, NULL, devt);
+        /* Note that despite the name, this also checks for dm-verity if the flags say so, see
+         * fd_is_encrypted() for details. */
 
-        return blockdev_is_encrypted(p, 10 /* safety net: maximum recursion depth */);
+        fd = xopenat(AT_FDCWD, path, O_RDONLY|O_NOFOLLOW);
+        if (fd < 0)
+                return fd;
+
+        return fd_is_encrypted(fd, flags);
 }
 
 int fd_get_whole_disk(int fd, bool backing, dev_t *ret) {
