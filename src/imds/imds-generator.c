@@ -208,10 +208,12 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         if (arg_import < 0)
                 arg_import = in_initrd();
         if (arg_import > 0) {
-                /* Enable the import of IMDS data */
-                r = generator_add_symlink(dest_early, SPECIAL_SYSINIT_TARGET, "wants", SYSTEM_DATA_UNIT_DIR "/systemd-imds-import.service");
+                /* Enable the import of IMDS data. The initrd has its own unit, which doesn't wait for
+                 * network-online.target. */
+                const char *unit = in_initrd() ? "systemd-imds-import-initrd.service" : "systemd-imds-import.service";
+                r = generator_add_symlink(dest_early, SPECIAL_SYSINIT_TARGET, "wants", strjoina(SYSTEM_DATA_UNIT_DIR "/", unit));
                 if (r < 0)
-                        return log_error_errno(r, "Failed to hook in systemd-imds-import.service: %m");
+                        return log_error_errno(r, "Failed to hook in %s: %m", unit);
         }
 
         /* Enable IMDS metrics in case IMDS is supported */
