@@ -55,11 +55,13 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
+#include "process-util.h"
 #include "random-util.h"
 #include "rm-rf.h"
 #include "runtime-scope.h"
 #include "selinux-util.h"
 #include "set.h"
+#include "socket-util.h"
 #include "sort-util.h"
 #include "stat-util.h"
 #include "string-table.h"
@@ -155,6 +157,7 @@ static const struct {
         const char *name_env;
         const char *mode_env;
         const char *opts_env;
+        const char *beneath_env;
         const ImagePolicy *default_image_policy;
         unsigned long default_mount_flags;
 } image_class_info[_IMAGE_CLASS_MAX] = {
@@ -169,6 +172,7 @@ static const struct {
                 .name_env = "SYSTEMD_SYSEXT_HIERARCHIES",
                 .mode_env = "SYSTEMD_SYSEXT_MUTABLE_MODE",
                 .opts_env = "SYSTEMD_SYSEXT_OVERLAYFS_MOUNT_OPTIONS",
+                .beneath_env = "SYSTEMD_SYSEXT_MOUNT_BENEATH",
                 .default_image_policy = &image_policy_sysext,
                 .default_mount_flags = MS_RDONLY|MS_NODEV,
         },
@@ -183,6 +187,7 @@ static const struct {
                 .name_env = "SYSTEMD_CONFEXT_HIERARCHIES",
                 .mode_env = "SYSTEMD_CONFEXT_MUTABLE_MODE",
                 .opts_env = "SYSTEMD_CONFEXT_OVERLAYFS_MOUNT_OPTIONS",
+                .beneath_env = "SYSTEMD_CONFEXT_MOUNT_BENEATH",
                 .default_image_policy = &image_policy_confext,
                 .default_mount_flags = MS_RDONLY|MS_NODEV|MS_NOSUID|MS_NOEXEC,
         }
@@ -210,6 +215,7 @@ typedef struct Context {
          * context owns it and frees it in context_done(). */
         bool image_policy_owned;
         const char *overlayfs_mount_options;
+        bool mount_beneath;
 } Context;
 
 #define CONTEXT_NULL                            \
@@ -217,6 +223,7 @@ typedef struct Context {
                 .image_class = IMAGE_SYSEXT,    \
                 .noexec = -1,                   \
                 .mutable = MUTABLE_NO,          \
+                .mount_beneath = true,          \
         }
 
 static void context_done(Context *c) {
@@ -250,6 +257,13 @@ static void parse_env_image_class_config(Context *c) {
         env_var = secure_getenv(image_class_info[c->image_class].opts_env);
         if (env_var)
                 c->overlayfs_mount_options = env_var;
+
+        /* Debugging aid, to exercise the code path taken on kernels without support for mounting beneath */
+        r = secure_getenv_bool(image_class_info[c->image_class].beneath_env);
+        if (r >= 0)
+                c->mount_beneath = r;
+        else if (r != -ENXIO)
+                log_warning_errno(r, "Failed to parse $%s, ignoring: %m", image_class_info[c->image_class].beneath_env);
 }
 
 static int parse_config_file(Context *c) {
@@ -1423,6 +1437,66 @@ static int unmerge(const Context *c) {
         return 0;
 }
 
+static int unpeel_hierarchy(const Context *c, const char *p, int *ret_fd) {
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+        int r;
+
+        assert(c);
+        assert(p);
+        assert(ret_fd);
+
+        /* Returns a detached clone of what is beneath our overlayfs mounts on the hierarchy. There is no
+         * way to get at a mount that is covered at its root other than unmounting what covers it, hence do
+         * that in a private mount namespace of a child, while the host keeps the old overlayfs. */
+
+        if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pair) < 0)
+                return log_error_errno(errno, "Failed to create socket pair: %m");
+
+        r = pidref_safe_fork("(sd-unpeel)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, /* ret= */ NULL);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                _cleanup_close_ int fd = -EBADF;
+
+                pair[0] = safe_close(pair[0]);
+
+                for (;;) {
+                        r = is_our_mount_point(c->image_class, p);
+                        if (r < 0)
+                                _exit(EXIT_FAILURE);
+                        if (r == 0)
+                                break;
+
+                        r = umount_verbose(LOG_ERR, p, MNT_DETACH|UMOUNT_NOFOLLOW);
+                        if (r < 0)
+                                _exit(EXIT_FAILURE);
+                }
+
+                fd = open_tree(AT_FDCWD, p, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW);
+                if (fd < 0) {
+                        log_error_errno(errno, "Failed to clone '%s': %m", p);
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = send_one_fd(pair[1], fd, /* flags= */ 0);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to send mount of '%s': %m", p);
+                        _exit(EXIT_FAILURE);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        pair[1] = safe_close(pair[1]);
+
+        r = receive_one_fd(pair[0], MSG_DONTWAIT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to receive mount of '%s': %m", p);
+
+        *ret_fd = r;
+        return 0;
+}
+
 typedef struct ExtensionMount {
         char *name;
         int root_fd;    /* the root partition, or the directory of the extension */
@@ -1521,7 +1595,8 @@ typedef struct HierarchyMerge {
         char *name;
         int parent_fd;
         int hierarchy_fd;               /* -EBADF if the hierarchy doesn't exist (yet) */
-        bool unmerged;                  /* our previous overlayfs was unmerged, its submounts with it */
+        bool replacing;                 /* our previous overlayfs is mounted there */
+        char *old_work_dir;             /* the work dir of the previous overlayfs */
         SubMount *submounts;            /* clones of what is mounted below the hierarchy */
         size_t n_submounts;
         int base_fd;                    /* the hierarchy itself, as layer of the new overlayfs */
@@ -1574,6 +1649,7 @@ static void hierarchy_merge_done(HierarchyMerge *hm) {
         hm->upper = mfree(hm->upper);
         hm->work = mfree(hm->work);
         hm->work_dir = mfree(hm->work_dir);
+        hm->old_work_dir = mfree(hm->old_work_dir);
         hm->layers = mfree(hm->layers);
         hm->n_layers = 0;
         hm->layer_paths = strv_free(hm->layer_paths);
@@ -1725,36 +1801,49 @@ static int hierarchy_merge_prepare(
                 return 0;
 
         if (hm->hierarchy_fd >= 0) {
+                _cleanup_free_ char *dot_dir = NULL;
+                struct stat st;
+
                 r = is_our_mount_point_fd(c->image_class, hm->hierarchy_fd, hm->resolved);
                 if (r < 0)
                         return r;
-                if (r > 0) {
-                        /* Let's now unmerge the status quo ante, since to build the new overlayfs we need a
-                         * reference to the underlying fs. This hands us clones of the submounts of the old
-                         * overlayfs, which we'll attach to the new one. */
-                        r = unmerge_hierarchy(c, hm->resolved, &hm->submounts, &hm->n_submounts);
+                hm->replacing = r > 0;
+
+                /* The submounts get cloned onto the new overlayfs. When replacing our previous overlayfs,
+                 * skip its metadata bind mount, the new one gets its own. */
+                r = get_sub_mounts(hm->resolved, &hm->submounts, &hm->n_submounts);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get submounts for %s: %m", hm->resolved);
+
+                dot_dir = path_join(hm->resolved, image_class_info[c->image_class].dot_directory_name);
+                if (!dot_dir)
+                        return log_oom();
+
+                if (hm->replacing)
+                        FOREACH_ARRAY(m, hm->submounts, hm->n_submounts)
+                                if (path_equal(m->path, dot_dir)) {
+                                        sub_mount_clear(m);
+                                        memmove(m, m + 1, (hm->submounts + hm->n_submounts - m - 1) * sizeof(SubMount));
+                                        hm->n_submounts--;
+                                        break;
+                                }
+
+                if (hm->replacing) {
+                        r = read_work_dir_at(c, hm->hierarchy_fd, /* hierarchy_path= */ "", hm->resolved, &hm->old_work_dir);
                         if (r < 0)
                                 return r;
 
-                        hm->unmerged = true;
-
-                        r = hierarchy_merge_pin(c, hm, /* mkdir= */ false);
+                        /* The new overlayfs is assembled while the old one stays in place, hence get what is
+                         * beneath the old one without touching it. */
+                        r = unpeel_hierarchy(c, hm->resolved, &hm->base_fd);
                         if (r < 0)
                                 return r;
                 } else {
-                        r = get_sub_mounts(hm->resolved, &hm->submounts, &hm->n_submounts);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to get submounts for %s: %m", hm->resolved);
+                        /* A clone without the submounts, which is what overlayfs takes as layer anyway */
+                        hm->base_fd = RET_NERRNO(open_tree(hm->hierarchy_fd, "", OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_EMPTY_PATH));
+                        if (hm->base_fd < 0)
+                                return log_error_errno(hm->base_fd, "Failed to clone '%s': %m", hm->resolved);
                 }
-        }
-
-        if (hm->hierarchy_fd >= 0) {
-                struct stat st;
-
-                /* A clone without the submounts, which is what overlayfs takes as layer anyway */
-                hm->base_fd = RET_NERRNO(open_tree(hm->hierarchy_fd, "", OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_EMPTY_PATH));
-                if (hm->base_fd < 0)
-                        return log_error_errno(hm->base_fd, "Failed to clone '%s': %m", hm->resolved);
 
                 if (fstat(hm->base_fd, &st) < 0)
                         return log_error_errno(errno, "Failed to stat '%s': %m", hm->resolved);
@@ -2003,6 +2092,96 @@ static int hierarchy_merge_attach(const Context *c, HierarchyMerge *hm) {
         return attach_submounts(hm->submounts, hm->n_submounts, hm->resolved, hm->overlay_fd, hm->resolved);
 }
 
+static int hierarchy_merge_replace(const Context *c, HierarchyMerge *hm, bool attach_detached) {
+        bool old_detached = false, beneath = false;
+        int r;
+
+        assert(c);
+        assert(hm);
+        assert(hm->replacing);
+
+        /* Replaces our previous overlayfs pinned by hierarchy_fd atomically, by mounting the new one beneath
+         * it and unmounting it afterwards. If the kernel doesn't support that (added in 6.5), unmount the
+         * old one first and mount the new one in its place, with a brief moment where neither is mounted.
+         * Unlike mount_exchange_graceful() we go by the pinning fd rather than by path, so that we never
+         * unmount something that replaced the old overlayfs meanwhile (a mount stacked on top of it would
+         * be hit instead though) and never mount the new one somewhere else than checked, and we don't
+         * leave the old overlayfs stacked below the new one in the fallback case, since that would keep its
+         * images and work directory referenced. Note that we only ever look at the topmost mount: if
+         * there's more than one of our overlayfs stacked here (which can only be the result of somebody
+         * bind mounting the hierarchy onto itself), the lower ones remain until the hierarchy is unmerged,
+         * and since they share the superblock with the one we replace they lose their work directory when
+         * we remove it below. */
+
+        if (c->mount_beneath) {
+                log_debug("Mounting new overlayfs beneath '%s'...", hm->resolved);
+                r = RET_NERRNO(move_mount(hm->overlay_fd, "", hm->hierarchy_fd, "", MOVE_MOUNT_F_EMPTY_PATH|MOVE_MOUNT_T_EMPTY_PATH|MOVE_MOUNT_BENEATH));
+        } else
+                r = -EINVAL; /* Behave as if the kernel didn't support it */
+        if (r >= 0) {
+                hm->mounted = beneath = true;
+
+                /* The new overlayfs is still hidden beneath the old one, hence attach whatever couldn't be
+                 * attached while it was detached now, and it all appears at once below. */
+                // FIXME: This compatibility code path shall be removed once kernel 6.15
+                //        becomes the new minimal baseline
+                if (!attach_detached) {
+                        r = hierarchy_merge_attach(c, hm);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to replace previous merge of '%s', the new one is stacked beneath it now: %m", hm->resolved);
+                }
+
+                /* The old overlayfs is the topmost mount now, with nothing stacked on its root, hence the
+                 * pinning fd resolves to exactly it. */
+                r = umountat_detach_verbose(LOG_DEBUG, hm->hierarchy_fd, /* where= */ "");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to replace previous merge of '%s', the new one is stacked beneath it now: %m", hm->resolved);
+
+                old_detached = true;
+        } else {
+                if (r != -EINVAL)
+                        return log_error_errno(r, "Failed to mount beneath '%s': %m", hm->resolved);
+
+                // FIXME: This compatibility code path shall be removed once kernel 6.5 becomes the new minimal baseline
+
+                /* Note that we can't mount on top first and detach the old overlayfs afterwards: with the
+                 * new tree stacked on its root, the pinning fd would resolve to the new tree. */
+                log_debug_errno(r, "Mounting beneath '%s' is not supported, unmounting previous merge first: %m", hm->resolved);
+
+                r = umountat_detach_verbose(LOG_ERR, hm->hierarchy_fd, /* where= */ "");
+                if (r < 0)
+                        return r;
+
+                old_detached = true;
+
+                /* The pinning fd refers to the detached old overlayfs now, hence go by the parent directory
+                 * and the name, which resolves to what became visible below the old overlayfs. */
+                r = RET_NERRNO(move_mount(hm->overlay_fd, "", hm->parent_fd, hm->name, MOVE_MOUNT_F_EMPTY_PATH));
+                if (r < 0)
+                        log_error_errno(r, "Failed to replace previous merge of '%s', the hierarchy is unmerged now, without its submounts: %m", hm->resolved);
+                else {
+                        hm->mounted = true;
+
+                        if (!attach_detached)
+                                r = hierarchy_merge_attach(c, hm);
+                }
+        }
+
+        /* Now that the old overlayfs is gone, its unique work directory should go, too. A leftover is not
+         * worth failing the switch that already happened for. */
+        if (old_detached && hm->old_work_dir) {
+                int k = rm_rf(hm->old_work_dir, REMOVE_ROOT|REMOVE_MISSING_OK|REMOVE_PHYSICAL);
+                if (k < 0)
+                        log_warning_errno(k, "Failed to remove '%s', ignoring: %m", hm->old_work_dir);
+        }
+
+        if (r < 0)
+                return r;
+
+        log_debug("Replaced previous merge of '%s' by mounting %s it.", hm->resolved, beneath ? "beneath" : "in place of");
+        return 0;
+}
+
 static int hierarchy_merge_finish(const Context *c, HierarchyMerge *hm, bool attach_detached) {
         int r;
 
@@ -2030,6 +2209,15 @@ static int hierarchy_merge_finish(const Context *c, HierarchyMerge *hm, bool att
                         return r;
         }
 
+        if (hm->replacing) {
+                r = hierarchy_merge_replace(c, hm, attach_detached);
+                if (r < 0)
+                        return r;
+
+                log_info("Merged extensions into '%s'.", hm->resolved);
+                return 0;
+        }
+
         if (hm->hierarchy_fd < 0) {
                 r = hierarchy_merge_pin(c, hm, /* mkdir= */ true);
                 if (r < 0)
@@ -2053,10 +2241,9 @@ static int hierarchy_merge_finish(const Context *c, HierarchyMerge *hm, bool att
         }
 
         /* Detach the now hidden original submounts, going by fd since they can't be reached by path
-         * anymore. (When we unmerged our previous overlayfs, they went away with it.) */
-        if (!hm->unmerged)
-                FOREACH_ARRAY(m, hm->submounts, hm->n_submounts)
-                        (void) umountat_detach_verbose(LOG_WARNING, m->original_fd, /* where= */ "");
+         * anymore. (When replacing our previous overlayfs, they go away with it.) */
+        FOREACH_ARRAY(m, hm->submounts, hm->n_submounts)
+                (void) umountat_detach_verbose(LOG_WARNING, m->original_fd, /* where= */ "");
 
         log_info("Merged extensions into '%s'.", hm->resolved);
         return 0;
@@ -2435,6 +2622,10 @@ static int merge_hierarchies(const Context *c, Hashmap *images) {
                 if (r == 0)
                         continue;
 
+                /* TODO: The origin of the first merged hierarchy stands for all of them. If a refresh failed
+                 * after replacing some hierarchies, the others still carry the previous extensions, and the
+                 * next refresh skips them as unchanged until --always-refresh=yes is used or they are
+                 * unmerged. Compare the origin of every merged hierarchy instead. */
                 if (old_origin_content)
                         continue;
 
