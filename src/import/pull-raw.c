@@ -2,7 +2,6 @@
 
 #include <unistd.h>
 
-#include "sd-daemon.h"
 #include "sd-event.h"
 
 #include "alloc-util.h"
@@ -70,6 +69,8 @@ typedef struct RawPull {
 
         char *verity_path;
         char *verity_temp_path;
+
+        ImportProgress progress;
 } RawPull;
 
 RawPull* raw_pull_unref(RawPull *p) {
@@ -148,6 +149,9 @@ int raw_pull_new(
         return 0;
 }
 
+/* The share of the progress percentage that is downloading, the rest is for the steps after that */
+#define RAW_PULL_PERCENT_DOWNLOAD 80U
+
 static void raw_pull_report_progress(RawPull *p, RawProgress progress) {
         unsigned percent;
 
@@ -156,7 +160,7 @@ static void raw_pull_report_progress(RawPull *p, RawProgress progress) {
         switch (progress) {
 
         case RAW_DOWNLOADING: {
-                unsigned remain = 80;
+                unsigned remain = RAW_PULL_PERCENT_DOWNLOAD;
 
                 percent = 0;
 
@@ -215,8 +219,17 @@ static void raw_pull_report_progress(RawPull *p, RawProgress progress) {
                 assert_not_reached();
         }
 
-        sd_notifyf(/* unset_environment= */ false, "X_IMPORT_PROGRESS=%u%%", percent);
-        log_debug("Combined progress %u%%", percent);
+        /* Only estimate the time left while downloading, since that's where the time typically goes, and
+         * the steps after that progress at a rate unrelated to the download rate. Base the estimate on
+         * the download share only, so that it covers the download, not the steps after it. */
+        usec_t left = progress == RAW_DOWNLOADING ?
+                import_progress_estimate(&p->progress, percent, RAW_PULL_PERCENT_DOWNLOAD) :
+                USEC_INFINITY;
+
+        import_notify_progress(&p->progress, percent, left);
+
+        _cleanup_free_ char *left_str = import_format_time_left(left);
+        log_debug("Combined progress %u%%%s", percent, strempty(left_str));
 }
 
 static int raw_pull_maybe_convert_qcow2(RawPull *p) {

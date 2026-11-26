@@ -706,7 +706,12 @@ CHANGES WITH 263 in spe:
           the host and all of its components if no target is specified, like
           --component-all, which "check-new" now supports, too.
           When invoked interactively, systemd-sysupdate now shows a progress
-          bar per transfer. Concurrent updates of the same component are now
+          bar per transfer, including an estimate of the time left. The
+          progress notifications of Update() include the time elapsed and the
+          estimated total time of each transfer. Both are provided by
+          systemd-import, systemd-pull and systemd-export via the new
+          X_IMPORT_TIME_ELAPSED_USEC= and X_IMPORT_TIME_TOTAL_USEC=
+          sd_notify() fields. Concurrent updates of the same component are now
           serialized.
 
         File manifests, disk images and extensions:

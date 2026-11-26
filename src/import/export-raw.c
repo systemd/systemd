@@ -2,7 +2,6 @@
 
 #include <sys/sendfile.h>
 
-#include "sd-daemon.h"
 #include "sd-event.h"
 
 #include "alloc-util.h"
@@ -11,6 +10,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "import-common.h"
 #include "log.h"
 #include "pretty-print.h"
 #include "ratelimit.h"
@@ -44,6 +44,7 @@ typedef struct RawExport {
 
         unsigned last_percent;
         RateLimit progress_ratelimit;
+        ImportProgress progress;
 
         struct stat st;
 
@@ -121,17 +122,22 @@ static void raw_export_report_progress(RawExport *e) {
         if (!ratelimit_below(&e->progress_ratelimit))
                 return;
 
-        sd_notifyf(/* unset_environment= */ false, "X_IMPORT_PROGRESS=%u%%", percent);
+        usec_t left = import_progress_estimate(&e->progress, e->written_uncompressed, (uint64_t) e->st.st_size);
+
+        import_notify_progress(&e->progress, percent, left);
+
+        _cleanup_free_ char *left_str = import_format_time_left(left);
 
         if (isatty_safe(STDERR_FILENO))
                 (void) draw_progress_barf(
                                 percent,
-                                "%s %s/%s",
+                                "%s %s/%s%s",
                                 glyph(GLYPH_ARROW_RIGHT),
                                 FORMAT_BYTES(e->written_uncompressed),
-                                FORMAT_BYTES(e->st.st_size));
+                                FORMAT_BYTES(e->st.st_size),
+                                strempty(left_str));
         else
-                log_info("Exported %u%%.", percent);
+                log_info("Exported %u%%%s.", percent, strempty(left_str));
 
         e->last_percent = percent;
 }

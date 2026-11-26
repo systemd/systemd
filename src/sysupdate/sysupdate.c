@@ -2008,7 +2008,9 @@ static void context_notify_phase(
                 UpdatePhase phase,
                 const char *transfer,
                 const char *version,
-                unsigned percent) {
+                unsigned percent,
+                usec_t time_elapsed,
+                usec_t time_total) {
 
         int r;
 
@@ -2030,7 +2032,9 @@ static void context_notify_phase(
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("component", c->component),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("transfer", transfer),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("version", version),
-                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("progress", percent, UINT_MAX));
+                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("progress", percent, UINT_MAX),
+                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("timeElapsedUSec", time_elapsed, USEC_INFINITY),
+                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("timeTotalUSec", time_total, USEC_INFINITY));
         if (r < 0) {
                 log_debug_errno(r, "Failed to enqueue Varlink progress notification, ignoring: %m");
                 return;
@@ -2045,7 +2049,7 @@ static void context_notify_phase(
                 log_debug_errno(r, "Failed to process Varlink connection, ignoring: %m");
 }
 
-static int context_on_acquire_progress(const Transfer *t, const Instance *inst, unsigned percentage) {
+static int context_on_acquire_progress(const Transfer *t, const Instance *inst, unsigned percentage, usec_t time_elapsed, usec_t time_total) {
         const Context *c = ASSERT_PTR(t->context);
         size_t i, n = c->n_transfers;
         uint64_t base, scaled;
@@ -2063,16 +2067,26 @@ static int context_on_acquire_progress(const Transfer *t, const Instance *inst, 
 
         log_debug("Transfer %zu/%zu is %u%% complete (%u%% overall).", i+1, n, percentage, overall);
 
+        /* Show the time left as estimated by the helper, if it has an estimate. This is purely cosmetic,
+         * hence if we run out of memory we just don't show it. */
+        _cleanup_free_ char *left = NULL;
+        if (time_total != USEC_INFINITY && time_elapsed != USEC_INFINITY) {
+                usec_t time_left = usec_sub_unsigned(time_total, time_elapsed);
+
+                left = strjoin(" (", FORMAT_TIMESPAN(time_left, time_left >= USEC_PER_HOUR ? USEC_PER_MINUTE : USEC_PER_SEC), " left)");
+        }
+
         (void) draw_progress_barf(
                         percentage,
-                        "%s%s%s %s %s",
+                        "%s%s%s %s %s%s",
                         strempty(c->component),
                         c->component ? "/" : "",
                         t->id,
                         glyph(GLYPH_ARROW_RIGHT),
-                        inst->metadata.version);
+                        inst->metadata.version,
+                        strempty(left));
 
-        context_notify_phase(c, UPDATE_PHASE_ACQUIRING, t->id, inst->metadata.version, percentage);
+        context_notify_phase(c, UPDATE_PHASE_ACQUIRING, t->id, inst->metadata.version, percentage, time_elapsed, time_total);
 
         return sd_notifyf(/* unset_environment= */ false, "X_SYSUPDATE_PROGRESS=%u\n"
                                               "X_SYSUPDATE_TRANSFERS_LEFT=%zu\n"
@@ -2156,7 +2170,7 @@ static int context_acquire(
                           "X_SYSUPDATE_VERSION=%s\n"
                           "STATUS=Making room for '%s'.", us->version, us->version);
 
-        context_notify_phase(c, UPDATE_PHASE_VACUUMING, /* transfer= */ NULL, us->version, /* percent= */ UINT_MAX);
+        context_notify_phase(c, UPDATE_PHASE_VACUUMING, /* transfer= */ NULL, us->version, /* percent= */ UINT_MAX, /* time_elapsed= */ USEC_INFINITY, /* time_total= */ USEC_INFINITY);
 
         /* Let's make some room. We make sure for each transfer we have one free space to fill. While
          * removing stuff we'll protect the version we are trying to acquire. Why that? Maybe an earlier
@@ -2188,7 +2202,7 @@ static int context_acquire(
                         continue;
                 }
 
-                context_notify_phase(c, UPDATE_PHASE_ACQUIRING, t->id, us->version, /* percent= */ UINT_MAX);
+                context_notify_phase(c, UPDATE_PHASE_ACQUIRING, t->id, us->version, /* percent= */ UINT_MAX, /* time_elapsed= */ USEC_INFINITY, /* time_total= */ USEC_INFINITY);
 
                 r = transfer_acquire_instance(t, inst, metadata + i, context_on_acquire_progress, c);
                 clear_progress_bar(/* prefix= */ NULL);
@@ -2377,7 +2391,7 @@ static int context_install(
                           "X_SYSUPDATE_VERSION=%s\n"
                           "STATUS=Installing '%s'.", us->version, us->version);
 
-        context_notify_phase(c, UPDATE_PHASE_INSTALLING, /* transfer= */ NULL, us->version, /* percent= */ UINT_MAX);
+        context_notify_phase(c, UPDATE_PHASE_INSTALLING, /* transfer= */ NULL, us->version, /* percent= */ UINT_MAX, /* time_elapsed= */ USEC_INFINITY, /* time_total= */ USEC_INFINITY);
 
         for (size_t i = 0; i < c->n_transfers; i++) {
                 Instance *inst = us->instances[i];
@@ -3475,7 +3489,7 @@ static int context_lock_component(Context *c, LockFile *ret) {
                                  "READY=1\n"
                                  "STATUS=Waiting for another update to finish.");
 
-                context_notify_phase(c, UPDATE_PHASE_WAITING_FOR_LOCK, /* transfer= */ NULL, /* version= */ NULL, /* percent= */ UINT_MAX);
+                context_notify_phase(c, UPDATE_PHASE_WAITING_FOR_LOCK, /* transfer= */ NULL, /* version= */ NULL, /* percent= */ UINT_MAX, /* time_elapsed= */ USEC_INFINITY, /* time_total= */ USEC_INFINITY);
 
                 r = make_lock_file_at(dfd, fn, LOCK_EX, ret);
         }
@@ -3514,7 +3528,7 @@ static int context_update(
         if (r < 0)
                 return r;
 
-        context_notify_phase(c, UPDATE_PHASE_PREPARING, /* transfer= */ NULL, version, /* percent= */ UINT_MAX);
+        context_notify_phase(c, UPDATE_PHASE_PREPARING, /* transfer= */ NULL, version, /* percent= */ UINT_MAX, /* time_elapsed= */ USEC_INFINITY, /* time_total= */ USEC_INFINITY);
 
         r = context_load_online(
                         c,
@@ -3546,7 +3560,7 @@ static int context_update(
                 }
 
                 if (updated) {
-                        context_notify_phase(c, UPDATE_PHASE_NOTIFYING, /* transfer= */ NULL, applied->version, /* percent= */ UINT_MAX);
+                        context_notify_phase(c, UPDATE_PHASE_NOTIFYING, /* transfer= */ NULL, applied->version, /* percent= */ UINT_MAX, /* time_elapsed= */ USEC_INFINITY, /* time_total= */ USEC_INFINITY);
                         (void) context_notify_subscribers(c, applied);
                 }
 
@@ -3558,7 +3572,7 @@ static int context_update(
                         if (f < 0 && f != -ENXIO)
                                 log_debug_errno(f, "Failed to parse $SYSTEMD_SYSUPDATE_FORCE_NOTIFY, ignoring: %m");
                         if (f > 0) {
-                                context_notify_phase(c, UPDATE_PHASE_NOTIFYING, /* transfer= */ NULL, /* version= */ NULL, /* percent= */ UINT_MAX);
+                                context_notify_phase(c, UPDATE_PHASE_NOTIFYING, /* transfer= */ NULL, /* version= */ NULL, /* percent= */ UINT_MAX, /* time_elapsed= */ USEC_INFINITY, /* time_total= */ USEC_INFINITY);
                                 (void) context_notify_subscribers(c, /* us= */ NULL);
                         }
                 }
