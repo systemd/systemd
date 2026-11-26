@@ -2209,7 +2209,7 @@ static int merge_subprocess(
                 case IMAGE_SUBVOLUME:
 
                         if (!c->force) {
-                                r = extension_has_forbidden_content(p);
+                                r = extension_has_forbidden_content(img->path);
                                 if (r < 0)
                                         return r;
                                 if (r > 0) {
