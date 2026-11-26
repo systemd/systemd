@@ -65,7 +65,7 @@ bool credential_glob_valid(const char *s) {
                 return false;
 
         /* Find first glob (or NUL byte) */
-        n = strcspn(s, "*?[]");
+        n = strcspn(s, "*?[]\\");
         e = s + n;
 
         /* For now, only allow asterisk wildcards, and only at the end of the string. If it's anything else, refuse. */

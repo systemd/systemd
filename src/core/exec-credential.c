@@ -574,8 +574,16 @@ static int load_credential_glob(
 
                         if (ic->rename) {
                                 _cleanup_free_ char *renamed = NULL;
+                                size_t skip;
 
-                                renamed = strjoin(ic->rename, fn + strlen(ic->glob) - !!endswith(ic->glob, "*"));
+                                skip = strlen(ic->glob) - !!endswith(ic->glob, "*");
+
+                                if (strlen(fn) < skip) {
+                                        log_debug("Credential filename '%s' shorter than glob prefix, skipping.", fn);
+                                        continue;
+                                }
+
+                                renamed = strjoin(ic->rename, fn + skip);
                                 if (!renamed)
                                         return log_oom_debug();
 
