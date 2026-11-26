@@ -13,6 +13,8 @@ int cg_attach(const char *path, pid_t pid);
 int cg_fd_attach(int fd, pid_t pid);
 int cg_create_and_attach(const char *path, pid_t pid);
 
+/* Returns an O_PATH fd for a regular attribute on the directory's mount. */
+int cg_pin_attribute(int dir_fd, const char *name);
 int cg_set_access(const char *path, uid_t uid, gid_t gid);
 int cg_set_access_recursive(const char *path, uid_t uid, gid_t gid);
 

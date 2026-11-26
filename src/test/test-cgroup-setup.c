@@ -1,12 +1,24 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
+#include <stdlib.h>
+#include <sys/mount.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "errno-util.h"
+#include "fd-util.h"
+#include "fs-util.h"
+#include "mountpoint-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "rm-rf.h"
 #include "string-util.h"
 #include "tests.h"
+#include "tmpfile-util.h"
+#include "virt.h"
 
 TEST(cg_create) {
         int r;
@@ -70,6 +82,48 @@ TEST(cg_create) {
 
         ASSERT_OK_ZERO(cg_attach(here, /* pid= */ 0));
         ASSERT_OK(cg_trim(test_b, /* delete_root= */ true));
+}
+
+TEST(cg_pin_attribute) {
+        if (running_in_chroot() > 0)
+                return (void) log_tests_skipped("running in chroot");
+
+        _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
+        _cleanup_close_ int tfd = ASSERT_OK(mkdtemp_open(/* template= */ NULL, /* flags= */ 0, &tmp));
+        _cleanup_close_ int file = ASSERT_OK(xopenat_full(tfd, "file", O_CREAT|O_EXCL|O_WRONLY, /* xopen_flags= */ 0, 0600));
+        _cleanup_close_ int pinned = ASSERT_OK(cg_pin_attribute(tfd, "file"));
+        ASSERT_OK_POSITIVE(fds_inode_and_mount_same(file, pinned));
+
+        ASSERT_OK_ERRNO(symlinkat("file", tfd, "link"));
+        ASSERT_OK_ERRNO(mkdirat(tfd, "dir", 0755));
+        ASSERT_OK_ERRNO(mkfifoat(tfd, "fifo", 0600));
+        ASSERT_ERROR(cg_pin_attribute(tfd, "link"), ELOOP);
+        ASSERT_ERROR(cg_pin_attribute(tfd, "dir"), EISDIR);
+        ASSERT_ERROR(cg_pin_attribute(tfd, "fifo"), EBADFD);
+        ASSERT_ERROR(cg_pin_attribute(tfd, "missing"), ENOENT);
+
+        _cleanup_close_ int cg = ASSERT_OK(cg_path_open("/"));
+        _cleanup_close_ int procs = ASSERT_OK(cg_pin_attribute(cg, "cgroup.procs"));
+        ASSERT_OK_POSITIVE(fd_is_opath(procs));
+
+        _cleanup_close_ int root = ASSERT_OK(xopenat(AT_FDCWD, "/", O_PATH|O_DIRECTORY));
+        ASSERT_ERROR(cg_pin_attribute(root, "proc"), EXDEV);
+
+        /* A bind mount of a file onto itself keeps both its device and inode number. Only the mount changes. */
+        int r = pidref_safe_fork(
+                        "(cg-pin-attribute)",
+                        FORK_CLOSE_ALL_FDS|FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_REOPEN_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE,
+                        /* ret= */ NULL);
+        if (ERRNO_IS_NEG_PRIVILEGE(r))
+                return (void) log_tests_skipped_errno(r, "Cannot test a private bind mount");
+        ASSERT_OK(r);
+        if (r == 0) {
+                ASSERT_OK(mount_nofollow("/proc/version", "/proc/version", /* filesystemtype= */ NULL, MS_BIND, /* data= */ NULL));
+
+                _cleanup_close_ int proc = ASSERT_OK(xopenat(AT_FDCWD, "/proc", O_PATH|O_DIRECTORY));
+                ASSERT_ERROR(cg_pin_attribute(proc, "version"), EXDEV);
+                _exit(EXIT_SUCCESS);
+        }
 }
 
 static int intro(void) {
