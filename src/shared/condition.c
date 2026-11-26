@@ -1136,7 +1136,7 @@ static int condition_test_path_is_encrypted(Condition *c, char **env, RuntimeSco
         assert(c->parameter);
         assert(c->type == CONDITION_PATH_IS_ENCRYPTED);
 
-        r = path_is_encrypted(c->parameter);
+        r = path_is_encrypted(c->parameter, BLOCK_DEVICE_ENCRYPTED_DM_CRYPT|BLOCK_DEVICE_ENCRYPTED_DM_VERITY);
         if (r < 0 && r != -ENOENT)
                 log_debug_errno(r, "Failed to determine if '%s' is encrypted: %m", c->parameter);
 

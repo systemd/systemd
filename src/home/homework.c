@@ -1323,7 +1323,7 @@ static int determine_default_storage(UserStorage *ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether we are in a container: %m");
         if (r == 0) {
-                r = path_is_encrypted(get_home_root());
+                r = path_is_encrypted(get_home_root(), BLOCK_DEVICE_ENCRYPTED_DM_CRYPT|BLOCK_DEVICE_ENCRYPTED_DM_VERITY);
                 if (r > 0)
                         log_info("%s is encrypted, not using '%s' storage, in order to avoid double encryption.", get_home_root(), user_storage_to_string(USER_LUKS));
                 else {
