@@ -19,11 +19,13 @@
   <refnamediv>
     <refname>systemd-imds</refname>
     <refname>systemd-imds-import.service</refname>
+    <refname>systemd-imds-import-initrd.service</refname>
     <refpurpose>Cloud IMDS (Instance Metadata Service) tool</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
     <para><filename>systemd-imds-import.service</filename></para>
+    <para><filename>systemd-imds-import-initrd.service</filename></para>
     <cmdsynopsis>
       <command>systemd-imds</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt">KEY</arg>
     </cmdsynopsis>
@@ -155,8 +157,12 @@
           imported into the <varname>firstboot.hostname</varname> credential.</para></listitem>
         </itemizedlist>
 
-        <para>This command is invoked by the <filename>systemd-imds-import.service</filename> run at
-        boot.</para>
+        <para>This command is invoked at boot by <filename>systemd-imds-import-initrd.service</filename> in
+        the initrd, and by <filename>systemd-imds-import.service</filename> on the host. In the initrd, the
+        import only waits for
+        <citerefentry><refentrytitle>systemd-networkd-wait-online.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        so that it can run before the units that consume credentials early during boot. On the host, it waits
+        for <filename>network-online.target</filename>.</para>
 
         <xi:include href="version-info.xml" xpointer="v261"/></listitem>
       </varlistentry>
