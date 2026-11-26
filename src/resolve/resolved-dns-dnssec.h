@@ -16,12 +16,13 @@ typedef enum DnssecResult {
         DNSSEC_NO_SIGNATURE,
         DNSSEC_MISSING_KEY,
 
-        /* These five are added by the DnsTransaction logic */
+        /* These six are added by the DnsTransaction logic */
         DNSSEC_UNSIGNED,
         DNSSEC_FAILED_AUXILIARY,
         DNSSEC_NSEC_MISMATCH,
         DNSSEC_INCOMPATIBLE_SERVER,
         DNSSEC_UPSTREAM_FAILURE,
+        DNSSEC_CRYPTO_UNAVAILABLE,
 
         _DNSSEC_RESULT_MAX,
         _DNSSEC_RESULT_INVALID = -EINVAL,
@@ -52,7 +53,7 @@ int dnssec_rrsig_match_dnskey(DnsResourceRecord *rrsig, DnsResourceRecord *dnske
 int dnssec_key_match_rrsig(const DnsResourceKey *key, DnsResourceRecord *rrsig);
 
 int dnssec_verify_rrset(DnsAnswer *answer, const DnsResourceKey *key, DnsResourceRecord *rrsig, DnsResourceRecord *dnskey, usec_t realtime, DnssecResult *result);
-int dnssec_verify_rrset_search(DnsAnswer *answer, const DnsResourceKey *key, DnsAnswer *validated_dnskeys, usec_t realtime, DnssecResult *result, DnsResourceRecord **rrsig);
+int dnssec_verify_rrset_search(DnsAnswer *answer, const DnsResourceKey *key, DnsAnswer *validated_dnskeys, usec_t realtime, DnssecResult *result, DnsResourceRecord **ret_rrsig);
 
 int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds, bool mask_revoke);
 int dnssec_verify_dnskey_by_ds_search(DnsResourceRecord *dnskey, DnsAnswer *validated_ds);
