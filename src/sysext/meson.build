@@ -4,7 +4,10 @@ executables += [
         executable_template + {
                 'name' : 'systemd-sysext',
                 'conditions' : ['ENABLE_SYSEXT'],
-                'sources' : files('sysext.c'),
+                'sources' : files(
+                        'directory-policy.c',
+                        'sysext.c',
+                ),
                 'dependencies' : [
                         libblkid_cflags,
                         libcryptsetup_cflags,

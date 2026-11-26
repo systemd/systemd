@@ -25,6 +25,7 @@
 #include "conf-parser.h"
 #include "cryptsetup-util.h"
 #include "devnum-util.h"
+#include "directory-policy.h"
 #include "discover-image.h"
 #include "dissect-image.h"
 #include "dlopen-note.h"
@@ -119,6 +120,7 @@ static bool arg_image_policy_argv_set = false;
 static bool arg_varlink = false;
 static MutableMode arg_mutable = MUTABLE_NO;
 static bool arg_mutable_argv_set = false;
+static DirectoryPolicy arg_directory_policy = _DIRECTORY_POLICY_INVALID;
 
 /* Is set to IMAGE_CONFEXT when systemd is called with the confext functionality instead of the default */
 static ImageClass arg_image_class = IMAGE_SYSEXT;
@@ -160,6 +162,7 @@ static const struct {
         const char *name_env;
         const char *mode_env;
         const char *opts_env;
+        const char *directory_policy_env;
         const ImagePolicy *default_image_policy;
         unsigned long default_mount_flags;
 } image_class_info[_IMAGE_CLASS_MAX] = {
@@ -174,6 +177,7 @@ static const struct {
                 .name_env = "SYSTEMD_SYSEXT_HIERARCHIES",
                 .mode_env = "SYSTEMD_SYSEXT_MUTABLE_MODE",
                 .opts_env = "SYSTEMD_SYSEXT_OVERLAYFS_MOUNT_OPTIONS",
+                .directory_policy_env = "SYSTEMD_SYSEXT_DIRECTORY_POLICY",
                 .default_image_policy = &image_policy_sysext,
                 .default_mount_flags = MS_RDONLY|MS_NODEV,
         },
@@ -188,12 +192,14 @@ static const struct {
                 .name_env = "SYSTEMD_CONFEXT_HIERARCHIES",
                 .mode_env = "SYSTEMD_CONFEXT_MUTABLE_MODE",
                 .opts_env = "SYSTEMD_CONFEXT_OVERLAYFS_MOUNT_OPTIONS",
+                .directory_policy_env = "SYSTEMD_CONFEXT_DIRECTORY_POLICY",
                 .default_image_policy = &image_policy_confext,
                 .default_mount_flags = MS_RDONLY|MS_NODEV|MS_NOSUID|MS_NOEXEC,
         }
 };
 
 static DEFINE_CONFIG_PARSE_ENUM(config_parse_mutable_mode, mutable_mode, MutableMode);
+static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_directory_policy, directory_policy, DirectoryPolicy, DIRECTORY_POLICY_AUTO);
 
 typedef struct Context {
         ImageClass image_class;
@@ -211,13 +217,15 @@ typedef struct Context {
          * context owns it and frees it in context_done(). */
         bool image_policy_owned;
         const char *overlayfs_mount_options;
+        DirectoryPolicy directory_policy; /* _DIRECTORY_POLICY_INVALID until set, see context_from_cmdline() */
 } Context;
 
-#define CONTEXT_NULL                            \
-        (Context) {                             \
-                .image_class = IMAGE_SYSEXT,    \
-                .noexec = -1,                   \
-                .mutable = MUTABLE_NO,          \
+#define CONTEXT_NULL                                            \
+        (Context) {                                             \
+                .image_class = IMAGE_SYSEXT,                    \
+                .noexec = -1,                                   \
+                .mutable = MUTABLE_NO,                          \
+                .directory_policy = _DIRECTORY_POLICY_INVALID,  \
         }
 
 static void context_done(Context *c) {
@@ -251,11 +259,22 @@ static void parse_env_image_class_config(Context *c) {
         env_var = secure_getenv(image_class_info[c->image_class].opts_env);
         if (env_var)
                 c->overlayfs_mount_options = env_var;
+
+        env_var = secure_getenv(image_class_info[c->image_class].directory_policy_env);
+        if (env_var) {
+                r = directory_policy_from_string(env_var);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse %s environment variable value '%s', ignoring: %m",
+                                          image_class_info[c->image_class].directory_policy_env, env_var);
+                else
+                        c->directory_policy = r;
+        }
 }
 
 static int parse_config_file(Context *c) {
         _cleanup_(image_policy_freep) ImagePolicy *config_image_policy = NULL;
         MutableMode config_mutable = MUTABLE_NO;
+        DirectoryPolicy config_directory_policy = _DIRECTORY_POLICY_INVALID;
         const char *section, *sections;
         _cleanup_free_ char *config_file = NULL;
         int r;
@@ -267,6 +286,7 @@ static int parse_config_file(Context *c) {
         const ConfigTableItem items[] = {
                 { section, "Mutable",           config_parse_mutable_mode,      0,      &config_mutable            },
                 { section, "ImagePolicy",       config_parse_image_policy,      0,      &config_image_policy       },
+                { section, "DirectoryPolicy",   config_parse_directory_policy,  0,      &config_directory_policy   },
                 {}
         };
 
@@ -299,6 +319,9 @@ static int parse_config_file(Context *c) {
                 c->image_policy_set = true;
                 c->image_policy_owned = true;
         }
+
+        if (c->directory_policy < 0)
+                c->directory_policy = config_directory_policy;
 
         return 0;
 }
@@ -337,9 +360,17 @@ static int context_from_cmdline(Context *ret, ImageClass image_class) {
                 c.image_policy_owned = false;
         }
 
+        if (arg_directory_policy >= 0)
+                c.directory_policy = arg_directory_policy;
+
         r = parse_config_file(&c);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse %s config file, ignoring: %m", image_class_info[image_class].short_identifier);
+
+        /* Settle on the default, if the directory policy has been configured neither via argv, the
+         * environment nor the configuration file */
+        if (c.directory_policy < 0)
+                c.directory_policy = DIRECTORY_POLICY_AUTO;
 
         *ret = TAKE_GENERIC(c, Context, CONTEXT_NULL);
         return 0;
@@ -1955,6 +1986,66 @@ static int unmerge(const Context *c) {
         return 0;
 }
 
+static int directory_image_permitted(
+                const Context *c,
+                const Image *img,
+                const dev_t *trusted) {
+
+        _cleanup_free_ char *resolved = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        const char *p;
+        int r;
+
+        assert(c);
+        assert(img);
+        assert(IN_SET(img->type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME));
+
+        switch (c->directory_policy) {
+
+        case DIRECTORY_POLICY_YES:
+                return true;
+
+        case DIRECTORY_POLICY_NO:
+                log_info("Skipping directory image '%s', as directory images are disabled via DirectoryPolicy=no.", img->path);
+                return false;
+
+        case DIRECTORY_POLICY_AUTO:
+                break;
+
+        default:
+                assert_not_reached();
+        }
+
+        /* In "auto" mode, only consider directory images that are located below /usr/ or /var/, on storage
+         * that is either authenticated or encrypted (i.e. dm-verity or dm-crypt), or on the same file system
+         * as the OS itself (i.e. /, /usr/ or /var/), so that directories placed on unprotected storage such
+         * as the ESP are not merged. */
+
+        /* Not O_PATH, since we need to issue btrfs ioctls on the fd */
+        fd = chase_and_open(img->path, c->root, CHASE_MUST_BE_DIRECTORY, O_RDONLY|O_DIRECTORY|O_CLOEXEC, &resolved);
+        if (fd < 0) {
+                log_warning_errno(fd, "Failed to open directory image '%s', skipping: %m", img->path);
+                return false;
+        }
+
+        /* chase() includes the root directory in the returned path, strip it again */
+        p = empty_or_root(c->root) ? resolved : path_startswith_full(resolved, c->root, PATH_STARTSWITH_RETURN_LEADING_SLASH);
+
+        r = directory_policy_check(c->directory_policy, p, fd, trusted);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to check directory image '%s' against directory policy, skipping: %m", resolved);
+                return false;
+        }
+        if (r == 0) {
+                log_notice("Skipping directory image '%s', as it is neither located below /usr/ or /var/, nor backed by dm-crypt/dm-verity storage, nor located on the file system of /, /usr/ or /var/ (see DirectoryPolicy= in %s.conf).",
+                           resolved, image_class_info[c->image_class].short_identifier);
+                return false;
+        }
+
+        log_debug("Directory image '%s' is permitted by directory policy.", resolved);
+        return true;
+}
+
 static int merge_subprocess(
                 const Context *c,
                 Hashmap *images,
@@ -1969,6 +2060,7 @@ static int merge_subprocess(
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *extensions_origin_entries = NULL,
                         *extensions_origin_json = NULL, *mutable_dir_entries = NULL;
         _cleanup_(host_properties_done) HostProperties host = {};
+        dev_t trusted_file_systems[TRUSTED_FILE_SYSTEMS_MAX] = {};
         size_t n_extensions = 0;
         unsigned n_ignored = 0;
         Image *img;
@@ -2019,6 +2111,12 @@ static int merge_subprocess(
                                        "'ID' field not found or empty in 'os-release' data of OS tree '%s'.",
                                        empty_to_root(c->root));
 
+        if (c->directory_policy == DIRECTORY_POLICY_AUTO) {
+                r = acquire_trusted_file_systems(c->root, trusted_file_systems);
+                if (r < 0)
+                        return r;
+        }
+
         /* Let's now mount all images */
         HASHMAP_FOREACH(img, images) {
                 _cleanup_free_ char *p = NULL, *path_without_root = NULL;
@@ -2035,6 +2133,18 @@ static int merge_subprocess(
                 switch (img->type) {
                 case IMAGE_DIRECTORY:
                 case IMAGE_SUBVOLUME:
+
+                        /* Note that we enforce the directory policy here, i.e. at the same place as the
+                         * image policy is enforced for disk images: if the directory behind a name is
+                         * refused, the name is skipped, we do not fall back to an image of lower
+                         * priority under the same name. */
+                        r = directory_image_permitted(c, img, trusted_file_systems);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
+                                n_ignored++;
+                                continue;
+                        }
 
                         if (!c->force) {
                                 r = extension_has_forbidden_content(p);
@@ -3223,6 +3333,21 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         if (r < 0)
                                 return r;
                         arg_image_policy_argv_set = true;
+                        break;
+
+                OPTION_LONG("directory-policy", "POLICY",
+                            "Specify whether to consider directory images (yes, no, auto, help)"):
+                        if (streq(opts.arg, "help")) {
+                                if (arg_legend)
+                                        puts("Known directory policies:");
+
+                                return DUMP_STRING_TABLE(directory_policy, DirectoryPolicy, _DIRECTORY_POLICY_MAX);
+                        }
+
+                        r = directory_policy_from_string(opts.arg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse argument to --directory-policy=: %s", opts.arg);
+                        arg_directory_policy = r;
                         break;
 
                 OPTION_LONG("noexec", "BOOL", "Whether to mount extension overlay with noexec"):

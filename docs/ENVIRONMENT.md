@@ -475,6 +475,14 @@ All tools:
   variable. Similarly, `$SYSTEMD_CONFEXT_MUTABLE_MODE` works for confext images
   and supports the systemd-confext multi-call functionality of sysext.
 
+* `$SYSTEMD_SYSEXT_DIRECTORY_POLICY` — this variable may be used to override
+  the directory policy for `systemd-sysext`, i.e. whether directory based
+  extension images are considered. It takes the same values the
+  `--directory-policy=` command line switch does. Note that the command line
+  still overrides the effect of the environment variable. Similarly,
+  `$SYSTEMD_CONFEXT_DIRECTORY_POLICY` works for confext images and supports the
+  systemd-confext multi-call functionality of sysext.
+
 * `$SYSTEMD_SYSEXT_OVERLAYFS_MOUNT_OPTIONS` — this variable may be used to
   override the overlayfs mount options applied for hierarchies managed by
   `systemd-sysext`. Similarly, `$SYSTEMD_CONFEXT_OVERLAYFS_MOUNT_OPTIONS` works
