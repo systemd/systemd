@@ -17,6 +17,7 @@ at_exit() {
     mountpoint -q /var/lib/machines && umount /var/lib/machines
     [[ -n "${DEV:-}" ]] && rm -f "$DEV"
     [[ -n "${NETNS:-}" ]] && umount "$NETNS" && rm -f "$NETNS"
+    [[ -n "${TMPDIR:-}" ]] && umount "$TMPDIR/sub"
     [[ -n "${TMPDIR:-}" ]] && rm -fr "$TMPDIR"
     rm -f /run/systemd/nspawn/*.nspawn
 }
@@ -34,10 +35,13 @@ NETNS="$(mktemp /var/tmp/netns.XXX)"
 mount --bind /proc/self/ns/net "$NETNS"
 TMPDIR="$(mktemp -d)"
 touch "$TMPDIR/hello"
+mkdir "$TMPDIR/sub"
+mount -t tmpfs tmpfs "$TMPDIR/sub"
 OCI="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.oci-bundle.XXX)"
 create_dummy_container "$OCI/rootfs"
 mkdir -p "$OCI/rootfs/opt/var"
 mkdir -p "$OCI/rootfs/opt/readonly"
+mkdir -p "$OCI/rootfs/opt/readonly-bind"
 
 if [[ -e /proc/kcore ]]; then
     HAVE_PROC_KCORE=1
@@ -123,7 +127,13 @@ cat >"$OCI/config.json" <<EOF
             "destination" : "/var",
             "type" : "none",
             "source" : "$TMPDIR",
-            "options" : ["rbind", "rw"]
+            "options" : ["rbind", "rw", "nosuid"]
+        },
+        {
+            "destination" : "/opt/readonly-bind",
+            "type" : "none",
+            "source" : "$TMPDIR",
+            "options" : ["bind", "ro"]
         }
     ],
     "process" : {
@@ -399,7 +409,11 @@ set -e
 # Mounts
 mountpoint /root
 mountpoint /var
+mountpoint /var/sub
 test -e /var/hello
+test -e /opt/readonly-bind/hello
+mountpoint /opt/readonly-bind/sub && exit 1
+touch /opt/readonly-bind/fail && exit 1
 
 # Process
 [[ "\$PWD" == /root ]]
