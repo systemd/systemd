@@ -1429,6 +1429,75 @@ extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
 
 
 ( init_trap
+: "Check that extensions carrying a metadata directory of their own are skipped when merging"
+fake_root=${roots_dir:+"$roots_dir/skip-extension-with-meta-dir"}
+hierarchy=/opt
+name=test-extension-meta-dir
+ext_dir="$fake_root/var/lib/extensions/$name"
+ext_release="$ext_dir/usr/lib/extension-release.d/extension-release.$name"
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image "$fake_root" "$hierarchy"
+mkdir -p "${ext_release%/*}" "$ext_dir$hierarchy/.systemd-sysext"
+prepend_trap "rm -rf ${ext_dir@Q}"
+echo "ID=_any" >"$ext_release"
+touch "$ext_dir$hierarchy/.systemd-sysext/bogus"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+run_systemd_sysext "$fake_root" merge
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+extension_verify_status_json "$fake_root" "$hierarchy" '["test-extension"]'
+test ! -e "$fake_root$hierarchy/.systemd-sysext/bogus"
+
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+)
+
+
+( init_trap
+: "Check that a stale metadata directory in the host hierarchy is hidden when merging"
+fake_root=${roots_dir:+"$roots_dir/stale-meta-dir-in-hierarchy"}
+hierarchy=/opt
+stale_dir="$fake_root$hierarchy/.systemd-sysext"
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image "$fake_root" "$hierarchy"
+mkdir -p "$stale_dir"
+prepend_trap "rm -rf ${stale_dir@Q}"
+echo "0:0" >"$stale_dir/dev"
+touch "$stale_dir/stale"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+run_systemd_sysext "$fake_root" merge
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+extension_verify_status_json "$fake_root" "$hierarchy" '["test-extension"]'
+test ! -e "$fake_root$hierarchy/.systemd-sysext/stale"
+
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+test -e "$stale_dir/stale"
+)
+
+
+( init_trap
+: "Check that a metadata directory in the mutable upper directory is refused"
+fake_root=${roots_dir:+"$roots_dir/meta-dir-in-upper-dir"}
+hierarchy=/opt
+extension_data_dir="$fake_root/var/lib/extensions.mutable$hierarchy"
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image "$fake_root" "$hierarchy"
+prepare_extension_mutable_dir "$extension_data_dir"
+mkdir "$extension_data_dir/.systemd-sysext"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+(! run_systemd_sysext "$fake_root" --mutable=auto merge 2>&1) | grep "contains '.systemd-sysext', refusing" >/dev/null
+extension_verify_status_json "$fake_root" "$hierarchy" '[]'
+run_systemd_sysext "$fake_root" unmerge
+)
+
+
+( init_trap
 : "Check if merging an extension with matching IMAGE_ID and IMAGE_VERSION succeeds"
 fake_root=${roots_dir:+"$roots_dir/matching-image-version"}
 hierarchy=/opt
