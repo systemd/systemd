@@ -25,6 +25,7 @@
 #include "efi-loader.h"
 #include "env-file.h"
 #include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "firstboot-util.h"
@@ -83,6 +84,7 @@ static sd_id128_t arg_machine_id = {};
 static char **arg_machine_tags = NULL;
 static char *arg_root_password = NULL;
 static char *arg_root_shell = NULL;
+static char **arg_root_ssh_keys = NULL;
 static char *arg_kernel_cmdline = NULL;
 static bool arg_prompt_locale = false;
 static bool arg_prompt_keymap = false;
@@ -118,6 +120,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_hostname, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_machine_tags, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_password, erase_and_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_shell, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root_ssh_keys, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_addon, freep);
@@ -142,6 +145,7 @@ typedef struct Context {
         char *root_password;
         bool root_password_is_hashed;
         char *root_shell;
+        char **root_ssh_keys;         /* Lines for /root/.ssh/authorized_keys */
         char *kernel_cmdline;
         bool force;
         bool credentials;             /* Pick up settings we were not given from credentials passed to us */
@@ -188,6 +192,7 @@ static void context_done(Context *c) {
         c->machine_tags = strv_free(c->machine_tags);
         c->root_password = erase_and_free(c->root_password);
         c->root_shell = mfree(c->root_shell);
+        c->root_ssh_keys = strv_free(c->root_ssh_keys);
         c->kernel_cmdline = mfree(c->kernel_cmdline);
 }
 
@@ -1446,6 +1451,113 @@ static int process_root_account(Context *c, int rfd, sd_varlink **mute_console_l
         return 1;
 }
 
+static int ssh_keys_add(char ***keys, const char *text) {
+        int r;
+
+        assert(keys);
+        assert(text);
+
+        /* Splits the text along newlines, drops empty lines, and adds the others as they are, refusing only
+         * control characters and invalid UTF-8. Key options may contain quotes, backslashes and glob
+         * characters (e.g. from="*.example.com" or permitopen="[::1]:22"), hence allow them, and don't let
+         * the splitting interpret the backslashes. */
+
+        _cleanup_strv_free_ char **l = NULL;
+        r = strv_split_full(&l, text, "\n", EXTRACT_RETAIN_ESCAPE);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(i, l)
+                if (!string_is_safe(*i, STRING_ALLOW_QUOTES|STRING_ALLOW_BACKSLASHES|STRING_ALLOW_GLOBS))
+                        return -EINVAL;
+
+        return strv_extend_strv_consume(keys, TAKE_PTR(l), /* filter_duplicates= */ false);
+}
+
+static int parse_ssh_key_argument(const char *s, char ***keys) {
+        int r;
+
+        assert(s);
+        assert(keys);
+
+        /* Takes public keys in authorized_keys(5) syntax, or, if prefixed with '@', the path to a file in
+         * that format */
+
+        if (s[0] == '@') {
+                /* Without a size return pointer embedded NUL bytes are refused with EBADMSG */
+                _cleanup_free_ char *data = NULL;
+                r = read_full_file(s + 1, &data, /* ret_size= */ NULL);
+                if (r == -EBADMSG)
+                        return log_error_errno(r, "SSH key file '%s' contains NUL bytes, refusing.", s + 1);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read SSH key file '%s': %m", s + 1);
+
+                r = ssh_keys_add(keys, data);
+                if (r == -EINVAL)
+                        return log_error_errno(r, "SSH key file '%s' contains control characters or invalid UTF-8, refusing.", s + 1);
+        } else {
+                r = ssh_keys_add(keys, s);
+                if (r == -EINVAL)
+                        return log_error_errno(r, "SSH key contains control characters or invalid UTF-8, refusing.");
+        }
+        if (r < 0)
+                return log_oom();
+
+        return 0;
+}
+
+static char* ssh_keys_join(char * const *keys) {
+        /* Concatenates the keys in authorized_keys(5) format, i.e. each terminated by a newline */
+
+        _cleanup_free_ char *j = strv_join(keys, "\n");
+        if (!j || !strextend(&j, "\n"))
+                return NULL;
+
+        return TAKE_PTR(j);
+}
+
+static int process_root_ssh_keys(Context *c, int rfd) {
+        int r;
+
+        assert(c);
+        assert(rfd >= 0);
+
+        if (strv_isempty(c->root_ssh_keys)) {
+                log_debug("Installation of SSH keys for root was not requested, skipping.");
+                return 0;
+        }
+
+        /* Follow symlinks, but only within the root directory (/root/ might be a symlink, e.g. on ostree
+         * based systems), and create /root/ and /root/.ssh/ with access mode 0700 if missing. */
+        _cleanup_close_ int ssh_fd = chase_and_openat(
+                        rfd, rfd, "/root/.ssh",
+                        CHASE_MKDIR_0700|CHASE_MUST_BE_DIRECTORY|CHASE_WARN,
+                        O_DIRECTORY|O_CREAT,
+                        /* ret_path= */ NULL);
+        if (ssh_fd < 0)
+                return log_error_errno(ssh_fd, "Failed to open /root/.ssh/: %m");
+
+        r = should_configure(c, ssh_fd, "authorized_keys");
+        if (r == 0)
+                log_debug("Found /root/.ssh/authorized_keys, assuming SSH keys for root have been configured.");
+        if (r <= 0)
+                return r;
+
+        _cleanup_free_ char *j = ssh_keys_join(c->root_ssh_keys);
+        if (!j)
+                return log_oom();
+
+        r = write_string_file_full_label(
+                        ssh_fd, "authorized_keys", j,
+                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL|WRITE_STRING_FILE_MODE_0600,
+                        /* ts= */ NULL, /* label_fn= */ NULL, c->label_context);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write /root/.ssh/authorized_keys: %m");
+
+        log_info("/root/.ssh/authorized_keys written.");
+        return 1;
+}
+
 static int process_kernel_cmdline(Context *c, int rfd) {
         _cleanup_close_ int pfd = -EBADF;
         _cleanup_free_ char *f = NULL;
@@ -1679,6 +1791,17 @@ static int write_addon(void) {
         r = addon_add_credential(&creds, "passwd.shell.root", arg_root_shell);
         if (r < 0)
                 return r;
+
+        if (!strv_isempty(arg_root_ssh_keys)) {
+                /* Picked up by systemd-tmpfiles at boot, see tmpfiles.d/provision.conf */
+                _cleanup_free_ char *keys = ssh_keys_join(arg_root_ssh_keys);
+                if (!keys)
+                        return log_oom();
+
+                r = addon_add_credential(&creds, "ssh.authorized_keys.root", keys);
+                if (r < 0)
+                        return r;
+        }
 
         if (!sd_id128_is_null(arg_machine_id)) {
                 r = addon_add_credential(&creds, "system.machine_id", SD_ID128_TO_STRING(arg_machine_id));
@@ -1967,6 +2090,17 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                OPTION_LONG("root-ssh-key", "KEY|@PATH", "Add SSH public key for root"):
+                        if (isempty(opts.arg)) {
+                                arg_root_ssh_keys = strv_free(arg_root_ssh_keys);
+                                break;
+                        }
+
+                        r = parse_ssh_key_argument(opts.arg, &arg_root_ssh_keys);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 OPTION_LONG("kernel-command-line", "CMDLINE", "Set kernel command line"):
                         r = free_and_strdup_warn(&arg_kernel_cmdline, opts.arg);
                         if (r < 0)
@@ -2170,6 +2304,12 @@ static int context_from_cmdline(Context *ret) {
                         return log_oom();
         }
 
+        if (arg_root_ssh_keys) {
+                c.root_ssh_keys = strv_copy(arg_root_ssh_keys);
+                if (!c.root_ssh_keys)
+                        return log_oom();
+        }
+
         c.machine_id = arg_machine_id;
         c.root_password_is_hashed = arg_root_password_is_hashed;
         c.force = arg_force;
@@ -2334,6 +2474,12 @@ static int apply(Context *c, char ***ret_applied, const char **reterr_bad_field)
                         return log_oom();
         }
 
+        r = process_root_ssh_keys(c, c->rfd);
+        if (r < 0)
+                return r;
+        if (r > 0 && strv_extend(&applied, "rootSshAuthorizedKeys") < 0)
+                return log_oom();
+
         r = process_kernel_cmdline(c, c->rfd);
         if (r < 0)
                 return r;
@@ -2404,20 +2550,50 @@ static int dispatch_root_password(const char *name, sd_json_variant *variant, sd
         return 0;
 }
 
+static int dispatch_root_ssh_keys(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        char ***keys = ASSERT_PTR(userdata);
+        sd_json_variant *e;
+        int r;
+
+        /* Splits, filters and validates the keys, like the command line parser does */
+
+        if (sd_json_variant_is_null(variant)) {
+                *keys = strv_free(*keys);
+                return 0;
+        }
+
+        if (!sd_json_variant_is_array(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
+
+        JSON_VARIANT_ARRAY_FOREACH(e, variant) {
+                if (!sd_json_variant_is_string(e))
+                        return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "JSON array element of field '%s' is not a string.", strna(name));
+
+                r = ssh_keys_add(keys, sd_json_variant_string(e));
+                if (r == -EINVAL)
+                        return json_log(e, flags, r, "JSON array element of field '%s' contains control characters or invalid UTF-8.", strna(name));
+                if (r < 0)
+                        return json_log_oom(e, flags);
+        }
+
+        return 0;
+}
+
 static int dispatch_settings(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         Context *c = ASSERT_PTR(userdata);
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "locale",             SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(Context, locale),          SD_JSON_NULLABLE },
-                { "localeMessages",     SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(Context, locale_messages), SD_JSON_NULLABLE },
-                { "keymap",             SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(Context, keymap),          SD_JSON_NULLABLE },
-                { "timezone",           SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(Context, timezone),        SD_JSON_NULLABLE },
-                { "hostname",           SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(Context, hostname),        SD_JSON_NULLABLE },
-                { "machineId",          SD_JSON_VARIANT_STRING, sd_json_dispatch_id128,  offsetof(Context, machine_id),      SD_JSON_NULLABLE },
-                { "machineTags",        SD_JSON_VARIANT_ARRAY,  sd_json_dispatch_strv,   offsetof(Context, machine_tags),    SD_JSON_NULLABLE },
-                { "rootPassword",       SD_JSON_VARIANT_STRING, dispatch_root_password,  0,                                  SD_JSON_NULLABLE },
-                { "rootPasswordHashed", SD_JSON_VARIANT_STRING, dispatch_root_password,  0,                                  SD_JSON_NULLABLE },
-                { "rootShell",          SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(Context, root_shell),      SD_JSON_NULLABLE },
-                { "kernelCommandLine",  SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(Context, kernel_cmdline),  SD_JSON_NULLABLE },
+                { "locale",                SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(Context, locale),          SD_JSON_NULLABLE },
+                { "localeMessages",        SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(Context, locale_messages), SD_JSON_NULLABLE },
+                { "keymap",                SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(Context, keymap),          SD_JSON_NULLABLE },
+                { "timezone",              SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(Context, timezone),        SD_JSON_NULLABLE },
+                { "hostname",              SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(Context, hostname),        SD_JSON_NULLABLE },
+                { "machineId",             SD_JSON_VARIANT_STRING, sd_json_dispatch_id128,  offsetof(Context, machine_id),      SD_JSON_NULLABLE },
+                { "machineTags",           SD_JSON_VARIANT_ARRAY,  sd_json_dispatch_strv,   offsetof(Context, machine_tags),    SD_JSON_NULLABLE },
+                { "rootPassword",          SD_JSON_VARIANT_STRING, dispatch_root_password,  0,                                  SD_JSON_NULLABLE },
+                { "rootPasswordHashed",    SD_JSON_VARIANT_STRING, dispatch_root_password,  0,                                  SD_JSON_NULLABLE },
+                { "rootShell",             SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(Context, root_shell),      SD_JSON_NULLABLE },
+                { "rootSshAuthorizedKeys", SD_JSON_VARIANT_ARRAY,  dispatch_root_ssh_keys,  offsetof(Context, root_ssh_keys),   SD_JSON_NULLABLE },
+                { "kernelCommandLine",     SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(Context, kernel_cmdline),  SD_JSON_NULLABLE },
                 {}
         };
 
@@ -2537,7 +2713,7 @@ static int vl_method_configure(sd_varlink *link, sd_json_variant *parameters, sd
 
         if (!c.locale && !c.locale_messages && !c.keymap && !c.timezone && !c.hostname &&
             sd_id128_is_null(c.machine_id) && strv_isempty(c.machine_tags) &&
-            !c.root_password && !c.root_shell && !c.kernel_cmdline) {
+            !c.root_password && !c.root_shell && strv_isempty(c.root_ssh_keys) && !c.kernel_cmdline) {
                 log_debug("No settings specified, nothing to apply.");
                 return sd_varlink_error_invalid_parameter_name(link, "settings");
         }
