@@ -1354,6 +1354,29 @@ static int determine_work_dir(const Context *c, OverlayFSPaths *op) {
         return 0;
 }
 
+static int layer_check_no_meta_directory(ImageClass image_class, const char *layer) {
+        int r;
+
+        assert(layer);
+
+        /* Refuse layers that carry our metadata directory, so that nobody can make the merged hierarchy
+         * show files in it that we did not place there ourselves. */
+
+        _cleanup_free_ char *j = path_join(layer, image_class_info[image_class].dot_directory_name);
+        if (!j)
+                return log_oom();
+
+        r = access_nofollow(j, F_OK);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if '%s' exists: %m", j);
+
+        return log_error_errno(SYNTHETIC_ERRNO(EBUSY),
+                               "Layer '%s' contains a '%s' directory, refusing.",
+                               layer, image_class_info[image_class].dot_directory_name);
+}
+
 static int mount_overlayfs_with_op(
                 OverlayFSPaths *op,
                 ImageClass image_class,
@@ -1401,6 +1424,22 @@ static int mount_overlayfs_with_op(
         } else {
                 assert(!strv_isempty(op->lower_dirs));
                 top_layer = op->lower_dirs[0];
+        }
+
+        /* Only our own meta layer may carry the metadata directory */
+        STRV_FOREACH(l, op->lower_dirs) {
+                if (path_equal(*l, meta_path))
+                        continue;
+
+                r = layer_check_no_meta_directory(image_class, *l);
+                if (r < 0)
+                        return r;
+        }
+
+        if (op->upper_dir) {
+                r = layer_check_no_meta_directory(image_class, op->upper_dir);
+                if (r < 0)
+                        return r;
         }
 
         /* Overlayfs merged directory has the same mode as the top layer (either first lowerdir in options in
@@ -1955,6 +1994,12 @@ static int unmerge(const Context *c) {
         return 0;
 }
 
+static bool image_type_supported(ImageType t) {
+        /* The image types we know how to merge into a hierarchy. Others (i.e. .mstack/ directories) are
+         * found by image_discover() too, but are skipped. */
+        return IN_SET(t, IMAGE_DIRECTORY, IMAGE_SUBVOLUME, IMAGE_RAW, IMAGE_BLOCK);
+}
+
 static int merge_subprocess(
                 const Context *c,
                 Hashmap *images,
@@ -2023,6 +2068,13 @@ static int merge_subprocess(
         HASHMAP_FOREACH(img, images) {
                 _cleanup_free_ char *p = NULL, *path_without_root = NULL;
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *verity_hash = NULL;
+
+                if (!image_type_supported(img->type)) {
+                        log_warning("Image '%s' is of type '%s', which is not supported for %s images, ignoring.",
+                                    img->path, image_type_to_string(img->type), image_class_info[c->image_class].short_identifier);
+                        n_ignored++;
+                        continue;
+                }
 
                 p = path_join(workspace, image_class_info[c->image_class].short_identifier_plural, img->name);
                 if (!p)
@@ -2686,6 +2738,9 @@ static int image_discover_and_read_metadata(const Context *c, Hashmap **ret_imag
                 return log_error_errno(r, "Failed to discover images: %m");
 
         HASHMAP_FOREACH(img, images) {
+                if (!image_type_supported(img->type))
+                        continue; /* Skipped with a warning in merge_subprocess() */
+
                 r = image_read_metadata(img, c->root, image_class_info[c->image_class].default_image_policy, RUNTIME_SCOPE_SYSTEM, DISSECT_IMAGE_TPM2_UNLOCK);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read metadata for image %s: %m", img->name);
