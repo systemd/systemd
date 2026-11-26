@@ -60,7 +60,9 @@
       credential files for a few, very basic system settings of the currently booted system (locale, keymap,
       timezone), which it will install on the target disk, parameterizing the invoked kernel. (Or in other
       words, it prepares that some settings already in effect on the installer system are propagated securely
-      onto the new installation.)</para></listitem>
+      onto the new installation.) Alternatively, if <option>--credentials-mode=tofu</option> is used, it
+      invokes its <command>make-addon</command> command instead, in order to wrap the credentials in
+      unsigned addons, see below.</para></listitem>
 
       <listitem><para>It invokes
       <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry> with
@@ -226,6 +228,9 @@
         use this switch for sensitive data (such as passwords), use <option>--load-credential=</option>
         instead, see below. May be used multiple times to configure multiple credentials.</para>
 
+        <para>See <option>--credentials-mode=</option> below for controlling how the credential is protected
+        on the target disk.</para>
+
         <para>Note that three system credentials are propagated in similar fashion to the target system:
         the locale, keymap and timezone. This may be controlled by the relevant
         <option>--copy-locale=</option>, <option>--copy-keymap=</option> and <option>--copy-timezone=</option>
@@ -248,6 +253,38 @@
         preferable for sensitive data, such as passwords.</para>
 
         <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--credentials-mode=</option></term>
+
+        <listitem><para>Controls how the credentials installed to the target system (i.e. those configured
+        via <option>--set-credential=</option> and <option>--load-credential=</option>, as well as the
+        locale, keymap and timezone credentials, see below) are protected. Takes one of
+        <literal>local</literal> or <literal>tofu</literal>, defaults to <literal>local</literal>.</para>
+
+        <para>If set to <literal>local</literal> the credentials are encrypted and authenticated with a
+        key bound to the TPM of the system the installer runs on (or with the null key, if no TPM is
+        available), and placed as <filename>.cred</filename> files next to the installed kernel image in
+        the ESP. This is suitable if the installation is booted on the same machine the installer runs
+        on.</para>
+
+        <para>If set to <literal>tofu</literal> the credentials are instead wrapped in plaintext in
+        unsigned
+        <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        addons (see the <command>make-addon</command> command of
+        <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry>),
+        which are placed as <filename>.addon.efi</filename> files next to the installed kernel image in the
+        ESP. This is suitable if the target disk is going to be booted on a different machine than the one
+        the installer runs on, for example when preparing a disk for another system. Such addons are only
+        used if the booted unified kernel image profile trusts addons on first use (i.e. has
+        <literal>TOFU=</literal> set in its <literal>.profile</literal> section), see the "Trusting Addons
+        On First Use" section in
+        <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        Note that the credentials are neither encrypted nor authenticated in this mode, and hence may be
+        read by anyone with access to the ESP.</para>
+
+        <xi:include href="version-info.xml" xpointer="v264"/></listitem>
       </varlistentry>
 
       <varlistentry>

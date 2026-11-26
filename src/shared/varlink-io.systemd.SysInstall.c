@@ -8,6 +8,7 @@
 static SD_VARLINK_DEFINE_ENUM_TYPE(
                 ProgressPhase,
                 SD_VARLINK_DEFINE_ENUM_VALUE(encrypt_credentials),
+                SD_VARLINK_DEFINE_ENUM_VALUE(make_credential_addons),
                 SD_VARLINK_DEFINE_ENUM_VALUE(install_partitions),
                 SD_VARLINK_DEFINE_ENUM_VALUE(mount_partitions),
                 SD_VARLINK_DEFINE_ENUM_VALUE(install_kernel),
@@ -20,6 +21,13 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(insufficient_free_space),
                 SD_VARLINK_DEFINE_ENUM_VALUE(disk_too_small),
                 SD_VARLINK_DEFINE_ENUM_VALUE(conflicting_disk_label_present));
+
+static SD_VARLINK_DEFINE_ENUM_TYPE(
+                CredentialsMode,
+                SD_VARLINK_FIELD_COMMENT("Encrypt credentials, locked to the local TPM if available, to the null key otherwise."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(local),
+                SD_VARLINK_FIELD_COMMENT("Wrap credentials in plaintext in unsigned systemd-stub addons, which are only used if the booted UKI profile trusts addons on first use."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(tofu));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Credential,
@@ -51,6 +59,8 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
 
                 SD_VARLINK_FIELD_COMMENT("A list of credentials to be installed to target system."),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(credentials, Credential, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("How to protect the credentials installed to the target system. Defaults to 'local'."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(credentialsMode, CredentialsMode, SD_VARLINK_NULLABLE),
 
                 SD_VARLINK_FIELD_COMMENT("If used with the 'more' flag, a phase identifier is sent in progress updates."),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(phase, ProgressPhase, SD_VARLINK_NULLABLE),
@@ -107,6 +117,9 @@ SD_VARLINK_DEFINE_INTERFACE(
 
                 SD_VARLINK_SYMBOL_COMMENT("A credential to install to target OS."),
                 &vl_type_Credential,
+
+                SD_VARLINK_SYMBOL_COMMENT("How credentials are protected when installed to the target OS."),
+                &vl_type_CredentialsMode,
 
                 SD_VARLINK_SYMBOL_COMMENT("Invoke the actual installation of the OS. If invoked with 'more' enabled will report progress, otherwise will just report completion."),
                 &vl_method_Run,
