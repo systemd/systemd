@@ -31,6 +31,7 @@ at_exit() {
     systemctl --user --machine testuser@ stop systemd-nspawn@zurps.service ||:
     machinectl terminate exfiltrate ||:
     systemctl --user --machine testuser@ stop exfiltrate.service ||:
+    systemctl --user --machine testuser@ stop nsresourced-bind.service ||:
     systemctl --user --machine testuser@ stop systemd-nspawn@fdstore.service ||:
     rm -f /etc/polkit-1/rules.d/registermachinetest.rules
     machinectl terminate nurps ||:
@@ -43,7 +44,10 @@ at_exit() {
     rm -f /var/tmp/mangletest.tar.gz
     rm -rf /var/tmp/devnodetest
     rm -f /var/tmp/devnodetest.tar
-    rm -f /shouldnotwork
+    rm -f /shouldnotwork /tmp/foo /tmp/nsresourced-bind
+    if [[ -n "${nsresourced_bind_cg:-}" ]]; then
+        rmdir "$nsresourced_bind_cg" 2>/dev/null ||:
+    fi
     loginctl disable-linger testuser
 }
 
@@ -226,6 +230,88 @@ exfiltrate_output="$(run0 -u testuser \
 (! echo "$exfiltrate_output" | grep '"name".*"exfiltrate"' >/dev/null)
 (! echo "$exfiltrate_output" | grep "FOO=bar" >/dev/null)
 systemctl --user --machine testuser@ stop exfiltrate.service
+
+# Verify that nsresourced refuses to follow bind mounts over cgroup attributes in the caller's mount namespace.
+touch /tmp/nsresourced-bind
+chmod 600 /tmp/nsresourced-bind
+assert_eq "$(stat -c '%u:%g:%a' /tmp/nsresourced-bind)" "0:0:600"
+
+run0 -u testuser \
+    systemd-run --user --unit nsresourced-bind.service --service-type notify \
+        --property NotifyAccess=all --property Delegate=yes --property DelegateSubgroup=supervisor \
+        unshare --user \
+            varlinkctl --exec call \
+                --push-fd=/proc/self/ns/user \
+                /run/systemd/io.systemd.NamespaceResource \
+                io.systemd.NamespaceResource.AllocateUserRange \
+                '{"name":"cgbind","mangleName":true,"size":65536,"userNamespaceFileDescriptor":0}' \
+                -- sleep infinity
+userns_pid="$(systemctl --machine testuser@.host show --user -P MainPID nsresourced-bind.service)"
+assert_gt "$userns_pid" 0
+
+service_cg="$(systemctl --machine testuser@.host show --user -P ControlGroup nsresourced-bind.service)"
+nsresourced_bind_cg="/sys/fs/cgroup${service_cg:?}/nsresourced-bind"
+run0 -u testuser mkdir "$nsresourced_bind_cg"
+
+# Cross-filesystem bind mount over cgroup.procs must be rejected without touching the target file or cgroup.
+run0 --pipe -u testuser \
+    bash -euxo pipefail -c '
+        exec 3<"/proc/$1/ns/user"
+        unshare --map-root-user --user --mount \
+            bash -euxo pipefail -c '\''
+                mount --bind /tmp/nsresourced-bind "$1/cgroup.procs"
+                varlinkctl call --graceful=org.varlink.service.InvalidParameter \
+                    --push-fd=3 \
+                    --push-fd="$1" \
+                    /run/systemd/io.systemd.NamespaceResource \
+                    io.systemd.NamespaceResource.AddControlGroupToUserNamespace \
+                    "{\"userNamespaceFileDescriptor\":0,\"controlGroupFileDescriptor\":1}" |
+                    jq -e ".parameter == \"controlGroupFileDescriptor\"" >/dev/null
+            '\'' _ "$2"
+    ' _ "$userns_pid" "$nsresourced_bind_cg"
+assert_eq "$(stat -c '%u:%g:%a' /tmp/nsresourced-bind)" "0:0:600"
+assert_eq "$(stat -c '%u' "$nsresourced_bind_cg")" "$(id -u testuser)"
+
+# Same-filesystem bind mount (another cgroupfs file with the same st_dev) must also be rejected.
+run0 --pipe -u testuser \
+    bash -euxo pipefail -c '
+        exec 3<"/proc/$1/ns/user"
+        unshare --map-root-user --user --mount \
+            bash -euxo pipefail -c '\''
+                mount --bind /sys/fs/cgroup/cgroup.procs "$1/cgroup.procs"
+                varlinkctl call --graceful=org.varlink.service.InvalidParameter \
+                    --push-fd=3 \
+                    --push-fd="$1" \
+                    /run/systemd/io.systemd.NamespaceResource \
+                    io.systemd.NamespaceResource.AddControlGroupToUserNamespace \
+                    "{\"userNamespaceFileDescriptor\":0,\"controlGroupFileDescriptor\":1}" |
+                    jq -e ".parameter == \"controlGroupFileDescriptor\"" >/dev/null
+            '\'' _ "$2"
+    ' _ "$userns_pid" "$nsresourced_bind_cg"
+assert_eq "$(stat -c '%u:%g' /sys/fs/cgroup/cgroup.procs)" "0:0"
+assert_eq "$(stat -c '%u' "$nsresourced_bind_cg")" "$(id -u testuser)"
+
+# Without a bind mount, delegating the same cgroup must still succeed.
+run0 --pipe -u testuser \
+    bash -euxo pipefail -c '
+        varlinkctl call \
+            --push-fd="/proc/$1/ns/user" \
+            --push-fd="$2" \
+            /run/systemd/io.systemd.NamespaceResource \
+            io.systemd.NamespaceResource.AddControlGroupToUserNamespace \
+            "{\"userNamespaceFileDescriptor\":0,\"controlGroupFileDescriptor\":1}"
+    ' _ "$userns_pid" "$nsresourced_bind_cg"
+mapped_uid="$(awk '$1 == 0 { print $2 }' "/proc/$userns_pid/uid_map")"
+mapped_gid="$(awk '$1 == 0 { print $2 }' "/proc/$userns_pid/gid_map")"
+assert_eq "$(stat -c '%u:%g:%a' "$nsresourced_bind_cg")" "$mapped_uid:$mapped_gid:755"
+assert_eq "$(stat -c '%u:%g:%a' "$nsresourced_bind_cg/cgroup.procs")" "$mapped_uid:$mapped_gid:644"
+assert_eq "$(stat -c '%u:%g:%a' "$nsresourced_bind_cg/cgroup.subtree_control")" "$mapped_uid:$mapped_gid:644"
+assert_eq "$(stat -c '%u:%g:%a' "$nsresourced_bind_cg/cgroup.threads")" "$mapped_uid:$mapped_gid:644"
+assert_eq "$(stat -c '%u:%g:%a' /tmp/nsresourced-bind)" "0:0:600"
+
+systemctl --user --machine testuser@ stop nsresourced-bind.service
+rmdir "$nsresourced_bind_cg" 2>/dev/null ||:
+rm -f /tmp/nsresourced-bind
 
 run0 -u testuser mkdir /var/tmp/image-tar
 run0 -u testuser importctl --user export-tar zurps /var/tmp/image-tar/kurps.tar.gz -m
