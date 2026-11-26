@@ -59,7 +59,9 @@ typedef struct Transfer {
         Context *context;
 } Transfer;
 
-typedef int (*TransferProgress)(const Transfer *t, const Instance *inst, unsigned percentage);
+/* time_elapsed is the time that passed since the transfer started, time_total the estimated total time it is
+ * going to take, either is USEC_INFINITY if not known */
+typedef int (*TransferProgress)(const Transfer *t, const Instance *inst, unsigned percentage, usec_t time_elapsed, usec_t time_total);
 
 Transfer* transfer_new(Context *ctx);
 Transfer* transfer_free(Transfer *t);
