@@ -43,15 +43,18 @@ static int swtpm_find_best_profile(const char *swtpm_setup, char **ret) {
                 log_debug("About to spawn: %s", strnull(cmdline));
         }
 
-        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+        /* NB: the exit status of --print-profiles is broken — swtpm_setup also exits with a failure
+         * status when it successfully printed its profiles. Hence we ignore it (including the -EPROTO
+         * that FORK_WAIT turns it into), and instead try to parse the output as JSON. This is also why
+         * FORK_LOG is not passed: it would log the routine non-zero exit status at LOG_ERR. */
         r = pidref_safe_fork_full(
                         "(swtpm-lprof)",
                         (int[]) { -EBADF, mfd, STDERR_FILENO },
                         /* except_fds= */ NULL,
                         /* n_except_fds= */ 0,
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_REARRANGE_STDIO|FORK_LOG,
-                        &pidref);
-        if (r < 0)
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_REARRANGE_STDIO|FORK_WAIT,
+                        /* ret= */ NULL);
+        if (r < 0 && r != -EPROTO)
                 return log_error_errno(r, "Failed to run swtpm_setup: %m");
         if (r == 0) {
                 /* Child */
@@ -60,34 +63,14 @@ static int swtpm_find_best_profile(const char *swtpm_setup, char **ret) {
                 _exit(EXIT_FAILURE);
         }
 
-        r = pidref_wait_for_terminate_and_check("(swtpm-lprof)", &pidref, WAIT_LOG_ABNORMAL);
-        /* An exit status, -EPROTO for a child killed by a signal, and -ECHILD mean that the child is gone.
-         * The cleanup must not send SIGKILL then, because without a pidfd the PID might belong to another
-         * process by now. After any other failure the child is not reaped yet, and the cleanup kills it. */
-        if (r >= 0 || IN_SET(r, -EPROTO, -ECHILD))
-                pidref_done(&pidref);
-        if (r < 0)
-                return r;
-
-        /* NB: we ignore the exit status of --print-profiles, it's broken. Instead we check if we have
-         * received a valid JSON object via STDOUT. */
-        (void) r;
-
-        _cleanup_free_ char *text = NULL;
-        r = read_full_file_full(
-                        mfd,
-                        /* filename= */ NULL,
-                        /* offset= */ 0,
-                        /* size= */ SIZE_MAX,
-                        /* flags= */ 0,
-                        /* bind_name= */ NULL,
-                        &text,
-                        /* ret_size= */ NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to read memory fd: %m");
-
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
-        r = sd_json_parse(text, SD_JSON_PARSE_MUST_BE_OBJECT, &j, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
+        r = sd_json_parse_fd(
+                        "swtpm-profiles",
+                        mfd,
+                        SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SEEK0,
+                        &j,
+                        /* reterr_line= */ NULL,
+                        /* reterr_column= */ NULL);
         if (r < 0) {
                 log_notice("Failed to parse swtpm's --print-profiles output as JSON, assuming the implementation is too old to know the concept of profiles.");
                 *ret = NULL;
