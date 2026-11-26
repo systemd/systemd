@@ -2,9 +2,12 @@
 
 #include <unistd.h>
 
+#include "alloc-util.h"
+#include "devnum-util.h"
 #include "dlopen-note.h"
 #include "dropin.h"
 #include "efivars.h"
+#include "fileio.h"
 #include "generator.h"
 #include "initrd-util.h"
 #include "log.h"
@@ -14,6 +17,7 @@
 #include "proc-cmdline.h"
 #include "special.h"
 #include "strv.h"
+#include "swtpm-util.h"
 #include "tpm2-util.h"
 #include "verbs.h"
 
@@ -118,8 +122,57 @@ static int generate_initrd_extension_ordering(bool software_fallback_enabled) {
         return 0;
 }
 
-static int generate_swtpm_symlink(Tpm2Support support) {
+static bool swtpm_proxy_device_exists(void) {
         int r;
+
+        /* Checks whether the TPM device that exists is the vTPM proxy device systemd-tpm2-swtpm allocated
+         * earlier (typically in the initrd) and keeps in its fdstore. That's always tpm0, and since vTPM
+         * proxy devices have no parent device it is placed below /sys/devices/virtual/. To make sure it is
+         * really ours, compare its device number with the one systemd-tpm2-swtpm recorded. */
+
+        _cleanup_free_ char *recorded = NULL;
+        r = read_one_line_file(SWTPM_DEVNO_PATH, &recorded);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        log_debug_errno(r, "Failed to read '%s', ignoring: %m", SWTPM_DEVNO_PATH);
+                return false;
+        }
+
+        dev_t recorded_devnum;
+        r = parse_devnum(recorded, &recorded_devnum);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to parse device number '%s' in '%s', ignoring: %m", recorded, SWTPM_DEVNO_PATH);
+                return false;
+        }
+
+        _cleanup_free_ char *actual = NULL;
+        r = read_one_line_file("/sys/devices/virtual/tpm/tpm0/dev", &actual);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        log_debug_errno(r, "Failed to read device number of virtual tpm0, ignoring: %m");
+                return false;
+        }
+
+        dev_t actual_devnum;
+        r = parse_devnum(actual, &actual_devnum);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to parse device number '%s' of virtual tpm0, ignoring: %m", actual);
+                return false;
+        }
+
+        if (recorded_devnum != actual_devnum) {
+                log_debug("Virtual tpm0 has device number " DEVNUM_FORMAT_STR ", but software TPM recorded " DEVNUM_FORMAT_STR ", not ours.",
+                          DEVNUM_FORMAT_VAL(actual_devnum), DEVNUM_FORMAT_VAL(recorded_devnum));
+                return false;
+        }
+
+        return true;
+}
+
+static int swtpm_fallback_possible(Tpm2Support support) {
+        int r;
+
+        /* Returns > 0 if the software TPM fallback is requested and can be used, 0 otherwise. */
 
         if (!arg_tpm2_software_fallback)
                 return 0;
@@ -151,6 +204,25 @@ static int generate_swtpm_symlink(Tpm2Support support) {
         }
         if (r < 0)
                 log_warning_errno(r, "Failed to determine whether the 'tpm_vtpm_proxy' kernel module is available, ignoring: %m");
+
+        return 1;
+}
+
+static int generate_swtpm_symlink(Tpm2Support support, bool swtpm_device_exists) {
+        int r;
+
+        if (swtpm_device_exists)
+                /* The software TPM's vTPM proxy device already exists (i.e. was allocated in the initrd and
+                 * is pinned in the service's fdstore). Without swtpm running nothing serves it, and TPM
+                 * clients would hang, hence pull the service in unconditionally, regardless of the kernel
+                 * command line (rd.systemd.tpm2_software_fallback= is not seen on the host) and of the
+                 * checks in swtpm_fallback_possible(). */
+                log_debug("TPM2 device is the software TPM's vTPM proxy device, generating software TPM units.");
+        else {
+                r = swtpm_fallback_possible(support);
+                if (r <= 0)
+                        return r;
+        }
 
         r = generator_add_symlink(arg_dest, SPECIAL_SYSINIT_TARGET, "wants", SYSTEM_DATA_UNIT_DIR "/systemd-tpm2-swtpm.service");
         if (r < 0)
@@ -190,8 +262,12 @@ static int generate_swtpm_symlink(Tpm2Support support) {
 static int generate_now(void) {
         int r;
 
+        /* If the software TPM's vTPM proxy device already exists we must pull in the service serving it,
+         * whatever else is configured. */
+        bool swtpm_device_exists = swtpm_proxy_device_exists();
+
         /* Let's shortcut things before we check for TPM2 support if no one cares anyway */
-        if (arg_tpm2_wait == 0 && !arg_tpm2_software_fallback) {
+        if (!swtpm_device_exists && arg_tpm2_wait == 0 && !arg_tpm2_software_fallback) {
                 log_debug("Not generating tpm2.target synchronization point or activating software TPM, as turned off via kernel command line.");
                 return 0;
         }
@@ -203,8 +279,9 @@ static int generate_now(void) {
          * udev's coldplug processing. Hence, when the software TPM fallback is requested explicitly, do not require the
          * subsystem to be available: the generated units load the necessary kernel modules themselves. */
         Tpm2Support support = tpm2_support();
-        if (!FLAGS_SET(support, TPM2_SUPPORT_SYSTEM|TPM2_SUPPORT_LIBRARIES) ||
-            (!arg_tpm2_software_fallback && !FLAGS_SET(support, TPM2_SUPPORT_SUBSYSTEM))) {
+        if (!swtpm_device_exists &&
+            (!FLAGS_SET(support, TPM2_SUPPORT_SYSTEM|TPM2_SUPPORT_LIBRARIES) ||
+             (!arg_tpm2_software_fallback && !FLAGS_SET(support, TPM2_SUPPORT_SUBSYSTEM)))) {
 
                 /* Raise log level if things were explicitly configured */
                 log_full((arg_tpm2_wait > 0 ||
@@ -213,7 +290,7 @@ static int generate_now(void) {
                 return 0;
         }
 
-        r = generate_swtpm_symlink(support);
+        r = generate_swtpm_symlink(support, swtpm_device_exists);
         if (r < 0)
                 return r;
 
