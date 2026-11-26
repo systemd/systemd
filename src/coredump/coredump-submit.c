@@ -347,7 +347,9 @@ static int save_external_coredump(
                 log_debug("Limiting core file size to %" PRIu64 " bytes due to cgroup and/or filesystem limits.", max_size);
         }
 
-        r = copy_bytes(context->input_fd, fd, max_size, /* copy_flags= */ 0);
+        /* Cores are often mostly zeros (untouched memory). Don't write those out, so a large core doesn't
+         * produce a large amount of disk I/O and dirty page cache. */
+        r = copy_bytes(context->input_fd, fd, max_size, COPY_SPARSE);
         if (r < 0)
                 return log_error_errno(r, "Cannot store coredump of "PID_FMT" (%s): %m",
                                        context->pidref.pid, context->comm);
