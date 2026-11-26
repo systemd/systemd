@@ -91,6 +91,7 @@ systemd-firstboot \
     --machine-id=0e1d84a8a1d84c6e9b2d2f0f8f1a2b3c \
     --root-password-hashed="$HASHED" \
     --root-shell=/bin/sh \
+    --root-ssh-key="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAA customer@test" \
     --kernel-command-line='firstboot.addon=1' \
     --key=dm-verity:"$WORK/customer.crt" \
     --key=fs-verity:other="$WORK/second.crt"
@@ -127,10 +128,11 @@ CREDS="$WORK/extract/.extra/system_credentials"
 [[ "$(cat "$CREDS/system.machine_id.cred")" == "0e1d84a8a1d84c6e9b2d2f0f8f1a2b3c" ]]
 [[ "$(cat "$CREDS/passwd.hashed-password.root.cred")" == "$HASHED" ]]
 [[ "$(cat "$CREDS/passwd.shell.root.cred")" == "/bin/sh" ]]
+[[ "$(cat "$CREDS/ssh.authorized_keys.root.cred")" == "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAA customer@test" ]]
 cmp "$CREDS/keyring-setup.dm-verity.customer.cred" "$WORK/customer.crt"
 cmp "$CREDS/keyring-setup.fs-verity.other.cred" "$WORK/second.crt"
 [[ "$(stat -c '%a' "$CREDS/keyring-setup.dm-verity.customer.cred")" == "400" ]]
-[[ "$(find "$CREDS" -type f | wc -l)" -eq 11 ]]
+[[ "$(find "$CREDS" -type f | wc -l)" -eq 12 ]]
 
 # A plaintext password is hashed before it ends up in the addon, and writing again replaces the addon
 systemd-firstboot --image="$IMAGE" --addon=customer --root-password=hunter2
