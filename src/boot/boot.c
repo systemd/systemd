@@ -3205,6 +3205,7 @@ static EFI_STATUS call_image_start(
                                 /* ret_entry_point= */ NULL,
                                 &compat_address,
                                 /* ret_size_in_memory= */ NULL,
+                                /* ret_headers_size= */ NULL,
                                 /* ret_section_alignment= */ NULL);
                 if (compat_err == EFI_SUCCESS && compat_address > 0)
                         compat_entry = (EFI_IMAGE_ENTRY_POINT)
