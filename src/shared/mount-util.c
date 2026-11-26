@@ -2067,6 +2067,55 @@ int mount_credentials_fs(const char *path) {
         return RET_NERRNO(move_mount(mfd, "", AT_FDCWD, path, MOVE_MOUNT_F_EMPTY_PATH));
 }
 
+static int fsconfig_apply_options(
+                int error_log_level,
+                int fs_fd,
+                const char *type,
+                const char *what,
+                unsigned long flags,
+                const char *options) {
+
+        int r;
+
+        assert(fs_fd >= 0);
+        assert(type);
+        assert(what);
+
+        /* Takes the mount flags and options as returned by mount_option_mangle() */
+
+        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "source", what, /* aux= */ 0) < 0)
+                return log_full_errno(error_log_level, errno, "Failed to set mount source for \"%s\" to \"%s\": %m", type, what);
+
+        if (FLAGS_SET(flags, MS_RDONLY))
+                if (fsconfig(fs_fd, FSCONFIG_SET_FLAG, "ro", /* value= */ NULL, /* aux= */ 0) < 0)
+                        return log_full_errno(error_log_level, errno, "Failed to set read only mount flag for \"%s\": %m", type);
+
+        for (const char *p = options;;) {
+                _cleanup_free_ char *word = NULL;
+                char *eq;
+
+                r = extract_first_word(&p, &word, ",", EXTRACT_KEEP_QUOTE);
+                if (r < 0)
+                        return log_full_errno(error_log_level, r, "Failed to parse mount option string \"%s\": %m", strempty(options));
+                if (r == 0)
+                        break;
+
+                eq = strchr(word, '=');
+                if (eq) {
+                        *eq = 0;
+                        eq++;
+
+                        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, word, eq, /* aux= */ 0) < 0)
+                                return log_full_errno(error_log_level, errno, "Failed to set mount option \"%s=%s\" for \"%s\": %m", word, eq, type);
+                } else {
+                        if (fsconfig(fs_fd, FSCONFIG_SET_FLAG, word, /* value= */ NULL, /* aux= */ 0) < 0)
+                                return log_full_errno(error_log_level, errno, "Failed to set mount flag \"%s\" for \"%s\": %m", word, type);
+                }
+        }
+
+        return 0;
+}
+
 int make_fsmount(
                 int error_log_level,
                 const char *what,
@@ -2101,35 +2150,9 @@ int make_fsmount(
         if (fs_fd < 0)
                 return log_full_errno(error_log_level, errno, "Failed to open superblock for \"%s\": %m", type);
 
-        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "source", what, /* aux= */ 0) < 0)
-                return log_full_errno(error_log_level, errno, "Failed to set mount source for \"%s\" to \"%s\": %m", type, what);
-
-        if (FLAGS_SET(f, MS_RDONLY))
-                if (fsconfig(fs_fd, FSCONFIG_SET_FLAG, "ro", /* value= */ NULL, /* aux= */ 0) < 0)
-                        return log_full_errno(error_log_level, errno, "Failed to set read only mount flag for \"%s\": %m", type);
-
-        for (const char *p = o;;) {
-                _cleanup_free_ char *word = NULL;
-                char *eq;
-
-                r = extract_first_word(&p, &word, ",", EXTRACT_KEEP_QUOTE);
-                if (r < 0)
-                        return log_full_errno(error_log_level, r, "Failed to parse mount option string \"%s\": %m", strempty(o));
-                if (r == 0)
-                        break;
-
-                eq = strchr(word, '=');
-                if (eq) {
-                        *eq = 0;
-                        eq++;
-
-                        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, word, eq, /* aux= */ 0) < 0)
-                                return log_full_errno(error_log_level, errno, "Failed to set mount option \"%s=%s\" for \"%s\": %m", word, eq, type);
-                } else {
-                        if (fsconfig(fs_fd, FSCONFIG_SET_FLAG, word, /* value= */ NULL, /* aux= */ 0) < 0)
-                                return log_full_errno(error_log_level, errno, "Failed to set mount flag \"%s\" for \"%s\": %m", word, type);
-                }
-        }
+        r = fsconfig_apply_options(error_log_level, fs_fd, type, what, f, o);
+        if (r < 0)
+                return r;
 
         if (fsconfig(fs_fd, FSCONFIG_CMD_CREATE, /* key= */ NULL, /* value= */ NULL, /* aux= */ 0) < 0)
                 return log_full_errno(error_log_level, errno, "Failed to realize fs fd for \"%s\" (\"%s\"): %m", what, type);
