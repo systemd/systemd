@@ -413,7 +413,9 @@ automatically by
 which detects the cloud environment via the SMBIOS/DMI hardware database
 (`hwdb.d/40-imds.hwdb`).
 
-At boot the `systemd-imds-import.service` runs `systemd-imds --import`, which
+At boot, `systemd-imds-import-initrd.service` in the initrd (or
+`systemd-imds-import.service` on the host, with `systemd.imds.import=1`) runs
+`systemd-imds --import`, which
 acquires data from the IMDS endpoint and writes the relevant fields as
 credentials into `/run/credstore/` (and `/run/credstore.encrypted/` for
 encrypted credentials). Because these directories are part of the credential
