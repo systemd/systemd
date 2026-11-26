@@ -263,8 +263,8 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
                         .modes = ADJ_STATUS | ADJ_NANO | ADJ_SETOFFSET | ADJ_MAXERROR | ADJ_ESTERROR,
 
                         /* ADJ_NANO uses nanoseconds in the microseconds field */
-                        .time.tv_sec = (long)offset,
-                        .time.tv_usec = (offset - (double) (long) offset) * NSEC_PER_SEC,
+                        .time.tv_sec = (time_t) offset,
+                        .time.tv_usec = (offset - (double) (time_t) offset) * NSEC_PER_SEC,
                 };
 
                 /* the kernel expects -0.3s as {-1, 7000.000.000} */
