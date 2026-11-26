@@ -2783,7 +2783,8 @@ static int item_do(
                 int fd,
                 const char *path,
                 CreationMode creation,
-                fdaction_t action) {
+                fdaction_t action,
+                int maxdepth) {
 
         struct stat st;
         int r;
@@ -2833,8 +2834,16 @@ static int item_do(
                                 goto finish;
                         }
 
+                        if (maxdepth <= 0) {
+                                log_warning_errno(SYNTHETIC_ERRNO(ELOOP),
+                                        "\"%s\": directory tree too deep (> %i levels), "
+                                        "refusing to recurse further to avoid stack exhaustion.",
+                                        path, MAX_DEPTH);
+                                goto finish;
+                        }
+
                         /* Pass ownership of dirent fd over */
-                        RET_GATHER(r, item_do(c, i, TAKE_FD(de_fd), de_path, CREATION_EXISTING, action));
+                        RET_GATHER(r, item_do(c, i, TAKE_FD(de_fd), de_path, CREATION_EXISTING, action, maxdepth-1));
                 }
         }
 
@@ -2897,7 +2906,7 @@ static int glob_item_recursively(
                         continue;
                 }
 
-                RET_GATHER(r, item_do(c, i, TAKE_FD(fd), *fn, CREATION_EXISTING, action));
+                RET_GATHER(r, item_do(c, i, TAKE_FD(fd), *fn, CREATION_EXISTING, action, MAX_DEPTH));
         }
 
         return r;
