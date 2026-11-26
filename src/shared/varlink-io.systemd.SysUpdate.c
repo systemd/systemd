@@ -94,13 +94,16 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("The configured features."),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(features, Feature, SD_VARLINK_ARRAY));
 
-static SD_VARLINK_DEFINE_METHOD(
+static SD_VARLINK_DEFINE_METHOD_FULL(
                 CheckNew,
-                SD_VARLINK_FIELD_COMMENT("Target to check for updates for."),
-                SD_VARLINK_DEFINE_INPUT_BY_TYPE(target, TargetIdentifier, 0),
+                SD_VARLINK_SUPPORTS_MORE,
+                SD_VARLINK_FIELD_COMMENT("Target to check for updates for. If not specified, the default installation of the host (if there is one) and all of its enabled components are checked, similar to the --component-all switch of systemd-sysupdate(8). In that case the 'more' flag must be set, and one reply is sent for each of them, regardless of whether a new version is available. If there is nothing to check, the NoSuchTarget error is returned."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(target, TargetIdentifier, SD_VARLINK_NULLABLE),
                 VARLINK_DEFINE_POLKIT_INPUT,
-                SD_VARLINK_FIELD_COMMENT("The version string for the new version which is available."),
-                SD_VARLINK_DEFINE_OUTPUT(available, SD_VARLINK_STRING, 0));
+                SD_VARLINK_FIELD_COMMENT("If no target is specified, the component the reply refers to. Unset for the default installation."),
+                SD_VARLINK_DEFINE_OUTPUT(component, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The version string for the new version which is available. If no target is specified and no new version is available for the component, this is null. (If a target is specified, the NoUpdateNeeded error is returned instead in that case.)"),
+                SD_VARLINK_DEFINE_OUTPUT(available, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
                 ListTargets,
@@ -141,5 +144,5 @@ SD_VARLINK_DEFINE_INTERFACE_FULL(
                 /* Errors */
                 SD_VARLINK_SYMBOL_COMMENT("Error indicating that no update is currently available to update to."),
                 &vl_error_NoUpdateNeeded,
-                SD_VARLINK_SYMBOL_COMMENT("Error indicating the specified target doesn’t exist"),
+                SD_VARLINK_SYMBOL_COMMENT("Error indicating the specified target doesn’t exist, or, if no target is specified, that there's nothing to operate on"),
                 &vl_error_NoSuchTarget);
