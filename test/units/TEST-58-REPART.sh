@@ -1436,7 +1436,7 @@ EOF
 }
 
 testcase_verity() {
-    local defs imgs output join_defs join_output join_roothash join_signature join_sig_split join_data_split
+    local defs imgs output join_defs join_output join_roothash join_sig_start join_sig_size
 
     defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
     imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
@@ -1672,9 +1672,27 @@ EOF
                    --certificate "$defs/verity.crt" \
                    "$imgs/offline"
 
-    # Exercise joining a signature while all verity partitions are created in one run. Explicit
-    # partition UUIDs ensure the signature lookup uses the actual roothash instead of assuming it
-    # is derived from the data and hash partition UUIDs.
+    # A type-only verity signature partition (e.g. an empty B slot) must remain empty when a
+    # joined signature is supplied, since it has no data/hash siblings to sign.
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs/empty-sig" \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --empty=create \
+                   --size=auto \
+                   --join-signature="$offline_drh:$imgs/offline.roothash.p7s" \
+                   --certificate="$defs/verity.crt" \
+                   "$imgs/empty-sig-joined"
+
+    output=$(sfdisk --json "$imgs/empty-sig-joined")
+    sig_start=$(jq -r '.partitiontable.partitions[0].start * .partitiontable.sectorsize' <<<"$output")
+    sig_size=$(jq -r '.partitiontable.partitions[0].size * .partitiontable.sectorsize' <<<"$output")
+    cmp --bytes="$sig_size" \
+        --ignore-initial=0:"$sig_start" \
+        /dev/zero "$imgs/empty-sig-joined"
+
+    # Join a signature into an existing image with a deferred Verity=signature partition
+    # that uses a custom partition type.
     join_defs="$imgs/join-defs"
     mkdir "$join_defs"
 
@@ -1685,7 +1703,6 @@ CopyFiles=${defs}
 Verity=data
 VerityMatchKey=root
 Minimize=guess
-UUID=aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
 EOF
 
     tee "$join_defs/verity-hash.conf" <<EOF
@@ -1694,12 +1711,11 @@ Type=root-${architecture}-verity
 Verity=hash
 VerityMatchKey=root
 Minimize=yes
-UUID=bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb
 EOF
 
     tee "$join_defs/verity-sig.conf" <<EOF
 [Partition]
-Type=root-${architecture}-verity-sig
+Type=linux-generic
 Verity=signature
 VerityMatchKey=root
 EOF
@@ -1710,38 +1726,35 @@ EOF
                             --dry-run=no \
                             --empty=create \
                             --size=auto \
-                            --split=yes \
                             --json=pretty \
-                            --private-key="$defs/verity.key" \
-                            --certificate="$defs/verity.crt" \
+                            --defer-partitions=linux-generic \
                             "$imgs/join-source")
 
     join_roothash=$(jq -r ".[] | select(.type == \"root-${architecture}\") | .roothash" <<<"$output")
-    join_data_split=$(jq -r ".[] | select(.type == \"root-${architecture}\") | .split_path" <<<"$output")
-    join_sig_split=$(jq -r ".[] | select(.type == \"root-${architecture}-verity-sig\") | .split_path" <<<"$output")
-    assert_neq "$join_data_split" ""
-    assert_neq "$join_data_split" "null"
-    join_signature=$(jq -r '.signature' "$join_sig_split")
 
-    # Reuse the exact data partition contents so that the root hash remains the same across both runs.
-    sed -i \
-        -e "s|^CopyFiles=.*|CopyBlocks=$join_data_split|" \
-        -e '/^Minimize=/d' \
-        "$join_defs/verity-data.conf"
+    echo -n "$join_roothash" | \
+        openssl smime -sign -in /dev/stdin \
+                      -inkey "$defs/verity.key" \
+                      -signer "$defs/verity.crt" \
+                      -noattr -binary -outform der \
+                      -out "$imgs/join.roothash.p7s"
 
+    # Exercise the inline base64 form of --join-signature.
     join_output=$(systemd-repart --offline="$OFFLINE" \
                                   --definitions="$join_defs" \
                                   --seed="$seed" \
                                   --dry-run=no \
-                                  --empty=create \
-                                  --size=auto \
-                                  --split=yes \
                                   --json=pretty \
-                                  --join-signature="$join_roothash:base64:$join_signature" \
+                                  --join-signature="$join_roothash:base64:$(base64 -w0 "$imgs/join.roothash.p7s")" \
                                   --certificate="$defs/verity.crt" \
-                                  "$imgs/join-target")
+                                  "$imgs/join-source")
 
-    assert_eq "$join_roothash" "$(jq -r ".[] | select(.type == \"root-${architecture}-verity-sig\") | .roothash" <<<"$join_output")"
+    assert_eq "$join_roothash" "$(jq -r ".[] | select(.type == \"linux-generic\") | .roothash" <<<"$join_output")"
+    join_sig_start=$(jq -r '.[] | select(.type == "linux-generic") | .offset' <<<"$join_output")
+    join_sig_size=$(jq -r '.[] | select(.type == "linux-generic") | .raw_size' <<<"$join_output")
+    dd if="$imgs/join-source" iflag=skip_bytes,count_bytes skip="$join_sig_start" count="$join_sig_size" status=none |
+        tr -d '\000' |
+        jq -e --arg roothash "$join_roothash" '.rootHash == $roothash and (.signature | type == "string" and length > 0)' >/dev/null
 
     # Check that we can dissect, mount and unmount a repart verity image. (and that the image UUID is deterministic)
 

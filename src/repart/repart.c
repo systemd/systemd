@@ -6975,7 +6975,7 @@ static int context_copy_blocks(Context *context) {
 
                 /* For offline signing case */
                 if (!set_isempty(arg_verity_settings) && p->copy_blocks_fd < 0 &&
-                    partition_designator_is_verity_sig(p->type.designator)) {
+                    p->verity == VERITY_SIG) {
                         Partition *hp, *rp;
 
                         assert_se(hp = p->siblings[VERITY_HASH]);
@@ -8456,7 +8456,7 @@ static int check_mkfs(const Context *context) {
                         continue;
 
                 /* For offline signing case */
-                if (!set_isempty(arg_verity_settings) && partition_designator_is_verity_sig(p->type.designator))
+                if (!set_isempty(arg_verity_settings) && p->verity == VERITY_SIG)
                         continue;
 
                 /* Minimized partitions will use the copy blocks logic so skip those here. */
