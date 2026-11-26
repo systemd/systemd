@@ -1979,6 +1979,16 @@ static int context_on_acquire_progress(const Transfer *t, const Instance *inst, 
         assert(overall <= 100);
 
         log_debug("Transfer %zu/%zu is %u%% complete (%u%% overall).", i+1, n, percentage, overall);
+
+        (void) draw_progress_barf(
+                        percentage,
+                        "%s%s%s %s %s",
+                        strempty(c->component),
+                        c->component ? "/" : "",
+                        t->id,
+                        glyph(GLYPH_ARROW_RIGHT),
+                        inst->metadata.version);
+
         return sd_notifyf(/* unset_environment= */ false, "X_SYSUPDATE_PROGRESS=%u\n"
                                               "X_SYSUPDATE_TRANSFERS_LEFT=%zu\n"
                                               "X_SYSUPDATE_TRANSFERS_DONE=%zu\n"
@@ -2092,6 +2102,7 @@ static int context_acquire(
                 }
 
                 r = transfer_acquire_instance(t, inst, metadata + i, context_on_acquire_progress, c);
+                clear_progress_bar(/* prefix= */ NULL);
                 if (r < 0)
                         return r;
         }

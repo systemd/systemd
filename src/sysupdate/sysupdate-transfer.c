@@ -1565,6 +1565,13 @@ static int run_callout(
                         _exit(EXIT_FAILURE);
                 }
 
+                /* The helper reports progress via X_IMPORT_PROGRESS=, and we draw the progress bar
+                 * ourselves, hence tell it not to draw its own. */
+                if (setenv("SYSTEMD_PROGRESS_BAR", "0", /* overwrite= */ true) < 0) {
+                        log_error_errno(errno, "setenv() failed: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
                 if (pass_fd >= 0) {
                         /* FORK_PACK_FDS moved the fd to fd 3 */
                         assert(pass_fd == SD_LISTEN_FDS_START);
