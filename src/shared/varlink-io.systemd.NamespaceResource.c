@@ -52,7 +52,7 @@ static SD_VARLINK_DEFINE_METHOD(
                 AddControlGroupToUserNamespace,
                 SD_VARLINK_FIELD_COMMENT("A user namespace file descriptor previously allocated via AllocateUserRange() or registered via RegisterUserNamespace()."),
                 SD_VARLINK_DEFINE_INPUT(userNamespaceFileDescriptor, SD_VARLINK_INT, 0),
-                SD_VARLINK_FIELD_COMMENT("A file descriptor referencing a cgroup to assign to the root user of the specified user namespace."),
+                SD_VARLINK_FIELD_COMMENT("A file descriptor referencing a cgroup to assign to the root user of the specified user namespace. Its delegation attributes must be regular files on the same mount as the directory."),
                 SD_VARLINK_DEFINE_INPUT(controlGroupFileDescriptor, SD_VARLINK_INT, 0));
 
 static SD_VARLINK_DEFINE_METHOD(
