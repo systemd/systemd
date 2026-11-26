@@ -3,7 +3,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "sd-daemon.h"
 #include "sd-event.h"
 
 #include "alloc-util.h"
@@ -63,6 +62,7 @@ typedef struct RawImport {
 
         unsigned last_percent;
         RateLimit progress_ratelimit;
+        ImportProgress progress;
 
         uint64_t offset;
         uint64_t size_max;
@@ -154,17 +154,21 @@ static void raw_import_report_progress(RawImport *i) {
         if (!ratelimit_below(&i->progress_ratelimit))
                 return;
 
-        sd_notifyf(/* unset_environment= */ false, "X_IMPORT_PROGRESS=%u%%", percent);
+        import_progress_update(&i->progress, percent, i->written_compressed, (uint64_t) i->input_stat.st_size, i->written_compressed, (uint64_t) i->input_stat.st_size);
+        import_progress_notify(&i->progress);
+
+        _cleanup_free_ char *suffix = import_progress_format(&i->progress);
 
         if (isatty_safe(STDERR_FILENO))
                 (void) draw_progress_barf(
                                 percent,
-                                "%s %s/%s",
+                                "%s %s/%s%s",
                                 glyph(GLYPH_ARROW_RIGHT),
                                 FORMAT_BYTES(i->written_compressed),
-                                FORMAT_BYTES(i->input_stat.st_size));
+                                FORMAT_BYTES(i->input_stat.st_size),
+                                strempty(suffix));
         else
-                log_info("Imported %u%%.", percent);
+                log_info("Imported %u%%%s.", percent, strempty(suffix));
 
         i->last_percent = percent;
 }

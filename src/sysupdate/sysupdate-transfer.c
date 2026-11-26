@@ -1450,6 +1450,26 @@ static int helper_on_exit(sd_event_source *s, const siginfo_t *si, void *userdat
         return sd_event_exit(sd_event_source_get_event(s), r);
 }
 
+static uint64_t parse_uint64_field(char *s, const char *what) {
+        uint64_t u;
+        int r;
+
+        assert(what);
+
+        if (!s)
+                return UINT64_MAX;
+
+        truncate_nl(s);
+
+        r = safe_atou64(s, &u);
+        if (r < 0) {
+                log_warning_errno(r, "Got invalid %s value '%s', ignoring: %m", what, s);
+                return UINT64_MAX;
+        }
+
+        return u;
+}
+
 static int helper_on_notify(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         CalloutContext *ctx = ASSERT_PTR(userdata);
         int r;
@@ -1469,7 +1489,15 @@ static int helper_on_notify(sd_event_source *s, int fd, uint32_t revents, void *
                 return 0;
         }
 
-        char *errno_str = find_line_startswith(buf, "ERRNO=");
+        /* Look for all fields before truncating any of them, since truncate_nl() cuts off the buffer */
+        char *errno_str = find_line_startswith(buf, "ERRNO="),
+                *progress_str = find_line_startswith(buf, "X_IMPORT_PROGRESS="),
+                *time_elapsed_str = find_line_startswith(buf, "X_IMPORT_TIME_ELAPSED_USEC="),
+                *time_total_str = find_line_startswith(buf, "X_IMPORT_TIME_TOTAL_USEC="),
+                *done_bytes_str = find_line_startswith(buf, "X_IMPORT_DONE_BYTES="),
+                *total_bytes_str = find_line_startswith(buf, "X_IMPORT_TOTAL_BYTES="),
+                *bytes_per_sec_str = find_line_startswith(buf, "X_IMPORT_BYTES_PER_SEC=");
+
         if (errno_str) {
                 truncate_nl(errno_str);
                 r = parse_errno(errno_str);
@@ -1481,7 +1509,6 @@ static int helper_on_notify(sd_event_source *s, int fd, uint32_t revents, void *
                 }
         }
 
-        char *progress_str = find_line_startswith(buf, "X_IMPORT_PROGRESS=");
         if (progress_str) {
                 truncate_nl(progress_str);
 
@@ -1489,7 +1516,20 @@ static int helper_on_notify(sd_event_source *s, int fd, uint32_t revents, void *
                 if (progress < 0)
                         log_warning("Got invalid percent value '%s', ignoring.", progress_str);
                 else {
-                        r = ctx->callback(ctx->transfer, ctx->instance, progress);
+                        /* The helper sends the time elapsed along with the progress, the bytes
+                         * transferred if it knows them, and estimates of the total time and the transfer
+                         * rate, once it has them. (USEC_INFINITY is UINT64_MAX, hence the time fields
+                         * can be parsed the same way.) */
+                        TransferProgressInfo info = {
+                                .percent = progress,
+                                .time_elapsed = parse_uint64_field(time_elapsed_str, "time elapsed"),
+                                .time_total = parse_uint64_field(time_total_str, "total time"),
+                                .done_bytes = parse_uint64_field(done_bytes_str, "bytes done"),
+                                .total_bytes = parse_uint64_field(total_bytes_str, "total bytes"),
+                                .bytes_per_sec = parse_uint64_field(bytes_per_sec_str, "transfer rate"),
+                        };
+
+                        r = ctx->callback(ctx->transfer, ctx->instance, &info);
                         if (r < 0)
                                 return r;
                 }

@@ -59,7 +59,17 @@ typedef struct Transfer {
         Context *context;
 } Transfer;
 
-typedef int (*TransferProgress)(const Transfer *t, const Instance *inst, unsigned percentage);
+/* Progress of a transfer, as reported by the helper doing it */
+typedef struct TransferProgressInfo {
+        unsigned percent;
+        usec_t time_elapsed;    /* Time that passed since the transfer started, USEC_INFINITY if not known */
+        usec_t time_total;      /* Estimated total time the transfer is going to take, USEC_INFINITY if not known */
+        uint64_t done_bytes;    /* Bytes transferred so far, UINT64_MAX if not known */
+        uint64_t total_bytes;   /* Total bytes to transfer, UINT64_MAX if not known */
+        uint64_t bytes_per_sec; /* Transfer rate, UINT64_MAX if not known */
+} TransferProgressInfo;
+
+typedef int (*TransferProgress)(const Transfer *t, const Instance *inst, const TransferProgressInfo *info);
 
 Transfer* transfer_new(Context *ctx);
 Transfer* transfer_free(Transfer *t);
