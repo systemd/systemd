@@ -725,7 +725,7 @@ bool valid_user_group_name(const char *u, ValidUserFlags flags) {
         if (isempty(u)) /* An empty user name is never valid */
                 return false;
 
-        if (parse_uid(u, NULL) >= 0) /* Something that parses as numeric UID string is valid exactly when the
+        if (in_charset(u, DIGITS) && parse_uid(u, NULL) >= 0) /* Something that parses as numeric UID string is valid exactly when the
                                       * flag for it is set */
                 return FLAGS_SET(flags, VALID_USER_ALLOW_NUMERIC);
 
