@@ -171,6 +171,24 @@ int mount_credentials_fs(const char *path);
 
 int make_fsmount(int error_log_level, const char *what, const char *type, unsigned long flags, const char *options, int userns_fd);
 
+typedef struct OverlayFSLayer {
+        int fd;                 /* a directory, or the root of a detached mount */
+        const char *path;       /* the layer below fd, NULL for fd itself */
+} OverlayFSLayer;
+
+typedef struct OverlayFSSpec {
+        const char *source;
+        const OverlayFSLayer *layers;   /* lower layers, topmost first */
+        size_t n_layers;
+        int upper_dir_fd;               /* contains upper and work, -EBADF for a read-only overlayfs */
+        const char *upper;
+        const char *work;
+        unsigned long flags;            /* MS_* flags, as for mount() */
+        const char *options;
+} OverlayFSSpec;
+
+int overlayfs_make_mounts(const OverlayFSSpec *specs, size_t n_specs, int *ret_mount_fds);
+
 int path_get_mount_info_at(int dir_fd, const char *path, char **ret_fstype, char **ret_options, char **ret_source);
 
 int path_is_network_fs_harder_at(int dir_fd, const char *path);
