@@ -82,6 +82,8 @@ REQUIREMENTS:
                      ≥ 6.12 for AT_HANDLE_MNT_ID_UNIQUE
                      ≥ 6.13 for PIDFD_GET_INFO, {set,remove}xattrat(), and
                                 FSCONFIG_SET_FD support for overlayfs layers
+                     ≥ 6.15 for detached mounts as overlayfs layers and for cloning
+                                detached mounts with open_tree()
                      ≥ 6.16 for coredump pattern '%F' (pidfd) specifier and SO_PASSRIGHTS,
                                 PIDFD_INFO_COREDUMP by ioctl(PIDFD_GET_INFO)
                      ≥ 6.17 for coredump socket pattern ('@@' prefix)

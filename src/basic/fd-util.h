@@ -89,6 +89,7 @@ static inline void* close_fd_ptr(void *p) {
 void close_many(const int fds[], size_t n_fds);
 void close_many_unset(int fds[], size_t n_fds);
 void close_many_and_free(int *fds, size_t n_fds);
+ssize_t fd_array_find(const int *fds, size_t n_fds, int fd);
 
 int fclose_nointr(FILE *f);
 FILE* safe_fclose(FILE *f);
