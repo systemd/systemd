@@ -974,6 +974,86 @@ cmp "$ACTIONDIR/source/act-a-1.bin" "$ACTIONDIR/target-a/act-a-1.bin"
 # The lock file is removed again when the lock is released
 test ! -e /run/systemd/sysupdate/lock/component-act-a
 
+# Test the Update() Varlink method. First without the 'more' flag, updating all components
+action_reset
+varlinkctl call --timeout=infinity "$VARLINK_SOCKET" io.systemd.SysUpdate.Update '{}' | \
+    jq -e '.installed == true' >/dev/null
+cmp "$ACTIONDIR/source/act-a-1.bin" "$ACTIONDIR/target-a/act-a-1.bin"
+cmp "$ACTIONDIR/source/act-b-1.bin" "$ACTIONDIR/target-b/act-b-1.bin"
+# Nothing left to do now
+varlinkctl call --timeout=infinity "$VARLINK_SOCKET" io.systemd.SysUpdate.Update '{}' | \
+    jq -e '.installed == false' >/dev/null
+(! varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.Update '{"target":{"class":"component","name":"act-a"},"action":"acquire","loop":2}') |& \
+    grep org.varlink.service.InvalidParameter >/dev/null
+(! varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.Update '{"target":{"class":"component","name":"doesnotexist"}}') |& \
+    grep io.systemd.SysUpdate.NoSuchTarget >/dev/null
+
+# With the 'more' flag progress is reported
+action_reset
+varlinkctl call --more --timeout=infinity "$VARLINK_SOCKET" io.systemd.SysUpdate.Update '{"target":{"class":"component","name":"act-a"}}' >"$ACTIONDIR/more.json"
+cmp "$ACTIONDIR/source/act-a-1.bin" "$ACTIONDIR/target-a/act-a-1.bin"
+test ! -e "$ACTIONDIR/target-b/act-b-1.bin"
+[[ "$(jq --seq -r 'select(.phase != null and .iteration == 1) | .phase' <"$ACTIONDIR/more.json" | uniq | tr '\n' ' ')" == "preparing vacuuming acquiring installing notifying " ]]
+[[ "$(jq --seq -r 'select(.phase != null) | .component' <"$ACTIONDIR/more.json" | sort -u)" == "act-a" ]]
+[[ "$(jq --seq -r 'select(.phase == "acquiring") | .transfer' <"$ACTIONDIR/more.json" | sort -u)" == "01-act-a" ]]
+[[ "$(jq --seq -r 'select(.phase == "installing") | .version' <"$ACTIONDIR/more.json")" == "1" ]]
+[[ "$(jq --seq -r 'select(.phase == null) | .installed | tostring' <"$ACTIONDIR/more.json")" == "true" ]]
+# By default a single iteration is run
+[[ "$(jq --seq -r 'select(.phase != null) | .iteration' <"$ACTIONDIR/more.json" | sort -u)" == "1" ]]
+
+# With "loop", notifications carry the iteration they refer to. The second iteration finds nothing new, and
+# hence ends the loop.
+action_reset
+varlinkctl call --more --timeout=infinity "$VARLINK_SOCKET" io.systemd.SysUpdate.Update '{"target":{"class":"component","name":"act-a"},"loop":16}' >"$ACTIONDIR/more.json"
+cmp "$ACTIONDIR/source/act-a-1.bin" "$ACTIONDIR/target-a/act-a-1.bin"
+[[ "$(jq --seq -r 'select(.phase != null) | .iteration' <"$ACTIONDIR/more.json" | uniq | tr '\n' ' ')" == "1 2 " ]]
+
+# Acquire and install separately
+action_reset
+varlinkctl call --timeout=infinity "$VARLINK_SOCKET" io.systemd.SysUpdate.Update '{"target":{"class":"component","name":"act-a"},"action":"acquire"}' | \
+    jq -e '.installed == false' >/dev/null
+test ! -e "$ACTIONDIR/target-a/act-a-1.bin"
+varlinkctl call --timeout=infinity "$VARLINK_SOCKET" io.systemd.SysUpdate.Update '{"target":{"class":"component","name":"act-a"},"action":"install"}' | \
+    jq -e '.installed == true' >/dev/null
+cmp "$ACTIONDIR/source/act-a-1.bin" "$ACTIONDIR/target-a/act-a-1.bin"
+
+# If the component is locked by somebody else, the client is told that we are waiting for the lock, and the
+# update proceeds once the lock is released.
+action_reset
+mkdir -p /run/systemd/sysupdate/lock
+rm -f "$ACTIONDIR/locked"
+ofd_lock /run/systemd/sysupdate/lock/component-act-a bash -c 'echo $$ >"$0" && exec sleep infinity' "$ACTIONDIR/locked" &
+holder=$!
+timeout 60 bash -c "until test -s '$ACTIONDIR/locked'; do sleep .5; done"
+varlinkctl call --more --timeout=infinity "$VARLINK_SOCKET" io.systemd.SysUpdate.Update '{"target":{"class":"component","name":"act-a"}}' >"$ACTIONDIR/lock.json" &
+pid=$!
+timeout 60 bash -c "until grep -F waiting_for_lock '$ACTIONDIR/lock.json' >/dev/null; do sleep .5; done"
+test ! -e "$ACTIONDIR/target-a/act-a-1.bin"
+# Release the lock by killing the process holding it (which is not $holder, but its child)
+kill "$(<"$ACTIONDIR/locked")"
+wait "$holder" || :
+wait "$pid"
+cmp "$ACTIONDIR/source/act-a-1.bin" "$ACTIONDIR/target-a/act-a-1.bin"
+[[ "$(jq --seq -r 'select(.phase != null and .iteration == 1) | .phase' <"$ACTIONDIR/lock.json" | uniq | tr '\n' ' ')" == "waiting_for_lock preparing vacuuming acquiring installing notifying " ]]
+
+# The update must not be affected if the client disconnects while it is running. Make the update wait for
+# the component lock, disconnect the client in the meantime, and then release the lock.
+action_reset
+mkdir -p /run/systemd/sysupdate/lock
+rm -f "$ACTIONDIR/locked"
+ofd_lock /run/systemd/sysupdate/lock/component-act-a bash -c 'echo $$ >"$0" && exec sleep infinity' "$ACTIONDIR/locked" &
+holder=$!
+timeout 60 bash -c "until test -s '$ACTIONDIR/locked'; do sleep .5; done"
+varlinkctl call --more --timeout=infinity "$VARLINK_SOCKET" io.systemd.SysUpdate.Update '{"target":{"class":"component","name":"act-a"}}' >"$ACTIONDIR/lock.json" &
+pid=$!
+timeout 60 bash -c "until grep -F waiting_for_lock '$ACTIONDIR/lock.json' >/dev/null; do sleep .5; done"
+kill "$pid"
+wait "$pid" || :
+# Release the lock by killing the process holding it (which is not $holder, but its child)
+kill "$(<"$ACTIONDIR/locked")"
+wait "$holder" || :
+timeout 60 bash -c "until cmp '$ACTIONDIR/source/act-a-1.bin' '$ACTIONDIR/target-a/act-a-1.bin' 2>/dev/null; do sleep .5; done"
+
 rm -rf "$ACTIONDIR" /run/sysupdate.act-a.d /run/sysupdate.act-b.d \
     /run/sysupdate.act-a.component /run/sysupdate.act-b.component \
     /var/lib/systemd/sysupdate/installdb.act-a /var/lib/systemd/sysupdate/installdb.act-b

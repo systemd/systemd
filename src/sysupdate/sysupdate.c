@@ -42,6 +42,7 @@
 #include "siphash24.h"
 #include "sort-util.h"
 #include "stdio-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sysupdate.h"
@@ -151,6 +152,8 @@ void context_done(Context *c) {
         c->transfer_source = mfree(c->transfer_source);
 
         target_identifier_done(&c->target_identifier);
+
+        c->link = sd_varlink_unref(c->link);
 }
 
 static int context_from_cmdline(Context *ret) {
@@ -235,6 +238,10 @@ static int context_from_base(const Context *base, Context *ret) {
          * device node is needed to resolve partition targets. We do not take over .mounted_dir however,
          * since the base context is responsible for unmounting it, and is expected to outlive us. */
         context.loop_device = loop_device_ref(base->loop_device);
+
+        /* Keep sending progress notifications to the same Varlink client, if any */
+        context.link = sd_varlink_ref(base->link);
+        context.iteration = base->iteration;
 
         *ret = TAKE_GENERIC(context, Context, CONTEXT_NULL);
         return 0;
@@ -1964,6 +1971,78 @@ static int context_load_offline_from_target(
         return context_load_offline(context, process_image_flags, read_definitions_flags);
 }
 
+typedef enum UpdatePhase {
+        UPDATE_PHASE_WAITING_FOR_LOCK,
+        UPDATE_PHASE_PREPARING,
+        UPDATE_PHASE_VACUUMING,
+        UPDATE_PHASE_ACQUIRING,
+        UPDATE_PHASE_INSTALLING,
+        UPDATE_PHASE_NOTIFYING,
+        _UPDATE_PHASE_MAX,
+        _UPDATE_PHASE_INVALID = -EINVAL,
+} UpdatePhase;
+
+static const char* const update_phase_table[_UPDATE_PHASE_MAX] = {
+        [UPDATE_PHASE_WAITING_FOR_LOCK] = "waiting-for-lock",
+        [UPDATE_PHASE_PREPARING]        = "preparing",
+        [UPDATE_PHASE_VACUUMING]        = "vacuuming",
+        [UPDATE_PHASE_ACQUIRING]        = "acquiring",
+        [UPDATE_PHASE_INSTALLING]       = "installing",
+        [UPDATE_PHASE_NOTIFYING]        = "notifying",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(update_phase, UpdatePhase);
+
+static void context_notify_phase(
+                const Context *c,
+                UpdatePhase phase,
+                const char *transfer,
+                const char *version,
+                unsigned percent) {
+
+        int r;
+
+        assert(c);
+        assert(phase >= 0);
+        assert(phase < _UPDATE_PHASE_MAX);
+
+        /* Sends a progress notification to the Varlink client, if there is one. Note that failures here are
+         * deliberately ignored: a client that went away (or is slow to read) must never affect the update
+         * itself, we just stop telling it about it. */
+
+        if (!c->link)
+                return;
+
+        r = sd_varlink_notifybo(
+                        c->link,
+                        JSON_BUILD_PAIR_ENUM("phase", update_phase_to_string(phase)),
+                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("iteration", c->iteration),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("component", c->component),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("transfer", transfer),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("version", version),
+                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("progress", percent, UINT_MAX));
+        if (r < 0) {
+                log_debug_errno(r, "Failed to enqueue Varlink progress notification, ignoring: %m");
+                return;
+        }
+
+        /* We are running synchronously inside the method handler, and the event loop of the Varlink
+         * server is not dispatched while we do, hence write out the notification here. Don't use
+         * sd_varlink_flush() for that, since it blocks until everything is written, and hence would let a
+         * client that doesn't read stall the update. Instead, only process the connection for as long as
+         * this is possible without blocking. If the client disconnected this will notice that, and all
+         * further notifications will fail (and be ignored). */
+        for (;;) {
+                r = sd_varlink_process(c->link);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to process Varlink connection, ignoring: %m");
+                        break;
+                }
+                if (r == 0)
+                        break;
+        }
+}
+
 static int context_on_acquire_progress(const Transfer *t, const Instance *inst, unsigned percentage) {
         const Context *c = ASSERT_PTR(t->context);
         size_t i, n = c->n_transfers;
@@ -1990,6 +2069,8 @@ static int context_on_acquire_progress(const Transfer *t, const Instance *inst, 
                         t->id,
                         glyph(GLYPH_ARROW_RIGHT),
                         inst->metadata.version);
+
+        context_notify_phase(c, UPDATE_PHASE_ACQUIRING, t->id, inst->metadata.version, percentage);
 
         return sd_notifyf(/* unset_environment= */ false, "X_SYSUPDATE_PROGRESS=%u\n"
                                               "X_SYSUPDATE_TRANSFERS_LEFT=%zu\n"
@@ -2073,6 +2154,8 @@ static int context_acquire(
                           "X_SYSUPDATE_VERSION=%s\n"
                           "STATUS=Making room for '%s'.", us->version, us->version);
 
+        context_notify_phase(c, UPDATE_PHASE_VACUUMING, /* transfer= */ NULL, us->version, /* percent= */ UINT_MAX);
+
         /* Let's make some room. We make sure for each transfer we have one free space to fill. While
          * removing stuff we'll protect the version we are trying to acquire. Why that? Maybe an earlier
          * download succeeded already, in which case we shouldn't remove it just to acquire it again */
@@ -2102,6 +2185,8 @@ static int context_acquire(
                         assert(FLAGS_SET(us->flags, UPDATE_INCOMPLETE));
                         continue;
                 }
+
+                context_notify_phase(c, UPDATE_PHASE_ACQUIRING, t->id, us->version, /* percent= */ UINT_MAX);
 
                 r = transfer_acquire_instance(t, inst, metadata + i, context_on_acquire_progress, c);
                 clear_progress_bar(/* prefix= */ NULL);
@@ -2202,6 +2287,10 @@ static int context_notify_subscribers(Context *c, UpdateSet *us) {
 
         assert(c);
 
+        /* Subscribers are only interested in updates of the host, not of some image or directory tree */
+        if (c->root)
+                return 0;
+
         /* 'us' is NULL when we are forced to notify even though no update was applied (via
          * SYSTEMD_SYSUPDATE_FORCE_NOTIFY=1). In that case we send neither a version nor a resource list. */
 
@@ -2286,6 +2375,8 @@ static int context_install(
                           "X_SYSUPDATE_VERSION=%s\n"
                           "STATUS=Installing '%s'.", us->version, us->version);
 
+        context_notify_phase(c, UPDATE_PHASE_INSTALLING, /* transfer= */ NULL, us->version, /* percent= */ UINT_MAX);
+
         for (size_t i = 0; i < c->n_transfers; i++) {
                 Instance *inst = us->instances[i];
                 Transfer *t = c->transfers[i];
@@ -2300,9 +2391,6 @@ static int context_install(
         }
 
         log_info("%s Successfully installed update '%s'.", glyph(GLYPH_SPARKLES), us->version);
-
-        if (!c->root)
-                (void) context_notify_subscribers(c, us);
 
         (void) sd_notifyf(/* unset_environment= */ false,
                           "STATUS=Installed '%s'.", us->version);
@@ -3339,6 +3427,9 @@ static int context_lock_component(Context *c, LockFile *ret) {
                 else
                         log_info("Default installation is currently being updated by another process, waiting.");
 
+                /* Let the client know why nothing is happening, then wait for the lock */
+                context_notify_phase(c, UPDATE_PHASE_WAITING_FOR_LOCK, /* transfer= */ NULL, /* version= */ NULL, /* percent= */ UINT_MAX);
+
                 r = make_lock_file_at(dfd, fn, LOCK_EX, ret);
         }
         if (r < 0)
@@ -3372,6 +3463,8 @@ static int context_update(
         if (r < 0)
                 return r;
 
+        context_notify_phase(c, UPDATE_PHASE_PREPARING, /* transfer= */ NULL, version, /* percent= */ UINT_MAX);
+
         r = context_load_online(
                         c,
                         /* process_image_flags= */ 0,
@@ -3401,9 +3494,14 @@ static int context_update(
                                 updated = *installed = true;
                 }
 
-                /* context_install() returns > 0 (and emits a notification) only if it actually applied an update. If
-                 * nothing was applied but SYSTEMD_SYSUPDATE_FORCE_NOTIFY=1 is set, still notify subscribers (without a
-                 * resource list), so e.g. a kernel/policy refresh can be triggered unconditionally. */
+                context_notify_phase(c, UPDATE_PHASE_NOTIFYING, /* transfer= */ NULL, updated ? applied->version : NULL, /* percent= */ UINT_MAX);
+
+                if (updated)
+                        (void) context_notify_subscribers(c, applied);
+
+                /* context_install() returns > 0 only if it actually applied an update. If nothing was applied
+                 * but SYSTEMD_SYSUPDATE_FORCE_NOTIFY=1 is set, still notify subscribers (without a resource
+                 * list), so e.g. a kernel/policy refresh can be triggered unconditionally. */
                 if (FLAGS_SET(action_flags, UPDATE_ACTION_INSTALL) && !updated) {
                         int f = secure_getenv_bool("SYSTEMD_SYSUPDATE_FORCE_NOTIFY");
                         if (f < 0 && f != -ENXIO)
@@ -3530,6 +3628,7 @@ static int context_update_loop(
                 const char *booted_version,
                 UpdateActionFlags action_flags,
                 unsigned loop,
+                bool *installed,
                 bool *reboot_needed) {
 
         int r, ret = 0;
@@ -3539,9 +3638,9 @@ static int context_update_loop(
 
         /* Runs up to 'loop' update iterations, until a stable state is reached. Doesn't reboot on its own,
          * but returns whether a reboot is needed, if the booted version is specified. Note that
-         * *reboot_needed (if non-NULL) is only ever set to true, never reset to false, hence it must be
-         * initialized by the caller. It is updated even on failure, since an update might have been
-         * installed before something else failed. */
+         * *installed and *reboot_needed (if non-NULL) are only ever set to true, never reset to false, hence
+         * they must be initialized by the caller. They are updated even on failure, since an update might
+         * have been installed before something else failed. */
 
         for (unsigned iteration = 1;; iteration++) {
                 _cleanup_(context_done) Context copy = CONTEXT_NULL;
@@ -3566,6 +3665,8 @@ static int context_update_loop(
                 if (loop > 1)
                         log_debug("Starting update iteration %u of at most %u.", iteration, loop);
 
+                c->iteration = iteration;
+
                 r = context_update_iteration(c, version, booted_version, action_flags, reboot_needed, &ret);
                 if (r < 0) {
                         RET_GATHER(ret, r);
@@ -3576,6 +3677,10 @@ static int context_update_loop(
                                 log_info("No further updates installed, stable state reached after %u iterations.", iteration);
                         break;
                 }
+
+                if (installed)
+                        *installed = true;
+
                 if (iteration >= loop) {
                         if (loop > 1)
                                 log_notice("Maximum number of update iterations (%u) reached, not looking for further updates.", loop);
@@ -3629,7 +3734,7 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
         }
 
         bool reboot_needed = false;
-        int ret = context_update_loop(&context, version, booted_version, action_flags, arg_loop, &reboot_needed);
+        int ret = context_update_loop(&context, version, booted_version, action_flags, arg_loop, /* installed= */ NULL, &reboot_needed);
 
         if (reboot_needed) {
                 log_notice("Rebooting.");
@@ -3637,6 +3742,159 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
         }
 
         return ret;
+}
+
+static int dispatch_update_action(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        UpdateActionFlags *a = ASSERT_PTR(userdata);
+        const char *s;
+
+        if (sd_json_variant_is_null(variant)) {
+                *a = UPDATE_ACTION_ACQUIRE|UPDATE_ACTION_INSTALL;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+
+        s = sd_json_variant_string(variant);
+        if (streq(s, "update"))
+                *a = UPDATE_ACTION_ACQUIRE|UPDATE_ACTION_INSTALL;
+        else if (streq(s, "acquire"))
+                *a = UPDATE_ACTION_ACQUIRE;
+        else if (streq(s, "install"))
+                *a = UPDATE_ACTION_INSTALL;
+        else
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid update action.", strna(name));
+
+        return 0;
+}
+
+typedef struct UpdateParameters {
+        Context context;
+        char *version;
+        UpdateActionFlags action_flags;
+        unsigned loop;
+} UpdateParameters;
+
+static void update_parameters_done(UpdateParameters *p) {
+        assert(p);
+
+        context_done(&p->context);
+        p->version = mfree(p->version);
+}
+
+static int vl_method_update(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        _cleanup_(update_parameters_done) UpdateParameters p = {
+                .context = CONTEXT_NULL,
+                .action_flags = UPDATE_ACTION_ACQUIRE|UPDATE_ACTION_INSTALL,
+                .loop = 1,
+        };
+        int r;
+
+        assert(link);
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "target",  SD_JSON_VARIANT_OBJECT,        dispatch_target_identifier, offsetof(UpdateParameters, context.target_identifier), SD_JSON_NULLABLE },
+                { "version", SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,    offsetof(UpdateParameters, version),                   SD_JSON_NULLABLE },
+                { "action",  SD_JSON_VARIANT_STRING,        dispatch_update_action,     offsetof(UpdateParameters, action_flags),              SD_JSON_NULLABLE },
+                { "loop",    _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,      offsetof(UpdateParameters, loop),                      SD_JSON_NULLABLE },
+                { "cleanup", SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,  offsetof(UpdateParameters, context.cleanup),           SD_JSON_NULLABLE },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {},
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        /* If no target is specified, update the host's default installation and all of its enabled
+         * components, like "update --component-all". */
+        if (p.context.target_identifier.class < 0) {
+                p.context.target_identifier.class = TARGET_HOST;
+                p.context.component_select = SELECT_ALL;
+        }
+
+        if (p.version && !version_is_valid(p.version, VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS))
+                return sd_varlink_error_invalid_parameter_name(link, "version");
+        if (p.loop == UINT_MAX) /* explicitly set to null → default */
+                p.loop = 1;
+        if (p.loop == 0)
+                return sd_varlink_error_invalid_parameter_name(link, "loop");
+        /* Only installing updates can make new updates available, hence looping makes no sense if we only
+         * acquire. */
+        if (p.loop > 1 && !FLAGS_SET(p.action_flags, UPDATE_ACTION_INSTALL))
+                return sd_varlink_error_invalid_parameter_name(link, "loop");
+
+        /* Polkit details are a NULL terminated list, hence we cannot have NULL entries in the middle. Add the
+         * optional pairs one by one. */
+        const char *details[4 * 2 + 1] = {
+                "class", target_class_to_string(p.context.target_identifier.class),
+                "offline", one_zero(!FLAGS_SET(p.action_flags, UPDATE_ACTION_ACQUIRE)),
+        };
+        size_t n_details = 4;
+        if (p.context.target_identifier.name) {
+                details[n_details++] = "name";
+                details[n_details++] = p.context.target_identifier.name;
+        }
+        if (p.version) {
+                details[n_details++] = "version";
+                details[n_details++] = p.version;
+        }
+        assert(n_details < ELEMENTSOF(details));
+
+        /* We don’t have a separate polkit action for acquire/install as they are both effectively (part of)
+         * an update anyway. */
+        r = verify_polkit(&p.context, link,
+                          p.version ? "org.freedesktop.sysupdate1.update-to-version" : "org.freedesktop.sysupdate1.update",
+                          details);
+        if (r <= 0)
+                return r;
+
+        if (getenv_bool("SYSTEMD_SYSUPDATE_NO_VERIFY") > 0)
+                p.context.verify = 0;
+
+        /* If we shall only install, then do so from what has already been acquired, like "update --offline" */
+        p.context.offline = !FLAGS_SET(p.action_flags, UPDATE_ACTION_ACQUIRE);
+
+        r = context_load_paths_from_target(&p.context);
+        if (r == -ENOENT)
+                return sd_varlink_error(link, "io.systemd.SysUpdate.NoSuchTarget", /* parameters= */ NULL);
+        if (r < 0)
+                return r;
+
+        /* If we update the host's default installation, determine the booted version, so that we can tell
+         * whether a reboot is needed afterwards. If it cannot be determined, we just don't report that. */
+        _cleanup_free_ char *booted_version = NULL;
+        if (p.context.target_identifier.class == TARGET_HOST) {
+                r = parse_os_release(/* root= */ NULL, "IMAGE_VERSION", &booted_version);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to read IMAGE_VERSION from /etc/os-release, not determining whether a reboot is needed: %m");
+                else if (!booted_version)
+                        log_debug("/etc/os-release lacks IMAGE_VERSION field, not determining whether a reboot is needed.");
+        }
+
+        /* Progress notifications are only sent if the client asked for them */
+        if (FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                p.context.link = sd_varlink_ref(link);
+
+        bool installed = false, reboot_needed = false;
+        r = context_update_loop(&p.context, p.version, booted_version, p.action_flags, p.loop, &installed, &reboot_needed);
+
+        /* Don't send any further notifications from here on */
+        p.context.link = sd_varlink_unref(p.context.link);
+
+        if (r < 0)
+                return r;
+
+        r = sd_varlink_replybo(
+                        link,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("installed", installed),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!booted_version, "rebootNeeded", SD_JSON_BUILD_BOOLEAN(reboot_needed)));
+        if (r < 0)
+                /* The client might have disconnected in the meantime, which is fine, the update is done anyway */
+                log_debug_errno(r, "Failed to send Varlink reply, ignoring: %m");
+
+        return 0;
 }
 
 VERB(verb_update, "update", "[VERSION]\0", VERB_ANY, 2, 0,
@@ -4579,7 +4837,8 @@ static int vl_server(void) {
                         varlink_server,
                         "io.systemd.SysUpdate.CheckNew",     vl_method_check_new,
                         "io.systemd.SysUpdate.ListFeatures", vl_method_list_features,
-                        "io.systemd.SysUpdate.ListTargets",  vl_method_list_targets);
+                        "io.systemd.SysUpdate.ListTargets",  vl_method_list_targets,
+                        "io.systemd.SysUpdate.Update",       vl_method_update);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink method: %m");
 

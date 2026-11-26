@@ -68,6 +68,9 @@ typedef struct Context {
         int installdb_fd;
 
         TargetIdentifier target_identifier;
+
+        sd_varlink *link; /* If set, progress notifications are sent to this Varlink connection */
+        unsigned iteration; /* The current update iteration (1-based), reported in progress notifications */
 } Context;
 
 void context_done(Context *c);
