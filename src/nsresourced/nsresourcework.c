@@ -22,6 +22,7 @@
 
 #include "argv-util.h"
 #include "bus-polkit.h"
+#include "cgroup-setup.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "ether-addr-util.h"
@@ -2108,6 +2109,25 @@ static int vl_method_add_cgroup_to_user_namespace(sd_varlink *link, sd_json_vari
                         return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, /* parameters= */ NULL);
         }
 
+        /* Pin the attributes before recording the delegation or changing any ownership. */
+        static const char *const attributes[] = { "cgroup.procs", "cgroup.subtree_control", "cgroup.threads" };
+        int attr_fds[ELEMENTSOF(attributes)];
+        FOREACH_ELEMENT(fd, attr_fds)
+                *fd = -EBADF;
+        CLEANUP_ELEMENTS(attr_fds, close_many_unset);
+
+        for (size_t i = 0; i < ELEMENTSOF(attributes); i++) {
+                attr_fds[i] = cg_pin_attribute(cgroup_fd, attributes[i]);
+                if (attr_fds[i] == -ENOENT && streq(attributes[i], "cgroup.threads"))
+                        continue;
+                if (IN_SET(attr_fds[i], -EXDEV, -ELOOP, -EISDIR, -EBADFD, -ENOTDIR)) {
+                        log_debug_errno(attr_fds[i], "Cgroup attribute '%s' is not a regular file on the same mount: %m", attributes[i]);
+                        return sd_varlink_error_invalid_parameter_name(link, "controlGroupFileDescriptor");
+                }
+                if (attr_fds[i] < 0)
+                        return log_debug_errno(attr_fds[i], "Failed to open cgroup attribute '%s': %m", attributes[i]);
+        }
+
         r = userns_info_add_cgroup(userns_info, cgroup_id);
         if (r < 0)
                 return r;
@@ -2122,9 +2142,14 @@ static int vl_method_add_cgroup_to_user_namespace(sd_varlink *link, sd_json_vari
         if (fchmod(cgroup_fd, 0755) < 0)
                 return log_debug_errno(errno, "Failed to change access mode of cgroup: %m");
 
-        FOREACH_STRING(attr, "cgroup.procs", "cgroup.subtree_control", "cgroup.threads") {
-                (void) fchmodat(cgroup_fd, attr, 0644, AT_SYMLINK_NOFOLLOW);
-                (void) fchownat(cgroup_fd, attr, userns_info->start_uid, userns_info->start_gid, AT_SYMLINK_NOFOLLOW);
+        /* The delegation is already recorded, so a failure on one attribute must not prevent updating the rest. */
+        for (size_t i = 0; i < ELEMENTSOF(attributes); i++) {
+                if (attr_fds[i] < 0)
+                        continue;
+
+                r = fchmod_and_chown(attr_fds[i], 0644, userns_info->start_uid, userns_info->start_gid);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to set ownership and mode of cgroup attribute '%s', ignoring: %m", attributes[i]);
         }
 
         log_debug("Granting ownership to cgroup %" PRIu64 " to userns " INO_FMT " ('%s' @ UID " UID_FMT ")",
