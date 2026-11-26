@@ -479,6 +479,10 @@ units = [
           'conditions' : ['ENABLE_IMDS'],
         },
         {
+          'file' : 'systemd-imds-import-initrd.service.in',
+          'conditions' : ['ENABLE_IMDS'],
+        },
+        {
           'file' : 'systemd-imds-metrics.socket',
           'conditions' : ['ENABLE_IMDS'],
         },

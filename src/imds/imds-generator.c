@@ -2,6 +2,7 @@
 
 #include "sd-hwdb.h"
 
+#include "alloc-util.h"
 #include "dropin.h"
 #include "fileio.h"
 #include "generator.h"
@@ -9,6 +10,7 @@
 #include "initrd-util.h"
 #include "log.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "proc-cmdline.h"
 #include "special.h"
 #include "string-util.h"
@@ -208,10 +210,16 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         if (arg_import < 0)
                 arg_import = in_initrd();
         if (arg_import > 0) {
-                /* Enable the import of IMDS data */
-                r = generator_add_symlink(dest_early, SPECIAL_SYSINIT_TARGET, "wants", SYSTEM_DATA_UNIT_DIR "/systemd-imds-import.service");
+                /* Enable the import of IMDS data. The initrd has its own unit, which doesn't wait for
+                 * network-online.target. */
+                const char *unit = in_initrd() ? "systemd-imds-import-initrd.service" : "systemd-imds-import.service";
+                _cleanup_free_ char *path = path_join(SYSTEM_DATA_UNIT_DIR, unit);
+                if (!path)
+                        return log_oom();
+
+                r = generator_add_symlink(dest_early, SPECIAL_SYSINIT_TARGET, "wants", path);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to hook in systemd-imds-import.service: %m");
+                        return log_error_errno(r, "Failed to hook in %s: %m", unit);
         }
 
         /* Enable IMDS metrics in case IMDS is supported */
