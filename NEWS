@@ -354,6 +354,36 @@ CHANGES WITH 263 in spe:
           and JSON configuration files: these must not contain duplicate keys
           anymore. This is in line with the I-JSON profile of RFC 7493.
 
+        * ConditionPathIsEncrypted=/AssertPathIsEncrypted= now only consider
+          file systems backed by dm-crypt (e.g. LUKS) block devices as
+          encrypted, as documented. Previously, file systems on dm-verity or
+          standalone dm-integrity block devices were considered encrypted
+          too, even though these only authenticate (or merely checksum) the
+          data, and do not encrypt it. This old behaviour was never
+          intended, it was an accident of the implementation, which simply
+          treated any block device set up by libcryptsetup as encrypted.
+          Since units might have relied on it nonetheless, this bugfix is
+          listed here as an incompatible change.
+
+        * systemd-sysext and systemd-confext gained a new DirectoryPolicy=
+          setting in sysext.conf/confext.conf, which controls whether plain
+          directory (and btrfs subvolume) extension images are considered.
+          It takes a boolean or the special value "auto", and defaults to
+          the latter. In "auto" mode directory images are only merged if
+          they are located below /usr/ or /var/, if the file system they
+          are located on is a tmpfs (e.g. /run/), if it is backed by
+          dm-crypt or dm-verity storage, or if it is the same file system
+          that backs the root directory, /usr/ or /var/. Previously,
+          directory images were merged regardless of where they were
+          located. This means directory images placed on unprotected
+          storage, such as the ESP, or on other file systems that are not
+          authenticated or encrypted, are now ignored by default.
+          Set DirectoryPolicy=yes (or use the new --directory-policy=yes
+          switch) to restore the old behaviour. The directory policy is
+          enforced at activation time, i.e. if a directory image is refused,
+          its extension name is skipped entirely, and a lower-priority disk
+          image of the same name is not considered either.
+
         Changes in the system and service manager:
 
         * The [Unit] section gained Tags=, a space-separated list of labels

@@ -724,7 +724,7 @@ static int image_make(
         return -EMEDIUMTYPE;
 }
 
-static int pick_image_search_path(
+static int pick_image_search_path_default(
                 RuntimeScope scope,
                 ImageClass class,
                 const char *root,
@@ -744,11 +744,11 @@ static int pick_image_search_path(
         if (scope < 0) {
                 _cleanup_strv_free_ char **a = NULL, **b = NULL;
 
-                r = pick_image_search_path(RUNTIME_SCOPE_USER, class, root, &a);
+                r = pick_image_search_path_default(RUNTIME_SCOPE_USER, class, root, &a);
                 if (r < 0)
                         return r;
 
-                r = pick_image_search_path(RUNTIME_SCOPE_SYSTEM, class, root, &b);
+                r = pick_image_search_path_default(RUNTIME_SCOPE_SYSTEM, class, root, &b);
                 if (r < 0)
                         return r;
 
@@ -820,6 +820,78 @@ static int pick_image_search_path(
         }
 
         *ret = NULL;
+        return 0;
+}
+
+static int pick_image_search_path(
+                RuntimeScope scope,
+                ImageClass class,
+                const char *root,
+                char ***ret) {
+
+        _cleanup_strv_free_ char **defaults = NULL, **l = NULL, **entries = NULL;
+        _cleanup_free_ char *n = NULL;
+        const char *e;
+        int r;
+
+        assert(ret);
+
+        r = pick_image_search_path_default(scope, class, root, &defaults);
+        if (r < 0)
+                return r;
+
+        if (class < 0) {
+                *ret = TAKE_PTR(defaults);
+                return 0;
+        }
+
+        /* The search path may be overridden via $SYSTEMD_IMAGE_<CLASS>_PATH, as a colon separated list of
+         * absolute paths (which are relative to the root directory, like the built-in ones). An entry "+"
+         * is replaced by the default search path, which allows extending it rather than replacing it. */
+
+        n = strjoin("SYSTEMD_IMAGE_", image_class_to_string(class), "_PATH");
+        if (!n)
+                return -ENOMEM;
+        ascii_strupper(n);
+
+        e = secure_getenv(n);
+        if (!e) {
+                *ret = TAKE_PTR(defaults);
+                return 0;
+        }
+
+        entries = strv_split(e, ":");
+        if (!entries)
+                return -ENOMEM;
+
+        STRV_FOREACH(i, entries) {
+                if (streq(*i, "+")) {
+                        r = strv_extend_strv(&l, defaults, /* filter_duplicates= */ true);
+                        if (r < 0)
+                                return r;
+
+                        continue;
+                }
+
+                if (!path_is_absolute(*i) || !path_is_normalized(*i)) {
+                        log_warning("Entry '%s' in $%s is not a normalized absolute path, ignoring.", *i, n);
+                        continue;
+                }
+
+                if (strv_contains(l, *i))
+                        continue;
+
+                r = strv_extend(&l, *i);
+                if (r < 0)
+                        return r;
+        }
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *j = strv_join(l, ":");
+                log_debug("Using image search path '%s' for %s images, as configured via $%s.", strnull(j), image_class_to_string(class), n);
+        }
+
+        *ret = TAKE_PTR(l);
         return 0;
 }
 

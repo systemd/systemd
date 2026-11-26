@@ -38,6 +38,7 @@ _systemd-sysext() {
                --noexec
                --always-refresh
                --image-policy
+               --directory-policy
                --mutable'
     )
 
@@ -68,6 +69,9 @@ _systemd-sysext() {
                 ;;
             --mutable)
                 comps=$( systemd-sysext --no-legend --mutable=help 2>/dev/null; echo help )
+                ;;
+            --directory-policy)
+                comps=$( systemd-sysext --no-legend --directory-policy=help 2>/dev/null; echo help )
                 ;;
         esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
