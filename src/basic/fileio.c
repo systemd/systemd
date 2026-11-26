@@ -769,7 +769,10 @@ int read_full_stream_full(
                         break;
 
                 if (size != SIZE_MAX && !FLAGS_SET(flags, READ_FULL_FILE_FAIL_WHEN_LARGER)) { /* If we got asked to read some specific size, we already sized the buffer right, hence leave */
-                        assert(l == size);
+                        if (l < size && n >= READ_FULL_BYTES_MAX) {
+                                r = -E2BIG;
+                                goto finalize;
+                        }
                         break;
                 }
 
