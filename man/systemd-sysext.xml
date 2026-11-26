@@ -443,7 +443,8 @@
 
     <para>The modification time of the hierarchy's top-level directory (i.e. the directory the metadata
     directory is located in) indicates when the hierarchy was merged. The metadata files should be considered
-    read-only, and must not be modified.</para>
+    read-only, and must not be modified. Layers that contain a metadata directory of their own are refused
+    when merging.</para>
   </refsect1>
 
   <refsect1>

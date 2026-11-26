@@ -1354,6 +1354,29 @@ static int determine_work_dir(const Context *c, OverlayFSPaths *op) {
         return 0;
 }
 
+static int layer_check_no_meta_directory(ImageClass image_class, const char *layer) {
+        int r;
+
+        assert(layer);
+
+        /* Refuse layers that carry our metadata directory, so that nobody can make the merged hierarchy
+         * show files in it that we did not place there ourselves. */
+
+        _cleanup_free_ char *j = path_join(layer, image_class_info[image_class].dot_directory_name);
+        if (!j)
+                return log_oom();
+
+        r = access_nofollow(j, F_OK);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if '%s' exists: %m", j);
+
+        return log_error_errno(SYNTHETIC_ERRNO(EBUSY),
+                               "Layer '%s' contains a '%s' directory, refusing.",
+                               layer, image_class_info[image_class].dot_directory_name);
+}
+
 static int mount_overlayfs_with_op(
                 OverlayFSPaths *op,
                 ImageClass image_class,
@@ -1401,6 +1424,22 @@ static int mount_overlayfs_with_op(
         } else {
                 assert(!strv_isempty(op->lower_dirs));
                 top_layer = op->lower_dirs[0];
+        }
+
+        /* Only our own meta layer may carry the metadata directory */
+        STRV_FOREACH(l, op->lower_dirs) {
+                if (path_equal(*l, meta_path))
+                        continue;
+
+                r = layer_check_no_meta_directory(image_class, *l);
+                if (r < 0)
+                        return r;
+        }
+
+        if (op->upper_dir) {
+                r = layer_check_no_meta_directory(image_class, op->upper_dir);
+                if (r < 0)
+                        return r;
         }
 
         /* Overlayfs merged directory has the same mode as the top layer (either first lowerdir in options in
