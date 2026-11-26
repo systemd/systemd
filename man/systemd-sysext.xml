@@ -125,6 +125,19 @@
     <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> with
     extension images found in the system's EFI System Partition.</para>
 
+    <para>Whether directory based extension images are considered is controlled by the directory policy,
+    which may be configured via the <option>--directory-policy=</option> option and the
+    <varname>DirectoryPolicy=</varname> setting in the configuration file. By default directory images are
+    only merged if they are located below <filename>/usr/</filename> or <filename>/var/</filename>, on a
+    <literal>tmpfs</literal> file system (such as <filename>/run/</filename>), on a dm-crypt or dm-verity
+    backed file system, or on the same file system as the root directory, <filename>/usr/</filename> or
+    <filename>/var/</filename>. Just like the image policy (see
+    <option>--image-policy=</option> below), the directory policy is enforced when an extension is
+    activated: if the directory found under an extension name is refused, the extension name is skipped
+    entirely, i.e. it is not attempted to fall back to a lower-priority image of the same name. The
+    directory policy and the image policy are not taken into account when listing images via
+    <option>list</option>.</para>
+
     <para>During boot, system and configuration extension images are activated automatically if the
     <filename>systemd-sysext.service</filename> and <filename>systemd-confext.service</filename> services are
     enabled. Note that these services run only after the underlying file systems where system and configuration
@@ -406,8 +419,10 @@
         <literal><replaceable>major</replaceable>:<replaceable>minor</replaceable></literal>) of the block
         device backing the original, underlying hierarchy, i.e. the file system that is covered by the
         <literal>overlayfs</literal> file system. This may be used to determine the actual file system backing
-        the hierarchy (if the <filename>dev</filename> file matches, see above). This file is not created if
-        the underlying hierarchy is not backed by a block device.</para>
+        the hierarchy. For example, <command>systemd-sysext</command> uses it (if the <filename>dev</filename>
+        file matches, see above) to determine the file system backing <filename>/usr/</filename> when applying
+        the directory policy. This file is not created if the underlying hierarchy is not backed by a block
+        device.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
@@ -511,7 +526,9 @@
       <varlistentry>
         <term><option>list</option></term>
 
-        <listitem><para>A brief list of installed extension images is shown.</para>
+        <listitem><para>A brief list of installed extension images is shown. Note that this lists all
+        installed images, regardless of whether they would be refused by the image policy or the directory
+        policy on activation.</para>
 
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
@@ -575,6 +592,19 @@
         see above for details.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--directory-policy=<replaceable>BOOL</replaceable>|<replaceable>auto</replaceable>|<replaceable>help</replaceable></option></term>
+
+        <listitem><para>Controls whether directory (or btrfs subvolume) based extension images are
+        considered. Takes a boolean or the special value <literal>auto</literal>. Overrides the
+        <varname>DirectoryPolicy=</varname> setting in
+        <citerefentry><refentrytitle>sysext.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        see there for details. The special value <literal>help</literal> will list the known
+        values.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
 
       <varlistentry>
