@@ -938,6 +938,72 @@ EOF
     rm -f "$SCRIPT" "$CAPCONF" /etc/pam.d/"$PAMSERVICE"
 }
 
+testcase_ambient_caps_pam_permitted() (
+    local pam="test-pam-caps-$BASHPID"
+
+    if ! command -v python3 >/dev/null; then
+        echo "python3 not available, skipping test." >&2
+        return
+    fi
+
+    trap 'rm -f "/etc/pam.d/$pam"' EXIT
+    cat >"/etc/pam.d/$pam" <<EOF
+auth    required pam_permit.so
+account required pam_permit.so
+session required pam_permit.so
+EOF
+
+    # A normal exec replaces the permitted set, hiding what the executor retained. Hold a write lease on
+    # a private copy of true: the kernel notifies us and blocks exec until we have inspected its credentials.
+    python3 - "$pam" <<'PY'
+import fcntl
+import shutil
+import signal
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+pam = f'PAMName={sys.argv[1]}'
+signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGIO})
+
+with tempfile.TemporaryDirectory(dir='/var/tmp') as tmp:
+    probe = Path(tmp) / 'true'
+    shutil.copy('/usr/bin/true', probe)
+    probe.parent.chmod(0o755)
+
+    def permitted(name, *properties):
+        unit = f'{sys.argv[1]}-{name}.service'
+        with probe.open('rb') as f:
+            fcntl.fcntl(f, fcntl.F_SETLEASE, fcntl.F_WRLCK)
+            cmd = ['systemd-run', '--quiet', '--wait', '--service-type=exec', f'--unit={unit}',
+                   '-p', 'User=logind-test-user', '-p', 'NoNewPrivileges=yes']
+            with subprocess.Popen([*cmd, *(f'--property={p}' for p in properties), probe]) as runner:
+                try:
+                    assert signal.sigtimedwait({signal.SIGIO}, 30), f'{unit}: did not reach exec'
+                    pid = subprocess.check_output(['systemctl', 'show', '-P', 'MainPID', unit], text=True).strip()
+                    status = dict(line.split(':', 1) for line in Path(f'/proc/{pid}/status').read_text().splitlines())
+                    assert int(status['Uid'].split()[0]) != 0 and int(status['NoNewPrivs']) == 1, status
+                    caps = int(status['CapPrm'], 16)
+                finally:
+                    fcntl.fcntl(f, fcntl.F_SETLEASE, fcntl.F_UNLCK)
+                assert runner.wait(timeout=30) == 0, unit
+        return caps
+
+    # No ambient capabilities were requested. Check both sides of seccomp_allows_drop_privileges().
+    for name, options in [('plain', []), ('seccomp', ['SystemCallFilter=@system-service']),
+                          ('no-capset', ['SystemCallFilter=~capset'])]:
+        caps = permitted(name, pam, *options)
+        assert caps == 0, (name, hex(caps))
+
+    # Settings which retain capabilities independently of PAM must behave the same with and without it.
+    for name, prop in [('ambient', 'AmbientCapabilities=CAP_CHOWN'), ('keep', 'SecureBits=keep-caps')]:
+        without = permitted(name, prop)
+        with_pam = permitted(f'{name}-pam', prop, pam)
+        assert with_pam == without, (name, hex(with_pam), hex(without))
+PY
+)
+
 background_at_return() {
     rm -f /etc/pam.d/"$PAMSERVICE"
     unset PAMSERVICE
