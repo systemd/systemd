@@ -101,6 +101,11 @@ All tools:
   unset, only the event loops of programs that enable io_uring use it. Only
   useful for testing.
 
+* `$SYSTEMD_OVERLAYFS_DETACHED_LAYERS=` — takes a boolean. If false, `overlayfs`
+  mounts are assembled as on kernels older than 6.15, which do not take detached
+  mounts as layers: the layers are attached in a private mount namespace first.
+  Defaults to true. Only useful for testing.
+
 * `$SYSTEMD_BUS_TIMEOUT=SECS` — specifies the maximum time to wait for method call
   completion. If no time unit is specified, assumes seconds. The usual other units
   are understood, too (us, ms, s, min, h, d, w, month, y). If it is not set or set
