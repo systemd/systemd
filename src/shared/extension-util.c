@@ -227,6 +227,30 @@ int extension_has_forbidden_content(const char *root) {
         return 0;
 }
 
+int extension_has_forbidden_content_at(int rfd, const char *rfd_path) {
+        const char *p;
+        int r;
+
+        assert(rfd >= 0);
+
+        /* Like extension_has_forbidden_content(), but rfd refers to the directory rfd_path of the extension,
+         * e.g. "/usr" for an image that only carries a /usr partition. */
+
+        p = path_startswith("/usr/lib/os-release", empty_to_root(rfd_path));
+        if (!p)
+                return 0;
+
+        r = chaseat(rfd, rfd, p, /* flags= */ 0, /* ret_path= */ NULL, /* ret_fd= */ NULL);
+        if (r >= 0) {
+                log_debug("Extension contains '/usr/lib/os-release', which is not allowed, refusing.");
+                return 1;
+        }
+        if (r != -ENOENT)
+                return log_debug_errno(r, "Failed to determine whether '/usr/lib/os-release' exists in the extension: %m");
+
+        return 0;
+}
+
 int extension_overlay_block(const char *p, ImageClass image_class, dev_t *ret) {
         int r;
 

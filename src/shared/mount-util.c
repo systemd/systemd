@@ -10,6 +10,7 @@
 #include "chase.h"
 #include "creds-util.h"
 #include "dissect-image.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -1769,6 +1770,7 @@ static void sub_mount_clear(SubMount *s) {
 
         s->path = mfree(s->path);
         s->mount_fd = safe_close(s->mount_fd);
+        s->original_fd = safe_close(s->original_fd);
 }
 
 DEFINE_ARRAY_FREE_FUNC(sub_mount_array_free, SubMount, sub_mount_clear);
@@ -1829,7 +1831,7 @@ int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_moun
                 return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
         for (;;) {
-                _cleanup_close_ int mount_fd = -EBADF;
+                _cleanup_close_ int mount_fd = -EBADF, original_fd = -EBADF;
                 _cleanup_free_ char *p = NULL;
                 struct libmnt_fs *fs;
                 const char *path;
@@ -1853,6 +1855,14 @@ int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_moun
                 if (r <= 0)
                         continue;
 
+                /* Pin the original and clone from the pin, so that both refer to the same mount even if the
+                 * path changes in between. */
+                original_fd = RET_NERRNO(open_tree(AT_FDCWD, path, OPEN_TREE_CLOEXEC|AT_NO_AUTOMOUNT));
+                if (original_fd == -ENOENT) /* The path may be hidden by another over-mount or already unmounted. */
+                        continue;
+                if (original_fd < 0)
+                        return log_debug_errno(original_fd, "Failed to pin mount '%s': %m", path);
+
                 /* If possible on a newer kernel, use MS_PRIVATE to decouple it from the original mount.
                  * Otherwise MNT_DETACH of the source path could propagate through and unmount the
                  * just-moved nested children at the destination (relevant for preserving nested mounts
@@ -1869,11 +1879,9 @@ int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_moun
 
                 if (!mount_attr_unsupported) {
                         mount_fd = open_tree_attr_with_fallback(
-                                        AT_FDCWD, path,
+                                        original_fd, /* path= */ NULL,
                                         OPEN_TREE_CLONE|AT_RECURSIVE|AT_NO_AUTOMOUNT,
                                         &(struct mount_attr) { .propagation = MS_PRIVATE });
-                        if (mount_fd == -ENOENT) /* The path may be hidden by another over-mount or already unmounted. */
-                                continue;
                         if (mount_fd < 0 && ERRNO_IS_NEG_NOT_SUPPORTED(mount_fd)) {
                                 /* On a kernel older than 5.12 without mount_setattr() we do the regular
                                  * clone. Nested mounts under sysext and similar cases may get lost. */
@@ -1884,9 +1892,7 @@ int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_moun
                 }
 
                 if (mount_attr_unsupported) {
-                        mount_fd = RET_NERRNO(open_tree(AT_FDCWD, path, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_RECURSIVE|AT_NO_AUTOMOUNT));
-                        if (mount_fd == -ENOENT)
-                                continue;
+                        mount_fd = RET_NERRNO(open_tree(original_fd, "", OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_EMPTY_PATH|AT_RECURSIVE|AT_NO_AUTOMOUNT));
                         if (mount_fd < 0)
                                 return log_debug_errno(mount_fd, "Failed to open subtree of mounted filesystem '%s': %m", path);
                 }
@@ -1901,6 +1907,7 @@ int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_moun
                 mounts[n++] = (SubMount) {
                         .path = TAKE_PTR(p),
                         .mount_fd = TAKE_FD(mount_fd),
+                        .original_fd = TAKE_FD(original_fd),
                 };
         }
 
@@ -2061,6 +2068,55 @@ int mount_credentials_fs(const char *path) {
         return RET_NERRNO(move_mount(mfd, "", AT_FDCWD, path, MOVE_MOUNT_F_EMPTY_PATH));
 }
 
+static int fsconfig_apply_options(
+                int error_log_level,
+                int fs_fd,
+                const char *type,
+                const char *what,
+                unsigned long flags,
+                const char *options) {
+
+        int r;
+
+        assert(fs_fd >= 0);
+        assert(type);
+        assert(what);
+
+        /* Takes the mount flags and options as returned by mount_option_mangle() */
+
+        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "source", what, /* aux= */ 0) < 0)
+                return log_full_errno(error_log_level, errno, "Failed to set mount source for \"%s\" to \"%s\": %m", type, what);
+
+        if (FLAGS_SET(flags, MS_RDONLY))
+                if (fsconfig(fs_fd, FSCONFIG_SET_FLAG, "ro", /* value= */ NULL, /* aux= */ 0) < 0)
+                        return log_full_errno(error_log_level, errno, "Failed to set read only mount flag for \"%s\": %m", type);
+
+        for (const char *p = options;;) {
+                _cleanup_free_ char *word = NULL;
+                char *eq;
+
+                r = extract_first_word(&p, &word, ",", EXTRACT_KEEP_QUOTE);
+                if (r < 0)
+                        return log_full_errno(error_log_level, r, "Failed to parse mount option string \"%s\": %m", strempty(options));
+                if (r == 0)
+                        break;
+
+                eq = strchr(word, '=');
+                if (eq) {
+                        *eq = 0;
+                        eq++;
+
+                        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, word, eq, /* aux= */ 0) < 0)
+                                return log_full_errno(error_log_level, errno, "Failed to set mount option \"%s=%s\" for \"%s\": %m", word, eq, type);
+                } else {
+                        if (fsconfig(fs_fd, FSCONFIG_SET_FLAG, word, /* value= */ NULL, /* aux= */ 0) < 0)
+                                return log_full_errno(error_log_level, errno, "Failed to set mount flag \"%s\" for \"%s\": %m", word, type);
+                }
+        }
+
+        return 0;
+}
+
 int make_fsmount(
                 int error_log_level,
                 const char *what,
@@ -2095,35 +2151,9 @@ int make_fsmount(
         if (fs_fd < 0)
                 return log_full_errno(error_log_level, errno, "Failed to open superblock for \"%s\": %m", type);
 
-        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "source", what, /* aux= */ 0) < 0)
-                return log_full_errno(error_log_level, errno, "Failed to set mount source for \"%s\" to \"%s\": %m", type, what);
-
-        if (FLAGS_SET(f, MS_RDONLY))
-                if (fsconfig(fs_fd, FSCONFIG_SET_FLAG, "ro", /* value= */ NULL, /* aux= */ 0) < 0)
-                        return log_full_errno(error_log_level, errno, "Failed to set read only mount flag for \"%s\": %m", type);
-
-        for (const char *p = o;;) {
-                _cleanup_free_ char *word = NULL;
-                char *eq;
-
-                r = extract_first_word(&p, &word, ",", EXTRACT_KEEP_QUOTE);
-                if (r < 0)
-                        return log_full_errno(error_log_level, r, "Failed to parse mount option string \"%s\": %m", strempty(o));
-                if (r == 0)
-                        break;
-
-                eq = strchr(word, '=');
-                if (eq) {
-                        *eq = 0;
-                        eq++;
-
-                        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, word, eq, /* aux= */ 0) < 0)
-                                return log_full_errno(error_log_level, errno, "Failed to set mount option \"%s=%s\" for \"%s\": %m", word, eq, type);
-                } else {
-                        if (fsconfig(fs_fd, FSCONFIG_SET_FLAG, word, /* value= */ NULL, /* aux= */ 0) < 0)
-                                return log_full_errno(error_log_level, errno, "Failed to set mount flag \"%s\" for \"%s\": %m", word, type);
-                }
-        }
+        r = fsconfig_apply_options(error_log_level, fs_fd, type, what, f, o);
+        if (r < 0)
+                return r;
 
         if (fsconfig(fs_fd, FSCONFIG_CMD_CREATE, /* key= */ NULL, /* value= */ NULL, /* aux= */ 0) < 0)
                 return log_full_errno(error_log_level, errno, "Failed to realize fs fd for \"%s\" (\"%s\"): %m", what, type);
@@ -2145,6 +2175,327 @@ int make_fsmount(
                                       type);
 
         return TAKE_FD(mnt_fd);
+}
+
+static int overlayfs_make_fsmount(const OverlayFSSpec *s, int *ret_mount_fd) {
+        _cleanup_close_ int fs_fd = -EBADF, mnt_fd = -EBADF;
+        _cleanup_free_ char *o = NULL;
+        unsigned long f;
+        int r;
+
+        assert(s);
+        assert(ret_mount_fd);
+
+        /* Returns -EOPNOTSUPP if the kernel refused the layers in a way that suggests that it doesn't take
+         * detached mounts or O_PATH fds as layers yet (before Linux 6.15). */
+
+        r = mount_option_mangle(s->options, s->flags, &f, &o);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to mangle mount options %s: %m", strempty(s->options));
+
+        fs_fd = fsopen("overlay", FSOPEN_CLOEXEC);
+        if (fs_fd < 0)
+                return log_debug_errno(errno, "Failed to open overlayfs superblock: %m");
+
+        FOREACH_ARRAY(l, s->layers, s->n_layers) {
+                _cleanup_close_ int fd = xopenat_full(l->fd, l->path, O_PATH|O_DIRECTORY, XO_EMPTY_PATH, /* mode= */ 0);
+                if (fd < 0)
+                        return log_debug_errno(fd, "Failed to open overlayfs layer '%s': %m", strempty(l->path));
+
+                if (fsconfig(fs_fd, FSCONFIG_SET_FD, "lowerdir+", /* value= */ NULL, fd) < 0) {
+                        r = log_debug_errno(errno, "Failed to add overlayfs layer '%s' by fd: %m", strempty(l->path));
+                        return IN_SET(r, -EBADF, -EINVAL, -EOPNOTSUPP) ? -EOPNOTSUPP : r;
+                }
+        }
+
+        if (s->upper_dir_fd >= 0) {
+                FOREACH_STRING(key, "upperdir", "workdir") {
+                        const char *name = streq(key, "upperdir") ? s->upper : s->work;
+
+                        _cleanup_close_ int fd = xopenat(s->upper_dir_fd, name, O_PATH|O_DIRECTORY);
+                        if (fd < 0)
+                                return log_debug_errno(fd, "Failed to open overlayfs %s '%s': %m", key, name);
+
+                        if (fsconfig(fs_fd, FSCONFIG_SET_FD, key, /* value= */ NULL, fd) < 0) {
+                                r = log_debug_errno(errno, "Failed to set overlayfs %s '%s' by fd: %m", key, name);
+                                return IN_SET(r, -EBADF, -EINVAL, -EOPNOTSUPP) ? -EOPNOTSUPP : r;
+                        }
+                }
+        }
+
+        r = fsconfig_apply_options(LOG_DEBUG, fs_fd, "overlay", s->source, f, o);
+        if (r < 0)
+                return r;
+
+        if (fsconfig(fs_fd, FSCONFIG_CMD_CREATE, /* key= */ NULL, /* value= */ NULL, /* aux= */ 0) < 0) {
+                /* Detached layers are refused with EINVAL before Linux 6.15 */
+                r = log_debug_errno(errno, "Failed to create overlayfs superblock: %m");
+                return r == -EINVAL ? -EOPNOTSUPP : r;
+        }
+
+        mnt_fd = fsmount(fs_fd, FSMOUNT_CLOEXEC, /* attr_flags= */ 0);
+        if (mnt_fd < 0)
+                return log_debug_errno(errno, "Failed to create overlayfs mount: %m");
+
+        struct mount_attr ma = {
+                .attr_clr = ms_flags_to_mount_attr_clr(f),
+                .attr_set = ms_flags_to_mount_attr(f),
+        };
+        if (ma.attr_set != 0 && mount_setattr(mnt_fd, "", AT_EMPTY_PATH, &ma, MOUNT_ATTR_SIZE_VER0) < 0)
+                return log_debug_errno(errno, "Failed to set overlayfs mount attributes: %m");
+
+        *ret_mount_fd = TAKE_FD(mnt_fd);
+        return 0;
+}
+
+static ssize_t fd_array_find(const int *fds, size_t n_fds, int fd) {
+        assert(fds || n_fds == 0);
+
+        for (size_t i = 0; i < n_fds; i++)
+                if (fds[i] == fd)
+                        return i;
+
+        return -1;
+}
+
+static int overlayfs_make_mounts_in_child(const OverlayFSSpec *specs, size_t n_specs, int *ret_mount_fds) {
+        _cleanup_free_ int *source_fds = NULL, *attach_fds = NULL;
+        int *clone_fds = NULL;
+        size_t n_sources = 0, n_clones = 0;
+        int r;
+
+        assert(specs);
+        assert(ret_mount_fds);
+
+        CLEANUP_ARRAY(clone_fds, n_clones, close_many_and_free);
+
+        /* Older kernels only take layers that are attached in the caller's mount namespace. Hence attach
+         * them in a short-lived child with a private mount namespace, mount the overlayfs there and hand
+         * back clones of the result. All overlayfs mounts are made in one child, so that each mount is
+         * attached only once, even if several overlayfs mounts use it. */
+
+        FOREACH_ARRAY(s, specs, n_specs) {
+                FOREACH_ARRAY(l, s->layers, s->n_layers)
+                        if (fd_array_find(source_fds, n_sources, l->fd) < 0) {
+                                if (!GREEDY_REALLOC(source_fds, n_sources + 1))
+                                        return log_oom_debug();
+                                source_fds[n_sources++] = l->fd;
+                        }
+
+                if (s->upper_dir_fd >= 0 && fd_array_find(source_fds, n_sources, s->upper_dir_fd) < 0) {
+                        if (!GREEDY_REALLOC(source_fds, n_sources + 1))
+                                return log_oom_debug();
+                        source_fds[n_sources++] = s->upper_dir_fd;
+                }
+        }
+
+        attach_fds = new(int, n_sources);
+        if (!attach_fds)
+                return log_oom_debug();
+
+        for (size_t i = 0; i < n_sources; i++) {
+                /* Attach a clone where we can, which leaves the caller's fd untouched. A detached mount can
+                 * only be cloned since Linux 6.15, before that we attach the mount itself, which consumes
+                 * it. */
+                _cleanup_close_ int fd = open_tree(source_fds[i], "", OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_EMPTY_PATH);
+                if (fd < 0) {
+                        if (errno != EINVAL)
+                                return log_debug_errno(errno, "Failed to clone overlayfs layer: %m");
+
+                        attach_fds[i] = source_fds[i];
+                        continue;
+                }
+
+                if (!GREEDY_REALLOC(clone_fds, n_clones + 1))
+                        return log_oom_debug();
+
+                attach_fds[i] = clone_fds[n_clones++] = TAKE_FD(fd);
+        }
+
+        _cleanup_close_pair_ int transfer_fds[2] = EBADF_PAIR, errno_pipe_fds[2] = EBADF_PAIR;
+        if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, transfer_fds) < 0)
+                return log_debug_errno(errno, "Failed to create socket pair: %m");
+
+        if (pipe2(errno_pipe_fds, O_CLOEXEC|O_NONBLOCK) < 0)
+                return log_debug_errno(errno, "Failed to open pipe: %m");
+
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork(
+                        "(sd-overlayfs)",
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_REOPEN_LOG|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE|FORK_PRIVATE_TMP,
+                        &pidref);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                transfer_fds[0] = safe_close(transfer_fds[0]);
+                errno_pipe_fds[0] = safe_close(errno_pipe_fds[0]);
+
+                for (size_t i = 0; i < n_sources; i++) {
+                        char p[STRLEN("/tmp/l") + DECIMAL_STR_MAX(size_t)];
+                        xsprintf(p, "/tmp/l%zu", i);
+
+                        if (mkdir(p, 0700) < 0)
+                                report_errno_and_exit(errno_pipe_fds[1], log_debug_errno(errno, "Failed to create '%s': %m", p));
+
+                        /* Afterwards the fd refers to the attached mount */
+                        if (move_mount(attach_fds[i], "", AT_FDCWD, p, MOVE_MOUNT_F_EMPTY_PATH) < 0)
+                                report_errno_and_exit(errno_pipe_fds[1], log_debug_errno(errno, "Failed to attach overlayfs layer: %m"));
+                }
+
+                for (size_t k = 0; k < n_specs; k++) {
+                        const OverlayFSSpec *s = specs + k;
+                        _cleanup_free_ char *options = NULL, *o = NULL;
+                        int *fds = NULL;
+                        size_t n_fds = 0;
+                        unsigned long f;
+
+                        CLEANUP_ARRAY(fds, n_fds, close_many_and_free);
+
+                        r = mount_option_mangle(s->options, s->flags, &f, &o);
+                        if (r < 0)
+                                report_errno_and_exit(errno_pipe_fds[1], log_debug_errno(r, "Failed to mangle mount options %s: %m", strempty(s->options)));
+
+                        if (!GREEDY_REALLOC(fds, s->n_layers + 2))
+                                report_errno_and_exit(errno_pipe_fds[1], log_oom_debug());
+
+                        /* Use the old lowerdir= list, since lowerdir+ needs Linux 6.7 and fsconfig() limits
+                         * string values to 255 bytes. */
+                        FOREACH_ARRAY(l, s->layers, s->n_layers) {
+                                ssize_t i = fd_array_find(source_fds, n_sources, l->fd);
+                                assert(i >= 0);
+
+                                int fd = xopenat_full(attach_fds[i], l->path, O_PATH|O_DIRECTORY, XO_EMPTY_PATH, /* mode= */ 0);
+                                if (fd < 0)
+                                        report_errno_and_exit(errno_pipe_fds[1], log_debug_errno(fd, "Failed to open overlayfs layer '%s': %m", strempty(l->path)));
+                                fds[n_fds++] = fd;
+
+                                if (!strextend(&options, options ? ":" : "lowerdir=", FORMAT_PROC_FD_PATH(fd)))
+                                        report_errno_and_exit(errno_pipe_fds[1], log_oom_debug());
+                        }
+
+                        if (s->upper_dir_fd >= 0) {
+                                ssize_t i = fd_array_find(source_fds, n_sources, s->upper_dir_fd);
+                                assert(i >= 0);
+
+                                int upper_fd = xopenat(attach_fds[i], s->upper, O_PATH|O_DIRECTORY);
+                                if (upper_fd < 0)
+                                        report_errno_and_exit(errno_pipe_fds[1], log_debug_errno(upper_fd, "Failed to open overlayfs upperdir '%s': %m", s->upper));
+                                fds[n_fds++] = upper_fd;
+
+                                int work_fd = xopenat(attach_fds[i], s->work, O_PATH|O_DIRECTORY);
+                                if (work_fd < 0)
+                                        report_errno_and_exit(errno_pipe_fds[1], log_debug_errno(work_fd, "Failed to open overlayfs workdir '%s': %m", s->work));
+                                fds[n_fds++] = work_fd;
+
+                                if (!strextend(&options, ",upperdir=", FORMAT_PROC_FD_PATH(upper_fd), ",workdir=", FORMAT_PROC_FD_PATH(work_fd)))
+                                        report_errno_and_exit(errno_pipe_fds[1], log_oom_debug());
+                        }
+
+                        if (!isempty(o) && !strextend(&options, ",", o))
+                                report_errno_and_exit(errno_pipe_fds[1], log_oom_debug());
+
+                        char p[STRLEN("/tmp/o") + DECIMAL_STR_MAX(size_t)];
+                        xsprintf(p, "/tmp/o%zu", k);
+
+                        if (mkdir(p, 0700) < 0)
+                                report_errno_and_exit(errno_pipe_fds[1], log_debug_errno(errno, "Failed to create '%s': %m", p));
+
+                        r = mount_nofollow_verbose(LOG_DEBUG, s->source, p, "overlay", f, options);
+                        if (r < 0)
+                                report_errno_and_exit(errno_pipe_fds[1], r);
+
+                        _cleanup_close_ int mount_fd = open_tree(AT_FDCWD, p, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC);
+                        if (mount_fd < 0)
+                                report_errno_and_exit(errno_pipe_fds[1], log_debug_errno(errno, "Failed to clone overlayfs mount: %m"));
+
+                        r = send_one_fd(transfer_fds[1], mount_fd, /* flags= */ 0);
+                        if (r < 0)
+                                report_errno_and_exit(errno_pipe_fds[1], log_debug_errno(r, "Failed to send overlayfs mount: %m"));
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        transfer_fds[1] = safe_close(transfer_fds[1]);
+        errno_pipe_fds[1] = safe_close(errno_pipe_fds[1]);
+
+        int *mount_fds = new(int, n_specs);
+        size_t n_mount_fds = 0;
+        if (!mount_fds)
+                return log_oom_debug();
+
+        CLEANUP_ARRAY(mount_fds, n_mount_fds, close_many_and_free);
+
+        /* Receive while the child runs, so that it never blocks on a full socket buffer */
+        while (n_mount_fds < n_specs) {
+                int fd = receive_one_fd(transfer_fds[0], /* flags= */ 0);
+                if (fd < 0)
+                        break;
+
+                mount_fds[n_mount_fds++] = fd;
+        }
+
+        r = pidref_wait_for_terminate_and_check("(sd-overlayfs)", &pidref, /* flags= */ 0);
+        if (r < 0)
+                return r;
+        if (r != EXIT_SUCCESS) {
+                int q = read_errno(errno_pipe_fds[0]);
+                if (q < 0 && q != -EIO)
+                        return q;
+
+                return log_debug_errno(SYNTHETIC_ERRNO(EPROTO), "Child creating overlayfs mounts failed.");
+        }
+        if (n_mount_fds < n_specs)
+                return log_debug_errno(SYNTHETIC_ERRNO(EPROTO), "Child created fewer overlayfs mounts than expected.");
+
+        memcpy(ret_mount_fds, mount_fds, n_specs * sizeof(int));
+        n_mount_fds = 0;
+        return 0;
+}
+
+int overlayfs_make_mounts(const OverlayFSSpec *specs, size_t n_specs, int *ret_mount_fds) {
+        int r;
+
+        assert(specs || n_specs == 0);
+        assert(ret_mount_fds || n_specs == 0);
+
+        if (n_specs == 0)
+                return 1;
+
+        /* Creates detached overlayfs mounts from layers that are passed as fds, which may refer to
+         * detached mounts. Since Linux 6.15 this is done right here. On older kernels, or if
+         * $SYSTEMD_OVERLAYFS_DETACHED_LAYERS=0 is set, the layers are attached in a child first, see
+         * above. Returns > 0 in the first case, where the mounts are made by fsmount() and other mounts
+         * may be attached to them while they are still detached, and 0 in the second case.
+         *
+         * Note that layers on detached mounts are consumed on older kernels, i.e. each set of specs
+         * sharing such a mount has to be passed in a single call. */
+
+        r = secure_getenv_bool("SYSTEMD_OVERLAYFS_DETACHED_LAYERS");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_OVERLAYFS_DETACHED_LAYERS, ignoring: %m");
+        if (r != 0) {
+                size_t k = 0;
+
+                for (; k < n_specs; k++) {
+                        r = overlayfs_make_fsmount(specs + k, ret_mount_fds + k);
+                        if (r < 0)
+                                break;
+                }
+                if (k >= n_specs)
+                        return 1;
+
+                close_many(ret_mount_fds, k);
+
+                if (r != -EOPNOTSUPP)
+                        return r;
+        }
+
+        r = overlayfs_make_mounts_in_child(specs, n_specs, ret_mount_fds);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 char* umount_and_rmdir_and_free(char *p) {

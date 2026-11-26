@@ -30,7 +30,10 @@ static inline int path_is_os_tree(const char *path) {
 int fd_is_os_tree(int fd);
 
 int open_extension_release(const char *root, ImageClass image_class, const char *extension, bool relax_extension_release_check, char **ret_path, int *ret_fd);
-int open_extension_release_at(int rfd, ImageClass image_class, const char *extension, bool relax_extension_release_check, char **ret_path, int *ret_fd);
+int open_extension_release_at_full(int rfd, const char *rfd_path, ImageClass image_class, const char *extension, bool relax_extension_release_check, char **ret_path, int *ret_fd);
+static inline int open_extension_release_at(int rfd, ImageClass image_class, const char *extension, bool relax_extension_release_check, char **ret_path, int *ret_fd) {
+        return open_extension_release_at_full(rfd, "/", image_class, extension, relax_extension_release_check, ret_path, ret_fd);
+}
 int open_os_release(const char *root, char **ret_path, int *ret_fd);
 int open_os_release_at(int rfd, char **ret_path, int *ret_fd);
 

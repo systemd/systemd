@@ -101,6 +101,11 @@ All tools:
   unset, only the event loops of programs that enable io_uring use it. Only
   useful for testing.
 
+* `$SYSTEMD_OVERLAYFS_DETACHED_LAYERS=` — takes a boolean. If false, `overlayfs`
+  mounts are assembled as on kernels older than 6.15, which do not take detached
+  mounts as layers: the layers are attached in a private mount namespace first.
+  Defaults to true. Only useful for testing.
+
 * `$SYSTEMD_BUS_TIMEOUT=SECS` — specifies the maximum time to wait for method call
   completion. If no time unit is specified, assumes seconds. The usual other units
   are understood, too (us, ms, s, min, h, d, w, month, y). If it is not set or set
@@ -481,7 +486,19 @@ All tools:
   for confext images and supports the systemd-confext multi-call functionality
   of sysext. Read-only hierarchies have no mount options added by
   default. Mutable hierarchies have the following mount options added by
-  default: `redirect_dir=on,noatime,metacopy=off,index=off`.
+  default: `redirect_dir=on,noatime,metacopy=off,index=off`. An override
+  replaces these defaults entirely, so the ones that are still wanted have to
+  be added manually. The only exception is `index=off`, which is still added
+  for mutable hierarchies if the override does not mention `index=`, since
+  refreshing them requires it.
+
+* `$SYSTEMD_SYSEXT_MOUNT_BENEATH` — this boolean variable may be used in tests
+  to exercise the code path on old kernels. If false, `systemd-sysext` does not
+  attempt to mount a new `overlayfs` instance beneath the existing one when
+  refreshing, but unmounts the existing one first and mounts the new one in its
+  place, as done on kernels that do not support mounting beneath. Defaults to
+  true. Similarly, `$SYSTEMD_CONFEXT_MOUNT_BENEATH` works for confext images
+  and supports the systemd-confext multi-call functionality of sysext.
 
 `systemd-tmpfiles`:
 
