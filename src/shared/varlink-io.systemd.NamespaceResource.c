@@ -83,6 +83,9 @@ static SD_VARLINK_DEFINE_ERROR(TooManyControlGroups);
 static SD_VARLINK_DEFINE_ERROR(ControlGroupAlreadyAdded);
 static SD_VARLINK_DEFINE_ERROR(TooManyNetworkInterfaces);
 static SD_VARLINK_DEFINE_ERROR(TooManyDelegations);
+static SD_VARLINK_DEFINE_ERROR(FileSystemTypeNotSupported,
+                               SD_VARLINK_FIELD_COMMENT("The name of the file system type of the mount, if known."),
+                               SD_VARLINK_DEFINE_FIELD(fileSystemType, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_NamespaceResource,
@@ -121,4 +124,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("The per-user namespace limit of network interfaces has been reached."),
                 &vl_error_TooManyNetworkInterfaces,
                 SD_VARLINK_SYMBOL_COMMENT("The specified number of delegations exceeds the maximum allowed."),
-                &vl_error_TooManyDelegations);
+                &vl_error_TooManyDelegations,
+                SD_VARLINK_SYMBOL_COMMENT("The specified mount is of a file system type that may not be delegated to user namespaces. Only a fixed set of well-known file system types is permitted (btrfs, erofs, ext4, f2fs, squashfs, tmpfs, vfat, xfs)."),
+                &vl_error_FileSystemTypeNotSupported);

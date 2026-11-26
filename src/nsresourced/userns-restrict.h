@@ -23,4 +23,6 @@ int userns_restrict_reset_by_inode(struct userns_restrict_bpf *obj, uint64_t use
 int userns_restrict_setgroups_deny_by_fd(struct userns_restrict_bpf *obj, int userns_fd);
 int userns_restrict_setgroups_deny_by_inode(struct userns_restrict_bpf *obj, uint64_t userns_inode);
 
+bool userns_restrict_fs_type_is_vetted(const struct statfs *sfs);
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct userns_restrict_bpf*, userns_restrict_bpf_free);

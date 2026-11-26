@@ -11,6 +11,7 @@
 #include <sys/eventfd.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <unistd.h>
 #include <utmpx.h>
 
@@ -26,6 +27,7 @@
 #include "ether-addr-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "filesystems.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
@@ -1799,6 +1801,27 @@ fail:
         return r;
 }
 
+static int validate_mount_file_system_type(sd_varlink *link, const struct statfs *sfs) {
+        assert(link);
+        assert(sfs);
+
+        /* The BPF-LSM policy only restricts writes, hence read-only mounts are fine whatever their type */
+        if (FLAGS_SET(sfs->f_flags, ST_RDONLY))
+                return 0;
+
+        if (userns_restrict_fs_type_is_vetted(sfs))
+                return 0;
+
+        const char *n = fs_type_to_string(sfs->f_type);
+        log_debug("Refusing to delegate mount of file system type '%s' (0x%llx) to user namespace.",
+                  strna(n), (unsigned long long) sfs->f_type);
+
+        return sd_varlink_errorbo(
+                        link,
+                        "io.systemd.NamespaceResource.FileSystemTypeNotSupported",
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("fileSystemType", n));
+}
+
 typedef struct AddMountParameters {
         unsigned userns_fd_idx;
         unsigned mount_fd_idx;
@@ -1820,6 +1843,7 @@ static int vl_method_add_mount_to_user_namespace(sd_varlink *link, sd_json_varia
         };
         int r, mnt_id = 0;
         struct stat userns_st;
+        struct statfs mount_sfs;
 
         assert(link);
         assert(parameters);
@@ -1864,6 +1888,10 @@ static int vl_method_add_mount_to_user_namespace(sd_varlink *link, sd_json_varia
         if (r < 0)
                 return r;
 
+        /* Do this before taking the registry lock, as this might block on a hung network file system */
+        if (fstatfs(mount_fd, &mount_sfs) < 0)
+                return log_debug_errno(errno, "Failed to statfs() mount file descriptor: %m");
+
         r = varlink_verify_polkit_async_full(
                         link,
                         /* bus= */ NULL,
@@ -1900,6 +1928,10 @@ static int vl_method_add_mount_to_user_namespace(sd_varlink *link, sd_json_varia
                 return sd_varlink_error(link, "io.systemd.NamespaceResource.UserNamespaceNotRegistered", /* parameters= */ NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to verify user namespace identity: %m");
+
+        r = validate_mount_file_system_type(link, &mount_sfs);
+        if (r != 0)
+                return r;
 
         if (!c->bpf) {
                 r = userns_restrict_install(/* pin= */ true, &c->bpf);
