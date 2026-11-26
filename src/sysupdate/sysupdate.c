@@ -10,6 +10,7 @@
 
 #include "build.h"
 #include "bus-polkit.h"
+#include "chase.h"
 #include "conf-files.h"
 #include "constants.h"
 #include "discover-image.h"
@@ -26,6 +27,7 @@
 #include "hexdecoct.h"
 #include "image-policy.h"
 #include "json-util.h"
+#include "lock-util.h"
 #include "loop-util.h"
 #include "main-func.h"
 #include "mount-util.h"
@@ -3302,6 +3304,49 @@ typedef enum {
         UPDATE_ACTION_INSTALL = 1 << 1,
 } UpdateActionFlags;
 
+#define SYSUPDATE_LOCK_DIRECTORY "/run/systemd/sysupdate/lock"
+
+static int context_lock_component(Context *c, LockFile *ret) {
+        int r;
+
+        assert(c);
+        assert(ret);
+
+        /* Takes a lock on the component (or the default, component-less installation) we are about to
+         * update, so that concurrent updates of the same component (e.g. from the update timer and from an
+         * interactive invocation) are serialized. The lock is to be kept as long as the update runs, and
+         * released with release_lock_file(), which also removes the lock file again. Returns 0 without
+         * taking a lock if we do not operate on the host, as we have no place to put the lock then. */
+
+        if (c->root || c->image) {
+                *ret = LOCK_FILE_INIT;
+                return 0;
+        }
+
+        _cleanup_free_ char *fn = c->component ? strjoin("component-", c->component) : strdup("default");
+        if (!fn)
+                return log_oom();
+
+        /* Open the lock directory, creating it (and its parents) if needed */
+        _cleanup_close_ int dfd = chase_and_open(SYSUPDATE_LOCK_DIRECTORY, /* root= */ NULL, CHASE_MKDIR_0755, O_DIRECTORY|O_CREAT, /* ret_path= */ NULL);
+        if (dfd < 0)
+                return log_error_errno(dfd, "Failed to open '%s': %m", SYSUPDATE_LOCK_DIRECTORY);
+
+        r = make_lock_file_at(dfd, fn, LOCK_EX|LOCK_NB, ret);
+        if (r == -EBUSY) {
+                if (c->component)
+                        log_info("Component '%s' is currently being updated by another process, waiting.", c->component);
+                else
+                        log_info("Default installation is currently being updated by another process, waiting.");
+
+                r = make_lock_file_at(dfd, fn, LOCK_EX, ret);
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to lock '%s/%s': %m", SYSUPDATE_LOCK_DIRECTORY, fn);
+
+        return 1;
+}
+
 static int context_update(
                 Context *c,
                 const char *version,
@@ -3321,6 +3366,11 @@ static int context_update(
          * cleanup) failed. Doesn't reboot on its own, but sets *reboot_needed (if non-NULL) to true if a
          * booted version is specified and the installed version warrants a reboot. It never resets
          * *installed or *reboot_needed to false, so that they can be accumulated over multiple calls. */
+
+        _cleanup_(release_lock_file) LockFile lock = LOCK_FILE_INIT;
+        r = context_lock_component(c, &lock);
+        if (r < 0)
+                return r;
 
         r = context_load_online(
                         c,
