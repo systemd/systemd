@@ -54,9 +54,7 @@
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "pidref.h"
 #include "proc-cmdline.h"
-#include "process-util.h"
 #include "random-util.h"
 #include "rm-rf.h"
 #include "runtime-scope.h"
@@ -101,11 +99,6 @@ enum {
         MERGE_NOTHING_FOUND,
         MERGE_MOUNTED,
         MERGE_SKIP_REFRESH,
-};
-
-enum {
-        MERGE_EXIT_NOTHING_FOUND = 123,
-        MERGE_EXIT_SKIP_REFRESH  = 124,
 };
 
 static char *arg_root = NULL;
@@ -577,76 +570,23 @@ static int get_extension_release_metadata(
         return 0;
 }
 
-static int move_submounts(const char *src, const char *dst) {
-        SubMount *submounts = NULL;
-        size_t n_submounts = 0;
-        int r;
-
-        assert(src);
-        assert(dst);
-
-        CLEANUP_ARRAY(submounts, n_submounts, sub_mount_array_free);
-
-        r = get_sub_mounts(src, &submounts, &n_submounts);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get submounts for %s: %m", src);
-
-        FOREACH_ARRAY(m, submounts, n_submounts) {
-                _cleanup_free_ char *t = NULL;
-                const char *suffix;
-                struct stat st;
-
-                assert_se(suffix = path_startswith(m->path, src));
-
-                if (fstat(m->mount_fd, &st) < 0)
-                        return log_error_errno(errno, "Failed to stat %s: %m", m->path);
-
-                t = path_join(dst, suffix);
-                if (!t)
-                        return log_oom();
-
-                _cleanup_free_ char *fn = NULL;
-                _cleanup_close_ int fd = -EBADF;
-                r = chase(t, /* root= */ NULL, CHASE_PARENT|CHASE_EXTRACT_FILENAME|CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755, &fn, &fd);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create and pin parent directory of %s: %m", t);
-
-                r = make_mount_point_inode_from_mode(fd, fn, st.st_mode, 0755);
-                if (r < 0 && r != -EEXIST)
-                        return log_error_errno(r, "Failed to create mountpoint %s: %m", t);
-
-                _cleanup_close_ int child_fd = xopenat(fd, fn, O_PATH);
-                if (child_fd < 0)
-                        return log_error_errno(child_fd, "Failed to pin mountpoint %s: %m", t);
-
-                /* Instead of a bind mount we attach the detached clone produced by
-                 * open_tree_attr_with_fallback() from get_sub_mounts() because that has no propagation
-                 * relationship with the original anymore and the MNT_DETACH below won't propagate for
-                 * nested mounts. */
-                r = RET_NERRNO(move_mount(m->mount_fd, "", child_fd, "", MOVE_MOUNT_F_EMPTY_PATH|MOVE_MOUNT_T_EMPTY_PATH));
-                if (r < 0)
-                        return log_error_errno(r, "Failed to move mount '%s' to '%s': %m", m->path, t);
-
-                (void) umount_verbose(LOG_WARNING, m->path, MNT_DETACH);
-        }
-
-        return 0;
-}
-
 static int attach_submounts(
                 SubMount *submounts,
                 size_t n_submounts,
                 const char *src,
+                int dst_fd,
                 const char *dst) {
 
         int r, ret = 0;
 
         assert(submounts || n_submounts == 0);
         assert(src);
+        assert(dst_fd >= 0);
         assert(dst);
 
-        /* Continue on failure, so that as many submounts as possible end up in place. The clones we cannot
-         * attach are lost once the caller frees them. */
+        /* Attaches the submount clones below dst_fd, which may refer to a detached mount ('dst' is only used
+         * for logging). Continue on failure, so that as many submounts as possible end up in place. The
+         * clones we cannot attach are lost once the caller frees them. */
 
         FOREACH_ARRAY(m, submounts, n_submounts) {
                 _cleanup_free_ char *t = NULL;
@@ -655,18 +595,18 @@ static int attach_submounts(
 
                 assert_se(suffix = path_startswith(m->path, src));
 
+                t = path_join(dst, suffix);
+                if (!t)
+                        return log_oom();
+
                 if (fstat(m->mount_fd, &st) < 0) {
                         RET_GATHER(ret, log_error_errno(errno, "Failed to stat %s: %m", m->path));
                         continue;
                 }
 
-                t = path_join(dst, suffix);
-                if (!t)
-                        return log_oom();
-
                 _cleanup_free_ char *fn = NULL;
                 _cleanup_close_ int fd = -EBADF;
-                r = chase(t, /* root= */ NULL, CHASE_PARENT|CHASE_EXTRACT_FILENAME|CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755, &fn, &fd);
+                r = chaseat(dst_fd, dst_fd, suffix, CHASE_PARENT|CHASE_EXTRACT_FILENAME|CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755, &fn, &fd);
                 if (r < 0) {
                         RET_GATHER(ret, log_error_errno(r, "Failed to create and pin parent directory of %s: %m", t));
                         continue;
@@ -777,96 +717,6 @@ static int restart_units(Set *restart_units, Set *reload_or_restart_units) {
         return 0;
 }
 
-static int append_overlayfs_path_option(
-                char **options,
-                const char *separator,
-                const char *option,
-                const char *path) {
-
-        _cleanup_free_ char *escaped = NULL;
-
-        assert(options);
-        assert(separator);
-        assert(path);
-
-        escaped = shell_escape(path, ",:");
-        if (!escaped)
-                return log_oom();
-
-        if (option) {
-                if (!strextend(options, separator, option, "=", escaped))
-                        return log_oom();
-        } else if (!strextend(options, separator, escaped))
-                return log_oom();
-
-        return 0;
-}
-
-static int mount_overlayfs(
-                ImageClass image_class,
-                int noexec,
-                const char *where,
-                char **layers,
-                const char *upper_dir,
-                const char *work_dir,
-                const char *mount_options) {
-
-        _cleanup_free_ char *options = NULL;
-        bool separator = false;
-        unsigned long flags;
-        int r;
-
-        assert(where);
-        assert((upper_dir && work_dir) || (!upper_dir && !work_dir));
-
-        options = strdup("lowerdir=");
-        if (!options)
-                return log_oom();
-
-        STRV_FOREACH(l, layers) {
-                r = append_overlayfs_path_option(&options, separator ? ":" : "", /* option= */ NULL, *l);
-                if (r < 0)
-                        return r;
-
-                separator = true;
-        }
-
-        flags = image_class_info[image_class].default_mount_flags;
-        if (noexec >= 0)
-                SET_FLAG(flags, MS_NOEXEC, noexec);
-
-        if (upper_dir && work_dir) {
-                r = append_overlayfs_path_option(&options, ",", "upperdir", upper_dir);
-                if (r < 0)
-                        return r;
-
-                flags &= ~MS_RDONLY;
-
-                r = append_overlayfs_path_option(&options, ",", "workdir", work_dir);
-                if (r < 0)
-                        return r;
-
-                if (!mount_options)
-                        mount_options = MUTABLE_EXTENSIONS_MOUNT_OPTIONS;
-        }
-
-
-        if (!isempty(mount_options) && !strextend(&options, ",", mount_options))
-                return log_oom();
-
-        /* A refresh mounts the new overlay while the old one still uses the same upperdir and overlayfs only
-         * permits that with index=off. So append it to the overridden mount options if not set. */
-        if (upper_dir && work_dir && !fstab_test_option(mount_options, "index\0") && !strextend(&options, ",index=off"))
-                return log_oom();
-
-        /* Now mount the actual overlayfs */
-        r = mount_nofollow_verbose(LOG_ERR, image_class_info[image_class].short_identifier, where, "overlay", flags, options);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
 static char *hierarchy_as_single_path_component(const char *hierarchy) {
         /* We normally expect hierarchy to be /usr, /opt or /etc, but for debugging purposes the hierarchy
          * could very well be like /foo/bar/baz/. So for a given hierarchy we generate a directory name by
@@ -904,30 +754,11 @@ static int paths_on_same_fs(const char *path1, const char *path2) {
         return st1.st_dev == st2.st_dev;
 }
 
-static int work_dir_for_hierarchy(
-                const char *hierarchy,
-                const char *resolved_upper_dir,
-                char **ret_work_dir) {
-
-        _cleanup_free_ char *parent = NULL;
-        int r;
+static int work_dir_name_for_hierarchy(const char *hierarchy, char **ret) {
+        _cleanup_free_ char *f = NULL;
 
         assert(hierarchy);
-        assert(resolved_upper_dir);
-        assert(ret_work_dir);
-
-        r = path_extract_directory(resolved_upper_dir, &parent);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get parent directory of upperdir '%s': %m", resolved_upper_dir);
-
-        /* TODO: paths_in_same_superblock? partition? device? */
-        r = paths_on_same_fs(resolved_upper_dir, parent);
-        if (r < 0)
-                return r;
-        if (!r)
-                return log_error_errno(SYNTHETIC_ERRNO(EXDEV), "Unable to find a suitable workdir location for upperdir '%s' for host hierarchy '%s' - parent directory of the upperdir is in a different filesystem", resolved_upper_dir, hierarchy);
-
-        _cleanup_free_ char *f = NULL, *dir_name = NULL;
+        assert(ret);
 
         f = hierarchy_as_single_path_component(hierarchy);
         if (!f)
@@ -935,47 +766,11 @@ static int work_dir_for_hierarchy(
 
         /* Use a unique name per merge, so that a refresh never reuses the work dir of the overlayfs
          * instance that is still mounted while the new one is set up. */
-        if (asprintf(&dir_name, ".systemd-%s-workdir-%016" PRIx64, f, random_u64()) < 0)
+        if (asprintf(ret, ".systemd-%s-workdir-%016" PRIx64, f, random_u64()) < 0)
                 return log_oom();
 
-        free(f);
-        f = path_join(parent, dir_name);
-        if (!f)
-                return log_oom();
-
-        *ret_work_dir = TAKE_PTR(f);
         return 0;
 }
-
-typedef struct OverlayFSPaths {
-        char *hierarchy;
-        mode_t hierarchy_mode;
-        char *resolved_hierarchy;
-        char *resolved_mutable_directory;
-
-        /* NULL if merged fs is read-only */
-        char *upper_dir;
-        /* NULL if merged fs is read-only */
-        char *work_dir;
-        /* lowest index is top lowerdir, highest index is bottom lowerdir */
-        char **lower_dirs;
-} OverlayFSPaths;
-
-static OverlayFSPaths *overlayfs_paths_free(OverlayFSPaths *op) {
-        if (!op)
-                return NULL;
-
-        free(op->hierarchy);
-        free(op->resolved_hierarchy);
-        free(op->resolved_mutable_directory);
-
-        free(op->upper_dir);
-        free(op->work_dir);
-        strv_free(op->lower_dirs);
-
-        return mfree(op);
-}
-DEFINE_TRIVIAL_CLEANUP_FUNC(OverlayFSPaths *, overlayfs_paths_free);
 
 static int parse_image_class_parameter(sd_varlink *link, const char *value, ImageClass *image_class) {
         ImageClass c;
@@ -1042,37 +837,27 @@ static int resolve_mutable_directory(
                 const Context *c,
                 const char *hierarchy,
                 mode_t hierarchy_mode,
-                const char *workspace,
                 char **ret_resolved_mutable_directory) {
 
         _cleanup_free_ char *path = NULL, *resolved_path = NULL, *dir_name = NULL;
-        const char *root, *base = MUTABLE_EXTENSIONS_BASE_DIR;
         int r;
 
         assert(c);
         assert(hierarchy);
         assert(ret_resolved_mutable_directory);
 
-        root = c->root;
-
-        if (c->mutable == MUTABLE_NO) {
-                log_debug("Mutability for hierarchy '%s' is disabled, not resolving mutable directory.", hierarchy);
+        /* The ephemeral modes have no persistent mutable directory, they get a new tmpfs on each merge. */
+        if (IN_SET(c->mutable, MUTABLE_NO, MUTABLE_EPHEMERAL, MUTABLE_EPHEMERAL_IMPORT)) {
+                log_debug("Hierarchy '%s' has no persistent mutable directory.", hierarchy);
                 *ret_resolved_mutable_directory = NULL;
                 return 0;
-        }
-
-        if (IN_SET(c->mutable, MUTABLE_EPHEMERAL, MUTABLE_EPHEMERAL_IMPORT)) {
-                /* We create mutable directory inside the temporary tmpfs workspace, which is a fixed
-                 * location that ignores the configured root. */
-                root = NULL;
-                base = workspace;
         }
 
         dir_name = hierarchy_as_single_path_component(hierarchy);
         if (!dir_name)
                 return log_oom();
 
-        path = path_join(base, dir_name);
+        path = path_join(MUTABLE_EXTENSIONS_BASE_DIR, dir_name);
         if (!path)
                 return log_oom();
 
@@ -1080,34 +865,34 @@ static int resolve_mutable_directory(
                 /* If there already is a mutable directory, check if its mode matches hierarchy. Merged
                  * hierarchy will have the same mode as the mutable directory, so we want no surprising mode
                  * changes here. */
-                r = mutable_directory_mode_matches_hierarchy(root, path, hierarchy_mode);
+                r = mutable_directory_mode_matches_hierarchy(c->root, path, hierarchy_mode);
                 if (r < 0)
                         return r;
         }
 
-        if (IN_SET(c->mutable, MUTABLE_YES, MUTABLE_EPHEMERAL, MUTABLE_EPHEMERAL_IMPORT)) {
+        if (c->mutable == MUTABLE_YES) {
                 _cleanup_close_ int path_fd = -EBADF, chmod_fd = -EBADF;
 
                 /* This also creates, e.g., /var/lib/extensions.mutable/usr if needed and all parent
                  * directories plus it also works when the last part is a symlink to the real /usr but we
                  * can't use chase_and_open here because it does not behave the same. */
-                r = chase(path, root, CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY|CHASE_PREFIX_ROOT, /* ret_path= */ NULL, &path_fd);
+                r = chase(path, c->root, CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY|CHASE_PREFIX_ROOT, /* ret_path= */ NULL, &path_fd);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to chase/create base directory '%s/%s': %m", strempty(root), skip_leading_slash(path));
+                        return log_error_errno(r, "Failed to chase/create base directory '%s/%s': %m", strempty(c->root), skip_leading_slash(path));
 
                 chmod_fd = fd_reopen(path_fd, O_DIRECTORY);
                 if (chmod_fd < 0)
-                        return log_error_errno(chmod_fd, "Failed to reopen '%s/%s': %m", strempty(root), skip_leading_slash(path));
+                        return log_error_errno(chmod_fd, "Failed to reopen '%s/%s': %m", strempty(c->root), skip_leading_slash(path));
 
                 if (fchmod(chmod_fd, hierarchy_mode) < 0)
-                        return log_error_errno(errno, "Failed to chmod directory '%s/%s': %m", strempty(root), skip_leading_slash(path));
+                        return log_error_errno(errno, "Failed to chmod directory '%s/%s': %m", strempty(c->root), skip_leading_slash(path));
 
                 r = mac_selinux_fix_full(chmod_fd, /* inode_path= */ NULL, hierarchy, /* flags= */ 0, /* label_context= */ NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to fix SELinux label for '%s/%s': %m", strempty(root), skip_leading_slash(path));
+                        return log_error_errno(r, "Failed to fix SELinux label for '%s/%s': %m", strempty(c->root), skip_leading_slash(path));
         }
 
-        r = chase(path, root, CHASE_PREFIX_ROOT, &resolved_path, /* ret_fd= */ NULL);
+        r = chase(path, c->root, CHASE_PREFIX_ROOT, &resolved_path, /* ret_fd= */ NULL);
         if (r < 0 && r != -ENOENT)
                 return log_error_errno(r, "Failed to resolve mutable directory '%s': %m", path);
 
@@ -1115,19 +900,14 @@ static int resolve_mutable_directory(
         return 0;
 }
 
-static int overlayfs_paths_new(const Context *c, const char *hierarchy, const char *workspace_path, OverlayFSPaths **ret_op) {
-        _cleanup_free_ char *hierarchy_copy = NULL, *resolved_hierarchy = NULL, *resolved_mutable_directory = NULL;
-        mode_t hierarchy_mode;
-
+static int hierarchy_mutable_directory(const Context *c, const char *hierarchy, char **ret) {
+        _cleanup_free_ char *resolved_hierarchy = NULL;
+        mode_t hierarchy_mode = 0755;
         int r;
 
         assert(c);
         assert(hierarchy);
-        assert(ret_op);
-
-        hierarchy_copy = strdup(hierarchy);
-        if (!hierarchy_copy)
-                return log_oom();
+        assert(ret);
 
         r = resolve_hierarchy(c, hierarchy, &resolved_hierarchy);
         if (r < 0)
@@ -1139,397 +919,119 @@ static int overlayfs_paths_new(const Context *c, const char *hierarchy, const ch
                 if (stat(resolved_hierarchy, &st) < 0)
                         return log_error_errno(errno, "Failed to stat '%s': %m", resolved_hierarchy);
                 hierarchy_mode = st.st_mode & 0777;
-        } else
-                hierarchy_mode = 0755;
-
-        r = resolve_mutable_directory(c, hierarchy, hierarchy_mode, workspace_path, &resolved_mutable_directory);
-        if (r < 0)
-                return r;
-
-        OverlayFSPaths *op;
-        op = new(OverlayFSPaths, 1);
-        if (!op)
-                return log_oom();
-
-        *op = (OverlayFSPaths) {
-                .hierarchy = TAKE_PTR(hierarchy_copy),
-                .hierarchy_mode = hierarchy_mode,
-                .resolved_hierarchy = TAKE_PTR(resolved_hierarchy),
-                .resolved_mutable_directory = TAKE_PTR(resolved_mutable_directory),
-        };
-
-        *ret_op = TAKE_PTR(op);
-        return 0;
-}
-
-static int determine_used_extensions(const char *hierarchy, char **paths, char ***ret_used_paths, size_t *ret_extensions_used) {
-        _cleanup_strv_free_ char **used_paths = NULL;
-        size_t n = 0;
-        int r;
-
-        assert(hierarchy);
-        assert(paths);
-        assert(ret_used_paths);
-        assert(ret_extensions_used);
-
-        STRV_FOREACH(p, paths) {
-                _cleanup_free_ char *resolved = NULL;
-
-                r = chase(hierarchy, *p, CHASE_PREFIX_ROOT, &resolved, /* ret_fd= */ NULL);
-                if (r == -ENOENT) {
-                        log_debug_errno(r, "Hierarchy '%s' in extension '%s' doesn't exist, not merging.", hierarchy, *p);
-                        continue;
-                }
-                if (r < 0)
-                        return log_error_errno(r, "Failed to resolve hierarchy '%s' in extension '%s': %m", hierarchy, *p);
-
-                r = dir_is_empty(resolved, /* ignore_hidden_or_backup= */ false);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to check if hierarchy '%s' in extension '%s' is empty: %m", resolved, *p);
-                if (r > 0) {
-                        log_debug("Hierarchy '%s' in extension '%s' is empty, not merging.", hierarchy, *p);
-                        continue;
-                }
-
-                r = strv_consume_with_size(&used_paths, &n, TAKE_PTR(resolved));
-                if (r < 0)
-                        return log_oom();
         }
 
-        *ret_used_paths = TAKE_PTR(used_paths);
-        *ret_extensions_used = n;
-        return 0;
+        return resolve_mutable_directory(c, hierarchy, hierarchy_mode, ret);
 }
 
-static int maybe_import_mutable_directory(const Context *c, OverlayFSPaths *op) {
+static int make_ephemeral_mutable_directory(
+                const Context *c,
+                const char *hierarchy,
+                mode_t hierarchy_mode,
+                int *ret_tmpfs_fd,
+                char **ret_dir_name) {
+
+        _cleanup_free_ char *dir_name = NULL;
+        _cleanup_close_ int tmpfs_fd = -EBADF, fd = -EBADF;
         int r;
 
         assert(c);
-        assert(op);
+        assert(hierarchy);
+        assert(ret_tmpfs_fd);
+        assert(ret_dir_name);
 
-        /* If importing mutable layer and it actually exists and is not a hierarchy itself, add it just below
-         * the meta path */
+        /* Creates a detached tmpfs with the mutable directory of the ephemeral modes in it, the work
+         * directory goes next to it. */
 
-        if (c->mutable != MUTABLE_IMPORT || !op->resolved_mutable_directory)
-                return 0;
-
-        r = path_equal_or_inode_same_full(op->resolved_hierarchy, op->resolved_mutable_directory, /* flags= */ 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to check equality of hierarchy %s and its mutable directory %s: %m", op->resolved_hierarchy, op->resolved_mutable_directory);
-        if (r > 0)
-                return log_error_errno(SYNTHETIC_ERRNO(ELOOP), "Not importing mutable directory for hierarchy %s as a lower dir, because it points to the hierarchy itself", op->hierarchy);
-
-        r = strv_extend(&op->lower_dirs, op->resolved_mutable_directory);
-        if (r < 0)
-                return log_oom();
-
-        return 0;
-}
-
-static int maybe_import_ignored_mutable_directory(const Context *c, OverlayFSPaths *op) {
-        _cleanup_free_ char *dir_name = NULL, *path = NULL, *resolved_path = NULL;
-        int r;
-
-        assert(c);
-        assert(op);
-
-        /* If importing the ignored mutable layer and it actually exists and is not a hierarchy itself, add
-         * it just below the meta path */
-        if (c->mutable != MUTABLE_EPHEMERAL_IMPORT)
-                return 0;
-
-        dir_name = hierarchy_as_single_path_component(op->hierarchy);
+        dir_name = hierarchy_as_single_path_component(hierarchy);
         if (!dir_name)
                 return log_oom();
 
-        path = path_join(MUTABLE_EXTENSIONS_BASE_DIR, dir_name);
-        if (!path)
-                return log_oom();
+        tmpfs_fd = make_fsmount(LOG_ERR, image_class_info[c->image_class].short_identifier, "tmpfs", /* flags= */ 0, "mode=0700", /* userns_fd= */ -EBADF);
+        if (tmpfs_fd < 0)
+                return tmpfs_fd;
 
-        r = chase(path, c->root, CHASE_PREFIX_ROOT, &resolved_path, /* ret_fd= */ NULL);
-        if (r == -ENOENT) {
-                log_debug("Mutable directory for %s does not exist, not importing", op->hierarchy);
-                return 0;
-        }
+        fd = open_mkdir_at(tmpfs_fd, dir_name, O_NOFOLLOW, 0755);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to create ephemeral mutable directory for '%s': %m", hierarchy);
+
+        if (fchmod(fd, hierarchy_mode) < 0)
+                return log_error_errno(errno, "Failed to chmod ephemeral mutable directory for '%s': %m", hierarchy);
+
+        r = mac_selinux_fix_full(fd, /* inode_path= */ NULL, hierarchy, /* flags= */ 0, /* label_context= */ NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to resolve mutable directory '%s': %m", path);
+                return log_error_errno(r, "Failed to fix SELinux label of ephemeral mutable directory for '%s': %m", hierarchy);
 
-        r = path_equal_or_inode_same_full(op->resolved_hierarchy, resolved_path, /* flags= */ 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to check equality of hierarchy %s and its mutable directory %s: %m", op->resolved_hierarchy, op->resolved_mutable_directory);
-
-        if (r > 0)
-                return log_error_errno(SYNTHETIC_ERRNO(ELOOP), "Not importing mutable directory for hierarchy %s as a lower dir, because it points to the hierarchy itself", op->hierarchy);
-
-        r = strv_consume(&op->lower_dirs, TAKE_PTR(resolved_path));
-        if (r < 0)
-                return log_oom();
-
+        *ret_tmpfs_fd = TAKE_FD(tmpfs_fd);
+        *ret_dir_name = TAKE_PTR(dir_name);
         return 0;
 }
 
-static int determine_top_lower_dirs(const Context *c, OverlayFSPaths *op, const char *meta_path) {
-        int r;
-
-        assert(c);
-        assert(op);
-        assert(meta_path);
-
-        /* Put the meta path (i.e. our synthesized stuff) at the top of the layer stack */
-        r = strv_extend(&op->lower_dirs, meta_path);
-        if (r < 0)
-                return log_oom();
-
-        r = maybe_import_mutable_directory(c, op);
-        if (r < 0)
-                return r;
-
-        r = maybe_import_ignored_mutable_directory(c, op);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
-static int determine_middle_lower_dirs(OverlayFSPaths *op, char **paths) {
-        assert(op);
-
-        /* The paths were already determined in determine_used_extensions, so we just take them as is. */
-        if (strv_extend_strv(&op->lower_dirs, paths, /* filter_duplicates= */ false) < 0)
-                return log_oom();
-
-        return 0;
-}
-
-static int hierarchy_as_lower_dir(const Context *c, OverlayFSPaths *op) {
-        int r;
-
-        /* return 0 if hierarchy should be used as lower dir, >0, if not */
-
-        assert(c);
-        assert(op);
-
-        if (!op->resolved_hierarchy) {
-                log_debug("Host hierarchy '%s' does not exist, will not be used as lowerdir", op->hierarchy);
-                return 1;
-        }
-
-        r = dir_is_empty(op->resolved_hierarchy, /* ignore_hidden_or_backup= */ false);
-        if (r < 0)
-                return log_error_errno(r, "Failed to check if host hierarchy '%s' is empty: %m", op->resolved_hierarchy);
-        if (r > 0) {
-                log_debug("Host hierarchy '%s' is empty, will not be used as lower dir.", op->resolved_hierarchy);
-                return 1;
-        }
-
-        if (c->mutable == MUTABLE_IMPORT) {
-                log_debug("Mutability for host hierarchy '%s' is disabled, so host hierarchy will be a lowerdir", op->resolved_hierarchy);
-                return 0;
-        }
-
-        if (c->mutable == MUTABLE_EPHEMERAL_IMPORT) {
-                log_debug("Mutability for host hierarchy '%s' is ephemeral, so host hierarchy will be a lowerdir", op->resolved_hierarchy);
-                return 0;
-        }
-
-        if (!op->resolved_mutable_directory) {
-                log_debug("No mutable directory found, so host hierarchy '%s' will be used as lowerdir", op->resolved_hierarchy);
-                return 0;
-        }
-
-        r = path_equal_or_inode_same_full(op->resolved_hierarchy, op->resolved_mutable_directory, /* flags= */ 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to check equality of hierarchy %s and its mutable directory %s: %m", op->resolved_hierarchy, op->resolved_mutable_directory);
-        if (r > 0) {
-                log_debug("Host hierarchy '%s' will serve as upperdir.", op->resolved_hierarchy);
-                return 1;
-        }
-
-        return 0;
-}
-
-static int determine_bottom_lower_dirs(const Context *c, OverlayFSPaths *op, dev_t *ret_backing_devnum) {
-        int r;
-
-        assert(c);
-        assert(op);
-        assert(ret_backing_devnum);
-
-        r = hierarchy_as_lower_dir(c, op);
-        if (r < 0)
-                return r;
-        if (!r) {
-                if (strv_extend(&op->lower_dirs, op->resolved_hierarchy) < 0)
-                        return log_oom();
-
-                r = get_block_device(op->resolved_hierarchy, ret_backing_devnum);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get block device of '%s': %m", op->resolved_hierarchy);
-        } else
-                *ret_backing_devnum = 0;
-
-        return 0;
-}
-
-static int determine_lower_dirs(
-                const Context *c,
-                OverlayFSPaths *op,
-                char **paths,
-                const char *meta_path,
-                dev_t *ret_backing_devnum) {
-
-        int r;
-
-        assert(c);
-        assert(op);
-        assert(meta_path);
-        assert(ret_backing_devnum);
-
-        r = determine_top_lower_dirs(c, op, meta_path);
-        if (r < 0)
-                return r;
-
-        r = determine_middle_lower_dirs(op, paths);
-        if (r < 0)
-                return r;
-
-        r = determine_bottom_lower_dirs(c, op, ret_backing_devnum);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
-static int determine_upper_dir(const Context *c, OverlayFSPaths *op) {
-        int r;
-
-        assert(c);
-        assert(op);
-        assert(!op->upper_dir);
-
-        if (c->mutable == MUTABLE_IMPORT) {
-                log_debug("Mutability is disabled, there will be no upperdir for host hierarchy '%s'", op->hierarchy);
-                return 0;
-        }
-
-        if (!op->resolved_mutable_directory) {
-                log_debug("No mutable directory found for host hierarchy '%s', there will be no upperdir", op->hierarchy);
-                return 0;
-        }
-
-        /* Require upper dir to be on writable filesystem if it's going to be used as an actual overlayfs
-         * upperdir, instead of a lowerdir as an imported path. */
-        r = path_is_read_only_fs(op->resolved_mutable_directory);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine if mutable directory '%s' is on read-only filesystem: %m", op->resolved_mutable_directory);
-        if (r > 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EROFS), "Can't use '%s' as an upperdir as it is read-only.", op->resolved_mutable_directory);
-
-        op->upper_dir = strdup(op->resolved_mutable_directory);
-        if (!op->upper_dir)
-                return log_oom();
-
-        return 0;
-}
-
-static int determine_work_dir(const Context *c, OverlayFSPaths *op) {
-        _cleanup_free_ char *work_dir = NULL;
-        int r;
-
-        assert(c);
-        assert(op);
-        assert(!op->work_dir);
-
-        if (!op->upper_dir)
-                return 0;
-
-        if (c->mutable == MUTABLE_IMPORT)
-                return 0;
-
-        r = work_dir_for_hierarchy(op->hierarchy, op->upper_dir, &work_dir);
-        if (r < 0)
-                return r;
-
-        op->work_dir = TAKE_PTR(work_dir);
-        return 0;
-}
-
-static int mount_overlayfs_with_op(
-                OverlayFSPaths *op,
+static int write_meta_file(
                 ImageClass image_class,
-                int noexec,
-                const char *overlay_path,
-                const char *meta_path,
-                const char *mount_options) {
+                int meta_fd,
+                const char *name,
+                const char *content,
+                WriteStringFileFlags flags,
+                const char *hierarchy,
+                const char *label_name) {
 
+        _cleanup_free_ char *f = NULL, *label_path = NULL;
         int r;
-        const char *top_layer = NULL;
 
-        assert(op);
-        assert(overlay_path);
+        assert(meta_fd >= 0);
+        assert(name);
+        assert(hierarchy);
+        assert(label_name);
 
-        r = mkdir_p(overlay_path, 0700);
+        f = path_join(image_class_info[image_class].dot_directory_name, name);
+        if (!f)
+                return log_oom();
+
+        label_path = path_join(hierarchy, image_class_info[image_class].dot_directory_name, label_name);
+        if (!label_path)
+                return log_oom();
+
+        r = write_string_file_full(meta_fd, f, strempty(content), WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_LABEL|flags, /* ts= */ NULL, label_path);
         if (r < 0)
-                return log_error_errno(r, "Failed to make directory '%s': %m", overlay_path);
-
-        r = mkdir_p(meta_path, 0700);
-        if (r < 0)
-                return log_error_errno(r, "Failed to make directory '%s': %m", meta_path);
-
-        _cleanup_close_ int atfd = xopenat(AT_FDCWD, meta_path, O_DIRECTORY);
-        if (atfd < 0)
-                return log_error_errno(atfd, "Failed to open directory '%s': %m", meta_path);
-
-        r = mac_selinux_fix_full(atfd, /* inode_path= */ NULL, op->hierarchy, /* flags= */ 0, /* label_context= */ NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", meta_path);
-
-        if (op->upper_dir && op->work_dir) {
-                r = mkdir_p(op->work_dir, 0700);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to make directory '%s': %m", op->work_dir);
-
-                _cleanup_close_ int dfd = xopenat(AT_FDCWD, op->work_dir, O_DIRECTORY);
-                if (dfd < 0)
-                        return log_error_errno(dfd, "Failed to open directory '%s': %m", op->work_dir);
-
-                r = mac_selinux_fix_full(dfd, /* inode_path= */ NULL, op->hierarchy, /* flags= */ 0, /* label_context= */ NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", op->work_dir);
-
-                top_layer = op->upper_dir;
-        } else {
-                assert(!strv_isempty(op->lower_dirs));
-                top_layer = op->lower_dirs[0];
-        }
-
-        /* Overlayfs merged directory has the same mode as the top layer (either first lowerdir in options in
-         * read-only case, or upperdir for mutable case. Set up top overlayfs layer to the same mode as the
-         * unmerged hierarchy, otherwise we might end up with merged hierarchy owned by root and with mode
-         * being 0700. */
-        if (chmod(top_layer, op->hierarchy_mode) < 0)
-                return log_error_errno(errno, "Failed to set permissions of '%s' to %04o: %m", top_layer, op->hierarchy_mode);
-
-        r = mount_overlayfs(image_class, noexec, overlay_path, op->lower_dirs, op->upper_dir, op->work_dir, mount_options);
-        if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to write metadata file '%s': %m", f);
 
         return 0;
 }
 
-static int write_extensions_file(ImageClass image_class, char **extensions, const char *meta_path, const char *hierarchy) {
-        _cleanup_free_ char *f = NULL, *buf = NULL;
+static int store_info_in_meta(
+                const Context *c,
+                int meta_fd,
+                char **extensions,
+                const char *origin_content,
+                const char *work_dir,
+                const char *hierarchy,
+                dev_t backing) {
+
+        const char *plural = image_class_info[c->image_class].short_identifier_plural;
+        _cleanup_close_ int dot_fd = -EBADF;
         int r;
 
-        assert(meta_path);
+        assert(c);
+        assert(meta_fd >= 0);
+        assert(hierarchy);
+        /* work_dir may be NULL */
+
+        /* The metadata is written before the overlayfs is created, except for the device number of the
+         * overlayfs itself, see write_dev_file(). */
+
+        dot_fd = open_mkdir_at(meta_fd, image_class_info[c->image_class].dot_directory_name, O_NOFOLLOW, 0755);
+        if (dot_fd < 0)
+                return log_error_errno(dot_fd, "Failed to create metadata directory for '%s': %m", hierarchy);
+
+        r = mac_selinux_fix_full(dot_fd, /* inode_path= */ NULL, hierarchy, /* flags= */ 0, /* label_context= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", hierarchy);
 
         /* Let's generate a metadata file that lists all extensions we took into account for this
          * hierarchy. We include this in the final fs, to make things nicely discoverable and
          * recognizable. */
-        f = path_join(meta_path, image_class_info[image_class].dot_directory_name, image_class_info[image_class].short_identifier_plural);
-        if (!f)
-                return log_oom();
-
+        _cleanup_free_ char *buf = NULL;
         if (!strv_isempty(extensions)) {
                 buf = strv_join(extensions, "\n");
                 if (!buf)
@@ -1539,311 +1041,121 @@ static int write_extensions_file(ImageClass image_class, char **extensions, cons
                         return log_oom();
         }
 
-        _cleanup_free_ char *hierarchy_path = path_join(hierarchy, image_class_info[image_class].dot_directory_name, image_class_info[image_class].short_identifier_plural);
-        if (!hierarchy_path)
-                return log_oom();
-
-        r = write_string_file_full(AT_FDCWD, f, strempty(buf), WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755|WRITE_STRING_FILE_LABEL|WRITE_STRING_FILE_AVOID_NEWLINE, /* ts= */ NULL, hierarchy_path);
+        r = write_meta_file(c->image_class, meta_fd, plural, buf, WRITE_STRING_FILE_AVOID_NEWLINE, hierarchy, plural);
         if (r < 0)
-                return log_error_errno(r, "Failed to write extension meta file '%s': %m", f);
-
-        return 0;
-}
-
-static int write_origin_file(ImageClass image_class, const char *origin_content, const char *meta_path, const char *hierarchy) {
-        _cleanup_free_ char *f = NULL;
-        int r;
-
-        assert(meta_path);
+                return r;
 
         /* The origin file is compared to know if a refresh can be skipped (opt-in, used at service startup). */
-        f = path_join(meta_path, image_class_info[image_class].dot_directory_name, "origin");
-        if (!f)
-                return log_oom();
-
-        _cleanup_free_ char *hierarchy_path = path_join(hierarchy, image_class_info[image_class].dot_directory_name, image_class_info[image_class].short_identifier_plural);
-        if (!hierarchy_path)
-                return log_oom();
-
-        r = write_string_file_full(AT_FDCWD, f, strempty(origin_content),
-                                   WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755|WRITE_STRING_FILE_LABEL|WRITE_STRING_FILE_AVOID_NEWLINE,
-                                   /* ts= */ NULL, hierarchy_path);
+        r = write_meta_file(c->image_class, meta_fd, "origin", origin_content, WRITE_STRING_FILE_AVOID_NEWLINE, hierarchy, plural);
         if (r < 0)
-                return log_error_errno(r, "Failed to write origin meta file '%s': %m", f);
+                return r;
+
+        /* Do not store work dir path for ephemeral mode, it will be gone once this process is done. */
+        if (work_dir && !IN_SET(c->mutable, MUTABLE_EPHEMERAL, MUTABLE_EPHEMERAL_IMPORT)) {
+                _cleanup_free_ char *escaped_work_dir_in_root = NULL;
+                const char *work_dir_in_root;
+
+                work_dir_in_root = path_startswith(work_dir, empty_to_root(c->root));
+                if (!work_dir_in_root)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Workdir '%s' must not be outside root '%s'", work_dir, empty_to_root(c->root));
+
+                /* Paths can have newlines for whatever reason, so better escape them to really get a single
+                 * line file. */
+                escaped_work_dir_in_root = cescape(work_dir_in_root);
+                if (!escaped_work_dir_in_root)
+                        return log_oom();
+
+                r = write_meta_file(c->image_class, meta_fd, "work_dir", escaped_work_dir_in_root, /* flags= */ 0, hierarchy, "work_dir");
+                if (r < 0)
+                        return r;
+        }
+
+        /* Let's also store away the backing file system dev_t, so that applications can trace back what
+         * they are looking at here */
+        if (backing != 0) {
+                r = write_meta_file(c->image_class, meta_fd, "backing", FORMAT_DEVNUM(backing), /* flags= */ 0, hierarchy, plural);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
 
-static int write_dev_file(ImageClass image_class, const char *meta_path, const char *overlay_path, const char *hierarchy) {
-        _cleanup_free_ char *f = NULL;
+static int write_dev_file(const Context *c, int meta_fd, int overlay_fd, const char *hierarchy) {
         struct stat st;
         int r;
 
-        assert(meta_path);
-        assert(overlay_path);
+        assert(c);
+        assert(meta_fd >= 0);
+        assert(overlay_fd >= 0);
+        assert(hierarchy);
 
-        /* Now we have mounted the new file system. Let's now figure out its .st_dev field, and make that
+        /* Now we have created the new file system. Let's now figure out its .st_dev field, and make that
          * available in the metadata directory. This is useful to detect whether the metadata dir actually
          * belongs to the fs it is found on: if .st_dev of the top-level mount matches it, it's pretty likely
          * we are looking at a live tree, and not an unpacked tar or so of one. */
-        if (stat(overlay_path, &st) < 0)
-                return log_error_errno(errno, "Failed to stat mount '%s': %m", overlay_path);
-
-        f = path_join(meta_path, image_class_info[image_class].dot_directory_name, "dev");
-        if (!f)
-                return log_oom();
+        if (fstat(overlay_fd, &st) < 0)
+                return log_error_errno(errno, "Failed to stat overlayfs for '%s': %m", hierarchy);
 
         /* Modifying the underlying layers while the overlayfs is mounted is technically undefined, but at
          * least it won't crash or deadlock, as per the kernel docs about overlayfs:
          * https://www.kernel.org/doc/html/latest/filesystems/overlayfs.html#changes-to-underlying-filesystems */
-        _cleanup_free_ char *hierarchy_path = path_join(hierarchy, image_class_info[image_class].dot_directory_name, image_class_info[image_class].short_identifier_plural);
-        if (!hierarchy_path)
-                return log_oom();
-
-        r = write_string_file_full(AT_FDCWD, f, FORMAT_DEVNUM(st.st_dev), WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_LABEL, /* ts= */ NULL, hierarchy_path);
-        if (r < 0)
-                return log_error_errno(r, "Failed to write '%s': %m", f);
-
-        return 0;
-}
-
-static int write_backing_file(ImageClass image_class, const char *meta_path, const char *overlay_path, const char *hierarchy, dev_t backing) {
-        int r;
-
-        assert(meta_path);
-        assert(overlay_path);
-        assert(hierarchy);
-
-        if (backing == 0)
-                return 0;
-
-        /* Let's also store away the backing file system dev_t, so that applications can trace back what they are looking at here */
-        _cleanup_free_ char *f = path_join(meta_path, image_class_info[image_class].dot_directory_name, "backing");
-        if (!f)
-                return log_oom();
-
-        /* Modifying the underlying layers while the overlayfs is mounted is technically undefined, but at
-         * least it won't crash or deadlock, as per the kernel docs about overlayfs:
-         * https://www.kernel.org/doc/html/latest/filesystems/overlayfs.html#changes-to-underlying-filesystems */
-        _cleanup_free_ char *hierarchy_path = path_join(hierarchy, image_class_info[image_class].dot_directory_name, image_class_info[image_class].short_identifier_plural);
-        if (!hierarchy_path)
-                return log_oom();
-
-        r = write_string_file_full(AT_FDCWD, f, FORMAT_DEVNUM(backing), WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_LABEL, /* ts= */ NULL, hierarchy_path);
-        if (r < 0)
-                return log_error_errno(r, "Failed to write '%s': %m", f);
-
-        return 0;
-}
-
-static int write_work_dir_file(const Context *c, const char *meta_path, const char *work_dir, const char* hierarchy) {
-        _cleanup_free_ char *escaped_work_dir_in_root = NULL, *f = NULL;
-        char *work_dir_in_root = NULL;
-        int r;
-
-        assert(c);
-        assert(meta_path);
-
-        if (!work_dir)
-                return 0;
-
-        /* Do not store work dir path for ephemeral mode, it will be gone once this process is done. */
-        if (IN_SET(c->mutable, MUTABLE_EPHEMERAL, MUTABLE_EPHEMERAL_IMPORT))
-                return 0;
-
-        work_dir_in_root = path_startswith(work_dir, empty_to_root(c->root));
-        if (!work_dir_in_root)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Workdir '%s' must not be outside root '%s'", work_dir, empty_to_root(c->root));
-
-        f = path_join(meta_path, image_class_info[c->image_class].dot_directory_name, "work_dir");
-        if (!f)
-                return log_oom();
-
-        /* Paths can have newlines for whatever reason, so better escape them to really get a single
-         * line file. */
-        escaped_work_dir_in_root = cescape(work_dir_in_root);
-        if (!escaped_work_dir_in_root)
-                return log_oom();
-
-        _cleanup_free_ char *hierarchy_path = path_join(hierarchy, image_class_info[c->image_class].dot_directory_name, "work_dir");
-        if (!hierarchy_path)
-                return log_oom();
-
-        r = write_string_file_full(AT_FDCWD, f, escaped_work_dir_in_root, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_LABEL, /* ts= */ NULL, hierarchy_path);
-        if (r < 0)
-                return log_error_errno(r, "Failed to write '%s': %m", f);
-
-        return 0;
-}
-
-static int store_info_in_meta(
-                const Context *c,
-                char **extensions,
-                const char *origin_content,
-                const char *meta_path,
-                const char *overlay_path,
-                const char *work_dir,
-                const char *hierarchy,
-                dev_t backing) {
-
-        int r;
-
-        assert(c);
-        assert(meta_path);
-        assert(overlay_path);
-        /* work_dir may be NULL */
-
-        _cleanup_free_ char *f = path_join(meta_path, image_class_info[c->image_class].dot_directory_name);
-        if (!f)
-                return log_oom();
-
-        r = mkdir_p(f, 0755);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create directory '%s': %m", f);
-
-        _cleanup_close_ int atfd = xopenat(AT_FDCWD, f, O_DIRECTORY);
-        if (atfd < 0)
-                return log_error_errno(atfd, "Failed to open directory '%s': %m", f);
-
-        r = mac_selinux_fix_full(atfd, /* inode_path= */ NULL, hierarchy, /* flags= */ 0, /* label_context= */ NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", hierarchy);
-
-        r = write_extensions_file(c->image_class, extensions, meta_path, hierarchy);
-        if (r < 0)
-                return r;
-
-        r = write_origin_file(c->image_class, origin_content, meta_path, hierarchy);
-        if (r < 0)
-                return r;
-
-        r = write_dev_file(c->image_class, meta_path, overlay_path, hierarchy);
-        if (r < 0)
-                return r;
-
-        r = write_work_dir_file(c, meta_path, work_dir, hierarchy);
-        if (r < 0)
-                return r;
-
-        r = write_backing_file(c->image_class, meta_path, overlay_path, hierarchy, backing);
+        r = write_meta_file(c->image_class, meta_fd, "dev", FORMAT_DEVNUM(st.st_dev), /* flags= */ 0, hierarchy, image_class_info[c->image_class].short_identifier_plural);
         if (r < 0)
                 return r;
 
         /* Make sure the top-level dir has an mtime marking the point we established the merge */
-        if (utimensat(AT_FDCWD, meta_path, NULL, AT_SYMLINK_NOFOLLOW) < 0)
-                return log_error_errno(errno, "Failed to fix mtime of '%s': %m", meta_path);
+        r = futimens_opath(meta_fd, /* ts= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to fix mtime of metadata of '%s': %m", hierarchy);
 
         return 0;
 }
 
-static int make_mounts_read_only(ImageClass image_class, const char *overlay_path, bool mutable) {
-        int r;
-
-        assert(overlay_path);
-
-        if (mutable) {
-                /* Bind mount the meta path as read-only on mutable overlays to avoid accidental
-                 * modifications of the contents of meta directory, which could lead to systemd thinking that
-                 * this hierarchy is not our mount. */
-                _cleanup_free_ char *f = NULL;
-
-                f = path_join(overlay_path, image_class_info[image_class].dot_directory_name);
-                if (!f)
-                        return log_oom();
-
-                r = mount_nofollow_verbose(LOG_ERR, f, f, /* fstype= */ NULL, MS_BIND, /* options= */ NULL);
-                if (r < 0)
-                        return r;
-
-                r = bind_remount_one(f, MS_RDONLY, MS_RDONLY);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to remount '%s' as read-only: %m", f);
-        } else {
-                /* The overlayfs superblock is read-only. Let's also mark the bind mount read-only. Extra
-                 * turbo safety 😎 */
-                r = bind_remount_recursive(overlay_path, MS_RDONLY, MS_RDONLY, /* deny_list= */ NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to make bind mount '%s' read-only: %m", overlay_path);
-        }
-
-        return 0;
-}
-
-static int merge_hierarchy(
-                const Context *c,
-                const char *hierarchy,
-                char **extensions,
-                char **paths,
-                const char *origin_content,
-                const char *meta_path,
-                const char *overlay_path,
-                const char *workspace_path,
-                char **ret_work_dir) {
-
-        _cleanup_(overlayfs_paths_freep) OverlayFSPaths *op = NULL;
-        _cleanup_strv_free_ char **used_paths = NULL;
-        _cleanup_(rm_rf_physical_and_freep) char *work_dir = NULL;
-        size_t extensions_used = 0;
+static int make_meta_read_only(const Context *c, int overlay_fd, const char *hierarchy, unsigned long flags, const char *options) {
+        const char *dot_dir = image_class_info[c->image_class].dot_directory_name;
+        _cleanup_close_ int fd = -EBADF;
+        bool remount;
         int r;
 
         assert(c);
+        assert(overlay_fd >= 0);
         assert(hierarchy);
-        assert(paths);
-        assert(meta_path);
-        assert(overlay_path);
-        assert(workspace_path);
-        assert(ret_work_dir);
 
-        mac_selinux_init();
+        /* Bind mount the meta directory as read-only on mutable overlays to avoid accidental modifications
+         * of the contents of meta directory, which could lead to systemd thinking that this hierarchy is
+         * not our mount. 'overlay_fd' may refer to a detached mount. */
 
-        r = determine_used_extensions(hierarchy, paths, &used_paths, &extensions_used);
+        fd = open_tree_attr_with_fallback(overlay_fd, dot_dir, OPEN_TREE_CLONE|AT_SYMLINK_NOFOLLOW,
+                                          &(struct mount_attr) { .attr_set = MOUNT_ATTR_RDONLY });
+        remount = ERRNO_IS_NEG_NOT_SUPPORTED(fd);
+        if (remount) {
+                // FIXME: This compatibility code path shall be removed once kernel 5.12
+                //        becomes the new minimal baseline
+                /* Without mount_setattr() remount once attached instead */
+                fd = RET_NERRNO(open_tree(overlay_fd, dot_dir, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW));
+        }
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to clone metadata directory of '%s': %m", hierarchy);
+
+        r = RET_NERRNO(move_mount(fd, "", overlay_fd, dot_dir, MOVE_MOUNT_F_EMPTY_PATH));
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to mount metadata directory of '%s' read-only: %m", hierarchy);
 
-        if (extensions_used == 0 && c->mutable == MUTABLE_NO) { /* No extension with files in this hierarchy? Then don't do anything. */
-                *ret_work_dir = NULL;
-                return 0;
+        if (remount) {
+                unsigned long f;
+
+                r = mount_option_mangle(options, flags, &f, /* ret_remaining_options= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse mount options of '%s': %m", hierarchy);
+
+                f &= MS_NOSUID|MS_NODEV|MS_NOEXEC|MS_NOATIME|MS_NODIRATIME|MS_RELATIME|MS_STRICTATIME;
+                r = mount_follow_verbose(LOG_ERR, /* what= */ NULL, FORMAT_PROC_FD_PATH(fd), /* fstype= */ NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|f, /* options= */ NULL);
+                if (r < 0)
+                        return r;
         }
 
-        r = overlayfs_paths_new(c, hierarchy, workspace_path, &op);
-        if (r < 0)
-                return r;
-
-        dev_t backing;
-        r = determine_lower_dirs(c, op, used_paths, meta_path, &backing);
-        if (r < 0)
-                return r;
-
-        r = determine_upper_dir(c, op);
-        if (r < 0)
-                return r;
-
-        r = determine_work_dir(c, op);
-        if (r < 0)
-                return r;
-
-        /* The work directory is created below, remove it again if we fail (it may be on persistent storage) */
-        if (op->work_dir) {
-                work_dir = strdup(op->work_dir);
-                if (!work_dir)
-                        return log_oom();
-        }
-
-        r = mount_overlayfs_with_op(op, c->image_class, c->noexec, overlay_path, meta_path, c->overlayfs_mount_options);
-        if (r < 0)
-                return r;
-
-        r = store_info_in_meta(c, extensions, origin_content, meta_path, overlay_path, op->work_dir, op->hierarchy, backing);
-        if (r < 0)
-                return r;
-
-        r = make_mounts_read_only(c->image_class, overlay_path, op->upper_dir && op->work_dir);
-        if (r < 0)
-                return r;
-
-        *ret_work_dir = TAKE_PTR(work_dir);
-
-        return 1;
+        return 0;
 }
 
 static int strverscmp_improvedp(char *const* a, char *const* b) {
@@ -2044,7 +1356,11 @@ static int unmerge_hierarchy_in_place(const Context *c, const char *p) {
         if (n_unmerged <= 0)
                 return n_unmerged;
 
-        r = attach_submounts(submounts, n_submounts, p, p);
+        _cleanup_close_ int fd = xopenat(AT_FDCWD, p, O_PATH|O_DIRECTORY|O_NOFOLLOW);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to open '%s': %m", p);
+
+        r = attach_submounts(submounts, n_submounts, p, fd, p);
         if (r < 0)
                 return r;
 
@@ -2107,64 +1423,672 @@ static int unmerge(const Context *c) {
         return 0;
 }
 
-typedef struct WorkDirs {
-        char **paths;
-        bool keep;
-} WorkDirs;
+typedef struct ExtensionMount {
+        char *name;
+        int root_fd;    /* the root partition, or the directory of the extension */
+        int usr_fd;     /* a separate /usr partition */
+} ExtensionMount;
 
-static void work_dirs_done(WorkDirs *w) {
-        assert(w);
+#define EXTENSION_MOUNT_NULL                    \
+        (ExtensionMount) {                      \
+                .root_fd = -EBADF,              \
+                .usr_fd = -EBADF,               \
+        }
 
-        /* Removes the work directories we created, unless the merge succeeded and they are in use now. */
-        if (!w->keep)
-                STRV_FOREACH(p, w->paths)
-                        (void) rm_rf(*p, REMOVE_ROOT|REMOVE_MISSING_OK|REMOVE_PHYSICAL);
+static void extension_mount_done(ExtensionMount *m) {
+        assert(m);
 
-        w->paths = strv_free(w->paths);
+        m->name = mfree(m->name);
+        m->root_fd = safe_close(m->root_fd);
+        m->usr_fd = safe_close(m->usr_fd);
 }
 
-static int merge_subprocess(
+static DEFINE_ARRAY_FREE_FUNC(extension_mount_array_free, ExtensionMount, extension_mount_done);
+
+static ExtensionMount* extension_mount_find(ExtensionMount *mounts, size_t n_mounts, const char *name) {
+        assert(mounts || n_mounts == 0);
+        assert(name);
+
+        FOREACH_ARRAY(m, mounts, n_mounts)
+                if (streq(m->name, name))
+                        return m;
+
+        return NULL;
+}
+
+static int extension_mount_dir(const ExtensionMount *m, const char *path, int *ret_fd, const char **ret_fd_path) {
+        assert(m);
+        assert(path);
+        assert(ret_fd);
+        assert(ret_fd_path);
+
+        /* Returns the fd that 'path' of the extension's tree is found below, and the path the fd corresponds
+         * to in the tree. The partitions of an image are separate detached mounts, so /usr may live on a
+         * mount of its own. */
+
+        if (m->usr_fd >= 0 && path_startswith(path, "/usr")) {
+                *ret_fd = m->usr_fd;
+                *ret_fd_path = "/usr";
+                return 0;
+        }
+
+        if (m->root_fd >= 0) {
+                *ret_fd = m->root_fd;
+                *ret_fd_path = "/";
+                return 0;
+        }
+
+        return -ENOENT;
+}
+
+static int extension_mount_is_valid(const ExtensionMount *m) {
+        static const ImageClass classes[] = { IMAGE_SYSEXT, IMAGE_CONFEXT };
+        const char *fd_path;
+        int fd, r;
+
+        assert(m);
+
+        /* Checks what DISSECT_IMAGE_VALIDATE_OS_EXT checks for images mounted to a path: that the image
+         * doesn't carry /usr/lib/os-release, and that it is an extension of either class. Returns > 0 if
+         * the image is good. */
+
+        if (extension_mount_dir(m, "/usr/lib/os-release", &fd, &fd_path) >= 0) {
+                r = extension_has_forbidden_content_at(fd, fd_path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check image '%s' for forbidden content: %m", m->name);
+                if (r > 0)
+                        return false;
+        }
+
+        FOREACH_ELEMENT(class, classes) {
+                if (extension_mount_dir(m, *class == IMAGE_SYSEXT ? "/usr/lib/extension-release.d" : "/etc/extension-release.d", &fd, &fd_path) < 0)
+                        continue;
+
+                r = open_extension_release_at_full(fd, fd_path, *class, m->name, /* relax_extension_release_check= */ false, /* ret_path= */ NULL, /* ret_fd= */ NULL);
+                if (r >= 0)
+                        return true;
+                if (r != -ENOENT)
+                        return log_error_errno(r, "Failed to look for extension-release file of '%s': %m", m->name);
+        }
+
+        log_debug("Image '%s' is not an extension.", m->name);
+        return false;
+}
+
+typedef struct HierarchyMerge {
+        const char *hierarchy;          /* as configured */
+        char *resolved;                 /* the hierarchy below the root */
+        char *name;
+        int parent_fd;
+        int hierarchy_fd;               /* -EBADF if the hierarchy doesn't exist (yet) */
+        bool unmerged;                  /* our previous overlayfs was unmerged, its submounts with it */
+        SubMount *submounts;            /* clones of what is mounted below the hierarchy */
+        size_t n_submounts;
+        int base_fd;                    /* the hierarchy itself, as layer of the new overlayfs */
+        int meta_fd;                    /* tmpfs with the metadata of this merge */
+        int import_fd;                  /* imported mutable directory */
+        int upper_dir_fd;               /* contains upper and work dir, -EBADF if read-only */
+        char *upper;
+        char *work;
+        char *work_dir;                 /* path of the work dir we created, if not ephemeral */
+        OverlayFSLayer *layers;
+        size_t n_layers;
+        char **layer_paths;             /* owns the paths in 'layers' */
+        unsigned long flags;
+        char *options;
+        int overlay_fd;
+        bool mounted;
+} HierarchyMerge;
+
+#define HIERARCHY_MERGE_NULL                    \
+        (HierarchyMerge) {                      \
+                .parent_fd = -EBADF,            \
+                .hierarchy_fd = -EBADF,         \
+                .base_fd = -EBADF,              \
+                .meta_fd = -EBADF,              \
+                .import_fd = -EBADF,            \
+                .upper_dir_fd = -EBADF,         \
+                .overlay_fd = -EBADF,           \
+        }
+
+static void hierarchy_merge_done(HierarchyMerge *hm) {
+        assert(hm);
+
+        /* Unless the overlayfs got mounted, nothing but itself uses the work directory we created. Close it
+         * first, so that the directory is unused when we remove it. */
+        hm->overlay_fd = safe_close(hm->overlay_fd);
+        if (!hm->mounted && hm->work_dir && hm->upper_dir_fd >= 0)
+                (void) rm_rf_child(hm->upper_dir_fd, hm->work, REMOVE_PHYSICAL);
+
+        hm->resolved = mfree(hm->resolved);
+        hm->name = mfree(hm->name);
+        hm->parent_fd = safe_close(hm->parent_fd);
+        hm->hierarchy_fd = safe_close(hm->hierarchy_fd);
+        sub_mount_array_free(hm->submounts, hm->n_submounts);
+        hm->submounts = NULL;
+        hm->n_submounts = 0;
+        hm->base_fd = safe_close(hm->base_fd);
+        hm->meta_fd = safe_close(hm->meta_fd);
+        hm->import_fd = safe_close(hm->import_fd);
+        hm->upper_dir_fd = safe_close(hm->upper_dir_fd);
+        hm->upper = mfree(hm->upper);
+        hm->work = mfree(hm->work);
+        hm->work_dir = mfree(hm->work_dir);
+        hm->layers = mfree(hm->layers);
+        hm->n_layers = 0;
+        hm->layer_paths = strv_free(hm->layer_paths);
+        hm->options = mfree(hm->options);
+}
+
+static DEFINE_ARRAY_FREE_FUNC(hierarchy_merge_array_free, HierarchyMerge, hierarchy_merge_done);
+
+static int hierarchy_merge_add_layer(HierarchyMerge *hm, int fd, const char *path) {
+        char *p = NULL;
+
+        assert(hm);
+        assert(fd >= 0);
+
+        if (path) {
+                p = strdup(path);
+                if (!p)
+                        return log_oom();
+
+                if (strv_consume(&hm->layer_paths, p) < 0)
+                        return log_oom();
+        }
+
+        if (!GREEDY_REALLOC(hm->layers, hm->n_layers + 1))
+                return log_oom();
+
+        hm->layers[hm->n_layers++] = (OverlayFSLayer) {
+                .fd = fd,
+                .path = p,
+        };
+
+        return 0;
+}
+
+static int hierarchy_merge_pin(const Context *c, HierarchyMerge *hm, bool mkdir) {
+        int r;
+
+        assert(c);
+        assert(hm);
+        assert(hm->resolved);
+
+        /* Pins the parent directory and the hierarchy, if it exists. Everything below refers to these
+         * inodes, regardless of what happens to the path meanwhile. */
+
+        hm->parent_fd = safe_close(hm->parent_fd);
+        hm->hierarchy_fd = safe_close(hm->hierarchy_fd);
+        hm->name = mfree(hm->name);
+
+        if (mkdir) {
+                r = mkdir_p(hm->resolved, 0755);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create hierarchy mount point '%s': %m", hm->resolved);
+        }
+
+        r = chase(hm->resolved, c->root, CHASE_PARENT|CHASE_EXTRACT_FILENAME|CHASE_PROHIBIT_SYMLINKS, &hm->name, &hm->parent_fd);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to pin parent directory of '%s': %m", hm->resolved);
+
+        hm->hierarchy_fd = xopenat(hm->parent_fd, hm->name, O_PATH|O_DIRECTORY|O_NOFOLLOW);
+        if (hm->hierarchy_fd == -ENOENT) {
+                hm->hierarchy_fd = -EBADF;
+                return 0;
+        }
+        if (hm->hierarchy_fd < 0)
+                return log_error_errno(hm->hierarchy_fd, "Failed to open '%s': %m", hm->resolved);
+
+        return 1;
+}
+
+static int hierarchy_merge_prepare(
                 const Context *c,
-                Hashmap *images,
-                const char *workspace) {
+                HierarchyMerge *hm,
+                ExtensionMount *const *extension_mounts,
+                size_t n_extension_mounts,
+                char **extensions,
+                const char *origin_content) {
+
+        _cleanup_free_ char *resolved_mutable_directory = NULL;
+        _cleanup_free_ OverlayFSLayer *extension_layers = NULL;
+        _cleanup_strv_free_ char **extension_layer_paths = NULL;
+        size_t n_extension_layers = 0;
+        bool upper_is_hierarchy = false;
+        mode_t hierarchy_mode = 0755;
+        dev_t backing = 0;
+        int r;
+
+        assert(c);
+        assert(hm);
+        assert(hm->hierarchy);
+        assert(extension_mounts || n_extension_mounts == 0);
+
+        /* Collects the layers of the new overlayfs for the hierarchy and creates its metadata. Returns 0 if
+         * there is nothing to merge. */
+
+        r = chase(hm->hierarchy, c->root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &hm->resolved, /* ret_fd= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to resolve hierarchy '%s%s': %m", strempty(c->root), hm->hierarchy);
+
+        r = hierarchy_merge_pin(c, hm, /* mkdir= */ false);
+        if (r < 0)
+                return r;
+
+        FOREACH_ARRAY(e, extension_mounts, n_extension_mounts) {
+                _cleanup_free_ char *resolved = NULL;
+                const char *fd_path, *p;
+                int fd;
+
+                if (extension_mount_dir(*e, hm->hierarchy, &fd, &fd_path) < 0) {
+                        log_debug("Hierarchy '%s' in extension '%s' doesn't exist, not merging.", hm->hierarchy, (*e)->name);
+                        continue;
+                }
+
+                p = path_startswith(hm->hierarchy, fd_path);
+                assert(p);
+
+                if (!isempty(p)) {
+                        r = chaseat(fd, fd, p, /* flags= */ 0, &resolved, /* ret_fd= */ NULL);
+                        if (r == -ENOENT) {
+                                log_debug_errno(r, "Hierarchy '%s' in extension '%s' doesn't exist, not merging.", hm->hierarchy, (*e)->name);
+                                continue;
+                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to resolve hierarchy '%s' in extension '%s': %m", hm->hierarchy, (*e)->name);
+                }
+
+                r = dir_is_empty_at(fd, resolved, /* ignore_hidden_or_backup= */ false);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check if hierarchy '%s' in extension '%s' is empty: %m", hm->hierarchy, (*e)->name);
+                if (r > 0) {
+                        log_debug("Hierarchy '%s' in extension '%s' is empty, not merging.", hm->hierarchy, (*e)->name);
+                        continue;
+                }
+
+                if (!GREEDY_REALLOC(extension_layers, n_extension_layers + 1))
+                        return log_oom();
+
+                extension_layers[n_extension_layers++] = (OverlayFSLayer) {
+                        .fd = fd,
+                        .path = resolved,
+                };
+
+                if (resolved && strv_consume(&extension_layer_paths, TAKE_PTR(resolved)) < 0)
+                        return log_oom();
+        }
+
+        if (n_extension_layers == 0 && c->mutable == MUTABLE_NO) /* No extension with files in this hierarchy? Then don't do anything. */
+                return 0;
+
+        if (hm->hierarchy_fd >= 0) {
+                r = is_our_mount_point_fd(c->image_class, hm->hierarchy_fd, hm->resolved);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        /* Let's now unmerge the status quo ante, since to build the new overlayfs we need a
+                         * reference to the underlying fs. This hands us clones of the submounts of the old
+                         * overlayfs, which we'll attach to the new one. */
+                        r = unmerge_hierarchy(c, hm->resolved, &hm->submounts, &hm->n_submounts);
+                        if (r < 0)
+                                return r;
+
+                        hm->unmerged = true;
+
+                        r = hierarchy_merge_pin(c, hm, /* mkdir= */ false);
+                        if (r < 0)
+                                return r;
+                } else {
+                        r = get_sub_mounts(hm->resolved, &hm->submounts, &hm->n_submounts);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get submounts for %s: %m", hm->resolved);
+                }
+        }
+
+        if (hm->hierarchy_fd >= 0) {
+                struct stat st;
+
+                /* A clone without the submounts, which is what overlayfs takes as layer anyway */
+                hm->base_fd = RET_NERRNO(open_tree(hm->hierarchy_fd, "", OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_EMPTY_PATH));
+                if (hm->base_fd < 0)
+                        return log_error_errno(hm->base_fd, "Failed to clone '%s': %m", hm->resolved);
+
+                if (fstat(hm->base_fd, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat '%s': %m", hm->resolved);
+
+                hierarchy_mode = st.st_mode & 0777;
+        }
+
+        r = resolve_mutable_directory(c, hm->hierarchy, hierarchy_mode, &resolved_mutable_directory);
+        if (r < 0)
+                return r;
+
+        if (resolved_mutable_directory && hm->hierarchy_fd >= 0) {
+                r = path_equal_or_inode_same_full(hm->resolved, resolved_mutable_directory, /* flags= */ 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check equality of hierarchy %s and its mutable directory %s: %m", hm->resolved, resolved_mutable_directory);
+                upper_is_hierarchy = r > 0;
+        }
+
+        /* Put the meta path (i.e. our synthesized stuff) at the top of the layer stack */
+        hm->meta_fd = make_fsmount(LOG_ERR, image_class_info[c->image_class].short_identifier, "tmpfs", /* flags= */ 0, "mode=0700", /* userns_fd= */ -EBADF);
+        if (hm->meta_fd < 0)
+                return hm->meta_fd;
+
+        r = mac_selinux_fix_full(hm->meta_fd, /* inode_path= */ NULL, hm->hierarchy, /* flags= */ 0, /* label_context= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to fix SELinux label for metadata of '%s': %m", hm->hierarchy);
+
+        r = hierarchy_merge_add_layer(hm, hm->meta_fd, /* path= */ NULL);
+        if (r < 0)
+                return r;
+
+        /* If importing the mutable layer and it actually exists and is not the hierarchy itself, add it just
+         * below the meta path */
+        if (c->mutable == MUTABLE_IMPORT && resolved_mutable_directory) {
+                if (upper_is_hierarchy)
+                        return log_error_errno(SYNTHETIC_ERRNO(ELOOP), "Not importing mutable directory for hierarchy %s as a lower dir, because it points to the hierarchy itself", hm->hierarchy);
+
+                hm->import_fd = xopenat(AT_FDCWD, resolved_mutable_directory, O_PATH|O_DIRECTORY);
+                if (hm->import_fd < 0)
+                        return log_error_errno(hm->import_fd, "Failed to open mutable directory '%s': %m", resolved_mutable_directory);
+        } else if (c->mutable == MUTABLE_EPHEMERAL_IMPORT) {
+                _cleanup_free_ char *dir_name = NULL, *p = NULL, *resolved = NULL;
+
+                dir_name = hierarchy_as_single_path_component(hm->hierarchy);
+                if (!dir_name)
+                        return log_oom();
+
+                p = path_join(MUTABLE_EXTENSIONS_BASE_DIR, dir_name);
+                if (!p)
+                        return log_oom();
+
+                r = chase(p, c->root, CHASE_PREFIX_ROOT, &resolved, &hm->import_fd);
+                if (r == -ENOENT)
+                        log_debug("Mutable directory for %s does not exist, not importing", hm->hierarchy);
+                else if (r < 0)
+                        return log_error_errno(r, "Failed to resolve mutable directory '%s': %m", p);
+                else if (hm->hierarchy_fd >= 0) {
+                        r = path_equal_or_inode_same_full(hm->resolved, resolved, /* flags= */ 0);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to check equality of hierarchy %s and its mutable directory %s: %m", hm->resolved, resolved);
+                        if (r > 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(ELOOP), "Not importing mutable directory for hierarchy %s as a lower dir, because it points to the hierarchy itself", hm->hierarchy);
+                }
+        }
+        if (hm->import_fd >= 0) {
+                r = hierarchy_merge_add_layer(hm, hm->import_fd, /* path= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        FOREACH_ARRAY(l, extension_layers, n_extension_layers) {
+                r = hierarchy_merge_add_layer(hm, l->fd, l->path);
+                if (r < 0)
+                        return r;
+        }
+
+        /* And finally the hierarchy itself at the bottom, unless it is empty or serves as upperdir */
+        if (hm->base_fd >= 0) {
+                r = dir_is_empty_at(hm->base_fd, /* path= */ NULL, /* ignore_hidden_or_backup= */ false);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check if host hierarchy '%s' is empty: %m", hm->resolved);
+                if (r > 0)
+                        log_debug("Host hierarchy '%s' is empty, will not be used as lower dir.", hm->resolved);
+                else if (upper_is_hierarchy && c->mutable != MUTABLE_IMPORT)
+                        log_debug("Host hierarchy '%s' will serve as upperdir.", hm->resolved);
+                else {
+                        r = hierarchy_merge_add_layer(hm, hm->base_fd, /* path= */ NULL);
+                        if (r < 0)
+                                return r;
+
+                        r = get_block_device_fd(hm->base_fd, &backing);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get block device of '%s': %m", hm->resolved);
+                }
+        }
+
+        if (IN_SET(c->mutable, MUTABLE_EPHEMERAL, MUTABLE_EPHEMERAL_IMPORT)) {
+                r = make_ephemeral_mutable_directory(c, hm->hierarchy, hierarchy_mode, &hm->upper_dir_fd, &hm->upper);
+                if (r < 0)
+                        return r;
+
+                r = work_dir_name_for_hierarchy(hm->hierarchy, &hm->work);
+                if (r < 0)
+                        return r;
+
+        } else if (c->mutable != MUTABLE_IMPORT && resolved_mutable_directory) {
+                _cleanup_free_ char *parent = NULL;
+
+                /* Require upper dir to be on writable filesystem if it's going to be used as an actual
+                 * overlayfs upperdir, instead of a lowerdir as an imported path. */
+                r = path_is_read_only_fs(resolved_mutable_directory);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine if mutable directory '%s' is on read-only filesystem: %m", resolved_mutable_directory);
+                if (r > 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EROFS), "Can't use '%s' as an upperdir as it is read-only.", resolved_mutable_directory);
+
+                r = path_extract_directory(resolved_mutable_directory, &parent);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get parent directory of upperdir '%s': %m", resolved_mutable_directory);
+
+                if (upper_is_hierarchy) {
+                        struct stat st_parent, st_base;
+
+                        /* The work dir goes next to the hierarchy, and both must be on the same mount. Take
+                         * them from a clone of the mount of the parent directory, which also shows the
+                         * hierarchy beneath any overlayfs mounted on it. The mutable directory may be a bind
+                         * mount of the hierarchy rather than a symlink to it, so its parent is not
+                         * necessarily the parent of the hierarchy. Record the work dir where it really is,
+                         * so that unmerging finds and removes it. */
+                        parent = mfree(parent);
+                        r = path_extract_directory(hm->resolved, &parent);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get parent directory of hierarchy '%s': %m", hm->resolved);
+
+                        if (fstat(hm->parent_fd, &st_parent) < 0)
+                                return log_error_errno(errno, "Failed to stat '%s': %m", parent);
+                        if (fstat(hm->base_fd, &st_base) < 0)
+                                return log_error_errno(errno, "Failed to stat '%s': %m", hm->resolved);
+                        if (st_parent.st_dev != st_base.st_dev)
+                                return log_error_errno(SYNTHETIC_ERRNO(EXDEV), "Unable to find a suitable workdir location for upperdir '%s' for host hierarchy '%s' - parent directory of the upperdir is in a different filesystem", resolved_mutable_directory, hm->hierarchy);
+
+                        hm->upper_dir_fd = RET_NERRNO(open_tree(hm->parent_fd, "", OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_EMPTY_PATH));
+                        if (hm->upper_dir_fd < 0)
+                                return log_error_errno(hm->upper_dir_fd, "Failed to clone '%s': %m", parent);
+
+                        hm->upper = strdup(hm->name);
+                        if (!hm->upper)
+                                return log_oom();
+                } else {
+                        r = paths_on_same_fs(resolved_mutable_directory, parent);
+                        if (r < 0)
+                                return r;
+                        if (!r)
+                                return log_error_errno(SYNTHETIC_ERRNO(EXDEV), "Unable to find a suitable workdir location for upperdir '%s' for host hierarchy '%s' - parent directory of the upperdir is in a different filesystem", resolved_mutable_directory, hm->hierarchy);
+
+                        hm->upper_dir_fd = xopenat(AT_FDCWD, parent, O_PATH|O_DIRECTORY);
+                        if (hm->upper_dir_fd < 0)
+                                return log_error_errno(hm->upper_dir_fd, "Failed to open '%s': %m", parent);
+
+                        r = path_extract_filename(resolved_mutable_directory, &hm->upper);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract file name of '%s': %m", resolved_mutable_directory);
+                }
+
+                r = work_dir_name_for_hierarchy(hm->hierarchy, &hm->work);
+                if (r < 0)
+                        return r;
+
+                hm->work_dir = path_join(parent, hm->work);
+                if (!hm->work_dir)
+                        return log_oom();
+        }
+
+        if (hm->upper_dir_fd >= 0) {
+                _cleanup_close_ int work_fd = -EBADF, upper_fd = -EBADF;
+
+                /* The work directory is removed again if we fail (it may be on persistent storage) */
+                work_fd = open_mkdir_at(hm->upper_dir_fd, hm->work, O_NOFOLLOW, 0700);
+                if (work_fd < 0)
+                        return log_error_errno(work_fd, "Failed to create work directory for '%s': %m", hm->hierarchy);
+
+                r = mac_selinux_fix_full(work_fd, /* inode_path= */ NULL, hm->hierarchy, /* flags= */ 0, /* label_context= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to fix SELinux label of work directory for '%s': %m", hm->hierarchy);
+
+                /* Overlayfs merged directory has the same mode as the top layer, which is the upperdir
+                 * here. Set it up to the same mode as the unmerged hierarchy. */
+                upper_fd = xopenat(hm->upper_dir_fd, hm->upper, O_DIRECTORY|O_NOFOLLOW);
+                if (upper_fd < 0)
+                        return log_error_errno(upper_fd, "Failed to open upper directory for '%s': %m", hm->hierarchy);
+
+                if (fchmod(upper_fd, hierarchy_mode) < 0)
+                        return log_error_errno(errno, "Failed to set permissions of upper directory for '%s' to %04o: %m", hm->hierarchy, hierarchy_mode);
+        } else {
+                /* Same for the top lowerdir in the read-only case, i.e. the meta path */
+                r = fchmod_opath(hm->meta_fd, hierarchy_mode);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set permissions of metadata of '%s' to %04o: %m", hm->hierarchy, hierarchy_mode);
+        }
+
+        hm->flags = image_class_info[c->image_class].default_mount_flags;
+        if (c->noexec >= 0)
+                SET_FLAG(hm->flags, MS_NOEXEC, c->noexec);
+
+        const char *mount_options = c->overlayfs_mount_options;
+        if (hm->upper_dir_fd >= 0) {
+                hm->flags &= ~MS_RDONLY;
+
+                if (!mount_options)
+                        mount_options = MUTABLE_EXTENSIONS_MOUNT_OPTIONS;
+        }
+
+        hm->options = strdup(strempty(mount_options));
+        if (!hm->options)
+                return log_oom();
+
+        /* A refresh mounts the new overlay while the old one still uses the same upperdir and overlayfs only
+         * permits that with index=off. So append it to the overridden mount options if not set. */
+        if (hm->upper_dir_fd >= 0 && !fstab_test_option(mount_options, "index\0") &&
+            !strextend_with_separator(&hm->options, ",", "index=off"))
+                return log_oom();
+
+        r = store_info_in_meta(c, hm->meta_fd, extensions, origin_content, hm->work_dir, hm->hierarchy, backing);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+static int hierarchy_merge_attach(const Context *c, HierarchyMerge *hm) {
+        int r;
+
+        assert(c);
+        assert(hm);
+        assert(hm->overlay_fd >= 0);
+
+        /* Puts the read-only metadata bind mount and the submounts on top of the new overlayfs, which may
+         * still be detached. */
+
+        if (hm->upper_dir_fd >= 0) {
+                r = make_meta_read_only(c, hm->overlay_fd, hm->resolved, hm->flags, hm->options);
+                if (r < 0)
+                        return r;
+        }
+
+        return attach_submounts(hm->submounts, hm->n_submounts, hm->resolved, hm->overlay_fd, hm->resolved);
+}
+
+static int hierarchy_merge_finish(const Context *c, HierarchyMerge *hm, bool attach_detached) {
+        int r;
+
+        assert(c);
+        assert(hm);
+
+        if (hm->n_layers == 0) {
+                /* The extensions don't provide this hierarchy (anymore), unmerge it if it is merged. */
+                r = unmerge_hierarchy_in_place(c, hm->resolved);
+                if (r < 0)
+                        return r;
+
+                return 0;
+        }
+
+        r = write_dev_file(c, hm->meta_fd, hm->overlay_fd, hm->hierarchy);
+        if (r < 0)
+                return r;
+
+        /* Since Linux 6.15 mounts can be attached to the overlayfs before it is mounted, so that it appears
+         * with everything in place at once. */
+        if (attach_detached) {
+                r = hierarchy_merge_attach(c, hm);
+                if (r < 0)
+                        return r;
+        }
+
+        if (hm->hierarchy_fd < 0) {
+                r = hierarchy_merge_pin(c, hm, /* mkdir= */ true);
+                if (r < 0)
+                        return r;
+                if (hm->hierarchy_fd < 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Hierarchy '%s' vanished.", hm->resolved);
+        }
+
+        r = RET_NERRNO(move_mount(hm->overlay_fd, "", hm->hierarchy_fd, "", MOVE_MOUNT_F_EMPTY_PATH|MOVE_MOUNT_T_EMPTY_PATH));
+        if (r < 0)
+                return log_error_errno(r, "Failed to mount overlayfs on '%s': %m", hm->resolved);
+
+        hm->mounted = true;
+
+        // FIXME: This compatibility code path shall be removed once kernel 6.15
+        //        becomes the new minimal baseline
+        if (!attach_detached) {
+                r = hierarchy_merge_attach(c, hm);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Detach the now hidden original submounts, going by fd since they can't be reached by path
+         * anymore. (When we unmerged our previous overlayfs, they went away with it.) */
+        if (!hm->unmerged)
+                FOREACH_ARRAY(m, hm->submounts, hm->n_submounts)
+                        (void) umountat_detach_verbose(LOG_WARNING, m->original_fd, /* where= */ "");
+
+        log_info("Merged extensions into '%s'.", hm->resolved);
+        return 0;
+}
+
+static int merge_hierarchies(const Context *c, Hashmap *images) {
 
         _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_id_like = NULL,
                         *host_os_release_version_id = NULL, *host_os_release_api_level = NULL,
                         *host_os_release_image_id = NULL, *host_os_release_image_version = NULL,
                         *filename = NULL, *old_origin_content = NULL,
                         *extensions_origin_content = NULL;
-        _cleanup_strv_free_ char **extensions = NULL, **extensions_v = NULL, **paths = NULL;
+        _cleanup_strv_free_ char **extensions = NULL, **extensions_v = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *extensions_origin_entries = NULL,
                         *extensions_origin_json = NULL, *mutable_dir_entries = NULL;
         _cleanup_(host_properties_done) HostProperties host = {};
-        _cleanup_(work_dirs_done) WorkDirs work_dirs = {};
-        size_t n_extensions = 0;
+        ExtensionMount *extension_mounts = NULL;
+        HierarchyMerge *merges = NULL;
+        size_t n_extensions = 0, n_extension_mounts = 0, n_merges = 0;
         unsigned n_ignored = 0;
         Image *img;
         int r;
 
         assert(c);
 
-        assert(path_startswith(workspace, "/run/"));
+        CLEANUP_ARRAY(extension_mounts, n_extension_mounts, extension_mount_array_free);
+        CLEANUP_ARRAY(merges, n_merges, hierarchy_merge_array_free);
 
-        /* Mark the whole of /run as MS_SLAVE, so that we can mount stuff below it that doesn't show up on
-         * the host otherwise. */
-        r = mount_nofollow_verbose(LOG_ERR, /* what= */ NULL, "/run", /* fstype= */ NULL, MS_SLAVE|MS_REC, /* options= */ NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to remount /run/ MS_SLAVE: %m");
+        /* Note that everything is assembled as detached mounts, which nobody else can see and which go away
+         * automatically when we are done, until the overlayfs mounts are put in place at the very end. */
 
-        /* Let's create the workspace if it's missing */
-        r = mkdir_p(workspace, 0700);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create '%s': %m", workspace);
-
-        /* Let's mount a tmpfs to our workspace. This way we don't need to clean up the inodes we mount over,
-         * but let the kernel do that entirely automatically, once our namespace dies. Note that this file
-         * system won't be visible to anyone but us, since we opened our own namespace and then made the
-         * /run/ hierarchy (which our workspace is contained in) MS_SLAVE, see above. */
-        r = mount_nofollow_verbose(LOG_ERR, image_class_info[c->image_class].short_identifier, workspace, "tmpfs", /* flags= */ 0, "mode=0700");
-        if (r < 0)
-                return r;
+        mac_selinux_init();
 
         /* Acquire host OS release info, so that we can compare it with the extension's data */
         r = parse_os_release(
@@ -2182,41 +2106,34 @@ static int merge_subprocess(
                                        "'ID' field not found or empty in 'os-release' data of OS tree '%s'.",
                                        empty_to_root(c->root));
 
-        /* Let's now mount all images */
+        /* Let's now mount all images, as detached mounts */
         HASHMAP_FOREACH(img, images) {
-                _cleanup_free_ char *p = NULL, *path_without_root = NULL;
+                _cleanup_(extension_mount_done) ExtensionMount em = EXTENSION_MOUNT_NULL;
+                _cleanup_free_ char *path_without_root = NULL;
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *verity_hash = NULL;
 
-                p = path_join(workspace, image_class_info[c->image_class].short_identifier_plural, img->name);
-                if (!p)
+                em.name = strdup(img->name);
+                if (!em.name)
                         return log_oom();
-
-                r = mkdir_p(p, 0700);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create %s: %m", p);
 
                 switch (img->type) {
                 case IMAGE_DIRECTORY:
                 case IMAGE_SUBVOLUME:
 
+                        /* Overlayfs makes the layers read-only itself, hence no need for a bind mount */
+                        em.root_fd = xopenat(AT_FDCWD, img->path, O_PATH|O_DIRECTORY);
+                        if (em.root_fd < 0)
+                                return log_error_errno(em.root_fd, "Failed to open '%s': %m", img->path);
+
                         if (!c->force) {
-                                r = extension_has_forbidden_content(img->path);
+                                r = extension_has_forbidden_content_at(em.root_fd, "/");
                                 if (r < 0)
-                                        return r;
+                                        return log_error_errno(r, "Failed to check extension '%s' for forbidden content: %m", img->name);
                                 if (r > 0) {
                                         n_ignored++;
                                         continue;
                                 }
                         }
-
-                        r = mount_nofollow_verbose(LOG_ERR, img->path, p, /* fstype= */ NULL, MS_BIND, /* options= */ NULL);
-                        if (r < 0)
-                                return r;
-
-                        /* Make this a read-only bind mount */
-                        r = bind_remount_recursive(p, MS_RDONLY, MS_RDONLY, /* deny_list= */ NULL);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to make bind mount '%s' read-only: %m", p);
 
                         break;
 
@@ -2242,9 +2159,6 @@ static int merge_subprocess(
 
                         if (verity_settings.data_path)
                                 flags |= DISSECT_IMAGE_NO_PARTITION_TABLE;
-
-                        if (!c->force)
-                                flags |= DISSECT_IMAGE_VALIDATE_OS_EXT;
 
                         r = loop_device_make_by_path(
                                         img->path,
@@ -2297,21 +2211,31 @@ static int merge_subprocess(
 
                         r = dissected_image_mount_and_warn(
                                         m,
-                                        p,
+                                        /* where= */ NULL,
                                         /* uid_shift= */ UID_INVALID,
                                         /* uid_range= */ UID_INVALID,
                                         /* userns_fd= */ -EBADF,
                                         flags);
-                        if (r < 0 && r != -ENOMEDIUM)
+                        if (r < 0)
                                 return r;
-                        if (r == -ENOMEDIUM && !c->force) {
-                                n_ignored++;
-                                continue;
-                        }
+
+                        em.root_fd = TAKE_FD(m->partitions[PARTITION_ROOT].fsmount_fd);
+                        em.usr_fd = TAKE_FD(m->partitions[PARTITION_USR].fsmount_fd);
 
                         r = dissected_image_relinquish(m);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to relinquish DM and loopback block devices: %m");
+
+                        if (!c->force) {
+                                r = extension_mount_is_valid(&em);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0) {
+                                        n_ignored++;
+                                        continue;
+                                }
+                        }
+
                         break;
                 }
                 default:
@@ -2446,6 +2370,10 @@ static int merge_subprocess(
                 if (r < 0)
                         return log_error_errno(r, "Failed to add origin entry for '%s': %m", img->name);
 
+                if (!GREEDY_REALLOC(extension_mounts, n_extension_mounts + 1))
+                        return log_oom();
+
+                extension_mounts[n_extension_mounts++] = TAKE_GENERIC(em, ExtensionMount, EXTENSION_MOUNT_NULL);
                 n_extensions++;
         }
 
@@ -2463,25 +2391,25 @@ static int merge_subprocess(
         typesafe_qsort(extensions_v, n_extensions, strverscmp_improvedp);
 
         STRV_FOREACH(h, c->hierarchies) {
-                _cleanup_(overlayfs_paths_freep) OverlayFSPaths *op = NULL;
-                _cleanup_free_ char *f = NULL, *buf = NULL, *resolved = NULL, *mutable_directory_without_root = NULL;
+                _cleanup_free_ char *f = NULL, *buf = NULL, *resolved = NULL, *mutable_directory_without_root = NULL,
+                        *resolved_mutable_directory = NULL;
 
                 /* The origin file includes the backing directories for mutable overlays. */
-                r = overlayfs_paths_new(c, *h, workspace, &op);
+                r = hierarchy_mutable_directory(c, *h, &resolved_mutable_directory);
                 if (r < 0)
                         return r;
 
-                if (op->resolved_mutable_directory && !isempty(c->root)) {
+                if (resolved_mutable_directory && !isempty(c->root)) {
                         const char *without_root = NULL;
-                        without_root = path_startswith(op->resolved_mutable_directory, c->root);
+                        without_root = path_startswith(resolved_mutable_directory, c->root);
                         if (!isempty(without_root)) {
                                 mutable_directory_without_root = strjoin("/", without_root);
                                 if (!mutable_directory_without_root)
                                         return log_oom();
                         }
                 }
-                if (!mutable_directory_without_root && op->resolved_mutable_directory) {
-                        mutable_directory_without_root = strdup(op->resolved_mutable_directory);
+                if (!mutable_directory_without_root && resolved_mutable_directory) {
+                        mutable_directory_without_root = strdup(resolved_mutable_directory);
                         if (!mutable_directory_without_root)
                                 return log_oom();
                 }
@@ -2572,143 +2500,72 @@ static int merge_subprocess(
                 log_info("Using extensions '%s'.", buf);
         }
 
-        /* Build table of extension paths (in reverse order) */
-        paths = new0(char*, n_extensions + 1);
-        if (!paths)
+        /* The extensions in reverse order, i.e. the topmost layer first */
+        _cleanup_free_ ExtensionMount **ordered = new0(ExtensionMount*, n_extensions + 1);
+        if (!ordered)
                 return log_oom();
 
-        for (size_t k = 0; k < n_extensions; k++) {
-                _cleanup_free_ char *p = NULL;
+        for (size_t k = 0; k < n_extensions; k++)
+                assert_se(ordered[k] = extension_mount_find(extension_mounts, n_extension_mounts, extensions[n_extensions - 1 - k]));
 
-                assert_se(img = hashmap_get(images, extensions[n_extensions - 1 - k]));
+        merges = new(HierarchyMerge, MAX(strv_length(c->hierarchies), 1u));
+        if (!merges)
+                return log_oom();
 
-                p = path_join(workspace, image_class_info[c->image_class].short_identifier_plural, img->name);
-                if (!p)
-                        return log_oom();
-
-                paths[k] = TAKE_PTR(p);
-        }
-
-        /* Let's now unmerge the status quo ante, since to build the new overlayfs we need a reference to the
-         * underlying fs. */
         STRV_FOREACH(h, c->hierarchies) {
-                _cleanup_free_ char *submounts_path = NULL, *resolved = NULL;
+                HierarchyMerge *hm = merges + n_merges++;
 
-                submounts_path = path_join(workspace, "submounts", *h);
-                if (!submounts_path)
-                        return log_oom();
+                *hm = HIERARCHY_MERGE_NULL;
+                hm->hierarchy = *h;
 
-                r = chase(*h, c->root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved, /* ret_fd= */ NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to resolve hierarchy '%s%s': %m", strempty(c->root), *h);
-
-                SubMount *submounts = NULL;
-                size_t n_submounts = 0;
-                CLEANUP_ARRAY(submounts, n_submounts, sub_mount_array_free);
-
-                r = unmerge_hierarchy(c, resolved, &submounts, &n_submounts);
+                r = hierarchy_merge_prepare(c, hm, ordered, n_extensions, extensions, extensions_origin_content);
                 if (r < 0)
                         return r;
-                if (r > 0) {
-                        r = attach_submounts(submounts, n_submounts, resolved, submounts_path);
-                        if (r < 0)
-                                return r;
+        }
 
+        _cleanup_free_ OverlayFSSpec *specs = new(OverlayFSSpec, MAX(n_merges, 1u));
+        _cleanup_free_ int *overlay_fds = new(int, MAX(n_merges, 1u));
+        size_t n_specs = 0;
+        if (!specs || !overlay_fds)
+                return log_oom();
+
+        FOREACH_ARRAY(hm, merges, n_merges) {
+                if (hm->n_layers == 0)
                         continue;
-                }
 
-                /* If we didn't unmerge anything, then we have to move the submounts from the host's
-                 * original hierarchy. */
-
-                r = move_submounts(resolved, submounts_path);
-                if (r < 0)
-                        return r;
+                specs[n_specs++] = (OverlayFSSpec) {
+                        .source = image_class_info[c->image_class].short_identifier,
+                        .layers = hm->layers,
+                        .n_layers = hm->n_layers,
+                        .upper_dir_fd = hm->upper_dir_fd,
+                        .upper = hm->upper,
+                        .work = hm->work,
+                        .flags = hm->flags,
+                        .options = hm->options,
+                };
         }
 
-        /* Create overlayfs mounts for all hierarchies */
-        STRV_FOREACH(h, c->hierarchies) {
-                _cleanup_free_ char *meta_path = NULL, *overlay_path = NULL, *merge_hierarchy_workspace = NULL, *submounts_path = NULL;
+        r = overlayfs_make_mounts(specs, n_specs, overlay_fds);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create overlayfs mounts: %m");
+        bool attach_detached = r > 0;
 
-                meta_path = path_join(workspace, "meta", *h); /* The place where to store metadata about this instance */
-                if (!meta_path)
-                        return log_oom();
-
-                overlay_path = path_join(workspace, "overlay", *h); /* The resulting overlayfs instance */
-                if (!overlay_path)
-                        return log_oom();
-
-                /* Temporary directory for merge_hierarchy needs, like ephemeral directories. */
-                merge_hierarchy_workspace = path_join(workspace, "mh_workspace", *h);
-                if (!merge_hierarchy_workspace)
-                        return log_oom();
-
-                submounts_path = path_join(workspace, "submounts", *h);
-                if (!submounts_path)
-                        return log_oom();
-
-                _cleanup_free_ char *work_dir = NULL;
-                r = merge_hierarchy(
-                                c,
-                                *h,
-                                extensions,
-                                paths,
-                                extensions_origin_content,
-                                meta_path,
-                                overlay_path,
-                                merge_hierarchy_workspace,
-                                &work_dir);
-                if (r < 0)
-                        return r;
-
-                if (work_dir && strv_consume(&work_dirs.paths, TAKE_PTR(work_dir)) < 0)
-                        return log_oom();
-
-                /* After the new hierarchy is set up, move the submounts from the original hierarchy into
-                 * place. */
-
-                r = move_submounts(submounts_path, overlay_path);
-                if (r < 0)
-                        return r;
-        }
+        size_t k = 0;
+        FOREACH_ARRAY(hm, merges, n_merges)
+                if (hm->n_layers > 0)
+                        hm->overlay_fd = overlay_fds[k++];
 
         /* And move them all into place. This is where things appear in the host namespace */
-        STRV_FOREACH(h, c->hierarchies) {
-                _cleanup_free_ char *p = NULL, *resolved = NULL;
-
-                p = path_join(workspace, "overlay", *h);
-                if (!p)
-                        return log_oom();
-
-                r = access_nofollow(p, F_OK);
-                if (r == -ENOENT) /* Hierarchy apparently was empty in all extensions, and wasn't mounted, ignoring. */
-                        continue;
-                if (r < 0)
-                        return log_error_errno(r, "Failed to check if '%s' exists: %m", p);
-
-                r = chase(*h, c->root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved, /* ret_fd= */ NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to resolve hierarchy '%s%s': %m", strempty(c->root), *h);
-
-                r = mkdir_p(resolved, 0755);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create hierarchy mount point '%s': %m", resolved);
-
-                /* Using MS_REC to potentially bring in our read-only bind mount of metadata. */
-                r = mount_nofollow_verbose(LOG_ERR, p, resolved, /* fstype= */ NULL, MS_BIND|MS_REC, /* options= */ NULL);
+        FOREACH_ARRAY(hm, merges, n_merges) {
+                r = hierarchy_merge_finish(c, hm, attach_detached);
                 if (r < 0)
                         return r;
-
-                log_info("Merged extensions into '%s'.", resolved);
         }
-
-        /* Success, the work directories are in use by the mounted overlays now */
-        work_dirs.keep = true;
 
         return MERGE_MOUNTED;
 }
 
 static int merge(const Context *c, Hashmap *images) {
-
         int r;
 
         assert(c);
@@ -2717,37 +2574,13 @@ static int merge(const Context *c, Hashmap *images) {
         (void) dlopen_libblkid(LOG_DEBUG);
         (void) dlopen_libmount(LOG_DEBUG);
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        r = pidref_safe_fork("(sd-merge)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_NEW_MOUNTNS, &pidref);
-        if (r < 0)
-                return log_error_errno(r, "Failed to fork off child: %m");
-        if (r == 0) {
-                /* Child with its own mount namespace */
-
-                r = merge_subprocess(c, images, "/run/systemd/sysext");
-
-                /* Our namespace ceases to exist here, also implicitly detaching all temporary mounts we
-                 * created below /run. Nice! */
-
-                if (r < 0)
-                        _exit(EXIT_FAILURE);
-                if (r == MERGE_NOTHING_FOUND)
-                        _exit(MERGE_EXIT_NOTHING_FOUND);
-                if (r == MERGE_SKIP_REFRESH)
-                        _exit(MERGE_EXIT_SKIP_REFRESH);
-
-                _exit(EXIT_SUCCESS);
-        }
-
-        r = pidref_wait_for_terminate_and_check("(sd-merge)", &pidref, WAIT_LOG_ABNORMAL);
+        r = merge_hierarchies(c, images);
         if (r < 0)
                 return r;
-        if (r == MERGE_EXIT_NOTHING_FOUND)
+        if (r == MERGE_NOTHING_FOUND)
                 return 0; /* Tell refresh to unmount */
-        if (r == MERGE_EXIT_SKIP_REFRESH)
+        if (r == MERGE_SKIP_REFRESH)
                 return 1; /* Same return code as below when we have merged new */
-        if (r > 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EPROTO), "Failed to merge hierarchies");
 
         _cleanup_set_free_ Set *units_to_restart = NULL, *units_to_reload_or_restart = NULL;
         bool need_to_reload;
