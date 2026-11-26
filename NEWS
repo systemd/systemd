@@ -1,5 +1,27 @@
 systemd System and Service Manager
 
+CHANGES WITH 264 in spe:
+
+        Feature Removals and Incompatible Changes:
+
+        * systemd-journald (with ForwardToSocket=) and
+          systemd-journal-upload now include the new __BOOTTIME_TIMESTAMP=
+          field in the entries they send. Older versions of
+          systemd-journal-remote do not know this field, and log a notice
+          about an unknown field for every received entry.
+
+        * The timestamps the kernel attaches to kernel log messages are taken
+          from a kernel-internal clock, which depending on hardware and
+          suspend mode behaves roughly like CLOCK_MONOTONIC or like
+          CLOCK_BOOTTIME. Previously, systemd-journald stored them in both
+          _SOURCE_MONOTONIC_TIMESTAMP= and _SOURCE_BOOTTIME_TIMESTAMP=, which
+          meant one of the two was off by all the time spent in suspend so
+          far. Now, once the system has been suspended, it heuristically only
+          sets the field of the clock the timestamp appears to be in. Hence,
+          tools that rely on _SOURCE_MONOTONIC_TIMESTAMP= being set on kernel
+          log messages should fall back to _SOURCE_BOOTTIME_TIMESTAMP= or
+          __MONOTONIC_TIMESTAMP=.
+
 CHANGES WITH 263 in spe:
 
         Announcements of Future Feature Removals and Incompatible Changes:

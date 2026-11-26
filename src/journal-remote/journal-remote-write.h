@@ -26,7 +26,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Writer*, writer_unref);
 
 int writer_write(Writer *w,
                  const struct iovec_wrapper *iovw,
-                 const dual_timestamp *ts,
+                 const triple_timestamp *ts,
                  const sd_id128_t *boot_id,
                  JournalFileFlags file_flags);
 

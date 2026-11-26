@@ -75,7 +75,7 @@ JournalFile* journal_test_open(MMapCache *m, const char *name, int flags, uint64
 
 void model_append(JournalFile *f, Model *model, usec_t realtime, usec_t monotonic, sd_id128_t boot_id, char **fields) {
         _cleanup_free_ struct iovec *iovec = NULL;
-        dual_timestamp ts = {
+        triple_timestamp ts = {
                 .realtime = realtime,
                 .monotonic = monotonic,
         };
