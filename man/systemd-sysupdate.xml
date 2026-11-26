@@ -153,6 +153,11 @@
         otherwise. If there is a new version to update to, its version identifier is written to standard
         output.</para>
 
+        <para>If combined with <option>--component-all</option>, checks the default, component-less
+        installation as well as all enabled components, and shows a table listing all of them, along with
+        the new version available, if any. In this case, exit status 0 is returned if there's a new version
+        available for at least one of them.</para>
+
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
@@ -322,8 +327,9 @@
         <term><option>-A</option></term>
 
         <listitem><para>Instead of operating on a single component, operate on all known components (as well
-        as the default, component-less installation). This is supported for the <command>update</command>,
-        <command>acquire</command>, <command>cleanup</command>, <command>enable-feature</command>,
+        as the default, component-less installation). This is supported for the <command>check-new</command>,
+        <command>update</command>, <command>acquire</command>, <command>cleanup</command>,
+        <command>enable-feature</command>,
         <command>disable-feature</command>, <command>enable-component</command> and
         <command>disable-component</command> commands; all other commands will fail if this switch is
         used.</para>
