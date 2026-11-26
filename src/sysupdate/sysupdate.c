@@ -3316,12 +3316,11 @@ static int context_update(
 
         assert(c);
         assert(installed);
-        assert(reboot_needed);
 
         /* Sets *installed to true if an update was installed, even if a later step (e.g. the installdb
-         * cleanup) failed. Doesn't reboot on its own, but sets *reboot_needed to true if --reboot is
-         * requested and the installed version warrants a reboot. It never resets *installed or
-         * *reboot_needed to false, so that they can be accumulated over multiple calls. */
+         * cleanup) failed. Doesn't reboot on its own, but sets *reboot_needed (if non-NULL) to true if a
+         * booted version is specified and the installed version warrants a reboot. It never resets
+         * *installed or *reboot_needed to false, so that they can be accumulated over multiple calls. */
 
         r = context_load_online(
                         c,
@@ -3367,19 +3366,20 @@ static int context_update(
         if (c->cleanup > 0)
                 RET_GATHER(ret, installdb_cleanup_component(c));
 
-        if (updated && c->reboot) {
+        if (updated && booted_version) {
                 /* We installed something, yay */
 
                 assert(applied);
-                assert(booted_version);
 
                 if (strverscmp_improved(applied->version, booted_version) > 0) {
                         log_notice("Newly installed version is newer than booted version, reboot needed.");
-                        *reboot_needed = true;
+                        if (reboot_needed)
+                                *reboot_needed = true;
                 } else if (strverscmp_improved(applied->version, booted_version) == 0 &&
                            FLAGS_SET(applied->flags, UPDATE_INCOMPLETE)) {
                         log_notice("Currently booted version was incomplete and has been repaired, reboot needed.");
-                        *reboot_needed = true;
+                        if (reboot_needed)
+                                *reboot_needed = true;
                 } else
                         log_info("Booted version is newer or identical to newly installed version, no reboot needed.");
         }
@@ -3399,7 +3399,6 @@ static int context_update_iteration(
         int r;
 
         assert(context);
-        assert(reboot_needed);
         assert(error);
 
         /* Runs a single update iteration on the selected component(s). Returns > 0 if anything was
@@ -3439,8 +3438,10 @@ static int context_update_iteration(
                                 continue;
                         }
 
+                        /* The booted version refers to the default installation only, hence don't pass it
+                         * for components. */
                         bool component_installed = false;
-                        r = context_update(&cc, version, booted_version, action_flags, &component_installed, reboot_needed);
+                        r = context_update(&cc, version, /* booted_version= */ NULL, action_flags, &component_installed, reboot_needed);
                         if (r == -EHOSTDOWN) /* Component disabled → skip it in the "all" case. */
                                 continue;
                         if (r < 0) {
@@ -3471,6 +3472,68 @@ static int context_update_iteration(
         default:
                 assert_not_reached();
         }
+}
+
+static int context_update_loop(
+                Context *context,
+                const char *version,
+                const char *booted_version,
+                UpdateActionFlags action_flags,
+                unsigned loop,
+                bool *reboot_needed) {
+
+        int r, ret = 0;
+
+        assert(context);
+        assert(loop >= 1);
+
+        /* Runs up to 'loop' update iterations, until a stable state is reached. Doesn't reboot on its own,
+         * but returns whether a reboot is needed, if the booted version is specified. Note that
+         * *reboot_needed (if non-NULL) is only ever set to true, never reset to false, hence it must be
+         * initialized by the caller. It is updated even on failure, since an update might have been
+         * installed before something else failed. */
+
+        for (unsigned iteration = 1;; iteration++) {
+                _cleanup_(context_done) Context copy = CONTEXT_NULL;
+                Context *c;
+
+                if (iteration == 1)
+                        /* The first iteration operates on the original context, so that the image (if any)
+                         * is mounted there, and remains mounted for all later iterations. */
+                        c = context;
+                else {
+                        /* Start from scratch in later iterations, so that we pick up any new or changed
+                         * definitions (and components) the previous iteration installed. */
+                        r = context_from_base(context, &copy);
+                        if (r < 0) {
+                                RET_GATHER(ret, r);
+                                break;
+                        }
+
+                        c = &copy;
+                }
+
+                if (loop > 1)
+                        log_debug("Starting update iteration %u of at most %u.", iteration, loop);
+
+                r = context_update_iteration(c, version, booted_version, action_flags, reboot_needed, &ret);
+                if (r < 0) {
+                        RET_GATHER(ret, r);
+                        break;
+                }
+                if (r == 0) {
+                        if (iteration > 1)
+                                log_info("No further updates installed, stable state reached after %u iterations.", iteration);
+                        break;
+                }
+                if (iteration >= loop) {
+                        if (loop > 1)
+                                log_notice("Maximum number of update iterations (%u) reached, not looking for further updates.", loop);
+                        break;
+                }
+        }
+
+        return ret;
 }
 
 static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flags) {
@@ -3516,47 +3579,7 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
         }
 
         bool reboot_needed = false;
-        int ret = 0;
-
-        for (unsigned iteration = 1;; iteration++) {
-                _cleanup_(context_done) Context copy = CONTEXT_NULL;
-                Context *c;
-
-                if (iteration == 1)
-                        /* The first iteration operates on the original context, so that the image (if any)
-                         * is mounted there, and remains mounted for all later iterations. */
-                        c = &context;
-                else {
-                        /* Start from scratch in later iterations, so that we pick up any new or changed
-                         * definitions (and components) the previous iteration installed. */
-                        r = context_from_base(&context, &copy);
-                        if (r < 0) {
-                                RET_GATHER(ret, r);
-                                break;
-                        }
-
-                        c = &copy;
-                }
-
-                if (arg_loop > 1)
-                        log_debug("Starting update iteration %u of at most %u.", iteration, arg_loop);
-
-                r = context_update_iteration(c, version, booted_version, action_flags, &reboot_needed, &ret);
-                if (r < 0) {
-                        RET_GATHER(ret, r);
-                        break;
-                }
-                if (r == 0) {
-                        if (iteration > 1)
-                                log_info("No further updates installed, stable state reached after %u iterations.", iteration);
-                        break;
-                }
-                if (iteration >= arg_loop) {
-                        if (arg_loop > 1)
-                                log_notice("Maximum number of update iterations (%u) reached, not looking for further updates.", arg_loop);
-                        break;
-                }
-        }
+        int ret = context_update_loop(&context, version, booted_version, action_flags, arg_loop, &reboot_needed);
 
         if (reboot_needed) {
                 log_notice("Rebooting.");
