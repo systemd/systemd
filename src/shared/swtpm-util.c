@@ -154,6 +154,52 @@ static int swtpm_find_best_profile(const char *swtpm_setup, char **ret) {
         return 0;
 }
 
+/* Check whether swtpm advertises the given feature in the capabilities JSON printed by
+ * "swtpm chardev --print-capabilities". Returns 1 if it does, 0 if it does not (in particular when swtpm
+ * is too old to know --print-capabilities or the feature), or a negative errno on failure. */
+int swtpm_has_feature(const char *swtpm, const char *feature) {
+        int r;
+
+        assert(swtpm);
+        assert(feature);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        r = swtpm_run_and_parse_json(
+                        STRV_MAKE(swtpm, "chardev", "--print-capabilities"),
+                        "swtpm-caps",
+                        &j);
+        if (r == -ENODATA) {
+                log_debug("Failed to parse swtpm's --print-capabilities output as JSON, assuming the implementation is too old to know the feature '%s'.", feature);
+                return 0;
+        }
+        if (r < 0)
+                return r;
+
+        sd_json_variant *v = sd_json_variant_by_key(j, "features");
+        if (!v) {
+                log_debug("swtpm's capabilities JSON has no 'features' field, assuming the implementation is too old to know the feature '%s'.", feature);
+                return 0;
+        }
+
+        if (!sd_json_variant_is_array(v)) {
+                log_debug("'features' field is not an array, assuming the implementation is too old to know the feature '%s'.", feature);
+                return 0;
+        }
+
+        sd_json_variant *i;
+        JSON_VARIANT_ARRAY_FOREACH(i, v) {
+                if (!sd_json_variant_is_string(i)) {
+                        log_debug("Entry in 'features' array is not a string, ignoring.");
+                        continue;
+                }
+
+                if (streq(sd_json_variant_string(i), feature))
+                        return 1;
+        }
+
+        return 0;
+}
+
 int manufacture_swtpm(const char *state_dir, const char *secret) {
         int r;
 
