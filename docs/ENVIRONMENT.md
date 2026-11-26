@@ -455,6 +455,24 @@ All tools:
   won't synthesize A/AAAA/PTR RRs for the system hostname on either regular nor
   reverse lookups.
 
+`systemd-sysext`, `systemd-machined`, `systemd-portabled` and other tools that
+discover disk images:
+
+* `$SYSTEMD_IMAGE_MACHINE_PATH`, `$SYSTEMD_IMAGE_PORTABLE_PATH`,
+  `$SYSTEMD_IMAGE_SYSEXT_PATH`, `$SYSTEMD_IMAGE_CONFEXT_PATH` — these
+  variables may be used to override the directories searched for images of the
+  respective class (i.e. machine images, portable service images, system
+  extension images, configuration extension images). Each takes a
+  colon-separated list of normalized absolute paths. Entries that are not
+  normalized absolute paths are ignored with a warning. If `--root=` (or a
+  similar switch) is used, these paths are relative to the specified root
+  directory, like the built-in search path. An entry that consists of a single
+  `+` is replaced by the built-in search path, which allows extending it rather
+  than replacing it. For example, `SYSTEMD_IMAGE_CONFEXT_PATH=+:/srv/confexts`
+  makes `systemd-confext` look for configuration extension images in
+  `/srv/confexts/` too, in addition to the usual directories. If set to the
+  empty string, no directories are searched.
+
 `systemd-sysext`:
 
 * `$SYSTEMD_SYSEXT_HIERARCHIES` — this variable may be used to override which
