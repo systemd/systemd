@@ -338,6 +338,20 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
+        /* Make sure that swtpm does not send TPM2_Shutdown() when we stop the daemon temporarily during
+         * the initrd→host transition. The 'disable-auto-shutdown' flags option was added in swtpm v0.8.0,
+         * hence only request it if swtpm advertises support for it. */
+        bool disable_auto_shutdown = false;
+        if (in_initrd()) {
+                r = swtpm_has_feature(swtpm, "flags-opt-disable-auto-shutdown");
+                if (r < 0)
+                        return r;
+
+                disable_auto_shutdown = r > 0;
+                if (!disable_auto_shutdown)
+                        log_notice("swtpm does not support the 'disable-auto-shutdown' flags option, not requesting it.");
+        }
+
         /* Allocate a new device only now, right before invoking swtpm, since the kernel starts talking to
          * the TPM as soon as the device exists. */
         if (vtpm_fd < 0) {
@@ -359,10 +373,7 @@ static int run(int argc, char *argv[]) {
                          "chardev",
                          "--tpm2",
                          "--locality=allow-set-locality",
-                         /* Make sure that in the initrd swtpm never sends TPM2_Shutdown() for us, we want to
-                          * be able to stop the daemon after all temporarily during the initrd→host
-                          * transition. */
-                         in_initrd() ? "--flags=not-need-init,startup-clear,disable-auto-shutdown" : "--flags=not-need-init,startup-clear");
+                         disable_auto_shutdown ? "--flags=not-need-init,startup-clear,disable-auto-shutdown" : "--flags=not-need-init,startup-clear");
         if (!args)
                 return log_oom();
 
