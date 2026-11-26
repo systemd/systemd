@@ -528,6 +528,30 @@ int capability_get_ambient(uint64_t *ret) {
         return 1;
 }
 
+int capability_drop_to_ambient(void) {
+        CapabilityQuintet q;
+        uint64_t ambient = 0;
+        int r;
+
+        r = capability_get(&q);
+        if (r < 0)
+                return r;
+
+        /* Ambient capabilities are necessarily both permitted and inheritable. */
+        if ((q.permitted & q.inheritable) != 0) {
+                r = capability_get_ambient(&ambient);
+                if (r < 0)
+                        return r;
+        }
+
+        if (q.permitted == ambient)
+                return 0;
+
+        q.permitted &= ambient;
+        q.effective &= ambient;
+        return capability_apply(&q);
+}
+
 int pidref_get_capability(const PidRef *pidref, CapabilityQuintet *ret) {
         int r;
 
