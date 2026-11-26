@@ -49,6 +49,20 @@
 
     <para>The TPM NVRAM storage is placed on the EFI System Partition as it needs to be accessible during
     very early boot-up, in particular before the root file system is decrypted and mounted.</para>
+
+    <para>The service allocates the kernel vTPM proxy device (i.e. <filename>/dev/tpm0</filename> and
+    <filename>/dev/tpmrm0</filename>) itself, passes it to <command>swtpm</command>, and keeps it in the
+    service's file descriptor store (see <varname>FileDescriptorStoreMax=</varname> and
+    <varname>FileDescriptorStorePreserve=</varname> in
+    <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+    This way the TPM device continues to exist while the service is stopped, in particular across the
+    transition from the initrd to the host, and across service restarts, and keeps its device number. TPM
+    commands issued while the service is not running are processed once it is started again. Note that this
+    is also the case for a command that timed out in the meantime: even though an error has been reported
+    to the issuing client already, it is still executed by the software TPM once the service is started
+    again. If the service fails permanently, the device is released. Since the software TPM is only intended as fallback for systems without a TPM, the
+    service fails if the allocated device is not <filename>/dev/tpm0</filename>, i.e. if some other TPM
+    device already exists.</para>
   </refsect1>
 
   <refsect1>
