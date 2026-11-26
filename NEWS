@@ -354,6 +354,17 @@ CHANGES WITH 263 in spe:
           and JSON configuration files: these must not contain duplicate keys
           anymore. This is in line with the I-JSON profile of RFC 7493.
 
+        * ConditionPathIsEncrypted=/AssertPathIsEncrypted= now only consider
+          file systems backed by dm-crypt (e.g. LUKS) block devices as
+          encrypted, as documented. Previously, file systems on dm-verity or
+          standalone dm-integrity block devices were considered encrypted
+          too, even though these only authenticate (or merely checksum) the
+          data, and do not encrypt it. This old behaviour was never
+          intended, it was an accident of the implementation, which simply
+          treated any block device set up by libcryptsetup as encrypted.
+          Since units might have relied on it nonetheless, this bugfix is
+          listed here as an incompatible change.
+
         Changes in the system and service manager:
 
         * The [Unit] section gained Tags=, a space-separated list of labels

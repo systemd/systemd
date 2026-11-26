@@ -17,7 +17,7 @@
 static void test_path_is_encrypted_one(const char *p, int expect) {
         int r;
 
-        r = path_is_encrypted(p);
+        r = path_is_encrypted(p, BLOCK_DEVICE_ENCRYPTED_DM_CRYPT|BLOCK_DEVICE_ENCRYPTED_DM_VERITY);
         if (IN_SET(r, -ENOENT, -ELOOP) || ERRNO_IS_NEG_PRIVILEGE(r))
                 /* This might fail, if btrfs is used and we run in a container. In that case we cannot
                  * resolve the device node paths that BTRFS_IOC_DEV_INFO returns, because the device nodes
