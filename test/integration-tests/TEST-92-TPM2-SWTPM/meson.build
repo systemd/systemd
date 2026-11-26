@@ -17,8 +17,10 @@ integration_tests += [
                 # to the software TPM, which is what this test exercises.
                 'tpm' : false,
                 'cmdline' : integration_test_template['cmdline'] + [
-                        # Opt into the software TPM fallback (off by default).
-                        'systemd.tpm2_software_fallback=yes',
+                        # Opt into the software TPM fallback (off by default). Use the rd. prefix so that
+                        # only the initrd sees it, which covers the host generator pulling in the software
+                        # TPM regardless of the kernel command line once the device already exists.
+                        'rd.systemd.tpm2_software_fallback=yes',
                         'systemd.default_device_timeout_sec=300',
                 ],
                 'priority' : 10,
