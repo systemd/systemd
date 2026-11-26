@@ -214,6 +214,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(ImageFilter*, image_filter_free);
 bool image_filter_test(const ImageFilter *filter, PartitionDesignator d, const char *label);
 int image_filter_parse(const char *s, ImageFilter **ret);
 
+bool dm_verity_require_signatures(void);
 int verity_settings_load(VeritySettings *verity, const char *image, const char *root_hash_path, const char *root_hash_sig_path);
 int verity_validate_signature_userspace(const struct iovec *root_hash, const struct iovec *root_hash_sig, const char *root);
 

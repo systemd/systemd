@@ -102,40 +102,6 @@ else
     echo "Provisioned .dm-verity keyring with mkosi.crt"
 fi
 
-# With require_signatures=1, the kernel refuses a verity image without a signature. systemd-dissect must
-# fail on such an image. If it reads the refusal as a missing password, it waits for a password that never
-# comes, which the timeout catches. Build an unsigned verity image and mount it.
-UNSIGNED="$(mktemp -d)"
-mkdir "$UNSIGNED/definitions" "$UNSIGNED/tree"
-echo unsigned >"$UNSIGNED/tree/file"
-tee "$UNSIGNED/definitions/10-root.conf" <<EOF
-[Partition]
-Type=root
-Format=erofs
-CopyFiles=$UNSIGNED/tree:/
-Verity=data
-VerityMatchKey=root
-Minimize=best
-EOF
-tee "$UNSIGNED/definitions/11-root-verity.conf" <<EOF
-[Partition]
-Type=root-verity
-Verity=hash
-VerityMatchKey=root
-Minimize=best
-EOF
-systemd-repart --empty=create --size=auto --dry-run=no --definitions="$UNSIGNED/definitions" "$UNSIGNED/image.raw"
-rc=0
-timeout 60 systemd-dissect --mount --mkdir "$UNSIGNED/image.raw" "$UNSIGNED/mnt" </dev/null 2>"$UNSIGNED/stderr" || rc=$?
-cat "$UNSIGNED/stderr"
-if [[ "$rc" -eq 0 || "$rc" -eq 124 ]]; then
-    echo "ERROR: systemd-dissect didn't refuse the unsigned verity image (exit status $rc)" >&2
-    exit 1
-fi
-grep -F 'Image lacks recognized signature' "$UNSIGNED/stderr" >/dev/null
-rm -rf "$UNSIGNED"
-echo "Unsigned verity image refused: OK"
-
 at_exit() {
     set +e
     [[ -n "${HELPER_PID:-}" ]] && kill "$HELPER_PID" 2>/dev/null && wait "$HELPER_PID" 2>/dev/null || true

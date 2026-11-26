@@ -8,8 +8,8 @@
 #include "alloc-util.h"
 #include "bpf-restrict-fsaccess.h"
 #include "devnum-util.h"
+#include "dissect-image.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "fs-util.h"
 #include "initrd-util.h"
 #include "log.h"
@@ -96,19 +96,6 @@ assert_cc(sizeof_field(typeof_field(struct restrict_fsaccess_bpf, bss[0]), prote
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_GUARD]           = (obj)->links.restrict_fsaccess_bpf_guard,                \
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPRM_CREDS_FOR_EXEC] = (obj)->links.restrict_fsaccess_bprm_creds_for_exec,      \
         [RESTRICT_FILESYSTEM_ACCESS_LINK_MMAP_ADDR]           = (obj)->links.restrict_fsaccess_mmap_addr,                \
-}
-
-static bool dm_verity_require_signatures(void) {
-        int r;
-
-        r = read_boolean_file("/sys/module/dm_verity/parameters/require_signatures");
-        if (r < 0) {
-                if (r != -ENOENT)
-                        log_warning_errno(r, "bpf-restrict-fsaccess: Failed to read dm-verity require_signatures: %m");
-                return false;
-        }
-
-        return r > 0;
 }
 
 /* proc_mem.force_override= is __ro_after_init. We require "never" because "ptrace" still lets a tracer

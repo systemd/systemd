@@ -36,10 +36,14 @@ integration_tests += [
         },
 ]
 
-# dm-verity keyring subtest: exercise the .dm-verity keyring provisioning path
-# (kernel commit 033724b1c627, v7.0+) without UEFI/SecureBoot — boots with
-# linux-noinitrd so the .platform keyring stays empty and the only way to
-# trust the signed verity image is via the dedicated .dm-verity keyring.
+# dm-verity subtests, run in one VM booted with require_signatures=1:
+#  - dm-verity-require-signatures: systemd-dissect refuses an unsigned Verity
+#    image (only needs require_signatures=1, so keep it independent of the
+#    keyring subtest's gates, which much fewer kernels satisfy)
+#  - dm-verity-keyring: exercise the .dm-verity keyring provisioning path
+#    (kernel commit 033724b1c627, v7.0+) without UEFI/SecureBoot — boots with
+#    linux-noinitrd so the .platform keyring stays empty and the only way to
+#    trust the signed verity image is via the dedicated .dm-verity keyring.
 integration_tests += [
         integration_test_template + {
                 'name' : fs.name(meson.current_source_dir()) + '-dm-verity-keyring',
@@ -51,7 +55,7 @@ integration_tests += [
                 ],
                 'configuration' : integration_test_template['configuration'] + {
                         'command' : '/usr/lib/systemd/tests/testdata/units/' + fs.name(meson.current_source_dir()) + '.sh',
-                        'env' : {'TEST_MATCH_SUBTEST' : 'dm-verity-keyring'},
+                        'env' : {'TEST_MATCH_SUBTEST' : 'dm-verity'},
                 },
         },
 ]
