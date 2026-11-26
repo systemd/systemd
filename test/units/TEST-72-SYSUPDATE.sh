@@ -893,9 +893,22 @@ mv "$CONFIGDIR" "$CONFIGDIR.backup"
 
 # By default we continue with the next component, hence a single iteration updates both
 action_reset
+# check-new --component-all reports both components, but no default installation
+"$SYSUPDATE" --component-all --verify=no check-new
+"$SYSUPDATE" --component-all --verify=no --json=short check-new | \
+    jq -e '. == [{"component":"act-a","available":"1"},{"component":"act-b","available":"1"}]' >/dev/null
+# Without a target CheckNew() sends one reply per component, and requires the 'more' flag
+[[ "$(varlinkctl call --more "$VARLINK_SOCKET" io.systemd.SysUpdate.CheckNew '{}' | jq --seq -r '(.component // "<default>") + "=" + (.available // "-")' | tr '\n' ' ')" == "act-a=1 act-b=1 " ]]
+(! varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.CheckNew '{}') |& \
+    grep org.varlink.service.ExpectedMore >/dev/null
 "$SYSUPDATE" --component-all --verify=no update
 cmp "$ACTIONDIR/source/act-a-1.bin" "$ACTIONDIR/target-a/act-a-1.bin"
 cmp "$ACTIONDIR/source/act-b-1.bin" "$ACTIONDIR/target-b/act-b-1.bin"
+# Once everything is up-to-date, the full list is still reported, but without available versions
+(! "$SYSUPDATE" --component-all --verify=no check-new)
+(! "$SYSUPDATE" --component-all --verify=no --json=short check-new) | \
+    jq -e '. == [{"component":"act-a","available":null},{"component":"act-b","available":null}]' >/dev/null
+[[ "$(varlinkctl call --more "$VARLINK_SOCKET" io.systemd.SysUpdate.CheckNew '{}' | jq --seq -r '(.component // "<default>") + "=" + (.available // "-")' | tr '\n' ' ')" == "act-a=- act-b=- " ]]
 
 # With SuccessAction=restart the iteration is finished after the first component got updated
 action_reset
@@ -936,6 +949,11 @@ grep -F "Failed to update component 'act-a', aborting" "$ACTIONDIR/log" >/dev/nu
 rm -rf "$ACTIONDIR" /run/sysupdate.act-a.d /run/sysupdate.act-b.d \
     /run/sysupdate.act-a.component /run/sysupdate.act-b.component \
     /var/lib/systemd/sysupdate/installdb.act-a /var/lib/systemd/sysupdate/installdb.act-b
+# With neither a default installation nor any components there's nothing to check, which is reported as
+# error, rather than an empty reply (which would be indistinguishable from the default installation without
+# a new version available).
+(! varlinkctl call --more "$VARLINK_SOCKET" io.systemd.SysUpdate.CheckNew '{}') |& \
+    grep io.systemd.SysUpdate.NoSuchTarget >/dev/null
 mv "$CONFIGDIR.backup" "$CONFIGDIR"
 
 # Make sure the processing of compressed streams still handles uncompressed streams shorter than
