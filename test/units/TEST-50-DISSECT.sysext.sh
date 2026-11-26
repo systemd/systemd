@@ -1408,6 +1408,27 @@ fi
 
 
 ( init_trap
+: "Check that .mstack/ directories are skipped when merging, and do not affect other extensions"
+fake_root=${roots_dir:+"$roots_dir/skip-mstack"}
+hierarchy=/opt
+mstack_dir="$fake_root/var/lib/extensions/other.mstack"
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image "$fake_root" "$hierarchy"
+mkdir -p "$mstack_dir"
+prepend_trap "rm -rf ${mstack_dir@Q}"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+run_systemd_sysext "$fake_root" merge
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+extension_verify_status_json "$fake_root" "$hierarchy" '["test-extension"]'
+
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+)
+
+
+( init_trap
 : "Check if merging an extension with matching IMAGE_ID and IMAGE_VERSION succeeds"
 fake_root=${roots_dir:+"$roots_dir/matching-image-version"}
 hierarchy=/opt
