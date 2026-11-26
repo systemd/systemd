@@ -212,8 +212,9 @@ int open_os_release(const char *root, char **ret_path, int *ret_fd) {
         return 0;
 }
 
-int open_extension_release_at(
+int open_extension_release_at_full(
                 int rfd,
+                const char *rfd_path,
                 ImageClass image_class,
                 const char *extension,
                 bool relax_extension_release_check,
@@ -230,8 +231,13 @@ int open_extension_release_at(
         assert(wildcard_fd_is_valid(rfd));
         assert(!extension || (image_class >= 0 && image_class < _IMAGE_CLASS_MAX));
 
-        if (!extension)
+        /* rfd refers to the directory rfd_path of the tree, e.g. "/usr" for an image that only carries a
+         * /usr partition. Returned paths are relative to it. */
+
+        if (!extension) {
+                assert(empty_or_root(rfd_path));
                 return open_os_release_at(rfd, ret_path, ret_fd);
+        }
 
         if (!IN_SET(image_class, IMAGE_SYSEXT, IMAGE_CONFEXT))
                 return -EINVAL;
@@ -239,7 +245,10 @@ int open_extension_release_at(
         if (!image_name_is_valid(extension))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "The extension name %s is invalid.", extension);
 
-        p = strjoina(image_class_release_info[image_class].release_file_path_prefix, extension);
+        p = path_startswith(strjoina(image_class_release_info[image_class].release_file_path_prefix, extension), empty_to_root(rfd_path));
+        if (!p)
+                return -ENOENT;
+
         r = chaseat(rfd, rfd, p, /* flags= */ 0, ret_path, ret_fd);
         log_full_errno_zerook(LOG_DEBUG, MIN(r, 0), "Checking for %s: %m", p);
         if (r != -ENOENT)
@@ -250,7 +259,10 @@ int open_extension_release_at(
          * the first one with a user.extension-release xattr instead. The user.extension-release.strict
          * xattr is checked to ensure the author of the image considers it OK if names do not match. */
 
-        p = image_class_release_info[image_class].release_file_directory;
+        p = path_startswith(image_class_release_info[image_class].release_file_directory, empty_to_root(rfd_path));
+        if (!p)
+                return -ENOENT;
+
         r = chase_and_opendirat(rfd, rfd, p, /* chase_flags= */ 0, &dir_path, &dir);
         if (r < 0)
                 return log_debug_errno(r, "Cannot open %s, ignoring: %m", p);
