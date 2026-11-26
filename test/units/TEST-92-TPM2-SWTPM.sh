@@ -73,6 +73,13 @@ swtpm_state_dir() {
 case "$REBOOT_COUNT" in
     0)
         assert_swtpm_up
+        # Debug aid for the tpm0 race: the host's swtpm needs device number 0, which an open device from
+        # the initrd keeps taken. Hence log the TPM devices and who has one open right before swtpm starts.
+        mkdir -p /etc/systemd/system/systemd-tpm2-swtpm.service.d
+        cat >/etc/systemd/system/systemd-tpm2-swtpm.service.d/50-debug-tpm-holders.conf <<'EOF'
+[Service]
+ExecStartPre=-+/bin/sh -c 'ls -l /sys/class/tpm/ /sys/class/tpmrm/; find /proc/[0-9]*/fd -lname "/dev/tpm*" -ls 2>/dev/null'
+EOF
         # Seal a secret to the software TPM and keep the blob for the next boot.
         echo -n "$PLAINTEXT" >/tmp/swtpm-plaintext
         systemd-creds --tpm2-device="$TPM2_DEVICE" encrypt --name= --with-key=tpm2 /tmp/swtpm-plaintext "$CRED"

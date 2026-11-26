@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
+#include <linux/vtpm_proxy.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"
@@ -26,6 +29,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "swtpm-util.h"
+#include "time-util.h"
 #include "verbs.h"
 
 COMMAND(
@@ -36,6 +40,11 @@ COMMAND(
 );
 
 #define BOOT_SECRET_SIZE 32U
+
+/* The TPM is expected at /dev/tpm0 and /dev/tpmrm0, e.g., by tpm2.target. After the initrd transition the
+ * number of the device from the initrd might not be released yet, hence retry for a while then. */
+#define VTPM_RETRY_TIMEOUT_USEC (10 * USEC_PER_SEC)
+#define VTPM_RETRY_INTERVAL_USEC (100 * USEC_PER_MSEC)
 
 static int load_boot_secret(struct iovec *ret) {
         _cleanup_(iovec_done_erase) struct iovec buf = {};
@@ -151,6 +160,67 @@ static int setup_swtpm(const char *state_dir, int state_fd, const char *secret) 
         return manufacture_swtpm(state_dir, secret);
 }
 
+static int create_vtpm_proxy(int *ret_fd, uint32_t *ret_tpm_num) {
+        struct vtpm_proxy_new_dev dev = {
+                .flags = VTPM_PROXY_FLAG_TPM2,
+        };
+
+        assert(ret_fd);
+        assert(ret_tpm_num);
+
+        _cleanup_close_ int vtpmx_fd = open("/dev/vtpmx", O_RDWR|O_CLOEXEC);
+        if (vtpmx_fd < 0)
+                return log_error_errno(errno, "Failed to open /dev/vtpmx: %m");
+
+        if (ioctl(vtpmx_fd, VTPM_PROXY_IOC_NEW_DEV, &dev) < 0)
+                return log_error_errno(errno, "Failed to create vTPM proxy device: %m");
+
+        *ret_fd = (int) dev.fd;
+        *ret_tpm_num = dev.tpm_num;
+        return 0;
+}
+
+static int acquire_vtpm_proxy(int *ret_fd) {
+        usec_t deadline = usec_add(now(CLOCK_MONOTONIC), VTPM_RETRY_TIMEOUT_USEC);
+        bool waiting = false;
+        int r;
+
+        assert(ret_fd);
+
+        for (;;) {
+                _cleanup_close_ int fd = -EBADF;
+                uint32_t tpm_num;
+
+                r = create_vtpm_proxy(&fd, &tpm_num);
+                if (r < 0)
+                        return r;
+
+                /* Take the device if it got number 0, or if another TPM has that number anyway. */
+                if (tpm_num == 0 || access("/sys/class/tpm/tpm0", F_OK) >= 0) {
+                        log_debug("Created TPM device /dev/tpm%" PRIu32 ".", tpm_num);
+                        *ret_fd = TAKE_FD(fd);
+                        return 0;
+                }
+
+                if (now(CLOCK_MONOTONIC) >= deadline) {
+                        log_warning("TPM device number 0 was not released in time, using /dev/tpm%" PRIu32 " instead.",
+                                    tpm_num);
+                        *ret_fd = TAKE_FD(fd);
+                        return 0;
+                }
+
+                if (!waiting) {
+                        log_notice("TPM device number 0 is still taken, waiting for it to be released.");
+                        waiting = true;
+                }
+
+                /* Nothing answers the commands of this device yet, so it never gets registered and closing it
+                 * releases its number again right away. */
+                fd = safe_close(fd);
+                (void) usleep_safe(VTPM_RETRY_INTERVAL_USEC);
+        }
+}
+
 static int run(int argc, char *argv[]) {
         int r;
 
@@ -221,16 +291,32 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
+        /* Create the vTPM proxy device ourselves instead of using swtpm's --vtpm-proxy, so that we know its
+         * number. */
+        _cleanup_close_ int vtpm_fd = -EBADF;
+        r = acquire_vtpm_proxy(&vtpm_fd);
+        if (r < 0)
+                return r;
+
+        r = fd_cloexec(vtpm_fd, false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to pass vTPM proxy device to swtpm: %m");
+
         _cleanup_strv_free_ char **args =
                 strv_new(swtpm,
                          "chardev",
-                         "--vtpm-proxy",
                          "--tpm2",
-                         /* Make sure that in the initrd swtpm never sends TPM2_Shutdown() for us, we want to
-                          * be able to stop the daemon after all temporarily during the initrd→host
-                          * transition. */
-                         in_initrd() ? "--flags=startup-clear,disable-auto-shutdown" : "--flags=startup-clear");
+                         /* Implied by --vtpm-proxy, as the vTPM proxy driver sends TPM2_SetLocality(). */
+                         "--locality=allow-set-locality",
+                         /* not-need-init is implied by --vtpm-proxy too. Make sure that in the initrd swtpm
+                          * never sends TPM2_Shutdown() for us, we want to be able to stop the daemon after all
+                          * temporarily during the initrd→host transition. */
+                         in_initrd() ? "--flags=not-need-init,startup-clear,disable-auto-shutdown" :
+                                       "--flags=not-need-init,startup-clear");
         if (!args)
+                return log_oom();
+
+        if (strv_extendf(&args, "--fd=%i", vtpm_fd) < 0)
                 return log_oom();
 
         if (strv_extendf(&args, "--ctrl=type=unixio,path=%s/socket", runtime_dir) < 0)
