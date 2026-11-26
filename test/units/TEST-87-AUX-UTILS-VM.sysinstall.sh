@@ -216,6 +216,9 @@ EOF
 }
 
 validate_image() {
+    # Takes the name of the addon the credentials were packed into, if any
+    local addon="${1:-}"
+
     # 1) Attach the freshly installed image as a loopback device for inspection.
     LOOPDEV="$(systemd-dissect --attach "$WORKDIR/target.img")"
 
@@ -251,12 +254,30 @@ validate_image() {
     # bootctl install should have placed sd-boot on the ESP.
     find "$ESP/EFI/systemd" -type f -iname 'systemd-boot*.efi' | grep . >/dev/null
 
-    # The credential we passed via --set-credential= must have been encrypted and
-    # placed next to the UKI, and must be referenced as 'extra' from the entry.
     UKI_DIR="$(dirname "$ESP$UKI_PATH")"
     TOKEN_DIR="$(basename "$UKI_DIR")"
-    test -s "$UKI_DIR/marker.cred"
-    grep -E "^extra /$TOKEN_DIR/marker\.cred$" "$ENTRY" >/dev/null
+    if [[ -n "$addon" ]]; then
+        # The credential we passed via --set-credential= must have been packed into an unsigned addon
+        # placed next to the UKI, which must be referenced as 'extra' from the entry. No encrypted
+        # credential may have been placed there.
+        test -s "$UKI_DIR/$addon.addon.efi"
+        grep -E "^extra /$TOKEN_DIR/$addon\.addon\.efi$" "$ENTRY" >/dev/null
+        test ! -e "$UKI_DIR/marker.cred"
+
+        # The addon carries the credential in plaintext in the cpio archive in its .initrd section
+        if command -v objcopy >/dev/null && command -v cpio >/dev/null; then
+            mkdir "$WORKDIR/addon"
+            objcopy --dump-section .initrd="$WORKDIR/addon.cpio" "$UKI_DIR/$addon.addon.efi" "$WORKDIR/addon-scratch.efi"
+            (cd "$WORKDIR/addon" && cpio -idm --quiet <"$WORKDIR/addon.cpio")
+            assert_eq "$(cat "$WORKDIR/addon/.extra/system_credentials/marker.cred")" "$CRED_VALUE"
+        fi
+    else
+        # The credential we passed via --set-credential= must have been encrypted and
+        # placed next to the UKI, and must be referenced as 'extra' from the entry.
+        test -s "$UKI_DIR/marker.cred"
+        grep -E "^extra /$TOKEN_DIR/marker\.cred$" "$ENTRY" >/dev/null
+        test -z "$(find "$UKI_DIR" -maxdepth 1 -name '*.addon.efi')"
+    fi
 
     # Locale/keymap/timezone propagation is off, so those .cred files must NOT
     # exist on the ESP.
@@ -364,6 +385,56 @@ testcase_sysinstall_varlink_basic() {
     varlinkctl call /run/systemd/io.systemd.SysInstall io.systemd.SysInstall.Run "{\"erase\": true, \"variables\": false, \"credentials\" : [{ \"id\" : \"marker\", \"value\" : \"$CRED_VALUE_BASE64\" }], \"kernelImagePath\" : \"$WORKDIR/testuki.efi\", \"node\": \"$WORKDIR/target.img\", \"definitions\" : [\"$DEFS\"] }" --more
 
     validate_image
+}
+
+testcase_sysinstall_addon() {
+    WORKDIR="$(mktemp --directory /tmp/test-sysinstall.XXXXXXXXXX)"
+    LOOPDEV=""
+    MOUNTED=0
+
+    echo "WORKDIR=$WORKDIR"
+
+    trap cleanup RETURN
+
+    if ! compgen -G "/usr/lib/systemd/boot/efi/addon*.efi.stub" >/dev/null; then
+        echo "Addon stub not installed, skipping."
+        return 0
+    fi
+
+    create_fake_os_source_tree
+
+    # Invalid addon names must be refused
+    (! systemd-sysinstall --addon=foo/bar --kernel="$WORKDIR/testuki.efi" "$WORKDIR/target.img")
+
+    # Pack the credential into an unsigned addon instead of encrypting it
+    systemd-sysinstall \
+        --welcome=no \
+        --chrome=no \
+        --confirm=no \
+        --summary=no \
+        --erase=yes \
+        --variables=no \
+        --reboot=no \
+        --mute-console=no \
+        --copy-locale=no \
+        --copy-keymap=no \
+        --copy-timezone=no \
+        --addon=creds \
+        --set-credential="marker:$CRED_VALUE" \
+        --kernel="$WORKDIR/testuki.efi" \
+        --definitions="$DEFS" \
+        "$WORKDIR/target.img"
+
+    validate_image creds
+    cleanup
+
+    # And the same via Varlink
+    WORKDIR="$(mktemp --directory /tmp/test-sysinstall.XXXXXXXXXX)"
+    create_fake_os_source_tree
+
+    varlinkctl call /run/systemd/io.systemd.SysInstall io.systemd.SysInstall.Run "{\"erase\": true, \"variables\": false, \"addon\": \"vlcreds\", \"credentials\" : [{ \"id\" : \"marker\", \"value\" : \"$CRED_VALUE_BASE64\" }], \"kernelImagePath\" : \"$WORKDIR/testuki.efi\", \"node\": \"$WORKDIR/target.img\", \"definitions\" : [\"$DEFS\"] }" --more
+
+    validate_image vlcreds
 }
 
 testcase_sysinstall_device_auto() {

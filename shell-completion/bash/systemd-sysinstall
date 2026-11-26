@@ -48,7 +48,8 @@ _systemd_sysinstall() {
                --definitions
                --kernel
                --set-credential
-               --load-credential'
+               --load-credential
+               --addon'
     )
 
     _init_completion || return

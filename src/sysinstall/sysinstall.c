@@ -17,6 +17,7 @@
 #include "chase.h"
 #include "conf-files.h"
 #include "constants.h"
+#include "creds-util.h"
 #include "dlopen-note.h"
 #include "efi-loader.h"
 #include "efivars.h"
@@ -30,17 +31,21 @@
 #include "glyph-util.h"
 #include "hashmap.h"
 #include "image-policy.h"
+#include "initrd-cpio.h"
+#include "iovec-util.h"
 #include "json-util.h"
 #include "locale-setup.h"
 #include "log.h"
 #include "loop-util.h"
 #include "machine-credential.h"
 #include "main-func.h"
+#include "memfd-util.h"
 #include "mount-util.h"
 #include "os-util.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pe-addon.h"
 #include "prompt-util.h"
 #include "string-table.h"
 #include "strv.h"
@@ -63,6 +68,7 @@ static char *arg_kernel_image = NULL;
 static bool arg_reboot = false;
 static int arg_touch_variables = -1;  /* tri-state */
 static MachineCredentialContext arg_credentials = {};
+static char *arg_addon = NULL;
 static bool arg_copy_locale = true;
 static bool arg_copy_keymap = true;
 static bool arg_copy_timezone = true;
@@ -74,6 +80,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_node, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_definitions, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_kernel_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_credentials, machine_credential_context_done);
+STATIC_DESTRUCTOR_REGISTER(arg_addon, freep);
 
 COMMAND(
         "systemd-sysinstall\0",
@@ -84,6 +91,7 @@ COMMAND(
 
 typedef enum ProgressPhase {
         PROGRESS_ENCRYPT_CREDENTIALS,
+        PROGRESS_MAKE_CREDENTIAL_ADDON,
         PROGRESS_INSTALL_PARTITIONS,
         PROGRESS_MOUNT_PARTITIONS,
         PROGRESS_INSTALL_KERNEL,
@@ -94,23 +102,25 @@ typedef enum ProgressPhase {
 } ProgressPhase;
 
 static const char *progress_phase_table[_PROGRESS_PHASE_MAX] = {
-        [PROGRESS_ENCRYPT_CREDENTIALS] = "encrypt-credentials",
-        [PROGRESS_INSTALL_PARTITIONS]  = "install-partitions",
-        [PROGRESS_MOUNT_PARTITIONS]    = "mount-partitions",
-        [PROGRESS_INSTALL_KERNEL]      = "install-kernel",
-        [PROGRESS_INSTALL_BOOTLOADER]  = "install-bootloader",
-        [PROGRESS_UNMOUNT_PARTITIONS]  = "unmount-partitions",
+        [PROGRESS_ENCRYPT_CREDENTIALS]    = "encrypt-credentials",
+        [PROGRESS_MAKE_CREDENTIAL_ADDON]  = "make-credential-addon",
+        [PROGRESS_INSTALL_PARTITIONS]     = "install-partitions",
+        [PROGRESS_MOUNT_PARTITIONS]       = "mount-partitions",
+        [PROGRESS_INSTALL_KERNEL]         = "install-kernel",
+        [PROGRESS_INSTALL_BOOTLOADER]     = "install-bootloader",
+        [PROGRESS_UNMOUNT_PARTITIONS]     = "unmount-partitions",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(progress_phase, ProgressPhase);
 
 static const char *progress_phase_log_table[_PROGRESS_PHASE_MAX] = {
-        [PROGRESS_ENCRYPT_CREDENTIALS] = "Encrypting credentials...",
-        [PROGRESS_INSTALL_PARTITIONS]  = "Installing partitions...",
-        [PROGRESS_MOUNT_PARTITIONS]    = "Mounting partitions...",
-        [PROGRESS_INSTALL_KERNEL]      = "Installing kernel...",
-        [PROGRESS_INSTALL_BOOTLOADER]  = "Installing boot loader...",
-        [PROGRESS_UNMOUNT_PARTITIONS]  = "Unmounting partitions...",
+        [PROGRESS_ENCRYPT_CREDENTIALS]    = "Encrypting credentials...",
+        [PROGRESS_MAKE_CREDENTIAL_ADDON]  = "Packing credentials into addon...",
+        [PROGRESS_INSTALL_PARTITIONS]     = "Installing partitions...",
+        [PROGRESS_MOUNT_PARTITIONS]       = "Mounting partitions...",
+        [PROGRESS_INSTALL_KERNEL]         = "Installing kernel...",
+        [PROGRESS_INSTALL_BOOTLOADER]     = "Installing boot loader...",
+        [PROGRESS_UNMOUNT_PARTITIONS]     = "Unmounting partitions...",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(progress_phase_log, ProgressPhase);
@@ -138,6 +148,7 @@ typedef struct SysInstallContext {
         bool copy_keymap;
         bool copy_timezone;
         MachineCredentialContext credentials;
+        char *addon; /* If set, pack credentials into an unsigned addon of this name, instead of encrypting them */
         char **definitions;
         bool erase;
         char *node;
@@ -156,6 +167,7 @@ static void sysinstall_context_done(SysInstallContext *c) {
         strv_free(c->definitions);
 
         free(c->node);
+        free(c->addon);
 
         free(c->kernel_filename);
         safe_close(c->kernel_fd);
@@ -260,6 +272,21 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
+                        break;
+
+                OPTION_LONG("addon", "NAME", "Pack credentials into an unsigned addon, trusted on first use"):
+                        if (isempty(opts.arg)) {
+                                arg_addon = mfree(arg_addon);
+                                break;
+                        }
+
+                        /* Same rules as systemd-firstboot's --addon= */
+                        if (!efi_loader_entry_name_valid(opts.arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid addon name: %s", opts.arg);
+
+                        r = free_and_strdup_warn(&arg_addon, opts.arg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 OPTION_LONG("copy-locale", "no", "Don't copy current locale to target system"):
@@ -1234,7 +1261,9 @@ static int invoke_bootctl_link(
                 int root_fd,
                 const char *kernel_filename,
                 int kernel_fd,
-                char **encrypted_credentials) {
+                char **encrypted_credentials,
+                const char *addon_filename,
+                int addon_fd) {
         int r;
 
         assert(link);
@@ -1242,6 +1271,7 @@ static int invoke_bootctl_link(
         assert(root_fd >= 0);
         assert(kernel_filename);
         assert(kernel_fd >= 0);
+        assert(!addon_filename == (addon_fd < 0));
 
         r = connect_to_bootctl(link);
         if (r < 0)
@@ -1259,6 +1289,19 @@ static int invoke_bootctl_link(
                                 SD_JSON_BUILD_PAIR_BASE64("data", *value, strlen(*value)));
                 if (r < 0)
                         return log_error_errno(r, "Failed to append credential to message: %m");
+        }
+
+        if (addon_fd >= 0) {
+                int addon_fd_idx = sd_varlink_push_dup_fd(*link, addon_fd);
+                if (addon_fd_idx < 0)
+                        return log_error_errno(addon_fd_idx, "Failed to submit addon fd onto Varlink connection: %m");
+
+                r = sd_json_variant_append_arraybo(
+                                &array,
+                                SD_JSON_BUILD_PAIR_STRING("filename", addon_filename),
+                                SD_JSON_BUILD_PAIR_INTEGER("fileDescriptor", addon_fd_idx));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to append addon to message: %m");
         }
 
         int root_fd_idx = sd_varlink_push_dup_fd(*link, root_fd);
@@ -1493,6 +1536,71 @@ static int encrypt_credentials(sd_varlink **link, MachineCredentialContext *cred
         return 0;
 }
 
+static int make_credential_addon(
+                const MachineCredentialContext *credentials,
+                const char *name,
+                char **ret_filename,
+                int *ret_fd) {
+
+        int r;
+
+        assert(credentials);
+        assert(name);
+        assert(ret_filename);
+        assert(ret_fd);
+
+        /* Instead of encrypting the credentials with a key bound to the local system, pack them in
+         * plaintext into a cpio archive (in the same layout systemd-firstboot's --addon= uses, i.e.
+         * .extra/system_credentials/<id>.cred), and wrap that in the .initrd section of an unsigned
+         * systemd-stub addon. That's useful if the target disk is booted on a different system, but is only
+         * honoured by systemd-stub if the booted UKI profile trusts addons on first use. */
+
+        if (credentials->n_credentials == 0) {
+                log_info("No credentials to install, not generating addon.");
+                *ret_filename = NULL;
+                *ret_fd = -EBADF;
+                return 0;
+        }
+
+        log_info("Packing %zu credential%s into addon '%s'...",
+                 credentials->n_credentials, credentials->n_credentials == 1 ? "" : "s", name);
+
+        /* The credentials are subject to the same limit at boot, hence refuse what would be dropped there */
+        uint64_t total = 0;
+        FOREACH_ARRAY(cred, credentials->credentials, credentials->n_credentials)
+                total += cred->size;
+        if (total > CREDENTIALS_TOTAL_SIZE_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "Credentials are %s in total, which exceeds the limit of %s.",
+                                       FORMAT_BYTES(total), FORMAT_BYTES(CREDENTIALS_TOTAL_SIZE_MAX));
+
+        _cleanup_free_ char *filename = strjoin(name, ".addon.efi");
+        if (!filename)
+                return log_oom();
+
+        _cleanup_(iovec_done_erase) struct iovec cpio = {};
+        r = initrd_cpio_credentials_to_memory(credentials, &cpio);
+        if (r < 0)
+                return r;
+
+        _cleanup_close_ int fd = memfd_new("addon");
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to allocate memory file: %m");
+
+        const char *stub = secure_getenv("SYSTEMD_ADDON_STUB") ?: PE_ADDON_STUB_PATH;
+        r = pe_addon_make(stub, /* cmdline= */ NULL, &cpio, fd);
+        if (r < 0)
+                return r;
+
+        /* bootctl copies from this, make sure it doesn't change under its feet */
+        r = memfd_set_sealed(fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to seal addon memory file: %m");
+
+        *ret_filename = TAKE_PTR(filename);
+        *ret_fd = TAKE_FD(fd);
+        return 1;
+}
+
 static const ImagePolicy image_policy = {
         .n_policies = 4,
         .policies = {
@@ -1591,13 +1699,23 @@ static int sysinstall_context_run(SysInstallContext *context) {
 
         assert(context);
 
-        (void) sysinstall_context_notify(context, PROGRESS_ENCRYPT_CREDENTIALS, /* object= */ NULL, UINT_MAX);
-
-        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *creds_link = NULL;
         _cleanup_strv_free_ char **encrypted_credentials = NULL;
-        r = encrypt_credentials(&creds_link, &context->credentials, &encrypted_credentials);
-        if (r < 0)
-                return r;
+        _cleanup_free_ char *addon_filename = NULL;
+        _cleanup_close_ int addon_fd = -EBADF;
+        if (context->addon) {
+                (void) sysinstall_context_notify(context, PROGRESS_MAKE_CREDENTIAL_ADDON, /* object= */ NULL, UINT_MAX);
+
+                r = make_credential_addon(&context->credentials, context->addon, &addon_filename, &addon_fd);
+                if (r < 0)
+                        return r;
+        } else {
+                (void) sysinstall_context_notify(context, PROGRESS_ENCRYPT_CREDENTIALS, /* object= */ NULL, UINT_MAX);
+
+                _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *creds_link = NULL;
+                r = encrypt_credentials(&creds_link, &context->credentials, &encrypted_credentials);
+                if (r < 0)
+                        return r;
+        }
 
         (void) sysinstall_context_notify(context, PROGRESS_INSTALL_PARTITIONS, /* object= */ NULL, UINT_MAX);
 
@@ -1635,7 +1753,7 @@ static int sysinstall_context_run(SysInstallContext *context) {
         (void) sysinstall_context_notify(context, PROGRESS_INSTALL_KERNEL, /* object= */ NULL, UINT_MAX);
 
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *bootctl_link = NULL;
-        r = invoke_bootctl_link(&bootctl_link, root_dir, root_fd, context->kernel_filename, context->kernel_fd, encrypted_credentials);
+        r = invoke_bootctl_link(&bootctl_link, root_dir, root_fd, context->kernel_filename, context->kernel_fd, encrypted_credentials, addon_filename, addon_fd);
         if (r < 0)
                 return r;
 
@@ -1937,6 +2055,7 @@ typedef struct RunParameters {
         bool copy_keymap;
         bool copy_timezone;
         sd_json_variant *credentials;
+        char *addon;
 } RunParameters;
 
 static void run_parameters_done(RunParameters *p) {
@@ -1945,6 +2064,7 @@ static void run_parameters_done(RunParameters *p) {
         p->node = mfree(p->node);
         p->definitions = strv_free(p->definitions);
         p->kernel_image = mfree(p->kernel_image);
+        p->addon = mfree(p->addon);
         p->credentials = sd_json_variant_unref(p->credentials);
 }
 
@@ -2003,6 +2123,7 @@ static int vl_method_run(
                 { "copyKeymap",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(RunParameters, copy_keymap),   SD_JSON_NULLABLE                   },
                 { "copyTimezone",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(RunParameters, copy_timezone), SD_JSON_NULLABLE                   },
                 { "credentials",     SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_variant, offsetof(RunParameters, credentials),   SD_JSON_NULLABLE                   },
+                { "addon",           SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(RunParameters, addon),         SD_JSON_NULLABLE                   },
                 {}
         };
 
@@ -2027,10 +2148,14 @@ static int vl_method_run(
         if (r != 0)
                 return r;
 
+        if (p.addon && !efi_loader_entry_name_valid(p.addon))
+                return sd_varlink_error_invalid_parameter_name(link, "addon");
+
         _cleanup_(sysinstall_context_done) SysInstallContext context = (SysInstallContext) {
                 .copy_locale = p.copy_locale,
                 .copy_keymap = p.copy_keymap,
                 .copy_timezone = p.copy_timezone,
+                .addon = TAKE_PTR(p.addon),
                 .erase = p.erase,
                 .touch_variables = p.variables,
                 .node = TAKE_PTR(p.node),
@@ -2129,6 +2254,7 @@ static int run(int argc, char *argv[]) {
                 .copy_keymap = arg_copy_keymap,
                 .copy_timezone = arg_copy_timezone,
                 .credentials = TAKE_STRUCT(arg_credentials),
+                .addon = TAKE_PTR(arg_addon),
                 .kernel_fd = -EBADF,
         };
 

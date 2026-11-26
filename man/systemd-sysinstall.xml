@@ -60,7 +60,8 @@
       credential files for a few, very basic system settings of the currently booted system (locale, keymap,
       timezone), which it will install on the target disk, parameterizing the invoked kernel. (Or in other
       words, it prepares that some settings already in effect on the installer system are propagated securely
-      onto the new installation.)</para></listitem>
+      onto the new installation.) Alternatively, if <option>--addon=</option> is used, the credentials are
+      not encrypted, but packed into a single unsigned addon instead, see below.</para></listitem>
 
       <listitem><para>It invokes
       <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry> with
@@ -226,6 +227,9 @@
         use this switch for sensitive data (such as passwords), use <option>--load-credential=</option>
         instead, see below. May be used multiple times to configure multiple credentials.</para>
 
+        <para>See <option>--addon=</option> below for installing the credentials in an addon instead of
+        encrypting them.</para>
+
         <para>Note that three system credentials are propagated in similar fashion to the target system:
         the locale, keymap and timezone. This may be controlled by the relevant
         <option>--copy-locale=</option>, <option>--copy-keymap=</option> and <option>--copy-timezone=</option>
@@ -248,6 +252,38 @@
         preferable for sensitive data, such as passwords.</para>
 
         <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--addon=<replaceable>NAME</replaceable></option></term>
+
+        <listitem><para>If specified, the credentials installed to the target system (i.e. those configured
+        via <option>--set-credential=</option> and <option>--load-credential=</option>, as well as the
+        locale, keymap and timezone credentials, see below) are not encrypted with a key bound to the TPM of
+        the system the installer runs on (or the null key, if no TPM is available), but are instead packed
+        in plaintext into a cpio archive, which is carried in the <literal>.initrd</literal> section of a
+        single unsigned
+        <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        addon. This addon is placed as
+        <filename><replaceable>NAME</replaceable>.addon.efi</filename> next to the installed kernel image in
+        the ESP. The archive uses the same layout as the one <option>--addon=</option> of
+        <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        generates. This is useful if the target disk is going to be booted on a different machine than the
+        one the installer runs on, for example when preparing a disk for another system, as the locally
+        encrypted credentials could not be decrypted there.</para>
+
+        <para>Such an addon is only used if the booted unified kernel image profile trusts addons on first
+        use (i.e. has <literal>TOFU=</literal> set in its <literal>.profile</literal> section), see the
+        "Trusting Addons On First Use" section in
+        <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        Note that the credentials are neither encrypted nor authenticated in this mode, and hence may be
+        read by anyone with access to the ESP. If no credentials are to be installed, no addon is
+        generated. The addon is built from
+        <filename>/usr/lib/systemd/boot/efi/addon<replaceable>ARCH</replaceable>.efi.stub</filename>, the
+        <varname>$SYSTEMD_ADDON_STUB</varname> environment variable may be set to use a different
+        stub. Pass an empty string to turn this off again.</para>
+
+        <xi:include href="version-info.xml" xpointer="v264"/></listitem>
       </varlistentry>
 
       <varlistentry>
