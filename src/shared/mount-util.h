@@ -5,7 +5,8 @@
 
 typedef struct SubMount {
         char *path;
-        int mount_fd;
+        int mount_fd;           /* detached recursive clone */
+        int original_fd;        /* O_PATH fd pinning the mount the clone was made from */
 } SubMount;
 
 void sub_mount_array_free(SubMount *array, size_t n);

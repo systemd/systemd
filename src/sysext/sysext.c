@@ -1998,6 +1998,7 @@ static int unmerge_hierarchy(
                         submounts[n_submounts++] = (SubMount) {
                                 .path = TAKE_PTR(m->path),
                                 .mount_fd = TAKE_FD(m->mount_fd),
+                                .original_fd = TAKE_FD(m->original_fd),
                         };
 
                 r = umount_verbose(LOG_ERR, p, MNT_DETACH|UMOUNT_NOFOLLOW);
