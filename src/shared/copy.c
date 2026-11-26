@@ -22,6 +22,7 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "log.h"
+#include "memory-util.h"
 #include "mountpoint-util.h"
 #include "nulstr-util.h"
 #include "path-util.h"
@@ -227,6 +228,11 @@ int copy_bytes_full(
          * given. */
         bool try_cfr = true, try_sendfile = !toffset;
         uint64_t copied_total = 0;
+
+        /* COPY_SPARSE needs to look at the data to find zero blocks, so only the read()/write() fallback
+         * can be used. */
+        if (FLAGS_SET(copy_flags, COPY_SPARSE))
+                try_cfr = try_sendfile = false;
         int r;
 
         assert(fdf >= 0);
@@ -453,6 +459,15 @@ int copy_bytes_full(
                                 return -errno;
                         if (n == 0) /* EOF */
                                 break;
+
+                        if (FLAGS_SET(copy_flags, COPY_SPARSE) && memeqzero(buf, n)) {
+                                /* Pass a copy of the target offset, the code after 'next' advances it. */
+                                r = create_hole(fdt, toffset ? &(uint64_t) { *toffset } : NULL, n);
+                                if (r < 0)
+                                        return r;
+
+                                goto next;
+                        }
 
                         z = (size_t) n;
                         do {

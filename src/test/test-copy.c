@@ -20,6 +20,7 @@
 #include "io-util.h"
 #include "log.h"
 #include "memfd-util.h"
+#include "memory-util.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "rm-rf.h"
@@ -775,6 +776,145 @@ TEST_RET(copy_holes) {
 
         close(fd);
         close(fd_copy);
+
+        return 0;
+}
+
+TEST_RET(copy_sparse_from_pipe) {
+        _cleanup_(unlink_tempfilep) char fn[] = "/var/tmp/test-copy-sparse-XXXXXX";
+        _cleanup_close_pair_ int pipe_fds[2] = EBADF_PAIR;
+        _cleanup_free_ uint8_t *data = NULL, *zeros = NULL, *buf = NULL;
+        const size_t chunk = 64U * U64_KB;
+        _cleanup_close_ int fd = -EBADF;
+        struct stat st;
+        int r;
+
+        fd = ASSERT_OK(mkostemp_safe(fn));
+
+        r = RET_NERRNO(fallocate(fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, 0, 1));
+        if (ERRNO_IS_NOT_SUPPORTED(r))
+                return log_tests_skipped("Filesystem doesn't support hole punching");
+        ASSERT_OK(r);
+
+        ASSERT_OK_ERRNO(fstat(fd, &st));
+        if ((size_t) st.st_blksize > chunk)
+                return log_tests_skipped("Filesystem block size is larger than the test's zero blocks");
+
+        /* Make the pipe large enough to hold the whole stream, so we don't need a separate writer. */
+        ASSERT_OK_ERRNO(pipe2(pipe_fds, O_CLOEXEC));
+        r = RET_NERRNO(fcntl(pipe_fds[1], F_SETPIPE_SZ, 5 * chunk));
+        if (r < 0)
+                return log_tests_skipped_errno(r, "Failed to enlarge pipe");
+
+        data = malloc(chunk);
+        ASSERT_NOT_NULL(data);
+        memset(data, 'x', chunk);
+        zeros = malloc0(chunk);
+        ASSERT_NOT_NULL(zeros);
+        buf = malloc(chunk);
+        ASSERT_NOT_NULL(buf);
+
+        /* A hole in the middle and one at the end, which only ftruncate() can create. */
+        ASSERT_OK(loop_write(pipe_fds[1], data, chunk));
+        ASSERT_OK(loop_write(pipe_fds[1], zeros, chunk));
+        ASSERT_OK(loop_write(pipe_fds[1], zeros, chunk));
+        ASSERT_OK(loop_write(pipe_fds[1], data, chunk));
+        ASSERT_OK(loop_write(pipe_fds[1], zeros, chunk));
+        pipe_fds[1] = safe_close(pipe_fds[1]);
+
+        ASSERT_OK_ZERO(copy_bytes(pipe_fds[0], fd, /* max_bytes= */ UINT64_MAX, COPY_SPARSE));
+
+        ASSERT_OK_ERRNO(fstat(fd, &st));
+        ASSERT_EQ((uint64_t) st.st_size, (uint64_t) (5 * chunk));
+
+        ASSERT_OK_EQ_ERRNO(lseek(fd, 0, SEEK_HOLE), (off_t) chunk);
+        ASSERT_OK_EQ_ERRNO(lseek(fd, chunk, SEEK_DATA), (off_t) (3 * chunk));
+        ASSERT_OK_EQ_ERRNO(lseek(fd, 3 * chunk, SEEK_HOLE), (off_t) (4 * chunk));
+        ASSERT_ERROR_ERRNO(lseek(fd, 4 * chunk, SEEK_DATA), ENXIO);
+
+        ASSERT_OK_EQ_ERRNO(pread(fd, buf, chunk, 0), (ssize_t) chunk);
+        ASSERT_EQ(memcmp(buf, data, chunk), 0);
+        ASSERT_OK_EQ_ERRNO(pread(fd, buf, chunk, chunk), (ssize_t) chunk);
+        ASSERT_TRUE(memeqzero(buf, chunk));
+        ASSERT_OK_EQ_ERRNO(pread(fd, buf, chunk, 3 * chunk), (ssize_t) chunk);
+        ASSERT_EQ(memcmp(buf, data, chunk), 0);
+
+        return 0;
+}
+
+TEST_RET(copy_sparse_from_pipe_offset) {
+        _cleanup_(unlink_tempfilep) char fn[] = "/var/tmp/test-copy-sparse-offset-XXXXXX";
+        _cleanup_close_pair_ int pipe_fds[2] = EBADF_PAIR;
+        _cleanup_free_ uint8_t *data = NULL, *zeros = NULL, *old = NULL, *buf = NULL;
+        const size_t chunk = 64U * U64_KB;
+        _cleanup_close_ int fd = -EBADF;
+        uint64_t toffset = chunk;
+        struct stat st;
+        int r;
+
+        fd = ASSERT_OK(mkostemp_safe(fn));
+
+        r = RET_NERRNO(fallocate(fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, 0, 1));
+        if (ERRNO_IS_NOT_SUPPORTED(r))
+                return log_tests_skipped("Filesystem doesn't support hole punching");
+        ASSERT_OK(r);
+
+        ASSERT_OK_ERRNO(fstat(fd, &st));
+        if ((size_t) st.st_blksize > chunk)
+                return log_tests_skipped("Filesystem block size is larger than the test's zero blocks");
+
+        ASSERT_OK_ERRNO(pipe2(pipe_fds, O_CLOEXEC));
+        r = RET_NERRNO(fcntl(pipe_fds[1], F_SETPIPE_SZ, 3 * chunk));
+        if (r < 0)
+                return log_tests_skipped_errno(r, "Failed to enlarge pipe");
+
+        data = malloc(chunk);
+        ASSERT_NOT_NULL(data);
+        memset(data, 'x', chunk);
+        zeros = malloc0(chunk);
+        ASSERT_NOT_NULL(zeros);
+        old = malloc(chunk);
+        ASSERT_NOT_NULL(old);
+        memset(old, 'y', chunk);
+        buf = malloc(chunk);
+        ASSERT_NOT_NULL(buf);
+
+        /* Fill the target with existing data, so the zero block has to be punched out of it. */
+        for (unsigned i = 0; i < 5; i++)
+                ASSERT_OK(loop_write(fd, old, chunk));
+
+        ASSERT_OK(loop_write(pipe_fds[1], data, chunk));
+        ASSERT_OK(loop_write(pipe_fds[1], zeros, chunk));
+        ASSERT_OK(loop_write(pipe_fds[1], data, chunk));
+        pipe_fds[1] = safe_close(pipe_fds[1]);
+
+        /* With an explicit target offset, it must be advanced once per block, including the hole. */
+        ASSERT_OK_ZERO(copy_bytes_offset(
+                                       pipe_fds[0],
+                                       /* foffset= */ NULL,
+                                       fd,
+                                       &toffset,
+                                       /* max_bytes= */ UINT64_MAX,
+                                       COPY_SPARSE));
+        ASSERT_EQ(toffset, (uint64_t) (4 * chunk));
+        ASSERT_OK_EQ_ERRNO(lseek(fd, 0, SEEK_CUR), (off_t) (5 * chunk));
+
+        ASSERT_OK_ERRNO(fstat(fd, &st));
+        ASSERT_EQ((uint64_t) st.st_size, (uint64_t) (5 * chunk));
+
+        ASSERT_OK_EQ_ERRNO(lseek(fd, 2 * chunk, SEEK_HOLE), (off_t) (2 * chunk));
+        ASSERT_OK_EQ_ERRNO(lseek(fd, 2 * chunk, SEEK_DATA), (off_t) (3 * chunk));
+
+        ASSERT_OK_EQ_ERRNO(pread(fd, buf, chunk, 0), (ssize_t) chunk);
+        ASSERT_EQ(memcmp(buf, old, chunk), 0);
+        ASSERT_OK_EQ_ERRNO(pread(fd, buf, chunk, chunk), (ssize_t) chunk);
+        ASSERT_EQ(memcmp(buf, data, chunk), 0);
+        ASSERT_OK_EQ_ERRNO(pread(fd, buf, chunk, 2 * chunk), (ssize_t) chunk);
+        ASSERT_TRUE(memeqzero(buf, chunk));
+        ASSERT_OK_EQ_ERRNO(pread(fd, buf, chunk, 3 * chunk), (ssize_t) chunk);
+        ASSERT_EQ(memcmp(buf, data, chunk), 0);
+        ASSERT_OK_EQ_ERRNO(pread(fd, buf, chunk, 4 * chunk), (ssize_t) chunk);
+        ASSERT_EQ(memcmp(buf, old, chunk), 0);
 
         return 0;
 }
