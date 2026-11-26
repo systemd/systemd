@@ -450,6 +450,10 @@
     merged with a writable upper directory, the top-level directory reports the modification time of the
     upper directory instead. The metadata files should be considered read-only, and must not be
     modified.</para>
+
+    <para>The metadata directory is marked opaque, hence directories of the same name in the extension images
+    or the host hierarchy are hidden by it. Extension images that contain a metadata directory of their own are
+    ignored when merging. If the writable upper directory contains one, merging fails.</para>
   </refsect1>
 
   <refsect1>

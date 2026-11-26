@@ -72,6 +72,7 @@
 #include "varlink-util.h"
 #include "verbs.h"
 #include "xattr-match.h"
+#include "xattr-util.h"
 
 typedef enum MutableMode {
         MUTABLE_NO,
@@ -1354,6 +1355,64 @@ static int determine_work_dir(const Context *c, OverlayFSPaths *op) {
         return 0;
 }
 
+static int upper_dir_check_no_meta_directory(ImageClass image_class, const char *upper_dir) {
+        int r;
+
+        assert(upper_dir);
+
+        /* The upper directory is placed above our meta layer, hence a metadata directory in it would be
+         * merged on top of ours, and we cannot hide it. Refuse it, so that nobody can make the merged
+         * hierarchy show files in it that we did not place there ourselves. */
+
+        _cleanup_free_ char *j = path_join(upper_dir, image_class_info[image_class].dot_directory_name);
+        if (!j)
+                return log_oom();
+
+        r = access_nofollow(j, F_OK);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if '%s' exists: %m", j);
+
+        return log_error_errno(SYNTHETIC_ERRNO(EBUSY),
+                               "Upper directory '%s' contains '%s', refusing.",
+                               upper_dir, image_class_info[image_class].dot_directory_name);
+}
+
+static int extension_has_meta_directory(const Context *c, const char *extension_root) {
+        int r;
+
+        assert(c);
+        assert(extension_root);
+
+        /* Checks if any of the hierarchies of the extension carries our metadata directory. Returns > 0 if
+         * so, in which case the extension shall be skipped. */
+
+        STRV_FOREACH(h, c->hierarchies) {
+                _cleanup_free_ char *resolved = NULL;
+
+                r = chase(*h, extension_root, CHASE_PREFIX_ROOT, &resolved, /* ret_fd= */ NULL);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve hierarchy '%s' in extension '%s': %m", *h, extension_root);
+
+                _cleanup_free_ char *j = path_join(resolved, image_class_info[c->image_class].dot_directory_name);
+                if (!j)
+                        return log_oom();
+
+                r = access_nofollow(j, F_OK);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check if '%s' exists: %m", j);
+
+                return true;
+        }
+
+        return false;
+}
+
 static int mount_overlayfs_with_op(
                 OverlayFSPaths *op,
                 ImageClass image_class,
@@ -1367,6 +1426,13 @@ static int mount_overlayfs_with_op(
 
         assert(op);
         assert(overlay_path);
+        assert(meta_path);
+
+        if (op->upper_dir) {
+                r = upper_dir_check_no_meta_directory(image_class, op->upper_dir);
+                if (r < 0)
+                        return r;
+        }
 
         r = mkdir_p(overlay_path, 0700);
         if (r < 0)
@@ -1383,6 +1449,30 @@ static int mount_overlayfs_with_op(
         r = mac_selinux_fix_full(atfd, /* inode_path= */ NULL, op->hierarchy, /* flags= */ 0, /* label_context= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", meta_path);
+
+        /* Create the metadata directory in our meta layer already now, and mark it opaque, so that
+         * overlayfs does not merge it with directories of the same name in the layers below (i.e. the
+         * extensions and the host hierarchy), and only the files we place there show up in it. */
+        const char *dot_dir = image_class_info[image_class].dot_directory_name;
+        if (mkdirat(atfd, dot_dir, 0755) < 0 && errno != EEXIST)
+                return log_error_errno(errno, "Failed to create directory '%s/%s': %m", meta_path, dot_dir);
+
+        _cleanup_close_ int dot_fd = xopenat(atfd, dot_dir, O_DIRECTORY|O_NOFOLLOW);
+        if (dot_fd < 0)
+                return log_error_errno(dot_fd, "Failed to open directory '%s/%s': %m", meta_path, dot_dir);
+
+        r = mac_selinux_fix_full(dot_fd, /* inode_path= */ NULL, op->hierarchy, /* flags= */ 0, /* label_context= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to fix SELinux label for '%s/%s': %m", meta_path, dot_dir);
+
+        r = xsetxattr(dot_fd, /* path= */ NULL, AT_EMPTY_PATH, "trusted.overlay.opaque", "y");
+        if (ERRNO_IS_NEG_PRIVILEGE(r) || ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                /* Setting trusted.* xattrs requires privileges in the initial user namespace. Extensions
+                 * carrying a metadata directory are refused anyway, hence this only means that the
+                 * contents of a stale metadata directory in the host hierarchy might show through. */
+                log_debug_errno(r, "Failed to mark '%s/%s' as opaque, ignoring: %m", meta_path, dot_dir);
+        else if (r < 0)
+                return log_error_errno(r, "Failed to mark '%s/%s' as opaque: %m", meta_path, dot_dir);
 
         if (op->upper_dir && op->work_dir) {
                 r = mkdir_p(op->work_dir, 0700);
@@ -1593,21 +1683,7 @@ static int store_info_in_meta(
         assert(overlay_path);
         /* work_dir may be NULL */
 
-        _cleanup_free_ char *f = path_join(meta_path, image_class_info[c->image_class].dot_directory_name);
-        if (!f)
-                return log_oom();
-
-        r = mkdir_p(f, 0755);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create directory '%s': %m", f);
-
-        _cleanup_close_ int atfd = xopenat(AT_FDCWD, f, O_DIRECTORY);
-        if (atfd < 0)
-                return log_error_errno(atfd, "Failed to open directory '%s': %m", f);
-
-        r = mac_selinux_fix_full(atfd, /* inode_path= */ NULL, hierarchy, /* flags= */ 0, /* label_context= */ NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", hierarchy);
+        /* The metadata directory itself has already been created by mount_overlayfs_with_op() */
 
         r = write_extensions_file(c->image_class, extensions, meta_path, hierarchy);
         if (r < 0)
@@ -2166,6 +2242,19 @@ static int merge_subprocess(
                 }
                 default:
                         assert_not_reached();
+                }
+
+                /* Only our own meta layer may carry the metadata directory. Its contents would be hidden by
+                 * our own (opaque) one anyway, but an extension shipping it is bogus, hence skip it, even in
+                 * force mode. */
+                r = extension_has_meta_directory(c, p);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        log_warning("Extension '%s' contains '%s', ignoring.",
+                                    img->name, image_class_info[c->image_class].dot_directory_name);
+                        n_ignored++;
+                        continue;
                 }
 
                 if (c->force)
