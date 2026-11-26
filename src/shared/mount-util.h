@@ -9,6 +9,7 @@ typedef struct SubMount {
         int original_fd;        /* O_PATH fd pinning the mount the clone was made from */
 } SubMount;
 
+void sub_mount_clear(SubMount *s);
 void sub_mount_array_free(SubMount *array, size_t n);
 
 int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_mounts);

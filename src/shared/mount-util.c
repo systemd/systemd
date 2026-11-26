@@ -1765,7 +1765,7 @@ int remount_idmap(
         return remount_idmap_fd(p, userns_fd, /* extra_mount_attr_set= */ 0);
 }
 
-static void sub_mount_clear(SubMount *s) {
+void sub_mount_clear(SubMount *s) {
         assert(s);
 
         s->path = mfree(s->path);
