@@ -557,8 +557,31 @@ bool shall_tint_background(void) {
         return cache != 0;
 }
 
-void draw_progress_bar_unbuffered(const char *prefix, double percentage) {
+static bool progress_bar_enabled(void) {
+        static int cache = -1;
+
+        /* Progress bars are only drawn if we are connected to a TTY */
         if (!on_tty())
+                return false;
+
+        if (cache >= 0)
+                return cache;
+
+        /* Allows turning off progress bars, for example when a tool is invoked as helper by another tool
+         * which draws its own progress bar, based on information passed via other means. */
+        cache = getenv_bool("SYSTEMD_PROGRESS_BAR");
+        if (cache == -ENXIO)
+                return (cache = true);
+        if (cache < 0) {
+                log_debug_errno(cache, "Failed to parse $SYSTEMD_PROGRESS_BAR, leaving progress bars enabled: %m");
+                cache = true;
+        }
+
+        return cache;
+}
+
+void draw_progress_bar_unbuffered(const char *prefix, double percentage) {
+        if (!progress_bar_enabled())
                 return;
 
         fputc('\r', stderr);
@@ -627,7 +650,7 @@ void draw_progress_bar_unbuffered(const char *prefix, double percentage) {
 }
 
 void clear_progress_bar_unbuffered(const char *prefix) {
-        if (!on_tty())
+        if (!progress_bar_enabled())
                 return;
 
         fputc('\r', stderr);
@@ -646,7 +669,7 @@ void clear_progress_bar_unbuffered(const char *prefix) {
 }
 
 void draw_progress_bar(const char *prefix, double percentage) {
-        if (!on_tty())
+        if (!progress_bar_enabled())
                 return;
 
         /* We are going output a bunch of small strings that shall appear as a single line to STDERR which is
@@ -661,7 +684,7 @@ int draw_progress_barf(double percentage, const char *prefixf, ...) {
         va_list ap;
         int r;
 
-        if (!on_tty())
+        if (!progress_bar_enabled())
                 return 0;
 
         va_start(ap, prefixf);
@@ -676,7 +699,7 @@ int draw_progress_barf(double percentage, const char *prefixf, ...) {
 }
 
 void clear_progress_bar(const char *prefix) {
-        if (!on_tty())
+        if (!progress_bar_enabled())
                 return;
 
         WITH_BUFFERED_STDERR;
