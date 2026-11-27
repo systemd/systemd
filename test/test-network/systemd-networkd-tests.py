@@ -10568,17 +10568,18 @@ Address={ipv6_address}
             # make resolved re-read the link state file
             resolvectl('revert', 'veth99')
 
+            # Designated resolvers are used with DNS over TLS only, hence shown as dnss:// URIs
             output = resolvectl('dns', 'veth99')
             print(output)
             if ipv4:
-                self.assertIn('8.8.8.8#dns.google', output)
-                self.assertIn('0.7.4.2#homer.simpson', output)
+                self.assertIn('dnss://8.8.8.8#name=dns.google', output)
+                self.assertIn('dnss://0.7.4.2#name=homer.simpson', output)
             else:
-                self.assertNotIn('8.8.8.8#dns.google', output)
+                self.assertNotIn('dnss://8.8.8.8#name=dns.google', output)
             if ipv6:
-                self.assertIn('2001:4860:4860::8888#dns.google', output)
+                self.assertIn('dnss://[2001:4860:4860::8888]#name=dns.google', output)
             else:
-                self.assertNotIn('2001:4860:4860::8888#dns.google', output)
+                self.assertNotIn('dnss://[2001:4860:4860::8888]#name=dns.google', output)
 
             check_json(networkctl_json())
 
