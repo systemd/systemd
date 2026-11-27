@@ -145,6 +145,9 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 ## Features
 
+- Maybe replace the getpid() anti-fork checks in sd-bus and similar with a
+  MADV_WIPEONFORK page.
+
 - in storagetm also provide http, and in particular a uapi16 manifest of the
   downloadable resources
 
