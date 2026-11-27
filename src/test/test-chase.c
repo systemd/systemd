@@ -12,6 +12,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "id128-util.h"
+#include "label-util.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -1534,6 +1535,75 @@ TEST(use_chase_as_mkdir_p) {
         ASSERT_OK(path_extract_directory(ff, &fff));
 
         ASSERT_OK(rm_rf(fff, REMOVE_PHYSICAL));
+}
+
+static char **labelled = NULL;
+static unsigned n_label_pre = 0;
+static int label_marker;
+#define LABEL_MARKER ((LabelContext*) &label_marker)
+
+static int test_label_pre(int dir_fd, const char *path, mode_t mode, LabelContext *label_context) {
+        ASSERT_PTR_EQ(label_context, LABEL_MARKER);
+        ASSERT_TRUE(S_ISDIR(mode));
+        n_label_pre++;
+        return 0;
+}
+
+static int test_label_post(int dir_fd, const char *path, bool created, LabelContext *label_context) {
+        _cleanup_free_ char *d = NULL;
+
+        ASSERT_PTR_EQ(label_context, LABEL_MARKER);
+
+        if (!created)
+                return 0;
+
+        ASSERT_OK(fd_get_path(dir_fd, &d));
+        ASSERT_OK(strv_consume(&labelled, ASSERT_PTR(path_join(d, path))));
+        return 0;
+}
+
+TEST(chase_mkdir_label) {
+        static const LabelOps test_label_ops = {
+                .pre = test_label_pre,
+                .post = test_label_post,
+        };
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+
+        ASSERT_OK(tfd = mkdtemp_open(/* template= */ NULL, /* flags= */ 0, &t));
+        ASSERT_OK_ERRNO(mkdirat(tfd, "exists", 0755));
+
+        label_ops_reset();
+        ASSERT_OK(label_ops_set(&test_label_ops));
+
+        /* Only directories that are created are labelled, the final one created by chase_and_openat()
+         * included, but not regular files */
+        fd = ASSERT_OK(chase_and_openat_full(tfd, tfd, "exists/a/b/c", CHASE_MKDIR_0700|CHASE_MKDIR_LABEL,
+                                             O_DIRECTORY|O_CREAT, LABEL_MARKER, /* ret_path= */ NULL));
+        fd = safe_close(fd);
+        fd = ASSERT_OK(chase_and_openat_full(tfd, tfd, "exists/a/d/file", CHASE_MKDIR_0755|CHASE_MKDIR_LABEL,
+                                             O_CREAT|O_WRONLY, LABEL_MARKER, /* ret_path= */ NULL));
+        fd = safe_close(fd);
+        ASSERT_OK(chaseat_full(tfd, tfd, "exists/e/f", CHASE_MKDIR_0755|CHASE_MKDIR_LABEL|CHASE_PARENT,
+                               LABEL_MARKER, /* ret_path= */ NULL, /* ret_fd= */ NULL));
+
+        _cleanup_strv_free_ char **expected = NULL;
+        FOREACH_STRING(d, "exists/a", "exists/a/b", "exists/a/b/c", "exists/a/d", "exists/e")
+                ASSERT_OK(strv_consume(&expected, ASSERT_PTR(path_join(t, d))));
+        ASSERT_TRUE(strv_equal(labelled, expected));
+        ASSERT_EQ(n_label_pre, strv_length(expected));
+
+        /* Without CHASE_MKDIR_LABEL nothing is labelled */
+        labelled = strv_free(labelled);
+        n_label_pre = 0;
+        ASSERT_OK(chaseat_full(tfd, tfd, "exists/g/h", CHASE_MKDIR_0755, LABEL_MARKER, /* ret_path= */ NULL, /* ret_fd= */ NULL));
+        ASSERT_NULL(labelled);
+        ASSERT_EQ(n_label_pre, 0U);
+
+        /* CHASE_MKDIR_LABEL only makes sense if we create directories */
+        ASSERT_ERROR(chaseat_full(tfd, tfd, "exists/i", CHASE_MKDIR_LABEL, LABEL_MARKER, /* ret_path= */ NULL, /* ret_fd= */ NULL), EINVAL);
+
+        label_ops_reset();
 }
 
 TEST(chase_mode) {

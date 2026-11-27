@@ -41,6 +41,9 @@ typedef enum ChaseFlags {
                                              * chase_and_stat*(). Keep this in mind */
         CHASE_EXTRACT_FILENAME_HARDER = CHASE_EXTRACT_FILENAME | (1 << 19), /* Return "." if there is no filename. */
         CHASE_EMPTY_PATH         = 1 << 20, /* An empty path refers to the inode of dir_fd itself. */
+        CHASE_MKDIR_LABEL        = 1 << 21, /* Label directories created via CHASE_MKDIR_0755/CHASE_MKDIR_0700
+                                             * via the label ops, using the label context passed to the
+                                             * _full() calls, if any. */
 } ChaseFlags;
 
 int statx_unsafe_transition(const struct statx *a, const struct statx *b);
@@ -58,7 +61,7 @@ int chase_split_prefix_filename(const char *path, const char *root, char **ret_d
 /* chase_xopenat() wraps xopenat_full() and translates CHASE_NOFOLLOW, CHASE_MUST_BE_*, and
  * CHASE_TRIGGER_AUTOFS into open and xopen flags. Callers must validate other chase flags while
  * resolving the path. */
-int chase_xopenat(int dir_fd, const char *path, ChaseFlags chase_flags, int open_flags, XOpenFlags xopen_flags);
+int chase_xopenat(int dir_fd, const char *path, ChaseFlags chase_flags, int open_flags, XOpenFlags xopen_flags, LabelContext *label_context);
 
 int chase_and_open(const char *path, const char *root, ChaseFlags chase_flags, int open_flags, char **ret_path);
 int chase_and_opendir(const char *path, const char *root, ChaseFlags chase_flags, char **ret_path, DIR **ret_dir);
@@ -69,9 +72,15 @@ int chase_and_unlink(const char *path, const char *root, ChaseFlags chase_flags,
 int chase_and_open_parent(const char *path, const char *root, ChaseFlags chase_flags, char **ret_filename);
 
 /* CHASE_EMPTY_PATH makes an empty path refer to dir_fd itself, including a file or symlink. */
-int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int *ret_fd);
+int chaseat_full(int root_fd, int dir_fd, const char *path, ChaseFlags flags, LabelContext *label_context, char **ret_path, int *ret_fd);
+static inline int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int *ret_fd) {
+        return chaseat_full(root_fd, dir_fd, path, flags, /* label_context= */ NULL, ret_path, ret_fd);
+}
 
-int chase_and_openat(int root_fd, int dir_fd, const char *path, ChaseFlags chase_flags, int open_flags, char **ret_path);
+int chase_and_openat_full(int root_fd, int dir_fd, const char *path, ChaseFlags chase_flags, int open_flags, LabelContext *label_context, char **ret_path);
+static inline int chase_and_openat(int root_fd, int dir_fd, const char *path, ChaseFlags chase_flags, int open_flags, char **ret_path) {
+        return chase_and_openat_full(root_fd, dir_fd, path, chase_flags, open_flags, /* label_context= */ NULL, ret_path);
+}
 int chase_and_opendirat(int root_fd, int dir_fd, const char *path, ChaseFlags chase_flags, char **ret_path, DIR **ret_dir);
 int chase_and_statat(int root_fd, int dir_fd, const char *path, ChaseFlags chase_flags, char **ret_path, struct stat *ret_stat);
 int chase_and_accessat(int root_fd, int dir_fd, const char *path, ChaseFlags chase_flags, int access_mode, char **ret_path);

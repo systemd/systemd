@@ -175,7 +175,7 @@ static int chase_openat2(int root_fd, int dir_fd, const char *path, ChaseFlags c
         return TAKE_FD(fd);
 }
 
-int chase_xopenat(int dir_fd, const char *path, ChaseFlags chase_flags, int open_flags, XOpenFlags xopen_flags) {
+int chase_xopenat(int dir_fd, const char *path, ChaseFlags chase_flags, int open_flags, XOpenFlags xopen_flags, LabelContext *label_context) {
         /* An empty name reopens the directory, which open(2) refuses to create */
         if (isempty(path) && FLAGS_SET(open_flags, O_CREAT))
                 return -EISDIR;
@@ -192,17 +192,21 @@ int chase_xopenat(int dir_fd, const char *path, ChaseFlags chase_flags, int open
         if (FLAGS_SET(chase_flags, CHASE_TRIGGER_AUTOFS) && FLAGS_SET(open_flags, O_PATH))
                 xopen_flags |= XO_TRIGGER_AUTOMOUNT;
 
-        /* If we are asked to create the final directory, use the same access mode as for the
-         * intermediary ones created by CHASE_MKDIR_0755/CHASE_MKDIR_0700. Regular files are not
+        /* If we are asked to create the final directory, use the same access mode and labelling as for
+         * the intermediary ones created by CHASE_MKDIR_0755/CHASE_MKDIR_0700. Regular files are not
          * affected. */
         mode_t mode = MODE_INVALID;
         if (FLAGS_SET(open_flags, O_CREAT|O_DIRECTORY)) {
                 mode_t m = chase_mkdir_flags_to_mode(chase_flags);
-                if (m != 0)
+                if (m != 0) {
                         mode = m;
+
+                        if (FLAGS_SET(chase_flags, CHASE_MKDIR_LABEL))
+                                xopen_flags |= XO_LABEL;
+                }
         }
 
-        return xopenat_full(dir_fd, path, open_flags, xopen_flags, mode);
+        return xopenat_full_label(dir_fd, path, open_flags, xopen_flags, mode, label_context);
 }
 
 static bool uid_unsafe_transition(uid_t a, uid_t b) {
@@ -321,7 +325,15 @@ static int log_prohibited_symlink(int fd, ChaseFlags flags) {
                                  strna(n1));
 }
 
-int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int *ret_fd) {
+int chaseat_full(
+                int root_fd,
+                int dir_fd,
+                const char *path,
+                ChaseFlags flags,
+                LabelContext *label_context,
+                char **ret_path,
+                int *ret_fd) {
+
         int r;
 
         assert(!FLAGS_SET(flags, CHASE_PREFIX_ROOT));
@@ -461,6 +473,10 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
         if (FLAGS_SET(flags, CHASE_MKDIR_0755|CHASE_MKDIR_0700))
                 return -EINVAL;
 
+        /* Labelling only applies to directories we create */
+        if (FLAGS_SET(flags, CHASE_MKDIR_LABEL) && chase_mkdir_flags_to_mode(flags) == 0)
+                return -EINVAL;
+
         /* If multiple flags are set now, fail immediately */
         if (FLAGS_SET(flags, CHASE_MUST_BE_DIRECTORY) + FLAGS_SET(flags, CHASE_MUST_BE_REGULAR) + FLAGS_SET(flags, CHASE_MUST_BE_SOCKET) > 1)
                 return -EBADSLT;
@@ -484,7 +500,7 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                  * are requested: open the target directly via xopenat_full() which applies any MUST_BE_*
                  * verification and automount triggering for us. */
 
-                r = chase_xopenat(dir_fd, path, flags, O_PATH, /* xopen_flags= */ 0);
+                r = chase_xopenat(dir_fd, path, flags, O_PATH, /* xopen_flags= */ 0, label_context);
                 if (r < 0)
                         return r;
 
@@ -739,11 +755,13 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
 
                         mode_t mkdir_mode = chase_mkdir_flags_to_mode(flags);
                         if (mkdir_mode != 0 && (!isempty(todo) || !(flags & (CHASE_PARENT|CHASE_NONEXISTENT)))) {
-                                child = xopenat_full(fd,
-                                                     first,
-                                                     O_DIRECTORY|O_CREAT|O_EXCL|O_NOFOLLOW|O_PATH,
-                                                     /* xopen_flags= */ 0,
-                                                     mkdir_mode);
+                                child = xopenat_full_label(
+                                                fd,
+                                                first,
+                                                O_DIRECTORY|O_CREAT|O_EXCL|O_NOFOLLOW|O_PATH,
+                                                FLAGS_SET(flags, CHASE_MKDIR_LABEL) ? XO_LABEL : 0,
+                                                mkdir_mode,
+                                                label_context);
                                 if (child < 0)
                                         return child;
                         } else if (FLAGS_SET(flags, CHASE_PARENT) && isempty(todo)) {
@@ -1215,7 +1233,7 @@ int chase_and_open(
 
         if (empty_or_root(root) && !ret_path && (chase_flags & CHASE_NO_SHORTCUT_MASK) == 0)
                 /* Shortcut this call if none of the special features of this call are requested */
-                return chase_xopenat(AT_FDCWD, path, chase_flags, open_flags, XO_EMPTY_PATH);
+                return chase_xopenat(AT_FDCWD, path, chase_flags, open_flags, XO_EMPTY_PATH, /* label_context= */ NULL);
 
         r = chase(path, root, (CHASE_PARENT|chase_flags)&~CHASE_MUST_BE_REGULAR, &p, &path_fd);
         if (r < 0)
@@ -1235,7 +1253,7 @@ int chase_and_open(
                 }
         }
 
-        r = chase_xopenat(path_fd, open_name, chase_flags, open_flags|O_NOFOLLOW, XO_EMPTY_PATH);
+        r = chase_xopenat(path_fd, open_name, chase_flags, open_flags|O_NOFOLLOW, XO_EMPTY_PATH, /* label_context= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1379,7 +1397,7 @@ int chase_and_unlink(const char *path, const char *root, ChaseFlags chase_flags,
         int r;
 
         assert(path);
-        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP|CHASE_PARENT|CHASE_MUST_BE_SOCKET|CHASE_MUST_BE_REGULAR|CHASE_MUST_BE_DIRECTORY|CHASE_EXTRACT_FILENAME|CHASE_MKDIR_0755|CHASE_MKDIR_0700)));
+        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP|CHASE_PARENT|CHASE_MUST_BE_SOCKET|CHASE_MUST_BE_REGULAR|CHASE_MUST_BE_DIRECTORY|CHASE_EXTRACT_FILENAME|CHASE_MKDIR_0755|CHASE_MKDIR_0700|CHASE_MKDIR_LABEL)));
 
         fd = chase_and_open(path, root, chase_flags|CHASE_PARENT|CHASE_NOFOLLOW, O_PATH|O_DIRECTORY, &p);
         if (fd < 0)
@@ -1410,12 +1428,13 @@ int chase_and_open_parent(const char *path, const char *root, ChaseFlags chase_f
         return pfd;
 }
 
-int chase_and_openat(
+int chase_and_openat_full(
                 int root_fd,
                 int dir_fd,
                 const char *path,
                 ChaseFlags chase_flags,
                 int open_flags,
+                LabelContext *label_context,
                 char **ret_path) {
 
         _cleanup_close_ int path_fd = -EBADF;
@@ -1430,12 +1449,12 @@ int chase_and_openat(
 
         if (root_fd == XAT_FDROOT && dir_fd == AT_FDCWD && !ret_path && (chase_flags & CHASE_NO_SHORTCUT_MASK) == 0)
                 /* Shortcut this call if none of the special features of this call are requested */
-                return chase_xopenat(dir_fd, path, chase_flags, open_flags, XO_EMPTY_PATH);
+                return chase_xopenat(dir_fd, path, chase_flags, open_flags, XO_EMPTY_PATH, label_context);
 
         ChaseFlags flags = chase_flags;
         if (!isempty(path))
                 flags |= CHASE_PARENT;
-        r = chaseat(root_fd, dir_fd, path, flags&~CHASE_MUST_BE_REGULAR, &p, &path_fd);
+        r = chaseat_full(root_fd, dir_fd, path, flags&~CHASE_MUST_BE_REGULAR, label_context, &p, &path_fd);
         if (r < 0)
                 return r;
 
@@ -1452,7 +1471,7 @@ int chase_and_openat(
                 }
         }
 
-        r = chase_xopenat(path_fd, open_name, chase_flags, open_flags|O_NOFOLLOW, XO_EMPTY_PATH);
+        r = chase_xopenat(path_fd, open_name, chase_flags, open_flags|O_NOFOLLOW, XO_EMPTY_PATH, label_context);
         if (r < 0)
                 return r;
 
@@ -1597,7 +1616,7 @@ int chase_and_unlinkat(int root_fd, int dir_fd, const char *path, ChaseFlags cha
         int r;
 
         assert(path);
-        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP|CHASE_PARENT|CHASE_MUST_BE_SOCKET|CHASE_MUST_BE_REGULAR|CHASE_MUST_BE_DIRECTORY|CHASE_EXTRACT_FILENAME|CHASE_MKDIR_0755|CHASE_MKDIR_0700)));
+        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP|CHASE_PARENT|CHASE_MUST_BE_SOCKET|CHASE_MUST_BE_REGULAR|CHASE_MUST_BE_DIRECTORY|CHASE_EXTRACT_FILENAME|CHASE_MKDIR_0755|CHASE_MKDIR_0700|CHASE_MKDIR_LABEL)));
 
         fd = chase_and_openat(root_fd, dir_fd, path, chase_flags|CHASE_PARENT|CHASE_NOFOLLOW, O_PATH|O_DIRECTORY, &p);
         if (fd < 0)
