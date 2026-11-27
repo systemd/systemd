@@ -10,7 +10,6 @@
 
 #include "alloc-util.h"
 #include "build-path.h"
-#include "chase.h"
 #include "conf-parser.h"
 #include "data-fd-util.h"
 #include "dirent-util.h"
@@ -19,6 +18,7 @@
 #include "event-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "gpt.h"
@@ -28,7 +28,6 @@
 #include "json-util.h"
 #include "iovec-util.h"
 #include "memory-util.h"
-#include "mkdir.h"
 #include "notify-recv.h"
 #include "parse-helpers.h"
 #include "parse-util.h"
@@ -43,7 +42,6 @@
 #include "specifier.h"
 #include "stdio-util.h"
 #include "strv.h"
-#include "sync-util.h"
 #include "sysupdate.h"
 #include "sysupdate-cleanup.h"
 #include "sysupdate-config.h"
@@ -71,6 +69,8 @@ Transfer* transfer_free(Transfer *t) {
 
         free(t->temporary_partial_path);
         free(t->temporary_pending_path);
+        safe_close(t->install_parent_fd);
+        safe_close(t->staging_fd);
 
         free(t->id);
 
@@ -104,8 +104,10 @@ Transfer* transfer_new(Context *ctx) {
 
         *t = (Transfer) {
                 .source.type = _RESOURCE_TYPE_INVALID,
+                .source.pin_fd = -EBADF,
                 .source.manifest_format = MANIFEST_FORMAT_SHA256SUMS,
                 .target.type = _RESOURCE_TYPE_INVALID,
+                .target.pin_fd = -EBADF,
                 .target.manifest_format = _MANIFEST_FORMAT_INVALID,
                 .remove_temporary = -1,
                 .mode = MODE_INVALID,
@@ -123,6 +125,8 @@ Transfer* transfer_new(Context *ctx) {
 
                 /* the read only flag, as ultimately determined */
                 .install_read_only = -1,
+                .install_parent_fd = -EBADF,
+                .staging_fd = -EBADF,
 
                 .partition_info = PARTITION_INFO_NULL,
 
@@ -1055,11 +1059,7 @@ int transfer_from_json(Transfer *t, sd_json_variant *v, const char *origin, Hash
         return transfer_finalize(t, o, /* line= */ 0, known_features);
 }
 
-int transfer_resolve_paths(
-                Transfer *t,
-                const char *root,
-                const char *node) {
-
+int transfer_resolve_paths(Transfer *t) {
         int r;
 
         /* If Path=auto is used in [Source] or [Target] sections, let's automatically detect the path of the
@@ -1069,11 +1069,11 @@ int transfer_resolve_paths(
 
         assert(t);
 
-        r = resource_resolve_path(&t->source, root, t->context->transfer_source, node);
+        r = resource_resolve_path(&t->source, t->context);
         if (r < 0)
                 return r;
 
-        r = resource_resolve_path(&t->target, root, /* relative_to_directory= */ NULL, node);
+        r = resource_resolve_path(&t->target, t->context);
         if (r < 0)
                 return r;
 
@@ -1095,12 +1095,16 @@ static void transfer_remove_temporary(Transfer *t) {
         /* Removes all incomplete files/dirs from previous runs in the target directory. Clean both the
          * current partial sysupdate prefix and the legacy '.#' prefix. */
 
-        d = opendir(t->target.path);
+        _cleanup_close_ int fd = resource_open_directory(&t->target);
+        if (fd == -ENOENT)
+                return;
+        if (fd < 0) {
+                log_debug_errno(fd, "Failed to open target directory '%s', ignoring: %m", t->target.path);
+                return;
+        }
+        d = take_fdopendir(&fd);
         if (!d) {
-                if (errno == ENOENT)
-                        return;
-
-                log_debug_errno(errno, "Failed to open target directory '%s', ignoring: %m", t->target.path);
+                log_warning_errno(errno, "Failed to enumerate target directory '%s', ignoring: %m", t->target.path);
                 return;
         }
 
@@ -1142,14 +1146,32 @@ static int transfer_instance_vacuum(
 
         case RESOURCE_REGULAR_FILE:
         case RESOURCE_DIRECTORY:
-        case RESOURCE_SUBVOLUME:
-                r = rm_rf(instance->path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_MISSING_OK|REMOVE_CHMOD);
+        case RESOURCE_SUBVOLUME: {
+                _cleanup_free_ char *name = NULL;
+                _cleanup_close_ int pfd = resource_open_parent(&t->target, instance->path, /* mkdir_parents= */ false, &name);
+                if (pfd == -ENOENT)
+                        break;
+                if (pfd < 0)
+                        return log_error_errno(pfd, "Failed to open parent of '%s': %m", instance->path);
+
+                r = rm_rf_child(pfd, name, REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_CHMOD);
                 if (r < 0 && r != -ENOENT)
                         return log_error_errno(r, "Failed to make room, deleting '%s' failed: %m", instance->path);
 
-                (void) rmdir_parents(instance->path, t->target.path);
-
+                _cleanup_free_ char *path = NULL;
+                for (const char *child = instance->path;; child = path) {
+                        _cleanup_free_ char *parent = NULL;
+                        if (path_extract_directory(child, &parent) < 0 || path_equal(parent, t->target.path))
+                                break;
+                        free_and_replace(path, parent);
+                        name = mfree(name);
+                        pfd = safe_close(pfd);
+                        pfd = resource_open_parent(&t->target, path, /* mkdir_parents= */ false, &name);
+                        if (pfd < 0 || unlinkat(pfd, name, AT_REMOVEDIR) < 0)
+                                break;
+                }
                 break;
+        }
 
         case RESOURCE_PARTITION: {
                 PartitionInfo pinfo = instance->partition_info;
@@ -1167,7 +1189,7 @@ static int transfer_instance_vacuum(
                 }
 
                 log_debug("Resetting partition '%s' to empty.", pinfo.device);
-                r = patch_partition(t->target.path, &pinfo, change);
+                r = patch_partition(&t->target, &pinfo, change);
                 if (r < 0)
                         return r;
 
@@ -1498,13 +1520,28 @@ static int helper_on_notify(sd_event_source *s, int fd, uint32_t revents, void *
         return 0;
 }
 
+static int transfer_open_install_parent(Transfer *t, bool make) {
+        if (t->install_parent_fd >= 0)
+                return 0;
+
+        t->install_parent_fd = resource_open_parent(&t->target, t->final_path, make, /* ret_name= */ NULL);
+        if (t->install_parent_fd < 0)
+                return log_error_errno(t->install_parent_fd, "Failed to open install directory for '%s': %m", t->final_path);
+        return 0;
+}
+
+static const char* transfer_sync_argument(const Transfer *t) {
+        /* For rooted transfers the helper only knows a procfd. Sync the real inode and directory ourselves. */
+        return t->context->sync && !t->context->root ? "--sync=yes" : "--sync=no";
+}
+
 static int run_callout(
                 const char *name,
                 char *cmdline[],
                 int stdin_fd,
                 int pass_fd,
                 const char *pass_fd_name,
-                const Transfer *transfer,
+                Transfer *transfer,
                 const Instance *instance,
                 TransferProgress callback,
                 void *userdata) {
@@ -1515,6 +1552,38 @@ static int run_callout(
         assert(cmdline);
         assert(cmdline[0]);
         assert(pass_fd < 0 || pass_fd_name);
+
+        _cleanup_close_ int source_fd = -EBADF;
+        int fds[2];
+        size_t n_fds = 0;
+        if (pass_fd >= 0)
+                fds[n_fds++] = pass_fd;
+
+        bool directory = IN_SET(transfer->target.type, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME);
+        if (transfer->context->root) {
+                if (RESOURCE_IS_FILESYSTEM(instance->resource->type)) {
+                        assert(stdin_fd < 0);
+                        source_fd = resource_open_instance(instance->resource, instance->path);
+                        if (source_fd < 0)
+                                return log_error_errno(source_fd, "Failed to pin local update source '%s': %m", instance->path);
+                        stdin_fd = source_fd;
+                }
+
+                assert(transfer->staging_fd < 0);
+                if (transfer->target.type == RESOURCE_PARTITION)
+                        transfer->staging_fd = fd_reopen(ASSERT_FD(transfer->target.pin_fd), O_RDWR);
+                else {
+                        assert(transfer->install_parent_fd >= 0);
+                        transfer->staging_fd = xopenat_full(
+                                        transfer->install_parent_fd, last_path_component(transfer->temporary_partial_path),
+                                        O_CREAT|O_EXCL|O_NOFOLLOW|(directory ? O_DIRECTORY : O_RDWR),
+                                        transfer->target.type == RESOURCE_SUBVOLUME ? XO_SUBVOLUME : 0,
+                                        directory ? 0755 : 0664);
+                }
+                if (transfer->staging_fd < 0)
+                        return log_error_errno(transfer->staging_fd, "Failed to open update destination for '%s': %m", transfer->target.path);
+                fds[n_fds++] = transfer->staging_fd;
+        }
 
         _cleanup_(callout_context_freep) CalloutContext *ctx = NULL;
         r = callout_context_new(transfer, instance, callback, name, userdata, &ctx);
@@ -1544,22 +1613,29 @@ static int run_callout(
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare notify socket: %m");
 
-        /* Optionally connect the helper's stdin to the specified fd, otherwise it inherits ours. Optionally
-         * pass another fd to it as fd 3, via the socket activation protocol, in which case close everything
-         * else. */
+        /* Pass HTTP headers first (via the socket activation protocol), then the pinned output if any. */
         r = pidref_safe_fork_full(
                         ctx->name,
                         stdin_fd >= 0 ? (int[]) { stdin_fd, STDOUT_FILENO, STDERR_FILENO } : NULL,
-                        pass_fd >= 0 ? &pass_fd : NULL,
-                        pass_fd >= 0 ? 1 : 0,
+                        fds, n_fds,
                         FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG|
                         (stdin_fd >= 0 ? FORK_REARRANGE_STDIO : 0)|
-                        (pass_fd >= 0 ? FORK_CLOSE_ALL_FDS|FORK_PACK_FDS|FORK_CLOEXEC_OFF|FORK_REOPEN_LOG : 0),
+                        (n_fds > 0 ? FORK_CLOSE_ALL_FDS|FORK_PACK_FDS|FORK_CLOEXEC_OFF|FORK_REOPEN_LOG : 0),
                         &ctx->pid);
         if (r < 0)
                 return log_error_errno(r, "Failed to fork process %s: %m", ctx->name);
         if (r == 0) {
                 /* Child */
+                char proc[PROC_FD_PATH_MAX + 2];
+                if (transfer->staging_fd >= 0) {
+                        /* All import/pull helpers take the source and destination as their final two arguments. */
+                        size_t n = strv_length(cmdline);
+                        assert(n >= 3);
+                        if (source_fd >= 0)
+                                cmdline[n-2] = (char*) "-";
+                        xsprintf(proc, "/proc/self/fd/%i%s", fds[n_fds-1], directory ? "/." : "");
+                        cmdline[n-1] = proc;
+                }
                 if (setenv("NOTIFY_SOCKET", bind_name, 1) < 0) {
                         log_error_errno(errno, "setenv() failed: %m");
                         _exit(EXIT_FAILURE);
@@ -1567,7 +1643,7 @@ static int run_callout(
 
                 if (pass_fd >= 0) {
                         /* FORK_PACK_FDS moved the fd to fd 3 */
-                        assert(pass_fd == SD_LISTEN_FDS_START);
+                        assert(fds[0] == SD_LISTEN_FDS_START);
 
                         r = setenvf("LISTEN_PID", /* overwrite= */ true, PID_FMT, getpid_cached());
                         if (r >= 0)
@@ -1867,14 +1943,14 @@ static int transfer_acquire_source(
                         return log_oom();
         }
 
-        r = strv_extend(&cmdline, t->context->sync ? "--sync=yes" : "--sync=no");
+        r = strv_extend(&cmdline, transfer_sync_argument(t));
         if (r < 0)
                 return log_oom();
 
         if (tar) {
                 assert(IN_SET(t->target.type, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME));
 
-                r = strv_extend(&cmdline, t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" : "--btrfs-subvol=no");
+                r = strv_extend(&cmdline, !t->context->root && t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" : "--btrfs-subvol=no");
                 if (r < 0)
                         return log_oom();
 
@@ -1913,7 +1989,7 @@ static int transfer_acquire_source(
                         t, i, cb, userdata);
 }
 
-static int instance_apply_user_xattrs(Instance *i, const char *path) {
+static int instance_apply_user_xattrs(Instance *i, int fd, const char *path) {
         int r;
 
         assert(i);
@@ -1927,11 +2003,7 @@ static int instance_apply_user_xattrs(Instance *i, const char *path) {
         if (i->n_user_xattrs == 0)
                 return 0;
 
-        _cleanup_close_ int fd = xopenat(AT_FDCWD, path, O_PATH|O_NOFOLLOW);
-        if (fd < 0) {
-                log_warning_errno(fd, "Failed to open '%s' to apply extended attributes, ignoring: %m", path);
-                return 0;
-        }
+        assert(fd >= 0);
 
         bool applied = false;
         FOREACH_ARRAY(x, i->user_xattrs, i->n_user_xattrs) {
@@ -1984,24 +2056,16 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
         }
 
         if (RESOURCE_IS_FILESYSTEM(t->target.type)) {
-                r = mkdir_parents(t->temporary_partial_path, 0755);
+                r = transfer_open_install_parent(t, /* make= */ true);
                 if (r < 0)
-                        return log_error_errno(r, "Cannot create target directory: %m");
-
-                r = mkdir_parents(t->temporary_pending_path, 0755);
-                if (r < 0)
-                        return log_error_errno(r, "Cannot create target directory: %m");
-
-                r = mkdir_parents(t->final_path, 0755);
-                if (r < 0)
-                        return log_error_errno(r, "Cannot create target directory: %m");
+                        return r;
 
                 where = t->final_path;
         }
 
         if (t->target.type == RESOURCE_PARTITION) {
                 r = find_suitable_partition(
-                                t->target.path,
+                                &t->target,
                                 i->metadata.size,
                                 t->target.partition_type_set ? &t->target.partition_type.uuid : NULL,
                                 &t->partition_info);
@@ -2026,7 +2090,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                           t->partition_info.label,
                           SD_ID128_TO_UUID_STRING(t->partition_info.type));
                 r = patch_partition(
-                                t->target.path,
+                                &t->target,
                                 &t->partition_info,
                                 t->partition_change);
                 if (r < 0)
@@ -2055,7 +2119,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                                                SYSTEMD_IMPORT_PATH,
                                                "raw",
                                                "--direct",          /* just copy/unpack the specified file, don't do anything else */
-                                               t->context->sync ? "--sync=yes" : "--sync=no",
+                                               transfer_sync_argument(t),
                                                i->path,
                                                t->temporary_partial_path),
                                         /* stdin_fd= */ -EBADF, /* pass_fd= */ -EBADF, /* pass_fd_name= */ NULL, t, i, cb, userdata);
@@ -2073,7 +2137,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                                                "--offset", offset,
                                                "--size-max", max_size,
                                                transfer_zero_fill(t) ? "--zero-fill=yes" : "--zero-fill=no",
-                                               t->context->sync ? "--sync=yes" : "--sync=no",
+                                               transfer_sync_argument(t),
                                                i->path,
                                                t->target.path),
                                         /* stdin_fd= */ -EBADF, /* pass_fd= */ -EBADF, /* pass_fd_name= */ NULL, t, i, cb, userdata);
@@ -2096,8 +2160,8 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                                        SYSTEMD_IMPORT_FS_PATH,
                                        "run",
                                        "--direct",          /* just untar the specified file, don't do anything else */
-                                       t->context->sync ? "--sync=yes" : "--sync=no",
-                                       t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" : "--btrfs-subvol=no",
+                                       transfer_sync_argument(t),
+                                       !t->context->root && t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" : "--btrfs-subvol=no",
                                        i->path,
                                        t->temporary_partial_path),
                                 /* stdin_fd= */ -EBADF, /* pass_fd= */ -EBADF, /* pass_fd_name= */ NULL, t, i, cb, userdata);
@@ -2113,8 +2177,8 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                                        SYSTEMD_IMPORT_PATH,
                                        "tar",
                                        "--direct",          /* just untar the specified file, don't do anything else */
-                                       t->context->sync ? "--sync=yes" : "--sync=no",
-                                       t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" : "--btrfs-subvol=no",
+                                       transfer_sync_argument(t),
+                                       !t->context->root && t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" : "--btrfs-subvol=no",
                                        i->path,
                                        t->temporary_partial_path),
                                 /* stdin_fd= */ -EBADF, /* pass_fd= */ -EBADF, /* pass_fd_name= */ NULL, t, i, cb, userdata);
@@ -2158,11 +2222,13 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                                 /* In --direct mode the tools leave whatever they wrote in place when they
                                  * fail, hence remove the partial, unverified leftovers before trying the next
                                  * source, so that they are not combined with what that one provides. */
-                                if (RESOURCE_IS_FILESYSTEM(t->target.type)) {
-                                        int k = rm_rf(t->temporary_partial_path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_MISSING_OK|REMOVE_CHMOD);
-                                        if (k < 0)
+                                if (RESOURCE_IS_FILESYSTEM(t->target.type) && (!t->context->root || t->staging_fd >= 0)) {
+                                        int k = rm_rf_child(t->install_parent_fd, last_path_component(t->temporary_partial_path),
+                                                            REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_CHMOD);
+                                        if (k < 0 && k != -ENOENT)
                                                 return log_error_errno(k, "Failed to remove partially acquired '%s': %m", t->temporary_partial_path);
                                 }
+                                t->staging_fd = safe_close(t->staging_fd);
                         }
 
                 break;
@@ -2174,9 +2240,16 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                 return r;
 
         if (RESOURCE_IS_FILESYSTEM(t->target.type)) {
-                bool need_sync = false;
                 assert(t->temporary_partial_path);
                 assert(t->temporary_pending_path);
+
+                const char *partial = last_path_component(t->temporary_partial_path);
+                if (t->staging_fd < 0) {
+                        t->staging_fd = xopenat(t->install_parent_fd, partial, O_NOFOLLOW|O_NONBLOCK|
+                                                (t->target.type == RESOURCE_REGULAR_FILE ? O_RDONLY : O_DIRECTORY));
+                        if (t->staging_fd < 0)
+                                return log_error_errno(t->staging_fd, "Failed to open acquired instance '%s': %m", t->temporary_partial_path);
+                }
 
                 /* Apply file attributes if set */
                 if (f->mtime != USEC_INFINITY) {
@@ -2184,55 +2257,32 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
 
                         timespec_store(&ts, f->mtime);
 
-                        if (utimensat(AT_FDCWD, t->temporary_partial_path, (struct timespec[2]) { ts, ts }, AT_SYMLINK_NOFOLLOW) < 0)
+                        if (futimens(t->staging_fd, (struct timespec[2]) { ts, ts }) < 0)
                                 return log_error_errno(errno, "Failed to adjust mtime of '%s': %m", t->temporary_partial_path);
-
-                        need_sync = true;
                 }
 
-                if (f->mode != MODE_INVALID) {
-                        /* Try with AT_SYMLINK_NOFOLLOW first, because it's the safe thing to do. Older
-                         * kernels don't support that however, in that case we fall back to chmod(). Not as
-                         * safe, but shouldn't be a problem, given that we don't create symlinks here. */
-                        if (fchmodat(AT_FDCWD, t->temporary_partial_path, f->mode, AT_SYMLINK_NOFOLLOW) < 0 &&
-                            (!ERRNO_IS_NOT_SUPPORTED(errno) || chmod(t->temporary_partial_path, f->mode) < 0))
-                                return log_error_errno(errno, "Failed to adjust mode of '%s': %m", t->temporary_partial_path);
+                if (f->mode != MODE_INVALID && fchmod(t->staging_fd, f->mode) < 0)
+                        return log_error_errno(errno, "Failed to adjust mode of '%s': %m", t->temporary_partial_path);
 
-                        need_sync = true;
-                }
-
-                r = instance_apply_user_xattrs(i, t->temporary_partial_path);
+                r = instance_apply_user_xattrs(i, t->staging_fd, t->temporary_partial_path);
                 if (r < 0)
                         return r;
-                if (r > 0)
-                        need_sync = true;
-
-                /* Synchronize */
-                if (t->context->sync && need_sync) {
-                        if (t->target.type == RESOURCE_REGULAR_FILE)
-                                r = fsync_path_and_parent_at(AT_FDCWD, t->temporary_partial_path);
-                        else {
-                                assert(IN_SET(t->target.type, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME));
-                                r = syncfs_path(AT_FDCWD, t->temporary_partial_path);
-                        }
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to synchronize file system backing '%s': %m", t->temporary_partial_path);
-                }
 
                 t->install_read_only = f->read_only;
 
                 /* Rename the file from `.sysupdate.partial.<VERSION>` to `.sysupdate.pending.<VERSION>` to indicate it’s ready to install. */
                 log_debug("Renaming resource instance '%s' to '%s'.", t->temporary_partial_path, t->temporary_pending_path);
-                r = install_file(AT_FDCWD, t->temporary_partial_path,
-                                 AT_FDCWD, t->temporary_pending_path,
-                                 INSTALL_REPLACE|
-                                 (t->install_read_only > 0 ? INSTALL_READ_ONLY : 0)|
-                                 (t->target.type == RESOURCE_REGULAR_FILE ? INSTALL_FSYNC_FULL : INSTALL_SYNCFS));
+                r = install_file_full(t->install_parent_fd, partial, t->staging_fd,
+                                      t->install_parent_fd, last_path_component(t->temporary_pending_path),
+                                      INSTALL_REPLACE|(t->install_read_only > 0 ? INSTALL_READ_ONLY : 0)|
+                                      (t->target.type == RESOURCE_REGULAR_FILE ? INSTALL_FSYNC_FULL : INSTALL_SYNCFS));
                 if (r < 0)
                         return log_error_errno(r, "Failed to move '%s' into pending place: %m", t->temporary_pending_path);
         }
 
         if (t->target.type == RESOURCE_PARTITION) {
+                if (t->staging_fd >= 0 && t->context->sync && fsync(t->staging_fd) < 0)
+                        return log_error_errno(errno, "Failed to synchronize partition data: %m");
                 /* Now change the partition type to the derived "pending" type UUID to indicate that the
                  * acquire is complete and the partition is ready for install. */
                 t->partition_info.type = t->partition_type_pending;
@@ -2267,7 +2317,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                           t->partition_info.device,
                           SD_ID128_TO_UUID_STRING(t->partition_info.type));
                 r = patch_partition(
-                                t->target.path,
+                                &t->target,
                                 &t->partition_info,
                                 t->partition_change);
                 if (r < 0)
@@ -2338,11 +2388,14 @@ int transfer_install_instance(
                 assert(RESOURCE_IS_FILESYSTEM(t->target.type));
                 assert(t->final_path);
 
-                r = install_file(AT_FDCWD, t->temporary_pending_path,
-                                 AT_FDCWD, t->final_path,
-                                 INSTALL_REPLACE|
-                                 (t->install_read_only > 0 ? INSTALL_READ_ONLY : 0)|
-                                 (t->target.type == RESOURCE_REGULAR_FILE ? INSTALL_FSYNC_FULL : INSTALL_SYNCFS));
+                r = transfer_open_install_parent(t, /* make= */ false);
+                if (r < 0)
+                        return r;
+
+                r = install_file_full(t->install_parent_fd, last_path_component(t->temporary_pending_path), t->staging_fd,
+                                      t->install_parent_fd, last_path_component(t->final_path),
+                                      INSTALL_REPLACE|(t->install_read_only > 0 ? INSTALL_READ_ONLY : 0)|
+                                      (t->target.type == RESOURCE_REGULAR_FILE ? INSTALL_FSYNC_FULL : INSTALL_SYNCFS));
                 if (r < 0)
                         return log_error_errno(r, "Failed to move '%s' into place: %m", t->final_path);
 
@@ -2370,7 +2423,7 @@ int transfer_install_instance(
                 t->partition_change = PARTITION_LABEL | PARTITION_TYPE;
 
                 r = patch_partition(
-                                t->target.path,
+                                &t->target,
                                 &t->partition_info,
                                 t->partition_change);
                 if (r < 0)
@@ -2384,60 +2437,43 @@ int transfer_install_instance(
         }
 
         if (t->current_symlink) {
-                _cleanup_free_ char *buf = NULL, *parent = NULL, *relative = NULL, *resolved = NULL;
-                const char *link_path, *link_target;
-                bool resolve_link_path = false;
-
+                _cleanup_free_ char *link_path = NULL, *final_path = NULL, *parent = NULL, *relative = NULL, *name = NULL;
+                const char *link_target;
                 if (RESOURCE_IS_FILESYSTEM(t->target.type)) {
+                        _cleanup_free_ char *dir = NULL;
+                        r = fd_get_path(t->install_parent_fd, &dir);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to determine directory of installed instance: %m");
 
-                        assert(t->target.path);
-
-                        if (path_is_absolute(t->current_symlink)) {
-                                link_path = t->current_symlink;
-                                resolve_link_path = true;
-                        } else {
-                                buf = path_make_absolute(t->current_symlink, t->target.path);
-                                if (!buf)
-                                        return log_oom();
-
-                                link_path = buf;
-                        }
-
-                        link_target = t->final_path;
-
+                        final_path = path_join(dir, last_path_component(t->final_path));
+                        if (!final_path)
+                                return log_oom();
+                        link_target = final_path;
                 } else if (t->target.type == RESOURCE_PARTITION) {
-
                         assert(path_is_absolute(t->current_symlink));
-
-                        link_path = t->current_symlink;
                         link_target = t->partition_info.device;
-
-                        resolve_link_path = true;
                 } else
                         assert_not_reached();
 
-                if (resolve_link_path && root) {
-                        r = chase(link_path, root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT|CHASE_TRIGGER_AUTOFS, &resolved, /* ret_fd= */ NULL);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to resolve current symlink path '%s': %m", link_path);
-
-                        link_path = resolved;
-                }
+                link_path = path_join(path_is_absolute(t->current_symlink) ? empty_to_root(root) : t->target.path,
+                                      skip_leading_slash(t->current_symlink));
+                if (!link_path)
+                        return log_oom();
 
                 if (link_target) {
-                        r = path_extract_directory(link_path, &parent);
+                        _cleanup_close_ int pfd = resource_open_parent(&t->target, link_path, /* mkdir_parents= */ true, &name);
+                        if (pfd < 0)
+                                return log_error_errno(pfd, "Failed to open parent for current symlink '%s': %m", link_path);
+
+                        r = fd_get_path(pfd, &parent);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to extract directory of target path '%s': %m", link_path);
+                                return log_error_errno(r, "Failed to determine directory of current symlink '%s': %m", link_path);
 
                         r = path_make_relative(parent, link_target, &relative);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to make symlink path '%s' relative to '%s': %m", link_target, parent);
 
-                        r = mkdir_parents(link_path, 0755);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to create directory for current symlink '%s': %m", link_path);
-
-                        r = symlink_atomic(relative, link_path);
+                        r = symlinkat_atomic_full(relative, pfd, name, /* flags= */ 0);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to update current symlink '%s' %s '%s': %m",
                                                        link_path,

@@ -10,6 +10,7 @@
 
 #include "build.h"
 #include "bus-polkit.h"
+#include "chase.h"
 #include "conf-files.h"
 #include "constants.h"
 #include "discover-image.h"
@@ -19,6 +20,7 @@
 #include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "format-table.h"
 #include "fs-util.h"
 #include "glyph-util.h"
@@ -101,15 +103,13 @@ COMMAND(
                 .verify = -1,                                     \
                 .offline = true,                                  \
                 .cleanup = -1,                                    \
+                .root_fd = XAT_FDROOT,                            \
                 .installdb_fd = -EBADF,                           \
                 .target_identifier.class = _TARGET_CLASS_INVALID, \
         }
 
 void context_done(Context *c) {
         assert(c);
-
-        c->mounted_dir = umount_and_rmdir_and_free(c->mounted_dir);
-        c->loop_device = loop_device_unref(c->loop_device);
 
         FOREACH_ARRAY(tr, c->transfers, c->n_transfers)
                 transfer_free(*tr);
@@ -139,6 +139,9 @@ void context_done(Context *c) {
         c->n_manifest_certificates = 0;
 
         c->installdb_fd = safe_close(c->installdb_fd);
+        c->root_fd = safe_close(c->root_fd);
+        c->mounted_dir = umount_and_rmdir_and_free(c->mounted_dir);
+        c->loop_device = loop_device_unref(c->loop_device);
 
         c->definitions = mfree(c->definitions);
         c->root = mfree(c->root);
@@ -233,6 +236,11 @@ static int context_from_base(const Context *base, Context *ret) {
          * device node is needed to resolve partition targets. We do not take over .mounted_dir however,
          * since the base context is responsible for unmounting it, and is expected to outlive us. */
         context.loop_device = loop_device_ref(base->loop_device);
+        if (base->root_fd >= 0) {
+                context.root_fd = fcntl(base->root_fd, F_DUPFD_CLOEXEC, 3);
+                if (context.root_fd < 0)
+                        return log_error_errno(errno, "Failed to duplicate root directory fd: %m");
+        }
 
         *ret = TAKE_GENERIC(context, Context, CONTEXT_NULL);
         return 0;
@@ -348,8 +356,7 @@ static int context_add_transfer(Context *c, Transfer *t) {
 static int read_transfers(
                 Context *c,
                 const char **dirs,
-                const char *suffix,
-                const char *node) {
+                const char *suffix) {
 
         ConfFile **files = NULL;
         size_t n_files = 0;
@@ -379,7 +386,7 @@ static int read_transfers(
                 if (r < 0)
                         return r;
 
-                r = transfer_resolve_paths(t, c->root, node);
+                r = transfer_resolve_paths(t);
                 if (r < 0)
                         return r;
 
@@ -400,7 +407,7 @@ static bool context_operates_on_host(const Context *c) {
         return !c->root && !c->image && !c->definitions;
 }
 
-static int context_read_definitions_from_provider(Context *c, const char *node) {
+static int context_read_definitions_from_provider(Context *c) {
         int r;
 
         assert(c);
@@ -456,7 +463,7 @@ static int context_read_definitions_from_provider(Context *c, const char *node) 
                 if (r < 0)
                         return r;
 
-                r = transfer_resolve_paths(t, c->root, node);
+                r = transfer_resolve_paths(t);
                 if (r < 0)
                         return r;
 
@@ -488,7 +495,7 @@ typedef enum ReadDefinitionsFlags {
         READ_DEFINITIONS_REQUIRES_ENABLED_COMPONENT = 1 << 2, /* fail if component is disabled */
 } ReadDefinitionsFlags;
 
-static int context_read_definitions(Context *c, const char* node, ReadDefinitionsFlags flags) {
+static int context_read_definitions(Context *c, ReadDefinitionsFlags flags) {
         _cleanup_strv_free_ char **dirs = NULL;
         int r;
 
@@ -527,13 +534,13 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
         if (r < 0)
                 return r;
 
-        r = read_transfers(c, (const char**) dirs, ".transfer", node);
+        r = read_transfers(c, (const char**) dirs, ".transfer");
         if (r < 0)
                 return r;
 
         if (c->n_transfers + c->n_disabled_transfers == 0) {
                 /* Backwards-compat: If no .transfer defs are found, fall back to trying .conf! */
-                r = read_transfers(c, (const char**) dirs, ".conf", node);
+                r = read_transfers(c, (const char**) dirs, ".conf");
                 if (r < 0)
                         return r;
 
@@ -547,7 +554,7 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
             !component_file_found &&
             hashmap_isempty(c->features) &&
             c->n_transfers + c->n_disabled_transfers == 0) {
-                r = context_read_definitions_from_provider(c, node);
+                r = context_read_definitions_from_provider(c);
                 if (r < 0)
                         return r;
         }
@@ -627,15 +634,8 @@ static int context_load_manifest_certificates(Context *c) {
         if (c->manifest_certificates_loaded)
                 return 0;
 
-        _cleanup_close_ int root_fd = -EBADF;
-        if (c->root) {
-                root_fd = xopenat(AT_FDCWD, c->root, O_DIRECTORY|O_PATH);
-                if (root_fd < 0)
-                        return log_error_errno(root_fd, "Failed to open root directory '%s': %m", c->root);
-        }
-
         r = uapi16_load_voa_certificates(
-                        root_fd >= 0 ? root_fd : XAT_FDROOT,
+                        c->root_fd,
                         SYSUPDATE_VOA_CONTEXT,
                         &c->manifest_certificates,
                         &c->n_manifest_certificates);
@@ -1384,7 +1384,16 @@ static int context_process_image(
 
         assert(c);
 
-        if (c->root || !c->image) /* Idempotent or nothing to do */
+        if (c->root_fd >= 0)
+                return 0;
+
+        if (c->root) {
+                c->root_fd = xopenat(AT_FDCWD, c->root, O_DIRECTORY|O_PATH);
+                if (c->root_fd < 0)
+                        return log_error_errno(c->root_fd, "Failed to open root directory '%s': %m", c->root);
+                return 0;
+        }
+        if (!c->image)
                 return 0;
 
         assert(!c->mounted_dir);
@@ -1403,7 +1412,7 @@ static int context_process_image(
                         DISSECT_IMAGE_REQUIRE_ROOT |
                         DISSECT_IMAGE_ALLOW_USERSPACE_VERITY,
                         &mounted_dir,
-                        /* ret_dir_fd= */ NULL,
+                        &c->root_fd,
                         &loop_device);
         if (r < 0)
                 return r;
@@ -1435,7 +1444,7 @@ static int context_load_offline(
         if (r < 0)
                 return r;
 
-        r = context_read_definitions(context, context->loop_device ? context->loop_device->node : NULL, read_definitions_flags);
+        r = context_read_definitions(context, read_definitions_flags);
         if (r < 0)
                 return r;
 
@@ -2628,9 +2637,9 @@ static int make_dropin_dir(Context *c, char **ret) {
                 if (!n)
                         return log_oom();
 
-                dir = path_join(c->root, SYSCONF_DIR, n);
+                dir = path_join(SYSCONF_DIR, n);
         } else
-                dir = path_join(c->root, SYSCONF_DIR "/sysupdate.d");
+                dir = strdup(SYSCONF_DIR "/sysupdate.d");
         if (!dir)
                 return log_oom();
 
@@ -2642,6 +2651,23 @@ static const char *context_component_display(const Context *c) {
         assert(c);
 
         return c->component ?: "<default>";
+}
+
+static int write_enablement_dropin(Context *c, const char *dir, const char *filename, const char *section, const char *verb, bool enable) {
+        _cleanup_free_ char *path = NULL, *name = NULL;
+        int r;
+
+        r = drop_in_file(dir, filename, 50, "systemd-sysupdate-enabled", /* ret_unit_dir= */ NULL, &path);
+        if (r < 0)
+                return r;
+
+        _cleanup_close_ int pfd = chase_and_open_parent_at(c->root_fd, c->root_fd, path, CHASE_MKDIR_0755|CHASE_NOFOLLOW, &name);
+        if (pfd < 0)
+                return pfd;
+
+        return write_string_filef_at(pfd, name, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL,
+                                     "# Generated via 'systemd-sysupdate %s'\n\n[%s]\nEnabled=%s\n",
+                                     verb, section, yes_no(enable));
 }
 
 static int context_enable_feature(
@@ -2729,16 +2755,7 @@ static int context_enable_feature(
                         return log_oom();
 
                 /* We assume that no sysadmin will name their config 50-systemd-sysupdate-enabled.conf */
-                r = write_drop_in_format(
-                                dropin_dir,
-                                fname,
-                                50,
-                                "systemd-sysupdate-enabled",
-                                "# Generated via 'systemd-sysupdate %s'\n\n"
-                                "[Feature]\n"
-                                "Enabled=%s\n",
-                                argv0,
-                                yes_no(enable));
+                r = write_enablement_dropin(c, dropin_dir, fname, "Feature", argv0, enable);
                 if (r < 0) {
                         RET_GATHER(ret, log_error_errno(r, "Failed to write drop-in for feature '%s': %m", *name));
                         continue;
@@ -4009,25 +4026,13 @@ static int verb_enable_component(int argc, char *argv[], uintptr_t _data, void *
 
         /* Component definition files live directly below the configuration directories, hence the drop-in
          * goes right next to them below /etc. */
-        _cleanup_free_ char *dropin_dir = path_join(context.root, SYSCONF_DIR);
-        if (!dropin_dir)
-                return log_oom();
-
         STRV_FOREACH(name, arguments) {
                 _cleanup_free_ char *fname = strjoin("sysupdate.", *name, ".component");
                 if (!fname)
                         return log_oom();
 
                 /* We assume that no sysadmin will name their config 50-systemd-sysupdate-enabled.conf */
-                r = write_drop_in_format(
-                                dropin_dir,
-                                fname,
-                                50, "systemd-sysupdate-enabled",
-                                "# Generated via 'systemd-sysupdate %s'\n\n"
-                                "[Component]\n"
-                                "Enabled=%s\n",
-                                argv[0],
-                                yes_no(enable));
+                r = write_enablement_dropin(&context, SYSCONF_DIR, fname, "Component", argv[0], enable);
                 if (r < 0)
                         return log_error_errno(r, "Failed to write drop-in for component '%s': %m", *name);
 
