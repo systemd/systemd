@@ -18,10 +18,12 @@
 #include "fdisk-util.h"
 #include "fileio.h"
 #include "find-esp.h"
+#include "fs-util.h"
 #include "glyph-util.h"
 #include "gpt.h"
 #include "import-util.h"
 #include "iovec-util.h"
+#include "loop-util.h"
 #include "manifest-util.h"
 #include "os-util.h"
 #include "path-util.h"
@@ -32,6 +34,7 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "strv.h"
+#include "sysupdate.h"
 #include "sysupdate-cache.h"
 #include "sysupdate-instance.h"
 #include "sysupdate-partition.h"
@@ -46,6 +49,7 @@ void resource_destroy(Resource *rr) {
         assert(rr);
 
         free(rr->path);
+        safe_close(rr->pin_fd);
         free(rr->manifest_path);
         strv_free(rr->patterns);
 
@@ -255,6 +259,78 @@ static int resource_load_from_directory_recursive(
         return 0;
 }
 
+static const char* resource_path_under_root(const Resource *rr, const char *path) {
+        assert(rr);
+        assert(path);
+
+        if (!rr->root)
+                return path;
+
+        const char *p = path_startswith(path, rr->root);
+        return p && !*p ? "." : p;
+}
+
+int resource_open_directory(const Resource *rr) {
+        assert(rr);
+
+        const char *p = resource_path_under_root(rr, rr->path);
+        if (!p)
+                return -EXDEV;
+
+        return chase_and_openat(rr->root_fd, rr->root_fd, p, CHASE_MUST_BE_DIRECTORY|CHASE_TRIGGER_AUTOFS,
+                                O_DIRECTORY, /* ret_path= */ NULL);
+}
+
+int resource_open_parent(const Resource *rr, const char *path, bool mkdir_parents, char **ret_name) {
+        const char *p = resource_path_under_root(rr, path);
+        if (!p)
+                return -EXDEV;
+
+        return chase_and_open_parent_at(rr->root_fd, rr->root_fd, p,
+                                        CHASE_NOFOLLOW|CHASE_TRIGGER_AUTOFS|(mkdir_parents ? CHASE_MKDIR_0755 : 0), ret_name);
+}
+
+int resource_rmdir_parents(const Resource *rr, const char *path) {
+        assert(rr);
+        assert(path);
+
+        /* Only prune empty directories strictly below the resource directory. */
+        _cleanup_free_ char *prefix = new(char, strlen(path) + 1);
+        if (!prefix)
+                return -ENOMEM;
+
+        PATH_FOREACH_PREFIX(prefix, path) {
+                if (isempty(path_startswith(prefix, rr->path)))
+                        break;
+
+                _cleanup_free_ char *name = NULL;
+                _cleanup_close_ int pfd = resource_open_parent(rr, prefix, /* mkdir_parents= */ false, &name);
+                if (pfd == -ENOENT)
+                        continue;
+                if (pfd < 0)
+                        return pfd;
+
+                if (unlinkat(pfd, name, AT_REMOVEDIR) < 0) {
+                        if (IN_SET(errno, ENOTEMPTY, EEXIST))
+                                break;
+                        if (errno != ENOENT)
+                                return -errno;
+                }
+        }
+        return 0;
+}
+
+int resource_open_instance(const Resource *rr, const char *path) {
+        const char *p = resource_path_under_root(rr, path);
+        if (!p)
+                return -EXDEV;
+
+        bool directory = IN_SET(rr->type, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME);
+        return chase_and_openat(rr->root_fd, rr->root_fd, p,
+                                CHASE_NOFOLLOW|CHASE_TRIGGER_AUTOFS|(directory ? CHASE_MUST_BE_DIRECTORY : CHASE_MUST_BE_REGULAR),
+                                directory ? O_DIRECTORY : O_RDONLY|O_NOCTTY, /* ret_path= */ NULL);
+}
+
 static int resource_load_from_directory(
                 Resource *rr,
                 mode_t m,
@@ -265,15 +341,16 @@ static int resource_load_from_directory(
         assert(IN_SET(rr->type, RESOURCE_TAR, RESOURCE_REGULAR_FILE, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME));
         assert(IN_SET(m, S_IFREG, S_IFDIR));
 
-        d = opendir(rr->path);
-        if (!d) {
-                if (errno == ENOENT) {
-                        log_debug_errno(errno, "Directory %s does not exist, not loading any resources: %m", rr->path);
-                        return 0;
-                }
-
-                return log_error_errno(errno, "Failed to open directory '%s': %m", rr->path);
+        _cleanup_close_ int fd = resource_open_directory(rr);
+        if (fd == -ENOENT) {
+                log_debug_errno(fd, "Directory %s does not exist, not loading any resources: %m", rr->path);
+                return 0;
         }
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to open directory '%s': %m", rr->path);
+        d = take_fdopendir(&fd);
+        if (!d)
+                return log_error_errno(errno, "Failed to enumerate directory '%s': %m", rr->path);
 
         return resource_load_from_directory_recursive(
                         rr,
@@ -1172,17 +1249,17 @@ Instance* resource_find_instance(Resource *rr, const char *version) {
         return *found;
 }
 
-int resource_resolve_path(
-                Resource *rr,
-                const char *root,
-                const char *relative_to_directory,
-                const char *node) {
-
+int resource_resolve_path(Resource *rr, Context *context) {
         _cleanup_free_ char *p = NULL;
         dev_t d;
         int r;
 
         assert(rr);
+        assert(context);
+
+        const char *root = context->root;
+        rr->root = root;
+        rr->root_fd = context->root_fd;
 
         if (IN_SET(rr->path_relative_to, PATH_RELATIVE_TO_ESP, PATH_RELATIVE_TO_XBOOTLDR, PATH_RELATIVE_TO_BOOT) &&
             !IN_SET(rr->type, RESOURCE_REGULAR_FILE, RESOURCE_DIRECTORY))
@@ -1202,13 +1279,8 @@ int resource_resolve_path(
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                "Automatic root path discovery only supported for partition resources.");
 
-                if (node) { /* If --image= is specified, directly use the loopback device */
-                        r = free_and_strdup_warn(&rr->path, node);
-                        if (r < 0)
-                                return r;
-
-                        return 0;
-                }
+                if (context->loop_device)
+                        return free_and_strdup_warn(&rr->path, context->loop_device->node);
 
                 if (root)
                         return log_error_errno(SYNTHETIC_ERRNO(EPERM),
@@ -1253,13 +1325,8 @@ int resource_resolve_path(
                 if (!S_ISDIR(st.st_mode))
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTDIR), "Target path '%s' does not refer to regular file, directory or block device, refusing.",  rr->path);
 
-                if (node) { /* If --image= is specified all file systems are backed by the same loopback device, hence shortcut things. */
-                        r = free_and_strdup_warn(&rr->path, node);
-                        if (r < 0)
-                                return r;
-
-                        return 0;
-                }
+                if (context->loop_device)
+                        return free_and_strdup_warn(&rr->path, context->loop_device->node);
 
                 real_fd = fd_reopen(fd, O_RDONLY|O_DIRECTORY);
                 if (real_fd < 0)
@@ -1271,12 +1338,19 @@ int resource_resolve_path(
 
         } else if (RESOURCE_IS_FILESYSTEM(rr->type)) {
                 _cleanup_free_ char *resolved = NULL, *relative_to = NULL;
-                ChaseFlags chase_flags = CHASE_NONEXISTENT | CHASE_PREFIX_ROOT | CHASE_TRIGGER_AUTOFS;
+                _cleanup_close_ int boot_fd = -EBADF;
+                ChaseFlags chase_flags = CHASE_NONEXISTENT|CHASE_TRIGGER_AUTOFS;
 
                 if (rr->path_relative_to == PATH_RELATIVE_TO_EXPLICIT) {
-                        assert(relative_to_directory);
+                        assert(context->transfer_source);
 
-                        relative_to = strdup(relative_to_directory);
+                        rr->pin_fd = xopenat(AT_FDCWD, context->transfer_source, O_PATH|O_DIRECTORY);
+                        if (rr->pin_fd < 0)
+                                return log_error_errno(rr->pin_fd, "Failed to open explicit transfer source '%s': %m", context->transfer_source);
+                        rr->root_fd = rr->pin_fd;
+                        rr->root = context->transfer_source;
+
+                        relative_to = strdup(context->transfer_source);
                         if (!relative_to)
                                 return log_oom();
                 } else if (rr->path_relative_to == PATH_RELATIVE_TO_ROOT) {
@@ -1286,9 +1360,9 @@ int resource_resolve_path(
                 } else { /* boot, esp, or xbootldr */
                         r = 0;
                         if (IN_SET(rr->path_relative_to, PATH_RELATIVE_TO_BOOT, PATH_RELATIVE_TO_XBOOTLDR))
-                                r = find_xbootldr_and_warn(root, /* path= */ NULL, /* unprivileged_mode= */ -1, &relative_to, /* ret_fd= */ NULL);
+                                r = find_xbootldr_and_warn(root, /* path= */ NULL, /* unprivileged_mode= */ -1, &relative_to, &boot_fd);
                         if (r == -ENOKEY || rr->path_relative_to == PATH_RELATIVE_TO_ESP)
-                                r = find_esp_and_warn(root, /* path= */ NULL, /* unprivileged_mode= */ -1, &relative_to, /* ret_fd= */ NULL);
+                                r = find_esp_and_warn(root, /* path= */ NULL, /* unprivileged_mode= */ -1, &relative_to, &boot_fd);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to resolve $BOOT: %m");
                         log_debug("Resolved $BOOT to '%s'", relative_to);
@@ -1297,11 +1371,15 @@ int resource_resolve_path(
                         chase_flags |= CHASE_PROHIBIT_SYMLINKS;
                 }
 
-                r = chase(rr->path, relative_to, chase_flags, &resolved, /* ret_fd= */ NULL);
+                int base_fd = boot_fd >= 0 ? boot_fd : rr->root_fd;
+                r = chaseat(base_fd, base_fd, rr->path, chase_flags, &resolved, /* ret_fd= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve '%s' (relative to '%s'): %m", rr->path, relative_to);
 
-                return free_and_replace(rr->path, resolved);
+                char *absolute = path_join(relative_to, path_equal(resolved, ".") ? NULL : skip_leading_slash(resolved));
+                if (!absolute)
+                        return log_oom();
+                return free_and_replace(rr->path, absolute);
         } else
                 return 0; /* Otherwise assume there's nothing to resolve */
 
