@@ -152,6 +152,10 @@ EFI_STATUS factory_reset_variables_process(void) {
         (void) erase_variable(MAKE_GUID_PTR(LOADER), u"LoaderFactoryResetVariables");
 
         log_wait();
+
+        /* Flush gcov counters before the system state changes and our memory
+         * goes away (no-op unless built with -Defi-coverage=true). */
+        efi_gcov_exit();
         RT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
         assert_not_reached();
 }

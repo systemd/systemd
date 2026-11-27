@@ -39,6 +39,20 @@ TOFU_TESTED=/root/tofu-tested
 TOFU_CRT=/root/tofu-keyring.crt
 # The modified stage replaces the key addon with one that contains this certificate instead.
 TOFU_PLANTED_CRT=/root/tofu-planted.crt
+# The MOK scenario state machine, cf. the TOFU stages: the setup boot builds the addon, the pos
+# boot checks it was loaded and re-signs it with an untrusted key, and the neg boot checks it was
+# rejected.
+MOK_STAGE=/root/mok-stage
+# Key pair of the MOK scenario, supplied by the image build rather than committed: the build
+# stages its SecureBoot key pair (in CI, mkosi genkey plus the shim job's ExtraTrees line, see
+# .github/workflows/mkosi.yml) into the image, with the certificate pre-enrolled in the MokList
+# EFI variable of the NVRAM (the shim's MOK allowlist); the key signs the addon. The
+# certificate must be RSA: some distribution shim builds (e.g. Red Hat's) do not verify ECDSA
+# MOK certificates at all and would reject the addon irrespective of the enrollment. Without
+# the staged key pair (non-shim builds) the MOK leg is skipped.
+MOK_KEYS_DIR=/usr/lib/systemd/tests/testdata/mok-keys
+MOK_KEY="$MOK_KEYS_DIR/mok.key"
+MOK_CRT="$MOK_KEYS_DIR/mok.crt"
 
 # Prints a string (list) EFI variable of systemd-stub, one entry per line
 stub_variable() {
@@ -138,6 +152,391 @@ tofu_keys_check() {
     [[ -n "$enrolled" && -n "$switched" && "$enrolled" -lt "$switched" ]]
 }
 
+# The boot manager applies pending fwupd capsules (fwupd-efi protocol) on every boot, before the OS
+# starts: it enumerates the fwupd-* variables of the FWUPDATE GUID, loads the capsules they point to
+# from the ESP, marks the variables as attempted, and calls UpdateCapsule(). This scenario queues one
+# capsule from the OS, reboots, and checks the variable state the boot manager left behind. The helper
+# script is kept on the persistent root so it survives the reboots of the state machine.
+fwupdate_helper() {
+    cat >/root/fwupdate-helper.py <<'PYEOF'
+#!/usr/bin/env python3
+"""Build and check the fwupd-efi capsule fixtures used by the firmware update stages of TEST-86."""
+import fcntl
+import json
+import os
+import re
+import struct
+import subprocess
+import sys
+import uuid
+
+FWUPDATE = "0abba7dc-e516-4167-bbf5-4d9d1c739416"
+# A GUID no firmware (including OVMF) claims, so RT->UpdateCapsule() must reject the capsule and the
+# boot manager must carry on with the normal boot.
+CAPSULE = uuid.UUID("deadbeef-cafe-4a67-9416-8327f5b40ab2")
+DIR = "/boot/fwupd-test"
+# efivarfs marks variables not on the firmware's allow list immutable, and the flag must be lifted
+# before the variable can be removed (cf. efi_set_variable() in src/basic/efivars.c).
+FS_IOC_GETFLAGS = 0x80086601
+FS_IOC_SETFLAGS = 0x40086602
+FS_IMMUTABLE_FL = 0x10
+
+def var(n):
+    return f"/sys/firmware/efi/efivars/{n}-{FWUPDATE}"
+
+def esp():
+    # /boot carries the ESP (vfat) automounted over an autofs placeholder, hence filter to a /dev/
+    # source.
+    lines = subprocess.check_output(["findmnt", "-no", "SOURCE", "/boot"]).decode().splitlines()
+    src = next((l.strip() for l in lines if l.strip().startswith("/dev/")), None)
+    if not src:
+        raise SystemExit(f"could not determine the ESP device from: {lines!r}")
+    disk, part = re.fullmatch(r"(/dev/.+?)(p?\d+)", src).groups()
+    t = json.loads(subprocess.check_output(["sfdisk", "--json", disk]))
+    n = int(part.lstrip("p"))
+    # sfdisk omits "number" where it can be inferred from the position in the array, hence fall
+    # back to the 1-based index and normalize the field for the caller.
+    for i, p in enumerate(t["partitiontable"]["partitions"], 1):
+        if p.get("number", i) == n:
+            p = dict(p, number=p.get("number", i))
+            break
+    else:
+        raise SystemExit(f"partition {n} of {disk} not found in sfdisk output")
+    with open(disk, "rb") as f:
+        f.seek(512)
+        sig = f.read(16)
+    print(f"DIAG-ESP src={src!r} disk={disk} part={part} sig512={sig.hex()}")
+    if sig[:8] != b"EFI PART":
+        raise SystemExit(f"{disk} is not a GPT disk")
+    return p
+
+def dp(p):
+    # HARDDRIVE node byte-identical to the one OVMF's PartitionDxe builds for this partition
+    # (edk2 MdeModulePkg/Universal/Disk/PartitionDxe/Gpt.c): the partition number is the GPT
+    # table index + 1, the signature is the partition's unique GUID — p["uuid"] decoded to the
+    # same mixed-endian byte order the firmware stores — with MBR type 0x02 (EFI partition
+    # table header) and signature type GUID. The boot manager prepends the boot disk's own
+    # device path before matching, matching the layout fwupd writes.
+    hd = struct.pack("<BBHIQQ16sBB", 4, 1, 42, p["number"], p["start"], p["size"],
+                     uuid.UUID(p["uuid"]).bytes_le, 2, 2)
+    # The FILEPATH node is the four-byte device path header followed directly by the
+    # NUL-terminated UTF-16 path name; there is no separate length field.
+    u16 = "\\fwupd-test\\capsule.cap".encode("utf-16-le") + b"\x00\x00"
+    return hd + struct.pack("<BBH", 4, 4, 4 + len(u16)) + u16 + b"\x7f\xff\x04\x00"
+
+def write_var(n, status, p):
+    # FWUP_UPDATE_INFO: version(4), GUID(16), flags(4), hw_inst(8), time_attempted(16), status(4).
+    info = struct.pack("<I16sIQ16sI", 7, CAPSULE.bytes_le, 0, 0, b"\x00" * 16, status)
+    with open(var(n), "wb") as f:
+        f.write(struct.pack("<I", 7))  # NV | BOOTSERVICE_ACCESS | RUNTIME_ACCESS
+        f.write(info + dp(p))
+
+def setup():
+    p = esp()
+    os.makedirs(DIR, exist_ok=True)
+    payload = b"\xaa" * 32
+    with open(DIR + "/capsule.cap", "wb") as f:
+        # EFI_CAPSULE_HEADER: GUID(16), HeaderSize(4), Flags(4), CapsuleImageSize(4).
+        f.write(struct.pack("<16sIII", CAPSULE.bytes_le, 28, 0, 28 + len(payload)) + payload)
+    write_var("fwupd-test", 1, p)  # ATTEMPT_UPDATE
+    write_var("fwupd-skip", 0, p)  # negative control: no ATTEMPT_UPDATE
+    # Print the written variable so the device path can be inspected byte-wise in the log.
+    print("fwupd-test variable:", open(var("fwupd-test"), "rb").read().hex())
+    with open("/root/fwupd-skip.orig", "wb") as f:
+        f.write(open(var("fwupd-skip"), "rb").read())
+
+def assert_attempted():
+    d = open(var("fwupd-test"), "rb").read()
+    # In the efivar file the 4 byte attribute header precedes FWUP_UPDATE_INFO, hence
+    # time_attempted is at 4+4+16+4+8=36 and status at 4+4+16+4+8+16=52.
+    status = struct.unpack_from("<I", d, 52)[0]
+    assert status == 2, f"fwupd-test status is {status}, want ATTEMPTED (2)"
+    assert d[36:52] != b"\x00" * 16, "fwupd-test time_attempted is zero"
+
+def assert_untouched():
+    a = open(var("fwupd-skip"), "rb").read()
+    b = open("/root/fwupd-skip.orig", "rb").read()
+    assert a == b, "fwupd-skip variable was modified by the boot manager"
+    # The processed capsule must keep its attempted status, not be retried.
+    s = struct.unpack_from("<I", open(var("fwupd-test"), "rb").read(), 52)[0]
+    assert s == 2, f"fwupd-test status is {s}, want ATTEMPTED (2)"
+
+def remove_var(n):
+    p = var(n)
+    try:
+        fd = os.open(p, os.O_RDONLY)
+    except FileNotFoundError:
+        return
+    with os.fdopen(fd, "rb") as f:
+        flags = struct.unpack("<I", fcntl.ioctl(f.fileno(), FS_IOC_GETFLAGS, b"\x00" * 4))[0]
+        if flags & FS_IMMUTABLE_FL:
+            fcntl.ioctl(f.fileno(), FS_IOC_SETFLAGS, struct.pack("<I", flags & ~FS_IMMUTABLE_FL))
+    try:
+        os.unlink(p)
+    except FileNotFoundError:
+        pass
+
+def cleanup():
+    for n in ("fwupd-test", "fwupd-skip"):
+        remove_var(n)
+    subprocess.run(["rm", "-rf", DIR], check=True)
+    os.unlink("/root/fwupd-skip.orig")
+
+if __name__ == "__main__":
+    {"setup": setup, "assert-attempted": assert_attempted,
+     "assert-untouched": assert_untouched, "cleanup": cleanup}[sys.argv[1]]()
+PYEOF
+}
+
+# The boot manager, the stub and the kernel extend PCR 12 (kernel-config) and log every extension
+# into the TPM event log the kernel exposes. Replaying the PCR 12 events of the log must give the
+# live PCR value, the measured data must correspond to what the kernel actually received, and a
+# non-default profile must have been measured (the default profile is not).
+pcr12_check() {
+    cat >/root/pcr12-check.py <<'PYEOF'
+#!/usr/bin/env python3
+"""Verify the PCR 12 (kernel-config) TPM measurements recorded during this boot."""
+import hashlib
+import json
+import os
+import struct
+import sys
+
+PCR = 12
+SHA256 = 0x000b
+EV_EVENT_TAG = 0x00000006
+EV_IPL = 0x0000000d
+UKI_PROFILE_TAG = 0x13aed6db
+SPEC_ID = b"Spec ID Event03\x00"
+
+def die(msg):
+    raise SystemExit(f"PCR 12 check failed: {msg}")
+
+def utf16(data):
+    # A NUL-terminated UTF-16LE string; the terminator is optional
+    if len(data) % 2:
+        data += b"\x00"
+    return data.decode("utf-16-le").rstrip("\x00")
+
+def main():
+    profile = sys.argv[1]
+
+    log = None
+    for path in ("/sys/kernel/security/tpm0/binary_bios_measurements",
+                 "/sys/kernel/security/tpm0/binary_tpm_eventlog"):
+        if os.path.exists(path):
+            log = open(path, "rb").read()
+            break
+    if log is None:
+        print("the kernel does not expose the TPM event log, skipping the PCR 12 check")
+        return
+
+    # The log starts with the Spec ID event in the legacy format (cf.
+    # validate_firmware_header() in src/pcrlock/pcrlock-firmware.c): pcrIndex,
+    # eventType, zeroed sha1 digest, eventDataSize, then the TCG_EfiSpecIDEvent
+    # with the table of hash algorithms as (algorithm ID, digest size) pairs.
+    pcr, etype, digest, size = struct.unpack_from("<II20sI", log, 0)
+    if pcr != 0 or etype != 0x3 or digest != b"\x00" * 20:
+        die(f"unexpected event log header: pcr={pcr} type={etype:#x}")
+    off = 32
+    if log[off:off + 16] != SPEC_ID:
+        die("missing Spec ID event signature")
+    (n_algs,) = struct.unpack_from("<I", log, off + 24)
+    if not 1 <= n_algs <= 16:
+        die(f"implausible number of hash algorithms in the event log: {n_algs}")
+    algs = struct.unpack_from(f"<{2 * n_algs}H", log, off + 28)
+    alg_sz_pairs = {algs[i]: algs[i + 1] for i in range(0, len(algs), 2)}
+    if SHA256 not in alg_sz_pairs:
+        print("the TPM event log has no sha256 bank, skipping the PCR 12 check")
+        return
+    off += size
+
+    # Replay the PCR 12 events. Each record is TCG_PCR_EVENT2: pcrIndex, eventType,
+    # the digests (count, then one hash algorithm entry per algorithm of the Spec
+    # ID table), eventSize, and the event data.
+    state = b"\x00" * 32
+    ipl = []
+    tags = []
+    while off < len(log):
+        p, etype, count = struct.unpack_from("<III", log, off)
+        if count > 16:
+            die(f"implausible number of digests in an event log record: {count}")
+        doff = off + 12
+        digests = {}
+        for _ in range(count):
+            (h,) = struct.unpack_from("<H", log, doff)
+            d = alg_sz_pairs.get(h, 0)
+            if h not in digests:
+                digests[h] = log[doff + 2:doff + 2 + d]
+            doff += 2 + d
+        (esize,) = struct.unpack_from("<I", log, doff)
+        data = log[doff + 4:doff + 4 + esize]
+        off = doff + 4 + esize
+        if p != PCR:
+            continue
+        if etype == EV_IPL:
+            try:
+                ipl.append(utf16(data))
+            except UnicodeDecodeError:
+                pass
+        elif etype == EV_EVENT_TAG and len(data) >= 8:
+            tag, tsize = struct.unpack_from("<II", data, 0)
+            if tag == UKI_PROFILE_TAG and tsize + 8 <= len(data):
+                try:
+                    tags.append(utf16(data[8:8 + tsize]))
+                except UnicodeDecodeError:
+                    die("malformed UTF-16 data in the UKI profile tag event")
+        if SHA256 not in digests:
+            die("PCR 12 event without a sha256 digest")
+        state = hashlib.sha256(state + digests[SHA256]).digest()
+
+    if not ipl and not tags:
+        die("no PCR 12 measurements in the event log")
+
+    # The firmware event log stops where the kernel takes over. Extensions made by userspace
+    # (like the os-separator) are in the TPM measurement log instead, so the replay covers both
+    # sources, firmware events first (cf. event_log_load() in src/pcrlock/pcrlock.c).
+    userspace = os.environ.get("SYSTEMD_MEASURE_LOG_USERSPACE", "/run/log/systemd/tpm2-measure.log")
+    if os.path.exists(userspace):
+        with open(userspace) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                except ValueError:
+                    die(f"malformed TPM measurement log entry: {line!r}")
+                if entry.get("pcr") != PCR:
+                    continue
+                digest = None
+                for d in entry.get("digests", []):
+                    if d.get("hashAlg") == "sha256":
+                        digest = d
+                        break
+                if digest is None:
+                    die(f"PCR 12 entry without a sha256 digest in the TPM measurement log: {line!r}")
+                try:
+                    state = hashlib.sha256(state + bytes.fromhex(digest["digest"])).digest()
+                except (KeyError, ValueError, TypeError):
+                    die(f"malformed sha256 digest in the TPM measurement log: {line!r}")
+
+    live = None
+    for path in (f"/sys/class/tpm/tpm0/pcr-sha256/{PCR}", f"/sys/class/tpm0/tpm0/pcr-{PCR}"):
+        if os.path.exists(path):
+            live = open(path).read().strip()
+            break
+    if live is None:
+        print("no sha256 PCR bank exposed via sysfs, skipping the PCR 12 check")
+        return
+    # The kernel may format the sysfs PCR value with any hex case, so compare case-insensitively.
+    if state.hex() != live.lower():
+        die(f"live PCR 12 is {live}, replaying the event log gives {state.hex()}")
+
+    # At least one of the measured strings must have made it into the kernel command line of the
+    # measured boot, i.e. the measured kernel configuration is what the kernel received.
+    with open("/proc/cmdline") as f:
+        cmdline = f.read().strip()
+    if not any(s and s in cmdline for s in ipl):
+        die(f"none of the measured strings {ipl!r} is part of the kernel command line {cmdline!r}")
+
+    if profile == "main":
+        # The default profile is not measured into the TPM.
+        if tags:
+            die(f"the default profile must not be measured, found profile tag events {tags!r}")
+    else:
+        if not tags:
+            die(f"profile {profile} was not measured into PCR 12")
+        for t in tags:
+            # The boot manager measures the profile marker, the stub the profile itself; both
+            # must agree.
+            if not any(s == f"@{t}" or s.startswith(f"@{t} ") for s in ipl):
+                die(f"no boot manager profile marker matching tag {t!r} among {ipl!r}")
+
+    print(f"PCR 12 check passed (profile {profile}): {len(ipl)} IPL string(s), {len(tags)} profile tag(s)")
+
+if __name__ == "__main__":
+    main()
+PYEOF
+    python3 /root/pcr12-check.py "$ID"
+}
+
+# The MOK scenario checks that the shim loads an addon signed with a certificate that is in the
+# MokList EFI variable (the shim's MOK allowlist) but not in db, and rejects the same addon once
+# it is re-signed with a key the shim does not trust. The NVRAM is pre-enrolled for the scenario:
+# db carries the image signing certificate of the build, so that the shim trusts the boot loader
+# and the UKI, and MokList carries the committed test certificate. At boot the shim mirrors
+# MokList into its runtime MOK state, which the kernel exposes as the MokListRT MOKvar table and
+# which the shim consults when it verifies the addon. The state machine mirrors the TOFU one: the
+# setup boot builds and installs the addon, the pos boot checks that it was loaded and re-signs it
+# with an untrusted key, and the neg boot checks that it was rejected and cleans up.
+
+# Whether the MOK scenario can be tested: the distro's shim must be the first stage (mkosi then
+# installs systemd-boot as its second stage, grub*.efi), secure boot must be active, the shim must
+# have mirrored the pre-enrolled MokList into its runtime MOK state (the kernel loads the
+# certificates from it and logs the "UEFI:MokListRT (MOKvar table)" lines), the build-supplied
+# key pair must have been staged into the image, and the tools to build and sign an addon must
+# exist.
+mok_supported() {
+    local sb="/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c"
+    # The OS-visible MOK state is the shim's runtime mirror of the persisted MokList. Firmwares
+    # that export the persisted variable to the guest efivars as well are covered by the second
+    # file test.
+    local mok="/sys/firmware/efi/efivars/MokListRT-605dab50-e046-4300-abb6-3dd810dd8b23"
+    local mok_persisted="/sys/firmware/efi/efivars/MokList-605dab50-e046-4300-abb6-3dd810dd8b23"
+    local loader
+
+    [[ -f "$sb" && "$(od -An -tu1 -j4 -N1 "$sb" | tr -d ' ')" == 1 ]] || return 1
+    loader=$(bootctl --print-loader-path) || return 1
+    [[ "${loader,,}" == */efi/boot/grub*.efi ]] || return 1
+    [[ -f "$mok" || -f "$mok_persisted" ]] || return 1
+    [[ -f "$MOK_KEY" && -f "$MOK_CRT" ]] || return 1
+    [[ -f "/usr/lib/systemd/boot/efi/addon$(bootctl --print-efi-architecture).efi.stub" ]] || return 1
+    command -v openssl >/dev/null || return 1
+    command -v systemd-sbsign >/dev/null || command -v /usr/lib/systemd/systemd-sbsign >/dev/null || return 1
+}
+
+mok_addon() {
+    local name="${1:?}" cmdline="${2:?}" key="${3:?}" crt="${4:?}"
+
+    ukify build \
+        --stub="/usr/lib/systemd/boot/efi/addon$(bootctl --print-efi-architecture).efi.stub" \
+        --cmdline="$cmdline" \
+        --output="$(bootctl --print-esp-path)/loader/addons/$name.addon.efi" \
+        --signtool=systemd-sbsign --secureboot-private-key="$key" --secureboot-certificate="$crt"
+}
+
+# Queue the MOK scenario: build and install the addon signed with the build-supplied key pair,
+# and boot the mok profile.
+mok_start() {
+    mok_addon moktest moktest=1 "$MOK_KEY" "$MOK_CRT"
+    echo pos >"$MOK_STAGE"
+    bootctl set-default "multi-profile.efi@mok"
+    reboot
+    exit 0
+}
+
+# Queue the capsule fixtures and enter the firmware update stages.
+fwupdate_start() {
+    fwupdate_helper
+    python3 /root/fwupdate-helper.py setup
+    echo fwupdate >"$TOFU_STAGE"
+    bootctl set-default "multi-profile.efi@tofu"
+    reboot
+    exit 0
+}
+
+# Queue the MOK scenario when it can be tested, otherwise fall through to the firmware update
+# scenario, which runs also when the Secure Boot scenarios were skipped.
+mok_or_fwupdate_start() {
+    if mok_supported; then
+        mok_start
+    else
+        echo "The MOK scenario cannot be tested here, skipping it"
+    fi
+    fwupdate_start
+}
+
 # This function checks which addons the stub trusted on first use on a boot where the modified addon is
 # not on the ESP yet.
 tofu_addons_check() {
@@ -153,14 +552,6 @@ tofu_addons_check() {
 tofu_cleanup() {
     rm -f "$(bootctl --print-esp-path)"/loader/addons/tofu-*.addon.efi "$TOFU_STAGE" \
         "$TOFU_CRT" "$TOFU_PLANTED_CRT"
-}
-
-tofu_done() {
-    tofu_cleanup
-    touch "$TOFU_TESTED"
-    bootctl set-default ""
-    touch /testok
-    exit 0
 }
 
 echo "CURRENT UKI ($CURRENT_UKI):"
@@ -188,9 +579,14 @@ test -f /run/systemd/stub/profile
 # shellcheck source=/dev/null
 . /run/systemd/stub/profile
 
+# Check the kernel-config (PCR 12) measurements of this boot, whatever the profile.
+pcr12_check
+
 if [[ "$ID" == "tofu" ]]; then
     grep testprofiletofu=1 /proc/cmdline
-    stub_variable StubTofuState
+    # The state variable is absent when the firmware update stages boot this entry without the TOFU
+    # chain having run (i.e. when the TOFU scenarios were not supported on this system).
+    stub_variable StubTofuState || :
     stub_variable StubTofuAddons || :
 
     case "$(cat "$TOFU_STAGE")" in
@@ -240,7 +636,9 @@ if [[ "$ID" == "tofu" ]]; then
             fi
 
             (! stub_variable StubTofuAddons)
-            tofu_done
+            tofu_cleanup
+            touch "$TOFU_TESTED"
+            mok_or_fwupdate_start
             ;;
         planted)
             [[ "$(stub_variable StubTofuState)" == verified ]]
@@ -256,7 +654,68 @@ if [[ "$ID" == "tofu" ]]; then
             (! grep tofu- /tmp/tofu-keyring.list)
             rm -f /tmp/tofu-keyring.list
 
-            tofu_done
+            tofu_cleanup
+            touch "$TOFU_TESTED"
+            mok_or_fwupdate_start
+            ;;
+        fwupdate)
+            # The capsule was processed on this boot, before the OS started: the variable must be
+            # marked as attempted and carry the attempt time, whether the firmware accepted or
+            # rejected the capsule.
+            python3 /root/fwupdate-helper.py assert-attempted
+            # The boot manager must have found the boot disk, i.e. the capsule services are available.
+            [[ -f /sys/firmware/efi/efivars/BootloaderSupportsFwupd-0abba7dc-e516-4167-bbf5-4d9d1c739416 ]]
+            echo fwupdate-neg >"$TOFU_STAGE"
+            bootctl set-default "multi-profile.efi@tofu"
+            reboot
+            exit 0
+            ;;
+        fwupdate-neg)
+            # The variable without the ATTEMPT_UPDATE flag must be left completely untouched.
+            python3 /root/fwupdate-helper.py assert-untouched
+            python3 /root/fwupdate-helper.py cleanup
+            bootctl set-default ""
+            touch /testok
+            exit 0
+            ;;
+        *)
+            exit 1
+            ;;
+    esac
+fi
+
+if [[ "$ID" == "mok" ]]; then
+    grep testprofilemok=1 /proc/cmdline
+
+    case "$(cat "$MOK_STAGE")" in
+        pos)
+            # The addon signed with the certificate from MokList is trusted and loaded by the
+            # shim, hence its command line reached the kernel.
+            grep moktest=1 /proc/cmdline
+
+            # Re-sign the same addon with a key the shim does not trust; the profile has no TOFU=
+            # setting, hence the re-signed addon must be rejected on the next boot. The key is RSA
+            # like the enrolled MOK certificate (see MOK_CRT above), so that the rejection can
+            # only stem from the key not being in the MokList.
+            openssl req -x509 -newkey rsa:2048 -nodes \
+                -subj /CN=mok-untrusted -days 2 -keyout /tmp/mok-untrusted.key -out /tmp/mok-untrusted.crt
+            mok_addon moktest moktest=1 /tmp/mok-untrusted.key /tmp/mok-untrusted.crt
+            echo neg >"$MOK_STAGE"
+            bootctl set-default "multi-profile.efi@mok"
+            reboot
+            exit 0
+            ;;
+        neg)
+            # The re-signed addon must not have been loaded, hence its command line is not there.
+            (! grep moktest=1 /proc/cmdline)
+
+            # Remove the addon.
+            rm -f "$(bootctl --print-esp-path)/loader/addons/moktest.addon.efi" "$MOK_STAGE"
+            rm -f /tmp/mok-*.key /tmp/mok-*.crt
+
+            # Firmware update scenario: queue a capsule for the next boot and let the boot manager
+            # process it.
+            fwupdate_start
             ;;
         *)
             exit 1
@@ -284,12 +743,14 @@ systemd-cryptsetup detach multiprof
 if [[ "$ID" == "main" ]]; then
     if "$SD_PCRLOCK" is-supported; then
         # lock-uki generates a .pcrlock file for each profile that enables PCRLOCK=. Profile @0 enables it
-        # by default, and Profile2 (@2) sets PCRLOCK=yes.
+        # by default, and Profile2 (@3) sets PCRLOCK=yes. The profiles sort alphabetically: mok is @1,
+        # profile1 @2, Profile2 @3, and tofu @4.
         "$SD_PCRLOCK" lock-uki --pcrlock="$PCRLOCK_UKI" "$CURRENT_UKI"
         test -f "$PCRLOCK_UKI"
         test ! -e "${PCRLOCK_UKI%.pcrlock}@1.pcrlock"
-        test -f "${PCRLOCK_UKI%.pcrlock}@2.pcrlock"
-        test ! -e "${PCRLOCK_UKI%.pcrlock}@3.pcrlock"
+        test ! -e "${PCRLOCK_UKI%.pcrlock}@2.pcrlock"
+        test -f "${PCRLOCK_UKI%.pcrlock}@3.pcrlock"
+        test ! -e "${PCRLOCK_UKI%.pcrlock}@4.pcrlock"
 
         # make-policy picks a random NV index out of 24 if none is specified. Each policy that is created
         # here gets an NV index of its own, so that the NV index of one policy is never picked for another.
@@ -395,7 +856,15 @@ elif [[ "$ID" == "Profile2" ]]; then
         "$SD_PCRLOCK" remove-policy
         "$SD_PCRLOCK" unlock-uki --pcrlock="$PCRLOCK_UKI"
         test ! -e "$PCRLOCK_UKI"
-        test ! -e "${PCRLOCK_UKI%.pcrlock}@2.pcrlock"
+        test ! -e "${PCRLOCK_UKI%.pcrlock}@3.pcrlock"
+    fi
+
+    # The test image is built with secure boot auto-enrollment, hence when this test runs under UEFI
+    # firmware, the boot manager already enrolled the keys on a previous boot. If the firmware exposes
+    # the SecureBoot variable but secure boot is not active, the enrollment did not work and the TOFU
+    # scenarios below would silently skip - fail loudly instead.
+    if [[ -f /sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c ]]; then
+        [[ "$(od -An -tu1 -j4 -N1 /sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c | tr -d ' ')" == 1 ]]
     fi
 
     if [[ -e "$TOFU_TESTED" ]]; then
@@ -423,11 +892,9 @@ elif [[ "$ID" == "Profile2" ]]; then
         echo "Trusting addons on first use cannot be tested here, skipping it"
     fi
 
-    # Reset the default boot entry so a subsequent re-run of the test does not
-    # boot straight back into @profile2 (where encrypted.raw is now gone) and fail.
-    bootctl set-default ""
+    # Firmware update scenario: queue a capsule for the next boot and let the boot manager process it.
+    # (Runs also when the TOFU and MOK scenarios were skipped, so that it is not gated on Secure Boot.)
+    mok_or_fwupdate_start
 else
     exit 1
 fi
-
-touch /testok
