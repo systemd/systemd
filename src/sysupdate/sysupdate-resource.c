@@ -345,13 +345,9 @@ static int resource_load_from_blockdev(Resource *rr) {
 
         assert(rr);
 
-        r = dlopen_fdisk(LOG_DEBUG);
+        r = partition_open_table(rr, /* read_only= */ true, &c);
         if (r < 0)
                 return r;
-
-        r = fdisk_new_context_at(AT_FDCWD, rr->path, /* read_only= */ true, /* sector_size= */ UINT32_MAX, &c);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create fdisk context from '%s': %m", rr->path);
 
         if (!sym_fdisk_is_labeltype(c, FDISK_DISKLABEL_GPT))
                 return log_error_errno(SYNTHETIC_ERRNO(EHWPOISON), "Disk %s has no GPT disk label, not suitable.", rr->path);
@@ -1223,6 +1219,16 @@ Instance* resource_find_instance(Resource *rr, const char *version) {
         return *found;
 }
 
+static int resource_use_image_device(Resource *rr, LoopDevice *loop) {
+        assert(rr);
+        assert(loop);
+
+        rr->pin_fd = fcntl(loop->fd, F_DUPFD_CLOEXEC, 3);
+        if (rr->pin_fd < 0)
+                return log_error_errno(errno, "Failed to pin image device '%s': %m", loop->node);
+        return free_and_strdup_warn(&rr->path, loop->node);
+}
+
 int resource_resolve_path(Resource *rr, Context *context) {
         _cleanup_free_ char *p = NULL;
         dev_t d;
@@ -1258,7 +1264,7 @@ int resource_resolve_path(Resource *rr, Context *context) {
                                                "Automatic root path discovery only supported for partition resources.");
 
                 if (context->loop_device)
-                        return free_and_strdup_warn(&rr->path, context->loop_device->node);
+                        return resource_use_image_device(rr, context->loop_device);
 
                 if (root)
                         return log_error_errno(SYNTHETIC_ERRNO(EPERM),
@@ -1286,7 +1292,7 @@ int resource_resolve_path(Resource *rr, Context *context) {
                 _cleanup_free_ char *resolved = NULL;
                 struct stat st;
 
-                r = chase(rr->path, root, CHASE_PREFIX_ROOT|CHASE_TRIGGER_AUTOFS, &resolved, &fd);
+                r = chaseat(rr->root_fd, rr->root_fd, rr->path, CHASE_TRIGGER_AUTOFS, &resolved, &fd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve '%s': %m", rr->path);
 
@@ -1296,15 +1302,29 @@ int resource_resolve_path(Resource *rr, Context *context) {
                 if (S_ISBLK(st.st_mode) && root)
                         return log_error_errno(SYNTHETIC_ERRNO(EPERM), "When using --root= or --image= access to device nodes is prohibited.");
 
-                if (S_ISREG(st.st_mode) || S_ISBLK(st.st_mode))
-                        /* Not a directory, hence no need to find backing block device for the path */
-                        return free_and_replace(rr->path, resolved);
+                if (S_ISREG(st.st_mode) || S_ISBLK(st.st_mode)) {
+                        /* Keep using the inspected inode, not a name in the foreign tree. */
+                        if (root) {
+                                if (!context->loop_device && st.st_nlink != 1)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EMLINK),
+                                                               "Refusing to update a multiply linked disk image with --root=.");
+                                rr->pin_fd = TAKE_FD(fd);
+                        }
+                        char *absolute = path_join(empty_to_root(root), skip_leading_slash(resolved));
+                        if (!absolute)
+                                return log_oom();
+                        return free_and_replace(rr->path, absolute);
+                }
 
                 if (!S_ISDIR(st.st_mode))
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTDIR), "Target path '%s' does not refer to regular file, directory or block device, refusing.",  rr->path);
 
                 if (context->loop_device)
-                        return free_and_strdup_warn(&rr->path, context->loop_device->node);
+                        return resource_use_image_device(rr, context->loop_device);
+
+                if (root)
+                        return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                               "Cannot use the backing device of a directory as a partition resource with --root=.");
 
                 real_fd = fd_reopen(fd, O_RDONLY|O_DIRECTORY);
                 if (real_fd < 0)

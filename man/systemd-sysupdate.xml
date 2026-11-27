@@ -403,7 +403,9 @@
 
         <listitem><para>Takes a path to a directory to use as root file system when searching for
         <filename>sysupdate.d/*.conf</filename> files and resolving local transfer paths. Filesystem
-        targets are installed beneath this root.</para>
+        targets are installed beneath this root. A directory in it cannot be used to select the disk
+        backing it as a partition target. Use <option>--image=</option> to update the partitions of a
+        specific disk image.</para>
 
         <para>With <option>--root=</option> or <option>--image=</option>, transfer URLs for manifests and
         payloads must use HTTP or HTTPS. Local file URLs and host resource provider sockets are not

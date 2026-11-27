@@ -1189,7 +1189,7 @@ static int transfer_instance_vacuum(
                 }
 
                 log_debug("Resetting partition '%s' to empty.", pinfo.device);
-                r = patch_partition(t->target.path, &pinfo, change);
+                r = patch_partition(&t->target, &pinfo, change);
                 if (r < 0)
                         return r;
 
@@ -1532,7 +1532,7 @@ static int transfer_open_install_parent(Transfer *t, bool make) {
 
 static const char* transfer_sync_argument(const Transfer *t) {
         /* For rooted transfers the helper only knows a procfd. Sync the real inode and directory ourselves. */
-        return t->context->sync && !(t->context->root && RESOURCE_IS_FILESYSTEM(t->target.type)) ? "--sync=yes" : "--sync=no";
+        return t->context->sync && !t->context->root ? "--sync=yes" : "--sync=no";
 }
 
 static int run_callout(
@@ -1560,7 +1560,7 @@ static int run_callout(
                 fds[n_fds++] = pass_fd;
 
         bool directory = IN_SET(transfer->target.type, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME);
-        if (transfer->context->root && RESOURCE_IS_FILESYSTEM(transfer->target.type)) {
+        if (transfer->context->root) {
                 if (RESOURCE_IS_FILESYSTEM(instance->resource->type)) {
                         assert(stdin_fd < 0);
                         source_fd = resource_open_instance(instance->resource, instance->path);
@@ -1570,12 +1570,16 @@ static int run_callout(
                 }
 
                 assert(transfer->staging_fd < 0);
-                assert(transfer->install_parent_fd >= 0);
-                transfer->staging_fd = xopenat_full(
-                                transfer->install_parent_fd, last_path_component(transfer->temporary_partial_path),
-                                O_CREAT|O_EXCL|O_NOFOLLOW|(directory ? O_DIRECTORY : O_RDWR),
-                                transfer->target.type == RESOURCE_SUBVOLUME ? XO_SUBVOLUME : 0,
-                                directory ? 0755 : 0664);
+                if (transfer->target.type == RESOURCE_PARTITION)
+                        transfer->staging_fd = fd_reopen(ASSERT_FD(transfer->target.pin_fd), O_RDWR);
+                else {
+                        assert(transfer->install_parent_fd >= 0);
+                        transfer->staging_fd = xopenat_full(
+                                        transfer->install_parent_fd, last_path_component(transfer->temporary_partial_path),
+                                        O_CREAT|O_EXCL|O_NOFOLLOW|(directory ? O_DIRECTORY : O_RDWR),
+                                        transfer->target.type == RESOURCE_SUBVOLUME ? XO_SUBVOLUME : 0,
+                                        directory ? 0755 : 0664);
+                }
                 if (transfer->staging_fd < 0)
                         return log_error_errno(transfer->staging_fd, "Failed to open update destination for '%s': %m", transfer->target.path);
                 fds[n_fds++] = transfer->staging_fd;
@@ -2061,7 +2065,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
 
         if (t->target.type == RESOURCE_PARTITION) {
                 r = find_suitable_partition(
-                                t->target.path,
+                                &t->target,
                                 i->metadata.size,
                                 t->target.partition_type_set ? &t->target.partition_type.uuid : NULL,
                                 &t->partition_info);
@@ -2086,7 +2090,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                           t->partition_info.label,
                           SD_ID128_TO_UUID_STRING(t->partition_info.type));
                 r = patch_partition(
-                                t->target.path,
+                                &t->target,
                                 &t->partition_info,
                                 t->partition_change);
                 if (r < 0)
@@ -2277,6 +2281,8 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
         }
 
         if (t->target.type == RESOURCE_PARTITION) {
+                if (t->staging_fd >= 0 && t->context->sync && fsync(t->staging_fd) < 0)
+                        return log_error_errno(errno, "Failed to synchronize partition data: %m");
                 /* Now change the partition type to the derived "pending" type UUID to indicate that the
                  * acquire is complete and the partition is ready for install. */
                 t->partition_info.type = t->partition_type_pending;
@@ -2311,7 +2317,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                           t->partition_info.device,
                           SD_ID128_TO_UUID_STRING(t->partition_info.type));
                 r = patch_partition(
-                                t->target.path,
+                                &t->target,
                                 &t->partition_info,
                                 t->partition_change);
                 if (r < 0)
@@ -2417,7 +2423,7 @@ int transfer_install_instance(
                 t->partition_change = PARTITION_LABEL | PARTITION_TYPE;
 
                 r = patch_partition(
-                                t->target.path,
+                                &t->target,
                                 &t->partition_info,
                                 t->partition_change);
                 if (r < 0)

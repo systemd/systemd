@@ -1039,6 +1039,21 @@ root_reject() {
 root_reject 'Only HTTP(S) transfer URLs' url-file file:///source regular-file /target
 root_reject 'Only HTTP(S) transfer URLs' url-file https://example.invalid/repo regular-file /target ManifestPath=file:///source/SHA256SUMS
 root_reject 'Only HTTP(S) transfer URLs' url-file 'provider:[/run/example.sock]/repo' regular-file /target
+root_reject 'Cannot use the backing device of a directory' regular-file /source partition /target
+
+# A regular disk image inside the root, unlike a directory's backing device, is a valid partition target.
+truncate -s 4M "$ROOTDIR/disk.raw"
+sfdisk "$ROOTDIR/disk.raw" <<EOF
+label: gpt
+sector-size: 512
+
+start=2048, size=1024, type=linux, name=_empty
+start=4096, size=1024, type=linux, name=_empty
+EOF
+root_transfer regular-file /source partition /disk.raw
+"$SYSUPDATE" --root="$ROOTDIR" update
+[[ $(sfdisk --part-label "$ROOTDIR/disk.raw" 1) == root-2 ]]
+cmp -n "$(stat -c %s "$ROOTDIR/source/root-2")" "$ROOTDIR/source/root-2" "$ROOTDIR/disk.raw" 0 $((2048 * 512))
 rm -rf "$ROOTDIR"
 
 # Cleanup
