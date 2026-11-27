@@ -699,12 +699,16 @@ ssize_t base64_append(
                 size_t indent,
                 size_t width) {
 
+        if (width <= indent)
+                return base64_append_width(prefix, plen, '\n', indent, p, l, 1);
+
         if (plen > width / 2 || plen + indent > width)
                 /* leave indent on the left, keep last column free */
-                return base64_append_width(prefix, plen, '\n', indent, p, l, width - indent);
+                return base64_append_width(prefix, plen, '\n', indent, p, l, MAX(LESS_BY(width, indent), (size_t) 1));
         else
                 /* leave plen on the left, keep last column free */
-                return base64_append_width(prefix, plen, ' ', plen + 1, p, l, width - plen - 1);
+                return base64_append_width(prefix, plen, ' ', plen + 1, p, l, MAX(LESS_BY(width, plen + 1), (size_t) 1));
+
 }
 
 static int unbase64_next(const char **p, size_t *l) {
