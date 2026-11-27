@@ -7332,7 +7332,7 @@ int exec_invoke(
                         if (capability_ambient_set != 0) {
                                 /* Raise the ambient capabilities after user change. Note that we may have
                                  * called capability_ambient_set_apply above in pam_end(). Instead of trying
-                                 * to figure out if that happened and if the capability adjustments inbetween
+                                 * to figure out if that happened and if the capability adjustments in between
                                  * may have changed the ambient capability set, we adjust ambient caps again.
                                  */
                                 r = capability_ambient_set_apply(capability_ambient_set, /* also_inherit= */ false);
