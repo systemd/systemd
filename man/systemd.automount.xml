@@ -58,7 +58,11 @@
     should not set <varname>After=</varname> or <varname>Requires=</varname>
     for mount dependencies here. For example, you should not set
     <varname>After=network-online.target</varname> or similar on network
-    filesystems. Doing so may result in an ordering cycle.</para>
+    filesystems. Doing so may result in an ordering cycle, as the automount unit is ordered before
+    <filename>local-fs.target</filename> by default (see Automatic Dependencies below). For the implications
+    of automount points on network file systems, in particular why they are established in early boot, see
+    <ulink url="https://systemd.io/MOUNT_REQUIREMENTS/#automount-points">Mount Point Availability
+    Requirements</ulink>.</para>
 
     <para>Note that automount support on Linux is privileged, automount units are hence only available in the
     system service manager (and root's user service manager), but not in unprivileged users' service
