@@ -60,7 +60,8 @@ assert_eq "$TIMER_LAST_TRIGGER" "$(systemctl show -P LastTriggerUSec "$UNIT_NAME
 # Set the timer into the past, restart it, and again check if it wasn't triggered
 TIMER_TS="$(date --date="-1 day" "+%Y-%m-%d %H:%M:%S")"
 mkdir "/run/systemd/system/$UNIT_NAME.timer.d/"
-cat >"/run/systemd/system/$UNIT_NAME.timer.d/99-override.conf" <<EOF
+dropin="/run/systemd/system/$UNIT_NAME.timer.d/99-override.conf"
+cat >"$dropin" <<EOF
 [Timer]
 OnCalendar=$TIMER_TS
 EOF
@@ -73,7 +74,30 @@ assert_eq "$(journalctl -q -p info --since="@$JOURNAL_TS" -t "$UNIT_NAME" --grep
 assert_eq "$SERVICE_INV_ID" "$(systemctl show -P InvocationID "$UNIT_NAME.service")"
 assert_eq "$TIMER_LAST_TRIGGER" "$(systemctl show -P LastTriggerUSec "$UNIT_NAME.timer")"
 
+# Unlike a past calendar event, OnActiveSec= must fire again on restart. Wants= starts the service in
+# the same transaction, so its state change makes the timer recheck the already-due OnActiveSec=0
+# before the timer event is dispatched. The last trigger belongs to the previous activation.
+cat >"$dropin" <<EOF
+[Unit]
+Wants=$UNIT_NAME.service
+[Timer]
+OnCalendar=
+OnActiveSec=0
+RandomizedDelaySec=1s
+AccuracySec=1ms
+EOF
+systemctl daemon-reload
+last_trigger=$(systemctl show -P LastTriggerUSecMonotonic "$UNIT_NAME.timer")
+systemctl restart "$UNIT_NAME.timer"
+deadline=$((SECONDS + 30))
+until [[ "$(systemctl show -P SubState "$UNIT_NAME.timer")" == elapsed ]]; do
+    (( SECONDS < deadline ))
+    sleep .1
+done
+assert_neq "$(systemctl show -P LastTriggerUSecMonotonic "$UNIT_NAME.timer")" "$last_trigger"
+
 # Cleanup
 systemctl stop "$UNIT_NAME".{timer,service}
-rm -f "/run/systemd/system/$UNIT_NAME".{timer,service}
+rm -f "/run/systemd/system/$UNIT_NAME".{timer,service} "$dropin"
+rmdir "/run/systemd/system/$UNIT_NAME.timer.d"
 systemctl daemon-reload

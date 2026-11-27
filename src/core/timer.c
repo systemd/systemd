@@ -516,18 +516,18 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                         }
 
                         if (!time_change) {
-                                bool is_oneshot = IN_SET(v->base, TIMER_ACTIVE, TIMER_BOOT, TIMER_STARTUP);
+                                /* A persistent stamp only sets realtime, and for OnActiveSec= a monotonic
+                                 * trigger from a previous activation does not count either. */
+                                bool oneshot_triggered = IN_SET(v->base, TIMER_ACTIVE, TIMER_BOOT, TIMER_STARTUP) &&
+                                                         t->last_trigger.monotonic > base;
 
                                 /* Skip recalculating the next elapse timestamp for one-shot timers for which
                                  * we've already calculated the value in this activation cycle. */
-                                if (!(v->next_elapse > 0 &&
-                                      t->last_trigger.monotonic > base &&
-                                      is_oneshot))
+                                if (!oneshot_triggered || v->next_elapse == 0)
                                         v->next_elapse = usec_add(usec_shift_clock(base, CLOCK_MONOTONIC, TIMER_MONOTONIC_CLOCK(t)), v->value);
 
-                                if (dual_timestamp_is_set(&t->last_trigger) &&
-                                    v->next_elapse < triple_timestamp_by_clock(&ts, TIMER_MONOTONIC_CLOCK(t)) &&
-                                    is_oneshot) {
+                                if (oneshot_triggered &&
+                                    v->next_elapse < triple_timestamp_by_clock(&ts, TIMER_MONOTONIC_CLOCK(t))) {
                                         /* This is a one time trigger, disable it now. */
                                         v->disabled = true;
                                         continue;
