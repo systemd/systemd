@@ -4,6 +4,7 @@
 
 #include "sd-event.h"
 
+#include "bitfield.h"
 #include "dns-packet.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -16,6 +17,8 @@
 #include "resolved-dns-transport-dot.h"
 #include "resolved-link.h"
 #include "resolved-manager.h"
+#include "socket-netlink.h"
+#include "string-util.h"
 #include "tests.h"
 
 /* All feature levels, in the documented order from worst to best */
@@ -152,6 +155,143 @@ TEST(transport_policy) {
                                   (const DnsTransportKind[]) { DNS_TRANSPORT_DOT }, 1);
 }
 
+TEST(transport_scheme) {
+        for (DnsTransportKind k = 0; k < _DNS_TRANSPORT_KIND_MAX; k++) {
+                const DnsTransportVTable *vt = dns_transport_vtable[k];
+                _cleanup_(in_addr_full_freep) struct in_addr_full *a = NULL;
+                _cleanup_free_ char *u = NULL, *p = NULL;
+                DnsTransportPolicy policy;
+                uint16_t downgrade_port;
+
+                if (!vt)
+                        continue;
+
+                log_debug("/* %s(%s) */", __func__, vt->scheme);
+
+                /* Every transport this build supports has its own scheme, mapping back to it */
+                ASSERT_STREQ(dns_transport_kind_to_string(k), vt->scheme);
+                ASSERT_EQ(dns_transport_kind_from_scheme(vt->scheme), k);
+                for (DnsTransportKind j = 0; j < k; j++)
+                        if (dns_transport_vtable[j])
+                                ASSERT_FALSE(streq(dns_transport_vtable[j]->scheme, vt->scheme));
+
+                /* Only encrypted transports downgrade, to an unencrypted transport, which is always built */
+                if (vt->downgrade >= 0) {
+                        ASSERT_TRUE(vt->encrypted);
+                        ASSERT_FALSE(ASSERT_PTR(dns_transport_vtable[vt->downgrade])->encrypted);
+                }
+
+                /* A path is accepted exactly where the transport takes one, and the downgrade parameter
+                 * exactly where it has a transport to downgrade to */
+                p = ASSERT_PTR(strjoin(vt->scheme, "://192.0.2.1/dns-query"));
+                if (vt->path) {
+                        ASSERT_OK(dns_server_parse_string(p, &a, &policy, &downgrade_port));
+                        a = in_addr_full_free(a);
+                } else
+                        ASSERT_ERROR(dns_server_parse_string(p, &a, &policy, &downgrade_port), EINVAL);
+
+                u = ASSERT_PTR(strjoin(vt->scheme, "://192.0.2.1#downgrade"));
+                if (vt->downgrade >= 0)
+                        ASSERT_OK(dns_server_parse_string(u, &a, &policy, &downgrade_port));
+                else
+                        ASSERT_ERROR(dns_server_parse_string(u, &a, &policy, &downgrade_port), EINVAL);
+        }
+
+        ASSERT_STREQ(dns_transport_kind_to_string(DNS_TRANSPORT_DNS), "dns");
+        ASSERT_NULL(dns_transport_kind_to_string(_DNS_TRANSPORT_KIND_INVALID));
+        ASSERT_EQ(dns_transport_kind_from_scheme("dot"), _DNS_TRANSPORT_KIND_INVALID);
+        ASSERT_EQ(dns_transport_kind_from_scheme(NULL), _DNS_TRANSPORT_KIND_INVALID);
+#if ENABLE_DNS_OVER_TLS
+        ASSERT_STREQ(dns_transport_kind_to_string(DNS_TRANSPORT_DOT), "dnss");
+#else
+        /* Transports this build doesn't support have no scheme */
+        ASSERT_NULL(dns_transport_kind_to_string(DNS_TRANSPORT_DOT));
+        ASSERT_EQ(dns_transport_kind_from_scheme("dnss"), _DNS_TRANSPORT_KIND_INVALID);
+#endif
+}
+
+TEST(encryption_mode_from_transport_policy) {
+        /* The inverse of dns_transport_policy_init() */
+        for (DnsEncryptionMode mode = 0; mode < _DNS_ENCRYPTION_MODE_MAX; mode++) {
+                DnsTransportPolicy p;
+
+                dns_transport_policy_init(mode, &p);
+#if ENABLE_DNS_OVER_TLS
+                ASSERT_EQ(dns_encryption_mode_from_transport_policy(p), mode);
+#else
+                /* Without an encrypted transport in the build, nothing is ever encrypted */
+                ASSERT_EQ(dns_encryption_mode_from_transport_policy(p), DNS_ENCRYPTION_NO);
+#endif
+        }
+}
+
+static void test_dns_server_parse_string_one(
+                const char *str,
+                int expected_error,
+                uint16_t expected_port,
+                DnsTransportPolicy expected_policy,
+                uint16_t expected_downgrade_port) {
+
+        _cleanup_(in_addr_full_freep) struct in_addr_full *a = NULL;
+        DnsTransportPolicy policy;
+        uint16_t downgrade_port;
+
+        log_debug("/* %s(%s) */", __func__, str);
+
+        if (expected_error != 0) {
+                ASSERT_ERROR(dns_server_parse_string(str, &a, &policy, &downgrade_port), expected_error);
+                return;
+        }
+
+        ASSERT_OK(dns_server_parse_string(str, &a, &policy, &downgrade_port));
+        ASSERT_EQ(a->port, expected_port);
+        ASSERT_EQ(policy, expected_policy);
+        ASSERT_EQ(downgrade_port, expected_downgrade_port);
+}
+
+TEST(dns_server_parse_string) {
+        const DnsTransportPolicy dns = INDEX_TO_MASK(DnsTransportPolicy, DNS_TRANSPORT_DNS);
+
+        /* Without a scheme DNSOverTLS= decides, and the default port of either transport means none */
+        test_dns_server_parse_string_one("192.0.2.1", 0, 0, 0, 0);
+        test_dns_server_parse_string_one("192.0.2.1:53", 0, 0, 0, 0);
+        test_dns_server_parse_string_one("192.0.2.1:853", 0, 0, 0, 0);
+        test_dns_server_parse_string_one("192.0.2.1:5353#example.com", 0, 5353, 0, 0);
+
+        /* With a scheme only the default port of the selected transport means none */
+        test_dns_server_parse_string_one("dns://192.0.2.1", 0, 0, dns, 0);
+        test_dns_server_parse_string_one("dns://192.0.2.1:53", 0, 0, dns, 0);
+        test_dns_server_parse_string_one("dns://192.0.2.1:853", 0, 853, dns, 0);
+        test_dns_server_parse_string_one("DNS://[2001:db8::1]:5353", 0, 5353, dns, 0);
+
+        /* Classic DNS has nothing to downgrade to, other schemes and parts are refused */
+        test_dns_server_parse_string_one("dns://192.0.2.1#downgrade", EINVAL, 0, 0, 0);
+        test_dns_server_parse_string_one("dnz://192.0.2.1", EINVAL, 0, 0, 0);
+        test_dns_server_parse_string_one("dns://192.0.2.1/dns-query", EINVAL, 0, 0, 0);
+        test_dns_server_parse_string_one("dns://192.0.2.1?dns=x", EINVAL, 0, 0, 0);
+        test_dns_server_parse_string_one("dns://192.0.2.1#port=53", EINVAL, 0, 0, 0);
+
+#if ENABLE_DNS_OVER_TLS
+        const DnsTransportPolicy dot = INDEX_TO_MASK(DnsTransportPolicy, DNS_TRANSPORT_DOT);
+
+        test_dns_server_parse_string_one("dnss://192.0.2.1", 0, 0, dot, 0);
+        test_dns_server_parse_string_one("dnss://192.0.2.1:853", 0, 0, dot, 0);
+        test_dns_server_parse_string_one("dnss://192.0.2.1:53", 0, 53, dot, 0);
+        test_dns_server_parse_string_one("dnss://192.0.2.1#name=example.com", 0, 0, dot, 0);
+
+        /* The downgrade parameter permits classic DNS too, on its default port unless given */
+        test_dns_server_parse_string_one("dnss://192.0.2.1#downgrade", 0, 0, dot | dns, 0);
+        test_dns_server_parse_string_one("dnss://192.0.2.1#downgrade=", 0, 0, dot | dns, 0);
+        test_dns_server_parse_string_one("dnss://192.0.2.1#downgrade=53", 0, 0, dot | dns, 0);
+        test_dns_server_parse_string_one("dnss://192.0.2.1:8853#downgrade=5353", 0, 8853, dot | dns, 5353);
+        test_dns_server_parse_string_one("dnss://192.0.2.1#downgrade=0", EINVAL, 0, 0, 0);
+        test_dns_server_parse_string_one("dnss://192.0.2.1#downgrade=dns", EINVAL, 0, 0, 0);
+#else
+        /* Schemes of transports this build doesn't support are refused like unknown ones */
+        test_dns_server_parse_string_one("dnss://192.0.2.1", EINVAL, 0, 0, 0);
+#endif
+}
+
 /* Indexes into levels_in_order[] */
 enum {
         LEVEL_TCP,
@@ -190,6 +330,7 @@ TEST(feature_level_reduce) {
 
         ASSERT_OK(dns_server_new(&manager, &s, DNS_SERVER_SYSTEM, /* link= */ NULL, /* delegate= */ NULL,
                                  AF_INET, &address, /* port= */ 0, /* ifindex= */ 0, /* server_name= */ NULL,
+                                 /* transport_policy= */ 0, /* downgrade_port= */ 0,
                                  RESOLVE_CONFIG_SOURCE_DBUS));
 
         /* Classic DNS: first the EDNS level is lowered, down to plain UDP */
@@ -235,6 +376,7 @@ TEST(feature_level_permitted) {
 
         ASSERT_OK(dns_server_new(&manager, &s, DNS_SERVER_SYSTEM, /* link= */ NULL, /* delegate= */ NULL,
                                  AF_INET, &address, /* port= */ 0, /* ifindex= */ 0, /* server_name= */ NULL,
+                                 /* transport_policy= */ 0, /* downgrade_port= */ 0,
                                  RESOLVE_CONFIG_SOURCE_DBUS));
 
         FOREACH_ELEMENT(l, levels_in_order) {
@@ -277,6 +419,7 @@ TEST(possible_feature_level) {
 
         ASSERT_OK(dns_server_new(&manager, &s, DNS_SERVER_SYSTEM, /* link= */ NULL, /* delegate= */ NULL,
                                  AF_INET, &address, /* port= */ 0, /* ifindex= */ 0, /* server_name= */ NULL,
+                                 /* transport_policy= */ 0, /* downgrade_port= */ 0,
                                  RESOLVE_CONFIG_SOURCE_DBUS));
 
         /* Classic DNS: lost UDP packets first lower the EDNS level, then switch to TCP. Lost TCP
@@ -404,6 +547,7 @@ TEST(possible_feature_level_clamped) {
 
         ASSERT_OK(dns_server_new(&manager, &s, DNS_SERVER_SYSTEM, /* link= */ NULL, /* delegate= */ NULL,
                                  AF_INET, &address, /* port= */ 0, /* ifindex= */ 0, /* server_name= */ NULL,
+                                 /* transport_policy= */ 0, /* downgrade_port= */ 0,
                                  RESOLVE_CONFIG_SOURCE_DBUS));
 
         possible_feature_level_setup(&manager, s, DNS_OVER_TLS_NO, DNSSEC_NO);
@@ -444,6 +588,7 @@ TEST(dnssec_supported) {
 
         ASSERT_OK(dns_server_new(&manager, &s, DNS_SERVER_SYSTEM, /* link= */ NULL, /* delegate= */ NULL,
                                  AF_INET, &address, /* port= */ 0, /* ifindex= */ 0, /* server_name= */ NULL,
+                                 /* transport_policy= */ 0, /* downgrade_port= */ 0,
                                  RESOLVE_CONFIG_SOURCE_DBUS));
 
         /* DNSSEC servers need working TCP (RFC 5966): classic DNS rules DNSSEC out after too many failed TCP
@@ -484,6 +629,7 @@ TEST(packet_rcode_downgrade) {
 
         ASSERT_OK(dns_server_new(&manager, &s, DNS_SERVER_SYSTEM, /* link= */ NULL, /* delegate= */ NULL,
                                  AF_INET, &address, /* port= */ 0, /* ifindex= */ 0, /* server_name= */ NULL,
+                                 /* transport_policy= */ 0, /* downgrade_port= */ 0,
                                  RESOLVE_CONFIG_SOURCE_DBUS));
         DnsTransportDns *d = ASSERT_PTR(DNS_TRANSPORT_TO_DNS(s->transports[DNS_TRANSPORT_DNS]));
 
@@ -542,6 +688,7 @@ TEST(adjust_opt) {
 
         ASSERT_OK(dns_server_new(&manager, &s, DNS_SERVER_SYSTEM, /* link= */ NULL, /* delegate= */ NULL,
                                  AF_INET, &address, /* port= */ 0, /* ifindex= */ 0, /* server_name= */ NULL,
+                                 /* transport_policy= */ 0, /* downgrade_port= */ 0,
                                  RESOLVE_CONFIG_SOURCE_DBUS));
 
         /* Below EDNS0 no OPT RR is added, from EDNS0 on it is, with the DO bit only set at DNSSEC levels */
@@ -577,6 +724,7 @@ TEST(udp_fragment_size) {
         link->mtu = 1500;
         ASSERT_OK(dns_server_new(&manager, &s, DNS_SERVER_LINK, link, /* delegate= */ NULL,
                                  AF_INET, &address, /* port= */ 0, /* ifindex= */ 0, /* server_name= */ NULL,
+                                 /* transport_policy= */ 0, /* downgrade_port= */ 0,
                                  RESOLVE_CONFIG_SOURCE_DBUS));
         possible_feature_level_setup(&manager, s, DNS_OVER_TLS_NO, DNSSEC_NO);
 
@@ -623,6 +771,7 @@ TEST(packet_received) {
 
         ASSERT_OK(dns_server_new(&manager, &s, DNS_SERVER_SYSTEM, /* link= */ NULL, /* delegate= */ NULL,
                                  AF_INET, &address, /* port= */ 0, /* ifindex= */ 0, /* server_name= */ NULL,
+                                 /* transport_policy= */ 0, /* downgrade_port= */ 0,
                                  RESOLVE_CONFIG_SOURCE_DBUS));
         d = ASSERT_PTR(DNS_TRANSPORT_TO_DNS(s->transports[DNS_TRANSPORT_DNS]));
 
@@ -723,6 +872,7 @@ TEST(grace_period) {
 
         ASSERT_OK(dns_server_new(&manager, &s, DNS_SERVER_SYSTEM, /* link= */ NULL, /* delegate= */ NULL,
                                  AF_INET, &address, /* port= */ 0, /* ifindex= */ 0, /* server_name= */ NULL,
+                                 /* transport_policy= */ 0, /* downgrade_port= */ 0,
                                  RESOLVE_CONFIG_SOURCE_DBUS));
         d = ASSERT_PTR(DNS_TRANSPORT_TO_DNS(s->transports[DNS_TRANSPORT_DNS]));
 
@@ -786,6 +936,75 @@ static DnsStream* idle_stream_new(Manager *m, int *ret_peer) {
         return stream;
 }
 
+static void new_server_from_string(Manager *m, const char *str, DnsServer **ret) {
+        _cleanup_(in_addr_full_freep) struct in_addr_full *a = NULL;
+        DnsTransportPolicy policy;
+        uint16_t downgrade_port;
+
+        ASSERT_OK(dns_server_parse_string(str, &a, &policy, &downgrade_port));
+        ASSERT_OK(dns_server_new(m, ret, DNS_SERVER_SYSTEM, /* link= */ NULL, /* delegate= */ NULL,
+                                 a->family, &a->address, a->port, a->ifindex, a->server_name,
+                                 policy, downgrade_port,
+                                 RESOLVE_CONFIG_SOURCE_DBUS));
+}
+
+TEST(server_transport_policy) {
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        union in_addr_union address = { .in.s_addr = htobe32(0xc0000201) };
+        Manager manager = {};
+        DnsServer *s = NULL;
+
+        ASSERT_OK(sd_event_new(&event));
+        manager.event = event;
+
+        /* A scheme overrides DNSOverTLS=, in both directions */
+        new_server_from_string(&manager, "dns://192.0.2.1", &s);
+        manager.dns_over_tls_mode = DNS_OVER_TLS_YES;
+        ASSERT_EQ(dns_server_get_encryption_mode(s), DNS_ENCRYPTION_NO);
+        dns_server_reset_features(s);
+        assert_possible_feature_level(s, "UDP+EDNS0");
+        ASSERT_STREQ(dns_server_string_full(s), "dns://192.0.2.1");
+
+        /* The scheme is part of the identity, so the same address in another form is another server */
+        ASSERT_PTR_EQ(dns_server_find(manager.dns_servers, AF_INET, &address, /* port= */ 0, /* ifindex= */ 0,
+                                      /* name= */ NULL, INDEX_TO_MASK(DnsTransportPolicy, DNS_TRANSPORT_DNS),
+                                      /* downgrade_port= */ 0),
+                      s);
+        ASSERT_NULL(dns_server_find(manager.dns_servers, AF_INET, &address, /* port= */ 0, /* ifindex= */ 0,
+                                    /* name= */ NULL, /* transport_policy= */ 0, /* downgrade_port= */ 0));
+        dns_server_unlink(s);
+
+#if ENABLE_DNS_OVER_TLS
+        manager.dns_over_tls_mode = DNS_OVER_TLS_NO;
+
+        new_server_from_string(&manager, "dnss://192.0.2.1#name=example.com", &s);
+        ASSERT_EQ(dns_server_get_encryption_mode(s), DNS_ENCRYPTION_REQUIRED);
+        dns_server_reset_features(s);
+        assert_possible_feature_level(s, "TLS+EDNS0");
+        ASSERT_STREQ(dns_server_string_full(s), "dnss://192.0.2.1#name=example.com");
+        /* Without downgrading, classic DNS isn't used, but reports its default port */
+        ASSERT_EQ(dns_server_transport_port(s->transports[DNS_TRANSPORT_DOT]), 853U);
+        ASSERT_EQ(dns_server_port(s), 53U);
+        dns_server_unlink(s);
+
+        /* With downgrading, each transport uses its own port */
+        new_server_from_string(&manager, "dnss://192.0.2.1:8853#downgrade=5353", &s);
+        ASSERT_EQ(dns_server_get_encryption_mode(s), DNS_ENCRYPTION_OPPORTUNISTIC);
+        dns_server_reset_features(s);
+        assert_possible_feature_level(s, "TLS+EDNS0");
+        ASSERT_STREQ(dns_server_string_full(s), "dnss://192.0.2.1:8853#downgrade=5353");
+        ASSERT_EQ(dns_server_transport_port(s->transports[DNS_TRANSPORT_DOT]), 8853U);
+        ASSERT_EQ(dns_server_transport_port(s->transports[DNS_TRANSPORT_DNS]), 5353U);
+        ASSERT_EQ(dns_server_port(s), 5353U);
+        dns_server_unlink(s);
+
+        new_server_from_string(&manager, "dnss://192.0.2.1#downgrade", &s);
+        ASSERT_STREQ(dns_server_string_full(s), "dnss://192.0.2.1#downgrade");
+        ASSERT_EQ(dns_server_transport_port(s->transports[DNS_TRANSPORT_DNS]), 53U);
+        dns_server_unlink(s);
+#endif
+}
+
 TEST(transport_port) {
         union in_addr_union address = { .in.s_addr = htobe32(0xc0000201) };
         Manager manager = {};
@@ -793,9 +1012,11 @@ TEST(transport_port) {
 
         ASSERT_OK(dns_server_new(&manager, &s, DNS_SERVER_SYSTEM, /* link= */ NULL, /* delegate= */ NULL,
                                  AF_INET, &address, /* port= */ 0, /* ifindex= */ 0, /* server_name= */ NULL,
+                                 /* transport_policy= */ 0, /* downgrade_port= */ 0,
                                  RESOLVE_CONFIG_SOURCE_DBUS));
         ASSERT_OK(dns_server_new(&manager, &s_port, DNS_SERVER_SYSTEM, /* link= */ NULL, /* delegate= */ NULL,
                                  AF_INET, &address, /* port= */ 5353, /* ifindex= */ 0, /* server_name= */ NULL,
+                                 /* transport_policy= */ 0, /* downgrade_port= */ 0,
                                  RESOLVE_CONFIG_SOURCE_DBUS));
 
         /* Without a port configured, each transport uses its own well-known port. A configured port is used
@@ -829,6 +1050,7 @@ TEST(transport_stream) {
 
         ASSERT_OK(dns_server_new(&manager, &s, DNS_SERVER_SYSTEM, /* link= */ NULL, /* delegate= */ NULL,
                                  AF_INET, &address, /* port= */ 0, /* ifindex= */ 0, /* server_name= */ NULL,
+                                 /* transport_policy= */ 0, /* downgrade_port= */ 0,
                                  RESOLVE_CONFIG_SOURCE_DBUS));
         tr = ASSERT_PTR(s->transports[DNS_TRANSPORT_DNS]);
         ASSERT_EQ(s->n_ref, 1U);
@@ -887,6 +1109,7 @@ TEST(transport_stream_replace_last_reference) {
 
         ASSERT_OK(dns_server_new(&manager, &s, DNS_SERVER_SYSTEM, /* link= */ NULL, /* delegate= */ NULL,
                                  AF_INET, &address, /* port= */ 0, /* ifindex= */ 0, /* server_name= */ NULL,
+                                 /* transport_policy= */ 0, /* downgrade_port= */ 0,
                                  RESOLVE_CONFIG_SOURCE_DBUS));
         tr = ASSERT_PTR(s->transports[DNS_TRANSPORT_DNS]);
 
@@ -926,6 +1149,7 @@ TEST(transport_open_stream) {
                                 DNS_PROTOCOL_DNS, AF_INET));
         ASSERT_OK(dns_server_new(&manager, &s, DNS_SERVER_SYSTEM, /* link= */ NULL, /* delegate= */ NULL,
                                  AF_INET, &address, /* port= */ 0, /* ifindex= */ 0, /* server_name= */ NULL,
+                                 /* transport_policy= */ 0, /* downgrade_port= */ 0,
                                  RESOLVE_CONFIG_SOURCE_DBUS));
 
         /* Opening a connection only needs the transaction's scope. The connection is established with
@@ -1006,6 +1230,7 @@ TEST(transport_open_datagram) {
                                 DNS_PROTOCOL_DNS, AF_INET));
         ASSERT_OK(dns_server_new(&manager, &s, DNS_SERVER_SYSTEM, /* link= */ NULL, /* delegate= */ NULL,
                                  AF_INET, &address, /* port= */ 5353, /* ifindex= */ 0, /* server_name= */ NULL,
+                                 /* transport_policy= */ 0, /* downgrade_port= */ 0,
                                  RESOLVE_CONFIG_SOURCE_DBUS));
 
         /* Classic DNS opens a UDP socket connected to the server, on the transport's port */
@@ -1037,6 +1262,7 @@ TEST(unref_streams_last_reference) {
 
         ASSERT_OK(dns_server_new(&manager, &s, DNS_SERVER_SYSTEM, /* link= */ NULL, /* delegate= */ NULL,
                                  AF_INET, &address, /* port= */ 0, /* ifindex= */ 0, /* server_name= */ NULL,
+                                 /* transport_policy= */ 0, /* downgrade_port= */ 0,
                                  RESOLVE_CONFIG_SOURCE_DBUS));
 
         /* Leave the long-lived stream of classic DNS holding the only reference to the server, while
@@ -1070,6 +1296,7 @@ TEST(policy_drops_stream) {
 
         ASSERT_OK(dns_server_new(&manager, &s, DNS_SERVER_SYSTEM, /* link= */ NULL, /* delegate= */ NULL,
                                  AF_INET, &address, /* port= */ 0, /* ifindex= */ 0, /* server_name= */ NULL,
+                                 /* transport_policy= */ 0, /* downgrade_port= */ 0,
                                  RESOLVE_CONFIG_SOURCE_DBUS));
 
         /* The long-lived stream of a transport the policy no longer permits is closed, both if the transport
@@ -1109,6 +1336,7 @@ TEST(reset_features_detaches_tls_streams) {
 
         ASSERT_OK(dns_server_new(&manager, &s, DNS_SERVER_SYSTEM, /* link= */ NULL, /* delegate= */ NULL,
                                  AF_INET, &address, /* port= */ 0, /* ifindex= */ 0, /* server_name= */ NULL,
+                                 /* transport_policy= */ 0, /* downgrade_port= */ 0,
                                  RESOLVE_CONFIG_SOURCE_DBUS));
 
         DnsTransportDot *dot = ASSERT_PTR(DNS_TRANSPORT_TO_DOT(s->transports[DNS_TRANSPORT_DOT]));
@@ -1164,6 +1392,7 @@ TEST(unverified_tls_stream_not_reused) {
 
         ASSERT_OK(dns_server_new(&manager, &s, DNS_SERVER_SYSTEM, /* link= */ NULL, /* delegate= */ NULL,
                                  AF_INET, &address, /* port= */ 0, /* ifindex= */ 0, /* server_name= */ NULL,
+                                 /* transport_policy= */ 0, /* downgrade_port= */ 0,
                                  RESOLVE_CONFIG_SOURCE_DBUS));
         tr = ASSERT_PTR(s->transports[DNS_TRANSPORT_DOT]);
 
@@ -1209,6 +1438,7 @@ TEST(open_stream_drops_last_reference) {
                                 DNS_PROTOCOL_DNS, AF_INET));
         ASSERT_OK(dns_server_new(&manager, &s, DNS_SERVER_SYSTEM, /* link= */ NULL, /* delegate= */ NULL,
                                  AF_INET, &address, /* port= */ 0, /* ifindex= */ 0, /* server_name= */ NULL,
+                                 /* transport_policy= */ 0, /* downgrade_port= */ 0,
                                  RESOLVE_CONFIG_SOURCE_DBUS));
         tr = ASSERT_PTR(s->transports[DNS_TRANSPORT_DOT]);
 

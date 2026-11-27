@@ -150,6 +150,9 @@ static int dns_transport_dns_open_stream(DnsServerTransport *tr, DnsTransaction 
 
 const DnsTransportVTable dns_transport_dns_vtable = {
         .object_size = sizeof(DnsTransportDns),
+        .scheme = "dns",
+        .encrypted = false,
+        .downgrade = _DNS_TRANSPORT_KIND_INVALID,
         .default_port = 53,
         .edns_min = DNS_SERVER_EDNS_LEVEL_NONE,
         .reset_counters = dns_transport_dns_reset_counters,
