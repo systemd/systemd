@@ -624,6 +624,8 @@ void varlink_unit_send_change_signal(Unit *u) {
 void varlink_job_send_change_signal(Job *j) {
         assert(j);
 
+        varlink_job_notify_subscribers(j);
+
         if (!j->varlink || !j->varlink_notify_job_changes)
                 return;
 
@@ -669,6 +671,8 @@ void varlink_job_send_removed_signal(Job *j) {
         int r;
 
         assert(j);
+
+        varlink_job_notify_subscribers(j);
 
         if (!j->varlink)
                 return;

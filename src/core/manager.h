@@ -501,6 +501,8 @@ typedef struct Manager {
         unsigned notifygen;
 
         sd_varlink_server *varlink_server;
+        /* io.systemd.Job.Subscribe() streams: sd_varlink* → unit name patterns (strv) */
+        Hashmap *varlink_job_subscribers;
         /* Varlink clients streaming a job, by job id, carried across a reload since connections can't be serialized */
         Hashmap *stashed_varlink_job_clients;
         /* When we're a system manager, this object manages the subscription from systemd-oomd to PID1 that's
