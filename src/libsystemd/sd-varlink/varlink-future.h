@@ -45,3 +45,5 @@ int varlink_observe_channel_new_conflated(
                 const char *method,
                 sd_json_variant *parameters,
                 sd_channel **ret);
+
+int varlink_observe_channel_pop(sd_channel *channel, VarlinkReply **ret);

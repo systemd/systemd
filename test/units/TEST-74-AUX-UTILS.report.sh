@@ -43,6 +43,56 @@ testcase_cli() {
     "$REPORT" describe piff
 }
 
+testcase_cli_stream() {
+    local metrics
+    metric_sources_setup
+
+    echo '{"parameters":{"name":"io.test.First.One","value":1},"continues":true}' >"$metric_tmpdir/first.json"
+    echo '{"parameters":{"name":"io.test.First.Two","value":2}}' >>"$metric_tmpdir/first.json"
+    echo '{"parameters":{"name":"io.test.Second.One","value":3}}' >"$metric_tmpdir/second.json"
+    metric_sources_start First "$metric_tmpdir/first.json"
+    metric_sources_start Second "$metric_tmpdir/second.json"
+
+    metrics=$(timeout 30 "$REPORT" --json=short metrics io.test)
+
+    assert_metric_count_eq "$metrics" 3
+    assert_metric_value_eq "$metrics" io.test.First.One 1
+    assert_metric_value_eq "$metrics" io.test.First.Two 2
+    assert_metric_value_eq "$metrics" io.test.Second.One 3
+    metric_sources_wait
+}
+
+testcase_cli_failed_provider() {
+    local metrics
+    metric_sources_setup
+
+    ln -s "$metric_tmpdir/missing" /run/systemd/report/io.test.First
+    echo '{"parameters":{"name":"io.test.Second.One","value":3}}' >"$metric_tmpdir/second.json"
+    metric_sources_start Second "$metric_tmpdir/second.json"
+
+    metrics=$(timeout 30 "$REPORT" --json=short metrics io.test)
+
+    assert_metric_count_eq "$metrics" 1
+    assert_metric_value_eq "$metrics" io.test.Second.One 3
+    metric_sources_wait
+}
+
+testcase_cli_invalid_metric() {
+    local metrics rc=0
+    metric_sources_setup
+
+    echo '{"parameters":{"value":1},"continues":true}' >"$metric_tmpdir/first.json"
+    echo '{"parameters":{"name":"io.test.First.One","value":2}}' >>"$metric_tmpdir/first.json"
+    metric_sources_start First "$metric_tmpdir/first.json"
+
+    metrics=$(timeout 30 "$REPORT" --json=short metrics io.test) || rc=$?
+
+    assert_eq "$rc" 1
+    assert_metric_count_eq "$metrics" 1
+    assert_metric_value_eq "$metrics" io.test.First.One 2
+    metric_sources_wait
+}
+
 testcase_cgroup() {
     # test io.systemd.CGroup Metrics
     systemctl start systemd-report-cgroup.socket
@@ -706,6 +756,27 @@ testcase_generate() {
     NONCE="$(openssl rand -base64 32)"
     assert_eq "$("$REPORT" generate --nonce="$NONCE" io.systemd.Manager.UnitsTotal | jq -r .nonce)" "$NONCE"
     assert_fail "$REPORT" generate --nonce='!!!not base64!!!' io.systemd.Manager.UnitsTotal
+}
+
+testcase_varlink_generate() {
+    local report
+    metric_sources_setup
+    trap 'metric_sources_cleanup; systemctl stop systemd-report.socket' EXIT
+
+    echo '{"parameters":{"name":"io.test.First.One","value":1}}' >"$metric_tmpdir/first.json"
+    echo '{"parameters":{"name":"io.test.Second.One","value":2}}' >"$metric_tmpdir/second.json"
+    metric_sources_start First "$metric_tmpdir/first.json"
+    metric_sources_start Second "$metric_tmpdir/second.json"
+
+    systemctl start systemd-report.socket
+    report=$(timeout 30 varlinkctl call /run/systemd/io.systemd.Report io.systemd.Report.Generate \
+        '{"matches":["io.test"]}')
+
+    jq -e '.report.metrics | sort_by(.name) == [
+        {"name":"io.test.First.One","value":1},
+        {"name":"io.test.Second.One","value":2}
+    ]' <<<"$report" >/dev/null
+    metric_sources_wait
 }
 
 testcase_upload_http() {
