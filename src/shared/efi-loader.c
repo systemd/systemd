@@ -370,6 +370,25 @@ int efi_measured_smbios(int log_level) {
 #endif
 }
 
+int efi_should_use_pcrsig(int log_level) {
+        int r;
+
+        /* Returns if signed PCR 11 policies can be used, i.e., if systemd-stub measured the UKI into PCR 11
+         * and the OS gets measured too. Otherwise PCR 11 never reaches the signed values. */
+
+        r = secure_getenv_bool("SYSTEMD_FORCE_MEASURE"); /* Like in efi_measured_os(), for testing purposes */
+        if (r >= 0)
+                return r;
+        if (r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_FORCE_MEASURE, ignoring: %m");
+
+        r = efi_measured_uki(log_level);
+        if (r <= 0)
+                return r;
+
+        return efi_measured_os(log_level);
+}
+
 int efi_loader_get_config_timeout_one_shot(usec_t *ret) {
 #if ENABLE_EFI
         _cleanup_free_ char *v = NULL;
