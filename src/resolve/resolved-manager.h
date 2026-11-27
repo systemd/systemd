@@ -29,6 +29,7 @@ typedef struct Manager {
         bool cache_from_localhost;
         DnsStubListenerMode dns_stub_listener_mode;
         usec_t stale_retention_usec;
+        usec_t retry_primary_dns_server_usec;
 
 #if ENABLE_DNS_OVER_TLS
         DnsTlsManagerData dnstls_data;
@@ -57,6 +58,7 @@ typedef struct Manager {
         LIST_HEAD(DnsServer, fallback_dns_servers);
         unsigned n_dns_servers; /* counts both main and fallback */
         DnsServer *current_dns_server;
+        usec_t current_dns_server_switched_usec;
 
         LIST_HEAD(DnsSearchDomain, search_domains);
         unsigned n_search_domains;
