@@ -972,6 +972,10 @@
         must refer to a path in the local file system referencing the directory to find or place the version
         files or directories under.</para>
 
+        <para>With <option>--root=</option>, a partition target may refer to a regular disk image file
+        inside the root with a single hard link, but not to a block device or the disk backing a directory. With
+        <option>--image=</option>, <literal>auto</literal> refers to the specified disk image.</para>
+
         <para>Note that this mechanism cannot be used to create or remove partitions, in case
         <varname>Type=</varname> is set to <constant>partition</constant>. Partitions must exist already, and
         a special partition label <literal>_empty</literal> is used to indicate empty partitions. To

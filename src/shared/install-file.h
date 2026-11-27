@@ -12,7 +12,16 @@ typedef enum InstallFileFlags {
         INSTALL_GRACEFUL   = 1 << 5, /* don't fail if we cannot sync or mark read-only */
 } InstallFileFlags;
 
-int install_file(int source_atfd, const char *source_name, int target_atfd, const char *target_name, InstallFileFlags flags);
+int install_file_full(int source_atfd, const char *source_name, int source_fd, int target_atfd, const char *target_name, InstallFileFlags flags);
+static inline int install_file(
+                int source_atfd,
+                const char *source_name,
+                int target_atfd,
+                const char *target_name,
+                InstallFileFlags flags) {
+
+        return install_file_full(source_atfd, source_name, /* source_fd= */ -EBADF, target_atfd, target_name, flags);
+}
 
 usec_t parse_source_date_epoch(void);
 int source_date_epoch_seconds(char **ret);

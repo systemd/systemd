@@ -402,7 +402,15 @@
         <term><option>--root=</option></term>
 
         <listitem><para>Takes a path to a directory to use as root file system when searching for
-        <filename>sysupdate.d/*.conf</filename> files.</para>
+        <filename>sysupdate.d/*.conf</filename> files and resolving local transfer paths. Filesystem
+        targets are installed beneath this root. A directory in it cannot be used to select the disk
+        backing it as a partition target. Use <option>--image=</option> to update the partitions of a
+        specific disk image.</para>
+
+        <para>With <option>--root=</option> or <option>--image=</option>, only HTTP and HTTPS URLs may be
+        fetched for manifests and payloads. A transfer that specifies a local URL can still be inspected
+        offline or disabled without accessing the URL. Use a local file source to read from the target installation,
+        or <option>--transfer-source=</option> to supply a separate source directory.</para>
 
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>

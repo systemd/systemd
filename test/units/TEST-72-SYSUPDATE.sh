@@ -965,37 +965,109 @@ cmp "$WORKDIR/source/tiny-v1.bin" "$WORKDIR/blobs/tiny-v1.bin"
 [[ $(varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListFeatures '{"target":{"class":"host"}}' | jq -r '.features') == "[]" ]]
 
 # Test that definitions found through --root= are not prefixed twice.
-rm -rf "$WORKDIR/root-definitions"
-mkdir -p "$WORKDIR/root-definitions/etc/sysupdate.d" \
-         "$WORKDIR/root-definitions/etc" \
-         "$WORKDIR/root-definitions/source" \
-         "$WORKDIR/root-definitions/target"
-printf '%s\n' 'ID=repro' 'VERSION_ID=1' >"$WORKDIR/root-definitions/etc/os-release"
-cat >"$WORKDIR/root-definitions/etc/sysupdate.d/rootfeat.feature" <<EOF
+ROOTDIR="$WORKDIR/root-definitions"
+ROOT_TRANSFER="$ROOTDIR/etc/sysupdate.d/01-root.transfer"
+mkdir -p "$ROOTDIR/etc/sysupdate.d" "$ROOTDIR/source" "$ROOTDIR/store"
+ln -s /store "$ROOTDIR/target"
+printf '%s\n' 'ID=repro' 'VERSION_ID=1' >"$ROOTDIR/etc/os-release"
+cat >"$ROOTDIR/etc/sysupdate.d/rootfeat.feature" <<EOF
 [Feature]
 Description=Root Feature
 EOF
-cat >"$WORKDIR/root-definitions/etc/sysupdate.d/01-root.transfer" <<EOF
-[Transfer]
-
+root_transfer() {
+    local source_type="${1:?}" source_path="${2:?}" target_type="${3:?}" target_path="${4:?}" source_option="${5:-}"
+    cat >"$ROOT_TRANSFER" <<EOF
 [Source]
-Type=regular-file
-Path=/source
-MatchPattern=root-@v.bin
+Type=$source_type
+Path=$source_path
+MatchPattern=root-@v
+$source_option
 
 [Target]
-Type=regular-file
-Path=/target
-MatchPattern=root-@v.bin
-InstancesMax=2
+Type=$target_type
+Path=$target_path
+MatchPattern=root-@v
 EOF
-"$SYSUPDATE" \
-    --root="$WORKDIR/root-definitions" \
-    --verify=no \
-    --offline \
-    features rootfeat \
-    | grep -F "Root Feature" >/dev/null
-rm -rf "$WORKDIR/root-definitions"
+}
+root_transfer regular-file /source regular-file /target/nested
+cat >>"$ROOT_TRANSFER" <<EOF
+InstancesMax=2
+CurrentSymlink=current
+RemoveTemporary=no
+EOF
+"$SYSUPDATE" --root="$ROOTDIR" --verify=no --offline features rootfeat | grep -F "Root Feature" >/dev/null
+
+# Absolute symlinks resolve inside the root. An occupied staging name must not overwrite an installed file.
+printf 'first update\n' >"$ROOTDIR/source/root-1"
+"$SYSUPDATE" --root="$ROOTDIR" update
+[[ $(readlink "$ROOTDIR/store/nested/current") == root-1 ]]
+cmp "$ROOTDIR/source/root-1" "$ROOTDIR/store/nested/current"
+printf 'second update\n' >"$ROOTDIR/source/root-2"
+ln -s root-1 "$ROOTDIR/store/nested/.sysupdate.partial.root-2"
+(! "$SYSUPDATE" --root="$ROOTDIR" update) |& grep -F "Failed to open update destination for '$ROOTDIR/store/nested': File exists" >/dev/null
+cmp "$ROOTDIR/source/root-1" "$ROOTDIR/store/nested/root-1"
+rm "$ROOTDIR/store/nested/.sysupdate.partial.root-2"
+
+# Rename the destination while the helper is running. Both the write and publication must use the
+# original directory, not its replacement.
+cat >"$WORKDIR/move-and-import" <<'EOF'
+#!/bin/sh
+set -eu
+mv "$STORE/nested" "$STORE/moved"
+mkdir "$STORE/nested"
+exec /usr/lib/systemd/systemd-import "$@"
+EOF
+chmod +x "$WORKDIR/move-and-import"
+STORE="$ROOTDIR/store" SYSTEMD_IMPORT_PATH="$WORKDIR/move-and-import" "$SYSUPDATE" --root="$ROOTDIR" update
+cmp "$ROOTDIR/source/root-2" "$ROOTDIR/store/moved/root-2"
+cmp "$ROOTDIR/source/root-2" "$ROOTDIR/store/nested/current"
+test ! -e "$ROOTDIR/store/nested/root-2"
+
+# A directory supplied by the caller is a valid external source.
+mkdir -p "$WORKDIR/root-source/root-1"
+printf 'directory update\n' >"$WORKDIR/root-source/root-1/content"
+root_transfer directory / directory /target PathRelativeTo=explicit
+"$SYSUPDATE" --root="$ROOTDIR" --transfer-source="$WORKDIR/root-source" update
+cmp "$WORKDIR/root-source/root-1/content" "$ROOTDIR/store/root-1/content"
+
+root_reject_manifest() {
+    root_transfer "$@"
+    "$SYSUPDATE" --root="$ROOTDIR" --offline list
+    (! "$SYSUPDATE" --root="$ROOTDIR" --verify=no list) |& grep -F 'Only HTTP(S) transfer URLs are allowed with --root= or --image=, refusing manifest' >/dev/null
+}
+root_reject_manifest url-file file:///source regular-file /target
+root_reject_manifest url-file https://example.invalid/repo regular-file /target ManifestPath=file:///source/SHA256SUMS
+root_reject_manifest url-file 'provider:[/run/example.sock]/repo' regular-file /target
+"$SYSUPDATE" --root="$ROOTDIR" vacuum
+
+# A disabled transfer with a local URL must not prevent other transfers from discovering updates.
+mv "$ROOT_TRANSFER" "$ROOTDIR/etc/sysupdate.d/local-url.transfer"
+printf '\n[Transfer]\nFeatures=rootfeat\n' >>"$ROOTDIR/etc/sysupdate.d/local-url.transfer"
+root_transfer regular-file /source regular-file /target
+"$SYSUPDATE" --root="$ROOTDIR" disable-feature rootfeat
+"$SYSUPDATE" --root="$ROOTDIR" list 2
+rm "$ROOTDIR/etc/sysupdate.d/local-url.transfer"
+
+root_transfer regular-file /source partition /target
+(! "$SYSUPDATE" --root="$ROOTDIR" --offline list) |& grep -F 'Cannot use the backing device of a directory' >/dev/null
+
+# A regular disk image inside the root, unlike a directory's backing device, is a valid partition target.
+truncate -s 4M "$ROOTDIR/disk.raw"
+sfdisk "$ROOTDIR/disk.raw" <<EOF
+label: gpt
+sector-size: 512
+
+start=2048, size=1024, type=linux, name=_empty
+start=4096, size=1024, type=linux, name=_empty
+EOF
+root_transfer regular-file /source partition /disk.raw
+ln "$ROOTDIR/disk.raw" "$ROOTDIR/second-link.raw"
+(! "$SYSUPDATE" --root="$ROOTDIR" update) |& grep -F 'Refusing to update a multiply linked disk image with --root=' >/dev/null
+rm "$ROOTDIR/second-link.raw"
+"$SYSUPDATE" --root="$ROOTDIR" update
+[[ $(sfdisk --part-label "$ROOTDIR/disk.raw" 1) == root-2 ]]
+cmp -n "$(stat -c %s "$ROOTDIR/source/root-2")" "$ROOTDIR/source/root-2" "$ROOTDIR/disk.raw" 0 $((2048 * 512))
+rm -rf "$ROOTDIR"
 
 # Cleanup
 rm "$CONFIGDIR/01-tiny-url.transfer"
@@ -1339,6 +1411,57 @@ grep -x '8073 open hhauth-v1.bin - -' "$HH/requests.log" >/dev/null
 # …and gives up eventually
 (! "$PULL" raw --verify=no --direct http://127.0.0.1:8072/loop/hhauth-v1.bin "$HH/pulled4.bin") |& \
     grep -F "Too many HTTP redirects" >/dev/null
+
+# An HTTP manifest cannot grant access to a local URL when updating a directory root. The file is
+# present and matches the digest, but must be rejected before acquisition in favor of the inline source.
+mkdir -p "$HH/root/etc/sysupdate.d"
+cat >"$HH/root/etc/sysupdate.d/01-root.transfer" <<EOF
+[Source]
+Type=url-file
+Path=http://127.0.0.1:8072/open
+ManifestFormat=uapi16
+MatchPattern=inline-@v.bin
+
+[Target]
+Type=regular-file
+Path=/target
+MatchPattern=inline-@v.bin
+EOF
+payload="$WORKDIR/uapi16/inline-v1.bin"
+{
+    printf '\036{"mediaType":"application/vnd.uapi.16.manifest"}\n'
+    printf '\036{"name":"inline-v1.bin","size":%s,"sha256":"%s","contents":[{"url":"file://%s"},{"literal":"%s"}]}\n' \
+        "$(stat -c %s "$payload")" "$(sha256_of "$payload")" "$payload" "$(base64 -w0 "$payload")"
+    printf '\036{"mediaType":"application/vnd.uapi.16.trailer"}\n'
+} >"$HH/srv/Uapi16Manifest"
+"$SYSUPDATE" --root="$HH/root" --verify=no update &>"$HH/root-update.log"
+grep -F "Local URL 'file://$payload' for 'inline-v1.bin' is not allowed with --root= or --image=, ignoring source" "$HH/root-update.log" >/dev/null
+(! grep -F "Pulling 'file://$payload'" "$HH/root-update.log")
+cmp "$payload" "$HH/root/target/inline-v1.bin"
+
+# The pull helper gets both a headers fd and a separate pinned output fd for this rooted transfer.
+cp "$HH/Uapi16Manifest" "$HH/srv/Uapi16Manifest"
+sed -i 's/inline-@v/hhauth-@v/g' "$HH/root/etc/sysupdate.d/01-root.transfer"
+"$SYSUPDATE" --root="$HH/root" --verify=no update
+cmp "$HH/srv/hhauth-v1.bin" "$HH/root/target/hhauth-v1.bin"
+
+# An allowed manifest may be listed, but its implicit payload URL must be checked separately on acquire.
+(cd "$HH/srv" && sha256sum hhsame-v1.bin >SHA256SUMS)
+cat >"$HH/root/etc/sysupdate.d/01-root.transfer" <<EOF
+[Source]
+Type=url-file
+Path=file://$HH/srv
+ManifestPath=http://127.0.0.1:8072/open/SHA256SUMS
+MatchPattern=hhsame-@v.bin
+
+[Target]
+Type=regular-file
+Path=/target
+MatchPattern=hhsame-@v.bin
+EOF
+"$SYSUPDATE" --root="$HH/root" --verify=no list v1
+(! "$SYSUPDATE" --root="$HH/root" --verify=no update) |& grep -F "refusing payload 'file://$HH/srv/hhsame-v1.bin'" >/dev/null
+test ! -e "$HH/root/target/.sysupdate.partial.hhsame-v1.bin"
 
 systemctl stop test-72-http-a.service test-72-http-b.service
 
@@ -3032,6 +3155,12 @@ Description=Feature A
 EOF
 "$SYSUPDATE" --root="$ROOT_FEATURE_ROOT" --component-all enable-feature --feature-all
 assert_dropin "$ROOT_FEATURE_ROOT$(feat_enable_dropin_default feata)" yes
+
+# Component enablement must also write inside the selected root, not the host configuration directory.
+printf '[Component]\nEnabled=no\n' >"$ROOT_FEATURE_ROOT/etc/sysupdate.root-only.component"
+"$SYSUPDATE" --root="$ROOT_FEATURE_ROOT" enable-component root-only
+assert_dropin "$ROOT_FEATURE_ROOT$(comp_enable_dropin root-only)" yes
+test ! -e "$(comp_enable_dropin root-only)"
 
 rm -rf "$ROOT_FEATURE"
 
