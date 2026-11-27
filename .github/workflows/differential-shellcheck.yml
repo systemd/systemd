@@ -10,7 +10,7 @@ on:
       - '!**/README*'
       - '!LICENSE*'
       - '!LICENSES/**'
-      - "!NEWS"
+      - '!NEWS'
       - '!TODO.md'
       - '!po/**'
     branches:
@@ -22,7 +22,7 @@ on:
       - '!**/README*'
       - '!LICENSE*'
       - '!LICENSES/**'
-      - "!NEWS"
+      - '!NEWS'
       - '!TODO.md'
       - '!po/**'
     branches:
