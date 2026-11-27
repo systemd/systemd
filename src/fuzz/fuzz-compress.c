@@ -49,6 +49,13 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         log_debug("Compressed %zu bytes to → %zu bytes", data_len, csize);
 
+        if (alg == COMPRESSION_LZ4) {
+                LZ4BlobScan scan = {};
+
+                ASSERT_OK_POSITIVE(lz4_blob_scan(buf, csize, &scan));
+                ASSERT_EQ(scan.offset, csize);
+        }
+
         size_t sw_alloc = MAX(h->sw_alloc, 1u);
         buf2 = malloc(sw_alloc);
         if (!buf2) {
