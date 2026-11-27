@@ -68,6 +68,7 @@ struct CoredumpContext {
         int got_code;      /* META_CODE, tristate */
         bool same_pidns;
         bool forwarded;
+        bool records;      /* input_fd carries COREDUMP_RECORDS with COREDUMP_SPARSE instead of a byte stream */
         int input_fd;
         int mount_tree_fd;
         struct iovec_wrapper iovw;

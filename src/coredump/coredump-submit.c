@@ -19,6 +19,7 @@
 #include "copy.h"
 #include "coredump-config.h"
 #include "coredump-context.h"
+#include "coredump-records.h"
 #include "coredump-submit.h"
 #include "coredump-util.h"
 #include "coredump-vacuum.h"
@@ -347,7 +348,10 @@ static int save_external_coredump(
                 log_debug("Limiting core file size to %" PRIu64 " bytes due to cgroup and/or filesystem limits.", max_size);
         }
 
-        r = copy_bytes(context->input_fd, fd, max_size, /* copy_flags= */ 0);
+        if (context->records)
+                r = coredump_copy_records(context->input_fd, fd, max_size);
+        else
+                r = copy_bytes(context->input_fd, fd, max_size, /* copy_flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Cannot store coredump of "PID_FMT" (%s): %m",
                                        context->pidref.pid, context->comm);
@@ -377,7 +381,9 @@ static int save_external_coredump(
                 if (r < 0)
                         return log_error_errno(r, "Failed to compress %s: %m", coredump_tmpfile_name(tmp_compressed));
 
-                if (truncated && storage_on_tmpfs) {
+                /* The rest of a coredump sent as records can't be compressed as a plain stream, so it is
+                 * left out. */
+                if (truncated && storage_on_tmpfs && !context->records) {
                         uint64_t partial_uncompressed_size = 0;
 
                         /* Uncompressed write was truncated and we are writing to tmpfs: delete
