@@ -9,6 +9,7 @@
  *
  * This binary is intentionally linked against libsystemd only so that it can go in the minimal image. */
 
+#include <assert.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
