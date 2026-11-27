@@ -619,8 +619,10 @@ static usec_t extra_timeout_usec(void) {
                 return saved;
 
         r = parse_sec(e, &timeout);
-        if (r < 0)
+        if (r < 0) {
                 log_debug_errno(r, "Failed to parse $SYSTEMD_UDEV_EXTRA_TIMEOUT_SEC=%s, ignoring: %m", e);
+                return saved;
+        }
 
         if (timeout > 5 * USEC_PER_HOUR) /* Add an arbitrary upper bound */
                 log_debug("Parsed $SYSTEMD_UDEV_EXTRA_TIMEOUT_SEC=%s is too large, ignoring.", e);
