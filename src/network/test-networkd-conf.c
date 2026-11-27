@@ -5,12 +5,14 @@
 #include "net-condition.h"
 #include "networkd-address.h"
 #include "networkd-dhcp-server-static-lease.h"
+#include "networkd-dns.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-route.h"
 #include "networkd-route-nexthop.h"
 #include "ordered-set.h"
 #include "set.h"
+#include "socket-netlink.h"
 #include "strv.h"
 #include "tests.h"
 
@@ -35,6 +37,26 @@ TEST(config_parse_duid_type) {
         test_config_parse_duid_type_one("uuid:2000-01-01 00:00:00 UTC", /* expected= */ 0, /* expected_time= */ 0);
         test_config_parse_duid_type_one("foo", /* expected= */ 0, /* expected_time= */ 0);
         test_config_parse_duid_type_one("foo:2000-01-01 00:00:00 UTC", /* expected= */ 0, /* expected_time= */ 0);
+}
+
+TEST(config_parse_dns) {
+        Network n = {};
+
+        /* Both forms are accepted. Without a scheme the default port of either transport means none. URIs
+         * are only checked for their syntax, and passed on as they are, since only systemd-resolved knows
+         * the schemes. */
+        ASSERT_OK(config_parse_dns("network", "filename", 1, "section", 1, "DNS", /* ltype= */ 0,
+                                   "192.0.2.1:853 dnss://192.0.2.2:853#downgrade=5353 dnz://192.0.2.3 "
+                                   "dns://example.com dns://192.0.2.4#name=a&name=b",
+                                   /* data= */ NULL, &n));
+        ASSERT_EQ(n.n_dns, 3U);
+        ASSERT_STREQ(in_addr_full_to_string(n.dns[0]), "192.0.2.1");
+        ASSERT_STREQ(in_addr_full_to_string(n.dns[1]), "dnss://192.0.2.2:853#downgrade=5353");
+        ASSERT_STREQ(in_addr_full_to_string(n.dns[2]), "dnz://192.0.2.3");
+
+        ASSERT_OK(config_parse_dns("network", "filename", 1, "section", 1, "DNS", /* ltype= */ 0, "",
+                                   /* data= */ NULL, &n));
+        ASSERT_EQ(n.n_dns, 0U);
 }
 
 static void test_config_parse_duid_rawdata_one(const char *rvalue, const DUID* expected) {

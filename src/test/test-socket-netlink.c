@@ -3,6 +3,8 @@
 #include <fcntl.h>
 #include <sys/eventfd.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -12,6 +14,7 @@
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "tests.h"
 
 static void test_socket_address_parse_one(const char *in, int ret, int family, const char *expected) {
@@ -375,6 +378,143 @@ TEST(in_addr_port_ifindex_name_from_string_auto) {
         test_in_addr_port_ifindex_name_from_string_auto_one("[fe80::18]:53%1#hoge.com", AF_INET6, 53, 1, "hoge.com", /* str_repr= */ NULL);
         test_in_addr_port_ifindex_name_from_string_auto_one("[fe80::18]:53%lo", AF_INET6, 53, 1, /* server_name= */ NULL, "[fe80::18]:53%1");
         test_in_addr_port_ifindex_name_from_string_auto_one("[fe80::18]:53%lo#hoge.com", AF_INET6, 53, 1, "hoge.com", "[fe80::18]:53%1#hoge.com");
+}
+
+static void test_in_addr_full_new_from_uri_one(
+                const char *str,
+                const char *scheme,
+                int family,
+                const char *address,
+                uint16_t port,
+                int ifindex,
+                const char *server_name,
+                const char *path,
+                const char *query,
+                char **params,
+                const char *str_repr) {
+
+        _cleanup_(in_addr_full_freep) struct in_addr_full *a = NULL;
+        union in_addr_union u;
+
+        log_info("/* %s(%s) */", __func__, str);
+
+        ASSERT_OK(in_addr_full_new_from_uri(str, &a));
+        ASSERT_STREQ(a->scheme, scheme);
+        ASSERT_EQ(a->family, family);
+        ASSERT_OK(in_addr_from_string(family, address, &u));
+        ASSERT_TRUE(in_addr_equal(family, &a->address, &u));
+        ASSERT_EQ(a->port, port);
+        ASSERT_EQ(a->ifindex, ifindex);
+        ASSERT_STREQ(a->server_name, server_name);
+        ASSERT_STREQ(a->path, path);
+        ASSERT_STREQ(a->query, query);
+        ASSERT_TRUE(strv_equal(a->params, params));
+        ASSERT_STREQ(in_addr_full_to_string(a), str_repr ?: str);
+}
+
+static void test_in_addr_full_params_to_json_one(const char *uri, const char *expected) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_(in_addr_full_freep) struct in_addr_full *a = NULL;
+        _cleanup_free_ char *j = NULL;
+
+        log_debug("/* %s(%s) */", __func__, uri);
+
+        ASSERT_OK(in_addr_full_new_from_uri(uri, &a));
+        ASSERT_OK(in_addr_full_params_to_json(a, &v));
+        if (!expected) {
+                ASSERT_NULL(v);
+                return;
+        }
+
+        ASSERT_OK(sd_json_variant_format(v, /* flags= */ 0, &j));
+        ASSERT_STREQ(j, expected);
+}
+
+TEST(in_addr_full_params_to_json) {
+        test_in_addr_full_params_to_json_one("dnss://192.0.2.1", /* expected= */ NULL);
+        /* The server name and interface have fields of their own */
+        test_in_addr_full_params_to_json_one("dnss://192.0.2.1#name=example.com", /* expected= */ NULL);
+        test_in_addr_full_params_to_json_one("dnss://192.0.2.1#downgrade", "{\"downgrade\":\"\"}");
+        test_in_addr_full_params_to_json_one("dnss://192.0.2.1#name=example.com&downgrade=5353&a=b",
+                                             "{\"downgrade\":\"5353\",\"a\":\"b\"}");
+}
+
+TEST(in_addr_full_new_from_uri) {
+        test_in_addr_full_new_from_uri_one("dns://192.168.0.1", "dns", AF_INET, "192.168.0.1", /* port= */ 0, /* ifindex= */ 0,
+                                           /* server_name= */ NULL, /* path= */ NULL, /* query= */ NULL, /* params= */ NULL, /* str_repr= */ NULL);
+        test_in_addr_full_new_from_uri_one("dns://192.168.0.1:5353", "dns", AF_INET, "192.168.0.1", 5353, /* ifindex= */ 0,
+                                           /* server_name= */ NULL, /* path= */ NULL, /* query= */ NULL, /* params= */ NULL, /* str_repr= */ NULL);
+        /* Scheme is case insensitive, an empty path is dropped */
+        test_in_addr_full_new_from_uri_one("DNSS://192.168.0.1/", "dnss", AF_INET, "192.168.0.1", /* port= */ 0, /* ifindex= */ 0,
+                                           /* server_name= */ NULL, /* path= */ NULL, /* query= */ NULL, /* params= */ NULL, "dnss://192.168.0.1");
+        test_in_addr_full_new_from_uri_one("dnss://[2001:db8::1]", "dnss", AF_INET6, "2001:db8::1", /* port= */ 0, /* ifindex= */ 0,
+                                           /* server_name= */ NULL, /* path= */ NULL, /* query= */ NULL, /* params= */ NULL, /* str_repr= */ NULL);
+        test_in_addr_full_new_from_uri_one("dnss://2001:db8::1", "dnss", AF_INET6, "2001:db8::1", /* port= */ 0, /* ifindex= */ 0,
+                                           /* server_name= */ NULL, /* path= */ NULL, /* query= */ NULL, /* params= */ NULL, "dnss://[2001:db8::1]");
+        test_in_addr_full_new_from_uri_one("dnss://[2001:db8::1]:853", "dnss", AF_INET6, "2001:db8::1", 853, /* ifindex= */ 0,
+                                           /* server_name= */ NULL, /* path= */ NULL, /* query= */ NULL, /* params= */ NULL, /* str_repr= */ NULL);
+        test_in_addr_full_new_from_uri_one("dnss://1.1.1.1#name=one.one.one.one", "dnss", AF_INET, "1.1.1.1", /* port= */ 0, /* ifindex= */ 0,
+                                           "one.one.one.one", /* path= */ NULL, /* query= */ NULL, /* params= */ NULL, /* str_repr= */ NULL);
+        /* name= and ifname= are written first, then the other parameters in their given order */
+        test_in_addr_full_new_from_uri_one("dnss://[fe80::1]:8853#downgrade=5353&ifname=lo&name=example.com", "dnss", AF_INET6, "fe80::1", 8853, 1,
+                                           "example.com", /* path= */ NULL, /* query= */ NULL, STRV_MAKE("downgrade=5353"),
+                                           "dnss://[fe80::1]:8853#name=example.com&ifname=1&downgrade=5353");
+        /* A bare key reads as an empty value, and is written back as a bare key */
+        test_in_addr_full_new_from_uri_one("dnss://1.1.1.1#downgrade", "dnss", AF_INET, "1.1.1.1", /* port= */ 0, /* ifindex= */ 0,
+                                           /* server_name= */ NULL, /* path= */ NULL, /* query= */ NULL, STRV_MAKE("downgrade="), /* str_repr= */ NULL);
+        test_in_addr_full_new_from_uri_one("dnss://1.1.1.1#downgrade=", "dnss", AF_INET, "1.1.1.1", /* port= */ 0, /* ifindex= */ 0,
+                                           /* server_name= */ NULL, /* path= */ NULL, /* query= */ NULL, STRV_MAKE("downgrade="), "dnss://1.1.1.1#downgrade");
+        /* Path and query are kept for the caller to check; '/' and '?' may appear in later parts */
+        test_in_addr_full_new_from_uri_one("https://1.1.1.1/dns-query?dns=x/y#a=b?c", "https", AF_INET, "1.1.1.1", /* port= */ 0, /* ifindex= */ 0,
+                                           /* server_name= */ NULL, "dns-query", "dns=x/y", STRV_MAKE("a=b?c"), /* str_repr= */ NULL);
+
+        _cleanup_(in_addr_full_freep) struct in_addr_full *a = NULL;
+
+        /* in_addr_full_new_from_string() accepts both forms */
+        ASSERT_OK(in_addr_full_new_from_string("dnss://192.168.0.1:853#downgrade", &a));
+        ASSERT_STREQ(a->scheme, "dnss");
+        ASSERT_EQ(a->port, 853);
+        ASSERT_STREQ(in_addr_full_to_string(a), "dnss://192.168.0.1:853#downgrade");
+        a = in_addr_full_free(a);
+        ASSERT_OK(in_addr_full_new_from_string("192.168.0.1:853#example.com", &a));
+        ASSERT_NULL(a->scheme);
+        ASSERT_STREQ(a->server_name, "example.com");
+        a = in_addr_full_free(a);
+        ASSERT_ERROR(in_addr_full_new_from_string("dns://example.com", &a), EINVAL);
+
+        /* Not in URI form */
+        ASSERT_ERROR(in_addr_full_new_from_uri("192.168.0.1", &a), EPROTONOSUPPORT);
+        ASSERT_ERROR(in_addr_full_new_from_uri("192.168.0.1#dns://x", &a), EPROTONOSUPPORT);
+        /* Separators only, at the very start, found by fuzz-network-parser */
+        ASSERT_ERROR(in_addr_full_new_from_uri("", &a), EPROTONOSUPPORT);
+        ASSERT_ERROR(in_addr_full_new_from_uri("#", &a), EPROTONOSUPPORT);
+        ASSERT_ERROR(in_addr_full_new_from_uri("?", &a), EPROTONOSUPPORT);
+        ASSERT_ERROR(in_addr_full_new_from_uri("?#", &a), EPROTONOSUPPORT);
+        ASSERT_ERROR(in_addr_full_new_from_uri("/", &a), EPROTONOSUPPORT);
+        ASSERT_ERROR(in_addr_full_new_from_string("#", &a), EINVAL);
+
+        /* Invalid schemes */
+        ASSERT_ERROR(in_addr_full_new_from_uri("://192.168.0.1", &a), EINVAL);
+        ASSERT_ERROR(in_addr_full_new_from_uri("://", &a), EINVAL);
+        ASSERT_ERROR(in_addr_full_new_from_uri("1dns://192.168.0.1", &a), EINVAL);
+        ASSERT_ERROR(in_addr_full_new_from_uri("d_s://192.168.0.1", &a), EINVAL);
+
+        /* Invalid authorities: missing, host names, userinfo, legacy '%' and '#' */
+        ASSERT_ERROR(in_addr_full_new_from_uri("dns://", &a), EINVAL);
+        ASSERT_ERROR(in_addr_full_new_from_uri("dns:///dns-query", &a), EINVAL);
+        ASSERT_ERROR(in_addr_full_new_from_uri("dns://example.com", &a), EINVAL);
+        ASSERT_ERROR(in_addr_full_new_from_uri("dns://user@192.168.0.1", &a), EINVAL);
+        ASSERT_ERROR(in_addr_full_new_from_uri("dns://[fe80::1]:53%lo", &a), EINVAL);
+        ASSERT_ERROR(in_addr_full_new_from_uri("dns://[]", &a), EINVAL);
+
+        /* Invalid fragments: duplicate keys, invalid keys, invalid interface names */
+        ASSERT_ERROR(in_addr_full_new_from_uri("dns://192.168.0.1#name=a&name=b", &a), EINVAL);
+        ASSERT_ERROR(in_addr_full_new_from_uri("dns://192.168.0.1#na-me=a", &a), EINVAL);
+        ASSERT_ERROR(in_addr_full_new_from_uri("dns://192.168.0.1#=a", &a), EINVAL);
+        ASSERT_ERROR(in_addr_full_new_from_uri("dns://192.168.0.1#ifname=", &a), EINVAL);
+        ASSERT_ERROR(in_addr_full_new_from_uri("dns://192.168.0.1#ifname=a/b", &a), EINVAL);
+
+        ASSERT_NULL(a);
 }
 
 TEST(netns_get_nsid) {

@@ -53,29 +53,23 @@ static int property_get_dns_over_tls_mode(
 }
 
 static int property_get_dns_internal(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
                 sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error,
-                bool extended) {
+                Link *l,
+                const char *signature,
+                DnsServerBusAppend append) {
 
-        Link *l = ASSERT_PTR(userdata);
         int r;
 
         assert(reply);
+        assert(l);
 
-        r = sd_bus_message_open_container(reply, 'a', extended ? "(iayqs)" : "(iay)");
+        r = sd_bus_message_open_container(reply, 'a', signature);
         if (r < 0)
                 return r;
 
-        LIST_FOREACH(servers, s, l->dns_servers) {
-                r = bus_dns_server_append(reply, s, /* with_ifindex= */ false, extended);
-                if (r < 0)
-                        return r;
-        }
+        r = bus_append_dns_servers(reply, l->dns_servers, /* with_ifindex= */ false, append);
+        if (r < 0)
+                return r;
 
         return sd_bus_message_close_container(reply);
 }
@@ -88,38 +82,7 @@ static int property_get_dns(
                 sd_bus_message *reply,
                 void *userdata,
                 sd_bus_error *error) {
-        return property_get_dns_internal(bus, path, interface, property, reply, userdata, error, /* extended= */ false);
-}
-
-static int property_get_dns_ex(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-        return property_get_dns_internal(bus, path, interface, property, reply, userdata, error, /* extended= */ true);
-}
-
-static int property_get_current_dns_server_internal(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error,
-                bool extended) {
-
-        DnsServer *s;
-
-        assert(reply);
-        assert(userdata);
-
-        s = *(DnsServer **) userdata;
-
-        return bus_dns_server_append(reply, s, /* with_ifindex= */ false, extended);
+        return property_get_dns_internal(reply, ASSERT_PTR(userdata), "s", bus_dns_server_append);
 }
 
 static int property_get_current_dns_server(
@@ -130,10 +93,13 @@ static int property_get_current_dns_server(
                 sd_bus_message *reply,
                 void *userdata,
                 sd_bus_error *error) {
-        return property_get_current_dns_server_internal(bus, path, interface, property, reply, userdata, error, /* extended= */ false);
+        return bus_dns_server_append(reply, *(DnsServer**) ASSERT_PTR(userdata), /* with_ifindex= */ false);
 }
 
-static int property_get_current_dns_server_ex(
+/* Legacy struct based DNS server properties (DNS, DNSEx, CurrentDNSServer, CurrentDNSServerEx), superseded
+ * by the URI ones. */
+
+static int property_get_dns_legacy(
                 sd_bus *bus,
                 const char *path,
                 const char *interface,
@@ -141,7 +107,40 @@ static int property_get_current_dns_server_ex(
                 sd_bus_message *reply,
                 void *userdata,
                 sd_bus_error *error) {
-        return property_get_current_dns_server_internal(bus, path, interface, property, reply, userdata, error, /* extended= */ true);
+        return property_get_dns_internal(reply, ASSERT_PTR(userdata), "(iay)", bus_dns_server_append_legacy_plain);
+}
+
+static int property_get_dns_legacy_ex(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+        return property_get_dns_internal(reply, ASSERT_PTR(userdata), "(iayqs)", bus_dns_server_append_legacy_ex);
+}
+
+static int property_get_current_dns_server_legacy(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+        return bus_dns_server_append_legacy(reply, *(DnsServer**) ASSERT_PTR(userdata), /* with_ifindex= */ false, /* extended= */ false);
+}
+
+static int property_get_current_dns_server_legacy_ex(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+        return bus_dns_server_append_legacy(reply, *(DnsServer**) ASSERT_PTR(userdata), /* with_ifindex= */ false, /* extended= */ true);
 }
 
 static int property_get_domains(
@@ -207,21 +206,21 @@ static int verify_unmanaged_link(Link *l, sd_bus_error *error) {
         return 0;
 }
 
-static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, void *userdata, sd_bus_error *error, bool extended) {
-        struct in_addr_full **dns;
-        Link *l = ASSERT_PTR(userdata);
-        size_t n;
+static int link_bus_set_dns_servers(
+                sd_bus_message *message,
+                Link *l,
+                struct in_addr_full **dns,
+                size_t n,
+                sd_bus_error *error) {
+
         int r;
 
         assert(message);
+        assert(l);
 
-        r = verify_unmanaged_link(l, error);
-        if (r < 0)
-                return r;
+        /* Takes ownership of dns. Called again by polkit, with the message read again. */
 
-        r = bus_message_read_dns_servers(message, error, extended, &dns, &n);
-        if (r < 0)
-                return r;
+        CLEANUP_ARRAY(dns, n, in_addr_full_free_array);
 
         r = bus_verify_polkit_async(
                         message,
@@ -229,34 +228,79 @@ static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, voi
                         (const char**) STRV_MAKE("interface", l->ifname),
                         &l->manager->polkit_registry, error);
         if (r < 0)
-                goto finalize;
-        if (r == 0) {
-                r = 1; /* Polkit will call us back */
-                goto finalize;
-        }
+                return r;
+        if (r == 0)
+                return 1; /* Polkit will call us back */
 
         bus_client_log(message, "DNS server change");
 
         r = link_set_dns_servers(l, dns, n, RESOLVE_CONFIG_SOURCE_DBUS);
         if (r < 0)
-                goto finalize;
+                return r;
 
-        r = sd_bus_reply_method_return(message, /* types= */ NULL);
-
-finalize:
-        for (size_t i = 0; i < n; i++)
-                in_addr_full_free(dns[i]);
-        free(dns);
-
-        return r;
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return bus_link_method_set_dns_servers_internal(message, userdata, error, /* extended= */ false);
+        struct in_addr_full **dns = NULL;
+        Link *l = ASSERT_PTR(userdata);
+        size_t n = 0;
+        int r;
+
+        assert(message);
+
+        CLEANUP_ARRAY(dns, n, in_addr_full_free_array);
+
+        r = verify_unmanaged_link(l, error);
+        if (r < 0)
+                return r;
+
+        r = bus_message_read_dns_servers(message, error, &dns, &n);
+        if (r < 0)
+                return r;
+
+        /* Refuse schemes of transports we don't support before asking polkit. */
+        FOREACH_ARRAY(i, dns, n) {
+                DnsTransportPolicy transport_policy;
+                uint16_t downgrade_port;
+
+                if (dns_server_transport_from_address(*i, &transport_policy, &downgrade_port) < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Unsupported DNS server address: %s", in_addr_full_to_string(*i));
+        }
+
+        return link_bus_set_dns_servers(message, l, TAKE_PTR(dns), TAKE_GENERIC(n, size_t, 0), error);
 }
 
-int bus_link_method_set_dns_servers_ex(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return bus_link_method_set_dns_servers_internal(message, userdata, error, /* extended= */ true);
+/* Legacy struct based DNS server methods (SetDNS, SetDNSEx), superseded by SetDNSURI. */
+
+static int bus_link_method_set_dns_servers_legacy_internal(sd_bus_message *message, void *userdata, sd_bus_error *error, bool extended) {
+        struct in_addr_full **dns = NULL;
+        Link *l = ASSERT_PTR(userdata);
+        size_t n = 0;
+        int r;
+
+        assert(message);
+
+        CLEANUP_ARRAY(dns, n, in_addr_full_free_array);
+
+        r = verify_unmanaged_link(l, error);
+        if (r < 0)
+                return r;
+
+        r = bus_message_read_dns_servers_legacy(message, error, extended, &dns, &n);
+        if (r < 0)
+                return r;
+
+        return link_bus_set_dns_servers(message, l, TAKE_PTR(dns), TAKE_GENERIC(n, size_t, 0), error);
+}
+
+int bus_link_method_set_dns_servers_legacy(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_link_method_set_dns_servers_legacy_internal(message, userdata, error, /* extended= */ false);
+}
+
+int bus_link_method_set_dns_servers_legacy_ex(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_link_method_set_dns_servers_legacy_internal(message, userdata, error, /* extended= */ true);
 }
 
 int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -737,10 +781,12 @@ static const sd_bus_vtable link_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
         SD_BUS_PROPERTY("ScopesMask", "t", property_get_scopes_mask, 0, 0),
-        SD_BUS_PROPERTY("DNS", "a(iay)", property_get_dns, 0, 0),
-        SD_BUS_PROPERTY("DNSEx", "a(iayqs)", property_get_dns_ex, 0, 0),
-        SD_BUS_PROPERTY("CurrentDNSServer", "(iay)", property_get_current_dns_server, offsetof(Link, current_dns_server), 0),
-        SD_BUS_PROPERTY("CurrentDNSServerEx", "(iayqs)", property_get_current_dns_server_ex, offsetof(Link, current_dns_server), 0),
+        SD_BUS_PROPERTY("DNS", "a(iay)", property_get_dns_legacy, 0, 0),
+        SD_BUS_PROPERTY("DNSEx", "a(iayqs)", property_get_dns_legacy_ex, 0, 0),
+        SD_BUS_PROPERTY("CurrentDNSServer", "(iay)", property_get_current_dns_server_legacy, offsetof(Link, current_dns_server), 0),
+        SD_BUS_PROPERTY("CurrentDNSServerEx", "(iayqs)", property_get_current_dns_server_legacy_ex, offsetof(Link, current_dns_server), 0),
+        SD_BUS_PROPERTY("DNSURI", "as", property_get_dns, 0, 0),
+        SD_BUS_PROPERTY("CurrentDNSServerURI", "s", property_get_current_dns_server, offsetof(Link, current_dns_server), 0),
         SD_BUS_PROPERTY("Domains", "a(sb)", property_get_domains, 0, 0),
         SD_BUS_PROPERTY("DefaultRoute", "b", property_get_default_route, 0, 0),
         SD_BUS_PROPERTY("LLMNR", "s", property_get_llmnr_support, 0, 0),
@@ -753,12 +799,17 @@ static const sd_bus_vtable link_vtable[] = {
         SD_BUS_METHOD_WITH_ARGS("SetDNS",
                                 SD_BUS_ARGS("a(iay)", addresses),
                                 SD_BUS_NO_RESULT,
-                                bus_link_method_set_dns_servers,
+                                bus_link_method_set_dns_servers_legacy,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("SetDNSEx",
                                 SD_BUS_ARGS("a(iayqs)", addresses),
                                 SD_BUS_NO_RESULT,
-                                bus_link_method_set_dns_servers_ex,
+                                bus_link_method_set_dns_servers_legacy_ex,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("SetDNSURI",
+                                SD_BUS_ARGS("as", servers),
+                                SD_BUS_NO_RESULT,
+                                bus_link_method_set_dns_servers,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("SetDomains",
                                 SD_BUS_ARGS("a(sb)", domains),

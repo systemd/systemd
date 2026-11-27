@@ -262,6 +262,8 @@ systemd.path.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="Uni
 systemd.path.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="MakeDirectory="]
 systemd.path.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="DirectoryMode="]
 systemd.resource-control.xml ./refsect1[title="History"]/
+resolved.conf.xml ./refsect1[title="History"]/
+systemd.network.xml ./refsect1[title="History"]/
 systemd.service.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="Type="]
 systemd.service.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="RemainAfterExit="]
 systemd.service.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="GuessMainPID="]

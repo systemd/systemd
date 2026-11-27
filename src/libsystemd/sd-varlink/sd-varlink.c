@@ -41,6 +41,7 @@
 #include "varlink-io.systemd.h"
 #include "varlink-org.varlink.service.h"
 #include "varlink-util.h"
+#include "web-util.h"
 #include "xattr-util.h"
 
 #define VARLINK_DEFAULT_CONNECTIONS_MAX 4096U
@@ -537,14 +538,6 @@ static int varlink_connect_ssh_exec(sd_varlink **ret, const char *where) {
         return 0;
 }
 
-/* Do basic validation of the URL scheme (loosely following RFC 1738) */
-static bool is_valid_url_scheme(const char *s) {
-        return !isempty(s) &&
-                strchr(LOWERCASE_LETTERS, s[0]) &&
-                in_charset(s, LOWERCASE_LETTERS DIGITS "+.-") &&
-                filename_is_valid(s);
-}
-
 _public_ int sd_varlink_connect_url(sd_varlink **ret, const char *url) {
         _cleanup_free_ char *c = NULL;
         const char *p;
@@ -585,7 +578,8 @@ _public_ int sd_varlink_connect_url(sd_varlink **ret, const char *url) {
                 if (!scheme_name)
                         return log_oom_debug();
 
-                if (!is_valid_url_scheme(scheme_name))
+                /* The scheme names a bridge binary, hence it must be a valid file name too */
+                if (!url_scheme_is_valid(scheme_name) || !filename_is_valid(scheme_name))
                         return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT),
                                                "URL scheme not valid as bridge name: %s", scheme_name);
 

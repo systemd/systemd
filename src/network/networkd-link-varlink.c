@@ -304,13 +304,8 @@ int vl_method_link_set_dns(sd_varlink *vlink, sd_json_variant *parameters, sd_va
                 if (s->ifindex != 0 && s->ifindex != link->ifindex)
                         return sd_varlink_error_invalid_parameter(vlink, JSON_VARIANT_STRING_CONST("servers"));
 
-                r = in_addr_full_new(
-                                s->family,
-                                &s->in_addr.address,
-                                s->port,
-                                s->ifindex,
-                                s->server_name,
-                                &dns_servers[n_dns_servers++]);
+                /* Only the syntax of URIs is checked, the schemes are left to systemd-resolved. */
+                r = dns_server_to_in_addr_full(s, &dns_servers[n_dns_servers++]);
                 if (r < 0)
                         return r;
         }

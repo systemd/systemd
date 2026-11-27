@@ -505,13 +505,27 @@ static int device_append_json(sd_device *device, sd_json_variant **v) {
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("Model", model));
 }
 
-static int dns_append_json_one(Link *link, const struct in_addr_full *a, NetworkConfigSource s, const union in_addr_union *p, sd_json_variant **array) {
+static int dns_append_json_one(Link *link, struct in_addr_full *a, NetworkConfigSource s, const union in_addr_union *p, sd_json_variant **array) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        const char *uri = NULL;
+        int r;
+
         assert(link);
         assert(a);
         assert(array);
 
         if (a->ifindex != 0 && a->ifindex != link->ifindex)
                 return 0;
+
+        if (a->scheme) {
+                r = in_addr_full_params_to_json(a, &parameters);
+                if (r < 0)
+                        return r;
+
+                uri = in_addr_full_to_string(a);
+                if (!uri)
+                        return -ENOMEM;
+        }
 
         return sd_json_variant_append_arraybo(
                         array,
@@ -520,6 +534,11 @@ static int dns_append_json_one(Link *link, const struct in_addr_full *a, Network
                         JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("Port", a->port),
                         SD_JSON_BUILD_PAIR_CONDITION(a->ifindex != 0, "InterfaceIndex", SD_JSON_BUILD_INTEGER(a->ifindex)),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("ServerName", a->server_name),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Scheme", a->scheme),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Path", a->path),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Query", a->query),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("Parameters", parameters),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("URI", uri),
                         SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(s)),
                         JSON_BUILD_PAIR_IN_ADDR_WITH_STRING_NON_NULL("ConfigProvider", a->family, p));
 }
