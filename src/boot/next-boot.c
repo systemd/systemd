@@ -415,6 +415,9 @@ EFI_STATUS next_boot_image(
                 return log_debug_status(err, "Failed to set BootNext EFI variable: %m");
 
         log_debug("Set BootNext to Boot%04X, rebooting.", n);
+        /* Flush gcov counters before the system state changes and our memory
+         * goes away (no-op unless built with -Defi-coverage=true). */
+        efi_gcov_exit();
         RT->ResetSystem(EfiResetWarm, EFI_SUCCESS, 0, NULL);
         assert_not_reached();
 }

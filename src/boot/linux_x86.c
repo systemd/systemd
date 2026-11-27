@@ -182,6 +182,10 @@ EFI_STATUS linux_exec_efi_handover(
         boot_params->ext_ramdisk_size = ((uint64_t) initrd->iov_len) >> 32;
 
         log_wait();
+
+        /* The handover entry does not return: flush the coverage counters before handing off. */
+        efi_gcov_exit();
+
         linux_efi_handover(parent, (uintptr_t) linux_buffer, boot_params);
         return EFI_LOAD_ERROR;
 }
