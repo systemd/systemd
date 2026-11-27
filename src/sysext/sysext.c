@@ -460,11 +460,11 @@ static int load_extension_release_metadata(
 
                 r = chase(*p, c->root, CHASE_PREFIX_ROOT, &resolved, /* ret_fd= */ NULL);
                 if (r == -ENOENT) {
-                        log_debug_errno(r, "Hierarchy '%s%s' does not exist, ignoring.", strempty(c->root), *p);
+                        log_debug_errno(r, "Hierarchy '%s%s' does not exist, ignoring.", empty_or_root_to_empty(c->root), *p);
                         continue;
                 }
                 if (r < 0) {
-                        log_warning_errno(r, "Failed to resolve path to hierarchy '%s%s': %m, ignoring.", strempty(c->root), *p);
+                        log_warning_errno(r, "Failed to resolve path to hierarchy '%s%s': %m, ignoring.", empty_or_root_to_empty(c->root), *p);
                         continue;
                 }
 
@@ -1004,18 +1004,18 @@ static int resolve_mutable_directory(
                  * can't use chase_and_open here because it does not behave the same. */
                 r = chase(path, root, CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY|CHASE_PREFIX_ROOT, /* ret_path= */ NULL, &path_fd);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to chase/create base directory '%s/%s': %m", strempty(root), skip_leading_slash(path));
+                        return log_error_errno(r, "Failed to chase/create base directory '%s/%s': %m", empty_or_root_to_empty(root), skip_leading_slash(path));
 
                 chmod_fd = fd_reopen(path_fd, O_DIRECTORY);
                 if (chmod_fd < 0)
-                        return log_error_errno(chmod_fd, "Failed to reopen '%s/%s': %m", strempty(root), skip_leading_slash(path));
+                        return log_error_errno(chmod_fd, "Failed to reopen '%s/%s': %m", empty_or_root_to_empty(root), skip_leading_slash(path));
 
                 if (fchmod(chmod_fd, hierarchy_mode) < 0)
-                        return log_error_errno(errno, "Failed to chmod directory '%s/%s': %m", strempty(root), skip_leading_slash(path));
+                        return log_error_errno(errno, "Failed to chmod directory '%s/%s': %m", empty_or_root_to_empty(root), skip_leading_slash(path));
 
                 r = mac_selinux_fix_full(chmod_fd, /* inode_path= */ NULL, hierarchy, /* flags= */ 0, /* label_context= */ NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to fix SELinux label for '%s/%s': %m", strempty(root), skip_leading_slash(path));
+                        return log_error_errno(r, "Failed to fix SELinux label for '%s/%s': %m", empty_or_root_to_empty(root), skip_leading_slash(path));
         }
 
         r = chase(path, root, CHASE_PREFIX_ROOT, &resolved_path, /* ret_fd= */ NULL);
@@ -1969,11 +1969,11 @@ static int unmerge_subprocess(
 
                 r = chase(*h, c->root, CHASE_PREFIX_ROOT, &resolved, /* ret_fd= */ NULL);
                 if (r == -ENOENT) {
-                        log_debug_errno(r, "Hierarchy '%s%s' does not exist, ignoring.", strempty(c->root), *h);
+                        log_debug_errno(r, "Hierarchy '%s%s' does not exist, ignoring.", empty_or_root_to_empty(c->root), *h);
                         continue;
                 }
                 if (r < 0) {
-                        RET_GATHER(ret, log_error_errno(r, "Failed to resolve path to hierarchy '%s%s': %m", strempty(c->root), *h));
+                        RET_GATHER(ret, log_error_errno(r, "Failed to resolve path to hierarchy '%s%s': %m", empty_or_root_to_empty(c->root), *h));
                         continue;
                 }
 
@@ -2448,7 +2448,7 @@ static int merge_subprocess(
                 /* Find existing origin file for comparison. */
                 r = chase(*h, c->root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved, /* ret_fd= */ NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to resolve hierarchy '%s%s': %m", strempty(c->root), *h);
+                        return log_error_errno(r, "Failed to resolve hierarchy '%s%s': %m", empty_or_root_to_empty(c->root), *h);
 
                 f = path_join(resolved, image_class_info[c->image_class].dot_directory_name, "origin");
                 if (!f)
@@ -2553,7 +2553,7 @@ static int merge_subprocess(
 
                 r = chase(*h, c->root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved, /* ret_fd= */ NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to resolve hierarchy '%s%s': %m", strempty(c->root), *h);
+                        return log_error_errno(r, "Failed to resolve hierarchy '%s%s': %m", empty_or_root_to_empty(c->root), *h);
 
                 r = unmerge_hierarchy(c, resolved, submounts_path);
                 if (r < 0)
@@ -2626,7 +2626,7 @@ static int merge_subprocess(
 
                 r = chase(*h, c->root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved, /* ret_fd= */ NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to resolve hierarchy '%s%s': %m", strempty(c->root), *h);
+                        return log_error_errno(r, "Failed to resolve hierarchy '%s%s': %m", empty_or_root_to_empty(c->root), *h);
 
                 r = mkdir_p(resolved, 0755);
                 if (r < 0)
@@ -2750,11 +2750,11 @@ static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) 
 
                 r = chase(*p, c.root, CHASE_PREFIX_ROOT, &resolved, /* ret_fd= */ NULL);
                 if (r == -ENOENT) {
-                        log_debug_errno(r, "Hierarchy '%s%s' does not exist, ignoring.", strempty(c.root), *p);
+                        log_debug_errno(r, "Hierarchy '%s%s' does not exist, ignoring.", empty_or_root_to_empty(c.root), *p);
                         continue;
                 }
                 if (r < 0) {
-                        log_error_errno(r, "Failed to resolve path to hierarchy '%s%s': %m", strempty(c.root), *p);
+                        log_error_errno(r, "Failed to resolve path to hierarchy '%s%s': %m", empty_or_root_to_empty(c.root), *p);
                         goto inner_fail;
                 }
 
@@ -2851,11 +2851,11 @@ static int look_for_merged_hierarchies(const Context *c, const char **ret_which)
 
                 r = chase(*p, c->root, CHASE_PREFIX_ROOT, &resolved, /* ret_fd= */ NULL);
                 if (r == -ENOENT) {
-                        log_debug_errno(r, "Hierarchy '%s%s' does not exist, ignoring.", strempty(c->root), *p);
+                        log_debug_errno(r, "Hierarchy '%s%s' does not exist, ignoring.", empty_or_root_to_empty(c->root), *p);
                         continue;
                 }
                 if (r < 0)
-                        return log_error_errno(r, "Failed to resolve path to hierarchy '%s%s': %m", strempty(c->root), *p);
+                        return log_error_errno(r, "Failed to resolve path to hierarchy '%s%s': %m", empty_or_root_to_empty(c->root), *p);
 
                 r = is_our_mount_point(c->image_class, resolved);
                 if (r < 0)

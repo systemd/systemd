@@ -738,6 +738,7 @@ static int verify_uapi16(
                         f,
                         verify == IMPORT_VERIFY_SIGNATURE ? manifest_job->uapi16_certificates : NULL,
                         verify == IMPORT_VERIFY_SIGNATURE ? manifest_job->n_uapi16_certificates : 0,
+                        LOG_ERR,
                         uapi16_verify_object,
                         &c);
         if (r < 0)

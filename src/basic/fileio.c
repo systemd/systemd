@@ -1045,7 +1045,14 @@ int fopen_mode_to_flags(const char *mode) {
         return flags;
 }
 
-static int xfopenat_regular(int dir_fd, const char *path, const char *mode, int open_flags, FILE **ret) {
+static int xfopenat_regular(
+                int dir_fd,
+                const char *path,
+                const char *mode,
+                int open_flags,
+                XOpenFlags xopen_flags,
+                FILE **ret) {
+
         _cleanup_close_ int fd = -EBADF;
         int mode_flags;
 
@@ -1064,7 +1071,7 @@ static int xfopenat_regular(int dir_fd, const char *path, const char *mode, int 
                 return path ? -ENOENT : -EBADF;
 
         /* For plain reads with "e" fopen() does the same and saves the fcntl() of fdopen() */
-        if (dir_fd == AT_FDCWD && open_flags == 0 &&
+        if (dir_fd == AT_FDCWD && open_flags == 0 && xopen_flags == 0 &&
             FLAGS_SET(mode_flags, O_CLOEXEC) && !FLAGS_SET(mode_flags, O_CREAT)) {
                 FILE *f = fopen(path, mode);
                 if (!f)
@@ -1075,7 +1082,7 @@ static int xfopenat_regular(int dir_fd, const char *path, const char *mode, int 
         }
 
         /* A NULL or empty path reopens dir_fd, unless something is to be created */
-        fd = xopenat_full(dir_fd, path, mode_flags | open_flags, XO_EMPTY_PATH, 0666);
+        fd = xopenat_full(dir_fd, path, mode_flags | open_flags, XO_EMPTY_PATH | xopen_flags, 0666);
         if (fd < 0)
                 return fd;
 
@@ -1143,8 +1150,15 @@ int xfopenat_full(
         assert(wildcard_fd_is_valid(dir_fd));
         assert(mode);
         assert(ret);
+        assert(!FLAGS_SET(flags, XFOPEN_SOCKET|XFOPEN_REGULAR));
 
-        r = xfopenat_regular(dir_fd, path, mode, open_flags, &f);
+        r = xfopenat_regular(
+                        dir_fd,
+                        path,
+                        mode,
+                        open_flags,
+                        FLAGS_SET(flags, XFOPEN_REGULAR) ? XO_REGULAR : 0,
+                        &f);
         if (r == -ENXIO && FLAGS_SET(flags, XFOPEN_SOCKET)) {
                 /* ENXIO is what Linux returns if we open a node that is an AF_UNIX socket */
                 r = xfopenat_unix_socket(dir_fd, path, bind_name, &f);

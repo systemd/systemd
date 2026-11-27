@@ -15,7 +15,7 @@
 #include "log.h"
 #include "main-func.h"
 #include "parse-argument.h"
-#include "string-util.h"
+#include "path-util.h"
 #include "time-util.h"
 #include "verbs.h"
 
@@ -44,7 +44,7 @@ static int save_timestamp(const char *dir, struct timespec *ts) {
                             O_DIRECTORY | O_CREAT,
                             &dirpath);
         if (fd < 0)
-                return log_error_errno(fd, "Failed to open %s%s: %m", strempty(arg_root), dir);
+                return log_error_errno(fd, "Failed to open %s%s: %m", empty_or_root_to_empty(arg_root), dir);
 
         if (asprintf(&message,
                      "# This file was created by systemd-update-done. The timestamp below is the\n"
@@ -118,7 +118,7 @@ static int run(int argc, char *argv[]) {
                            /* ret_path= */ NULL,
                            &st);
         if (r < 0)
-                return log_error_errno(r, "Failed to stat %s/usr/: %m", strempty(arg_root));
+                return log_error_errno(r, "Failed to stat %s/usr/: %m", empty_or_root_to_empty(arg_root));
 
         r = mac_init();
         if (r < 0)

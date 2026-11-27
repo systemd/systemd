@@ -473,6 +473,7 @@ static int run(int argc, char *argv[]) {
         int r;
 
         ARCHIVE_NOTE(recommended);
+        LIBCRYPTO_NOTE(suggested);
         LIBSELINUX_NOTE(recommended);
 
         setlocale(LC_ALL, "");
