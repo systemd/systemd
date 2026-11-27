@@ -21,6 +21,8 @@ integration_tests += [
                         # only the initrd sees it, which covers the host generator pulling in the software
                         # TPM regardless of the kernel command line once the device already exists.
                         'rd.systemd.tpm2_software_fallback=yes',
+                        # Enable OS measurements, which are needed for NvPCRs with the software TPM.
+                        'systemd.tpm2_measured_os=1',
                         'systemd.default_device_timeout_sec=300',
                 ],
                 'priority' : 10,

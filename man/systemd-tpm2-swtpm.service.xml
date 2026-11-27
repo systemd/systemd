@@ -63,6 +63,14 @@
     again. If the service fails permanently, the device is released. Since the software TPM is only intended as fallback for systems without a TPM, the
     service fails if the allocated device is not <filename>/dev/tpm0</filename>, i.e. if some other TPM
     device already exists.</para>
+
+    <para>As <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    cannot measure the unified kernel image into the software TPM, OS measurements are disabled by default.
+    Set <varname>systemd.tpm2_measured_os=1</varname> on the kernel command line to enable them, see
+    <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+    This is needed for the boot phase measurements and for NvPCRs, which are used, e.g., for the runtime
+    measurements of Verity images and logins. Signed PCR policies are still not used then, as PCR 11 lacks
+    the measurement of the unified kernel image.</para>
   </refsect1>
 
   <refsect1>
