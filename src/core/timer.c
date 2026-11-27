@@ -247,7 +247,8 @@ static void timer_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sFixedRandomDelay: %s\n"
                 "%sOnClockChange: %s\n"
                 "%sOnTimeZoneChange: %s\n"
-                "%sDeferReactivation: %s\n",
+                "%sDeferReactivation: %s\n"
+                "%sMinInterval: %s\n",
                 prefix, timer_state_to_string(t->state),
                 prefix, timer_result_to_string(t->result),
                 prefix, trigger ? trigger->id : "n/a",
@@ -258,7 +259,8 @@ static void timer_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(t->fixed_random_delay),
                 prefix, yes_no(t->on_clock_change),
                 prefix, yes_no(t->on_timezone_change),
-                prefix, yes_no(t->defer_reactivation));
+                prefix, yes_no(t->defer_reactivation),
+                prefix, FORMAT_TIMESPAN(t->min_interval_usec, 1));
 
         LIST_FOREACH(value, v, t->values)
                 if (v->base == TIMER_CALENDAR) {
@@ -438,6 +440,21 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                                                "Calendar timer base time %s is in the future, recalculating from the current time.",
                                                FORMAT_TIMESTAMP(b));
                                 b = ts.realtime;
+                        }
+
+                        /* If MinIntervalSec= is set, skip all calendar events that would elapse earlier
+                         * than that after the last trigger. calendar_spec_next_usec() returns the first
+                         * event after the base time, hence subtract one so that an event right at the end
+                         * of the interval is not skipped. */
+                        if (t->min_interval_usec > 0 && timestamp_is_set(t->last_trigger.realtime)) {
+                                usec_t m = usec_add(t->last_trigger.realtime, t->min_interval_usec);
+
+                                if (usec_sub_unsigned(m, 1) > b) {
+                                        log_unit_debug(UNIT(t),
+                                                       "Not elapsing before %s due to MinIntervalSec=.",
+                                                       strna(FORMAT_TIMESTAMP(m)));
+                                        b = usec_sub_unsigned(m, 1);
+                                }
                         }
 
                         /* We always subtract random_offset from the base time because
