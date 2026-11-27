@@ -192,6 +192,51 @@ systemd-firstboot --root="$ROOT" --root-password-hashed="$ROOT_HASHED_PASSWORD1"
 grep -q "^root:x:0:0:.*:/bin/fooshell$" "$ROOT/etc/passwd"
 grep -q "^root:$ROOT_HASHED_PASSWORD1:" "$ROOT/etc/shadow"
 
+# SSH keys for root, literally and from a file
+WROOT=test-root-ssh-key
+rm -rf "$WROOT"; mkdir -p "$WROOT"
+printf '# comment\n\nssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBBBB second@test\n\n' >"$WROOT.keys"
+systemd-firstboot --root="$WROOT" \
+                  --root-ssh-key="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAA first@test" \
+                  --root-ssh-key=@"$WROOT.keys" \
+                  --root-ssh-key="$(printf '# literal\ncommand="echo \\"hi\\"" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDDDD fourth@test\n')"
+[[ "$(stat -c '%a' "$WROOT/root")" == "700" ]]
+[[ "$(stat -c '%a' "$WROOT/root/.ssh")" == "700" ]]
+[[ "$(stat -c '%a' "$WROOT/root/.ssh/authorized_keys")" == "600" ]]
+# Lines are installed as they are, comments included, only empty lines are dropped
+diff "$WROOT/root/.ssh/authorized_keys" - <<'EOF'
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAA first@test
+# comment
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBBBB second@test
+# literal
+command="echo \"hi\"" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDDDD fourth@test
+EOF
+# Existing keys are left alone, unless --force is specified
+systemd-firstboot --root="$WROOT" --root-ssh-key="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICCCC third@test"
+(! grep third@test "$WROOT/root/.ssh/authorized_keys" >/dev/null)
+systemd-firstboot --root="$WROOT" --force --root-ssh-key="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICCCC third@test"
+[[ "$(cat "$WROOT/root/.ssh/authorized_keys")" == "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICCCC third@test" ]]
+# The access modes of /root/ and /root/.ssh/ are left alone if they exist already
+rm -rf "$WROOT"; mkdir -p "$WROOT/root/.ssh"
+chmod 0750 "$WROOT/root"
+chmod 0755 "$WROOT/root/.ssh"
+systemd-firstboot --root="$WROOT" --root-ssh-key="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAA first@test"
+[[ "$(stat -c '%a' "$WROOT/root")" == "750" ]]
+[[ "$(stat -c '%a' "$WROOT/root/.ssh")" == "755" ]]
+[[ "$(stat -c '%a' "$WROOT/root/.ssh/authorized_keys")" == "600" ]]
+# Empty strings, and key files that are empty or contain empty lines only, are ignored
+rm -rf "$WROOT"; mkdir -p "$WROOT"
+printf '\n\n' >"$WROOT.badkeys"
+systemd-firstboot --root="$WROOT" --root-ssh-key= --root-ssh-key=@/dev/null --root-ssh-key=@"$WROOT.badkeys" --hostname=foobar
+[[ ! -e "$WROOT/root" ]]
+printf 'ssh-ed25519 AAAA\tfoo\n' >"$WROOT.badkeys"
+(! systemd-firstboot --root="$WROOT" --root-ssh-key=@"$WROOT.badkeys")
+printf 'ssh-ed25519 AAAA \xff\n' >"$WROOT.badkeys"
+(! systemd-firstboot --root="$WROOT" --root-ssh-key=@"$WROOT.badkeys")
+(! systemd-firstboot --root="$WROOT" --root-ssh-key=@"$WROOT.nonexistent")
+(! systemd-firstboot --root="$WROOT" --root-ssh-key="$(printf 'ssh-ed25519 AAAA\tfoo')")
+rm -rf "$WROOT" "$WROOT.keys" "$WROOT.badkeys"
+
 # Unless a kernel command line is requested, /etc/kernel/ must not be created at all
 WROOT=test-root-kernel-cmdline
 rm -rf "$WROOT"; mkdir -p "$WROOT"

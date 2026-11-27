@@ -24,6 +24,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(rootPasswordHashed, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The shell of the root user, as absolute path."),
                 SD_VARLINK_DEFINE_FIELD(rootShell, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("SSH public keys for the root user, in authorized_keys(5) format. Each entry may contain multiple lines, empty lines are dropped. Written to /root/.ssh/authorized_keys."),
+                SD_VARLINK_DEFINE_FIELD(rootSshAuthorizedKeys, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Additional kernel command line options."),
                 SD_VARLINK_DEFINE_FIELD(kernelCommandLine, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
