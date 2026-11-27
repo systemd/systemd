@@ -21,7 +21,7 @@ blocks:
   - name: "Setup & test"
     run:
       when: >-
-        change_in('/', {exclude: ['/TODO.md', '/README', '/README.md', '/docs', '/man', '/shell-completion', '/test', '/tools', '/.github'], default_branch: 'main', on_tags: false})
+        change_in('/', {exclude: ['/TODO.md', '/NEWS', '/README', '/README.md', '/docs', '/man', '/shell-completion', '/test', '/tools', '/.github'], default_branch: 'main', on_tags: false})
     task:
       jobs:
         - name: "Install dependencies & run the autopkgtest"
