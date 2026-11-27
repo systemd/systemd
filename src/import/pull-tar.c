@@ -2,7 +2,6 @@
 
 #include <unistd.h>
 
-#include "sd-daemon.h"
 #include "sd-event.h"
 #include "sd-varlink.h"
 
@@ -14,6 +13,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "import-common.h"
 #include "install-file.h"
 #include "log.h"
 #include "mkdir.h"
@@ -71,6 +71,7 @@ typedef struct TarPull {
 
         unsigned last_percent;
         RateLimit progress_ratelimit;
+        ImportProgress progress;
 } TarPull;
 
 TarPull* tar_pull_unref(TarPull *p) {
@@ -152,6 +153,9 @@ int tar_pull_new(
         return 0;
 }
 
+/* The share of the progress percentage that is downloading, the rest is for the steps after that */
+#define TAR_PULL_PERCENT_DOWNLOAD 85U
+
 static void tar_pull_report_progress(TarPull *p, TarProgress progress) {
         unsigned percent;
 
@@ -160,7 +164,7 @@ static void tar_pull_report_progress(TarPull *p, TarProgress progress) {
         switch (progress) {
 
         case TAR_DOWNLOADING: {
-                unsigned remain = 85;
+                unsigned remain = TAR_PULL_PERCENT_DOWNLOAD;
 
                 percent = 0;
 
@@ -206,10 +210,24 @@ static void tar_pull_report_progress(TarPull *p, TarProgress progress) {
         if (!ratelimit_below(&p->progress_ratelimit))
                 return;
 
-        sd_notifyf(/* unset_environment= */ false, "X_IMPORT_PROGRESS=%u%%", percent);
+        /* Only estimate the time left while downloading, since that's where the time typically goes, and
+         * the steps after that progress at a rate unrelated to the download rate. Base the estimate on
+         * the download share only, so that it covers the download, not the steps after it. The bytes
+         * reported are those of the main download, since the auxiliary files are small, and their sizes
+         * are not all known from the beginning. */
+        import_progress_update(
+                        &p->progress,
+                        percent,
+                        percent,
+                        progress == TAR_DOWNLOADING ? TAR_PULL_PERCENT_DOWNLOAD : UINT64_MAX,
+                        p->tar_job ? p->tar_job->written_compressed : UINT64_MAX,
+                        p->tar_job ? pull_job_content_length_effective(p->tar_job) : UINT64_MAX);
+        import_progress_notify(&p->progress);
+
+        _cleanup_free_ char *suffix = import_progress_format(&p->progress);
 
         if (isatty_safe(STDERR_FILENO))
-                draw_progress_bar("Total:", percent);
+                (void) draw_progress_barf(percent, "Total%s:", strempty(suffix));
 
         log_debug("Combined progress %u%%", percent);
 

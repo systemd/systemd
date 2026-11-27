@@ -236,7 +236,7 @@ static int pull_job_follow_redirect(PullJob *j, CURL *curl) {
         return pull_job_reset_and_begin(j);
 }
 
-static uint64_t pull_job_content_length_effective(PullJob *j) {
+uint64_t pull_job_content_length_effective(PullJob *j) {
         assert(j);
 
         if (j->expected_content_length != UINT64_MAX)

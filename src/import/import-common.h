@@ -72,3 +72,42 @@ int import_digest_verify(ImportDigest *d);
 
 int import_parse_sha256_argument(const char *option, const char *s, struct iovec *checksum);
 int import_parse_compression_argument(const char *option, const char *s, Compression *ret);
+
+/* Tracks the time that passed since the first progress report of an operation, and estimates how much time it
+ * is likely going to take still, as well as the transfer rate, based on the progress made so far. No estimate
+ * is made until the progress settled a bit, i.e. not in the first few seconds. */
+typedef struct ImportProgress {
+        usec_t start_usec;              /* When we got the first progress report, 0 if not yet */
+        usec_t estimate_start_usec;     /* When we got the first progress report used for estimating, 0 if not yet */
+        double estimate_start_percent;  /* The progress at that time */
+        usec_t rate_start_usec;         /* When we got the first progress report used for the rate, 0 if not yet */
+        uint64_t rate_start_bytes;      /* The bytes done at that time */
+
+        /* The state as of the last import_progress_update() call */
+        unsigned percent;
+        usec_t time_elapsed;
+        usec_t time_left;               /* USEC_INFINITY if not known */
+        uint64_t done_bytes;            /* UINT64_MAX if not known */
+        uint64_t total_bytes;           /* UINT64_MAX if not known */
+        uint64_t bytes_per_sec;         /* UINT64_MAX if not known */
+} ImportProgress;
+
+/* Takes the progress percentage to report, the progress to base the estimate of the time left on as amount done
+ * of total, in whatever unit (total may be UINT64_MAX if no estimate shall be made), and the bytes done of the
+ * total bytes (either may be UINT64_MAX if not known). */
+void import_progress_update(
+                ImportProgress *p,
+                unsigned percent,
+                uint64_t done,
+                uint64_t total,
+                uint64_t done_bytes,
+                uint64_t total_bytes);
+
+/* Sends X_IMPORT_PROGRESS=, X_IMPORT_TIME_ELAPSED_USEC= and, if known, the estimated total time of the
+ * operation as X_IMPORT_TIME_TOTAL_USEC=, as well as X_IMPORT_DONE_BYTES=, X_IMPORT_TOTAL_BYTES= and
+ * X_IMPORT_BYTES_PER_SEC= to our supervisor */
+void import_progress_notify(const ImportProgress *p);
+
+/* Formats " (… left, …/s)" from the parts that are known. Returns NULL if neither is known (or on OOM, since
+ * this is only used to decorate progress output), hence use with strempty(). */
+char* import_progress_format(const ImportProgress *p);

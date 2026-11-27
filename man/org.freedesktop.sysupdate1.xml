@@ -288,7 +288,9 @@ node /org/freedesktop/sysupdate1/target/host {
       <function>Install()</function> do not wait for their jobs to complete. Instead, they return the job's
       numeric ID and object path as soon as the job begins, so that the caller can listen for progress
       updates or cancel the operation. These methods also return the version the target will be updated to,
-      for cases where no version was specified by the caller. Listen for the Manager's
+      for cases where no version was specified by the caller. If the job first has to wait for another update
+      of the same target to complete, these methods return before the version is determined, and hence return
+      the version specified by the caller, i.e. possibly the empty string. Listen for the Manager's
       <function>JobRemoved()</function> signal to detect when the job is complete.</para>
 
       <para><function>Vacuum()</function> deletes old installed versions of this target to free up space.

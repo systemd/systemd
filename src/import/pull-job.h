@@ -137,4 +137,7 @@ int pull_job_set_http_headers(PullJob *j, char * const *headers, const char *ori
 
 int pull_job_restart(PullJob *j, const char *new_url);
 
+/* The size of the resource, if known (from the Content-Length or from what we were told to expect), UINT64_MAX otherwise */
+uint64_t pull_job_content_length_effective(PullJob *j);
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(PullJob*, pull_job_unref);

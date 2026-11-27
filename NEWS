@@ -699,6 +699,25 @@ CHANGES WITH 263 in spe:
           shorter signature can replace a longer one without leaving stale
           data after the JSON object.
 
+        * A new Update() Varlink method allows triggering updates, similar to
+          the "update" and "acquire" commands. If invoked with the 'more'
+          flag, progress is reported, including the download progress of
+          the individual transfers. Both Update() and CheckNew() operate on
+          the host and all of its components if no target is specified, like
+          --component-all, which "check-new" now supports, too.
+          When invoked interactively, systemd-sysupdate now shows a progress
+          bar per transfer, including the bytes downloaded, an estimate of the
+          time left and the transfer rate. The progress notifications of
+          Update() include the time elapsed, the estimated total time, the
+          bytes done and total, and the transfer rate of each transfer. All of
+          these are provided by systemd-import, systemd-pull and
+          systemd-export via the new X_IMPORT_TIME_ELAPSED_USEC=,
+          X_IMPORT_TIME_TOTAL_USEC=, X_IMPORT_DONE_BYTES=,
+          X_IMPORT_TOTAL_BYTES= and X_IMPORT_BYTES_PER_SEC= sd_notify()
+          fields, which also show the time left and the transfer rate next to
+          their own progress bars. Concurrent updates of the same component
+          are now serialized.
+
         File manifests, disk images and extensions:
 
         * The new systemd-manifest tool generates and verifies file manifests

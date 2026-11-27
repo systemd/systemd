@@ -540,9 +540,11 @@ static int sysinstall_context_notify(
                 if (r < 0)
                         log_debug_errno(r, "Failed to send varlink notify progress notification, ignoring: %m");
 
-                r = sd_varlink_flush(context->link);
+                /* Write out the notification right-away, since we run synchronously inside the method
+                 * handler, but without letting a client that doesn't read stall us. */
+                r = varlink_process_nonblocking(context->link);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to flush varlink notify progress notification, ignoring: %m");
+                        log_debug_errno(r, "Failed to write varlink notify progress notification, ignoring: %m");
         }
 
         return 0;
