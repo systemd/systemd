@@ -14,10 +14,10 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 
-static void test_path_is_encrypted_one(const char *p, int expect) {
+static void test_path_data_is_protected_one(const char *p, int expect) {
         int r;
 
-        r = path_is_encrypted(p, BLOCK_DEVICE_ENCRYPTED_DM_CRYPT|BLOCK_DEVICE_ENCRYPTED_DM_VERITY);
+        r = path_data_is_protected(p, DATA_PROTECT_CRYPT|DATA_PROTECT_VERITY);
         if (IN_SET(r, -ENOENT, -ELOOP) || ERRNO_IS_NEG_PRIVILEGE(r))
                 /* This might fail, if btrfs is used and we run in a container. In that case we cannot
                  * resolve the device node paths that BTRFS_IOC_DEV_INFO returns, because the device nodes
@@ -29,23 +29,23 @@ static void test_path_is_encrypted_one(const char *p, int expect) {
                 return;
         ASSERT_OK(r);
 
-        log_info("%s encrypted: %s", p, yes_no(r));
+        log_info("%s protected: %s", p, yes_no(r));
 
         ASSERT_TRUE(expect < 0 || ((r > 0) == (expect > 0)));
 }
 
-TEST(path_is_encrypted) {
+TEST(path_data_is_protected) {
         int booted = sd_booted(); /* If this is run in build environments such as koji, /dev/ might be a
                                    * regular fs. Don't assume too much if not running under systemd. */
 
         log_info("/* %s (sd_booted=%d) */", __func__, booted);
 
-        test_path_is_encrypted_one("/home", -1);
-        test_path_is_encrypted_one("/var", -1);
-        test_path_is_encrypted_one("/", -1);
-        test_path_is_encrypted_one("/proc", /* expect= */ false);
-        test_path_is_encrypted_one("/sys", /* expect= */ false);
-        test_path_is_encrypted_one("/dev", booted > 0 ? false : -1);
+        test_path_data_is_protected_one("/home", -1);
+        test_path_data_is_protected_one("/var", -1);
+        test_path_data_is_protected_one("/", -1);
+        test_path_data_is_protected_one("/proc", /* expect= */ false);
+        test_path_data_is_protected_one("/sys", /* expect= */ false);
+        test_path_data_is_protected_one("/dev", booted > 0 ? false : -1);
 }
 
 TEST(partscan_enabled) {
