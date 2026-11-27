@@ -564,6 +564,96 @@ EOF
     # Make sure bootctl list sees it
     bootctl list --json=short | grep -F "${TOKEN}-commit_1.conf" >/dev/null
 
+    # --- Test 1a: linking the same resources again creates no new entry ---
+    count_commits() {
+        find "$ESP/loader/entries/" -name "${TOKEN}-commit_*" | wc -l
+    }
+
+    "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi"
+    assert_eq "$(count_commits)" "1"
+    # An explicit tries counter does not make the request different
+    "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" --tries-left=3
+    assert_eq "$(count_commits)" "1"
+    # With an explicit commit number an identical entry of that commit is accepted
+    "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" --entry-commit=1
+    assert_eq "$(count_commits)" "1"
+    # An entry of the explicit commit number that differs is still refused
+    (! "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" --entry-commit=1 --entry-title="Other Title")
+    # An explicit commit number does not match entries of other commits
+    "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" --entry-commit=2
+    test -f "$ESP/loader/entries/${TOKEN}-commit_2.conf"
+    # --force is only accepted by link and link-auto
+    (! bootctl --force)
+    (! "${BOOTCTL[@]}" unlink --force "${TOKEN}-commit_2.conf")
+    # A different title creates a new entry
+    "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" --entry-title="Other Title"
+    test -f "$ESP/loader/entries/${TOKEN}-commit_3.conf"
+    # Older commits are compared too. Commit 2 is identical, hence no new entry is created.
+    "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi"
+    assert_eq "$(count_commits)" "3"
+    # --force creates a new entry even though commit 2 is identical
+    "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" --force
+    test -f "$ESP/loader/entries/${TOKEN}-commit_4.conf"
+    # A different version creates a new entry
+    "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" --entry-version="9.8.7"
+    test -f "$ESP/loader/entries/${TOKEN}-commit_5.9.8.7.conf"
+    # An additional extra file creates a new entry
+    "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" -X "$LINK_WORKDIR/hello.cred"
+    test -f "$ESP/loader/entries/${TOKEN}-commit_6.conf"
+    "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" -X "$LINK_WORKDIR/hello.cred"
+    assert_eq "$(count_commits)" "6"
+    # Resources are identified by their file names, their contents are not compared
+    mkdir "$LINK_WORKDIR/changed"
+    echo "changed-credential" >"$LINK_WORKDIR/changed/hello.cred"
+    "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" -X "$LINK_WORKDIR/changed/hello.cred"
+    assert_eq "$(count_commits)" "6"
+    # An entry with a tries counter that has tries left is the same entry
+    "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" --entry-title="Tries Title" --tries-left=3
+    test -f "$ESP/loader/entries/${TOKEN}-commit_7+3.conf"
+    "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" --entry-title="Tries Title"
+    assert_eq "$(count_commits)" "7"
+    # An entry with no tries left is the same entry too
+    mv "$ESP/loader/entries/${TOKEN}-commit_7+3.conf" "$ESP/loader/entries/${TOKEN}-commit_7+0-3.conf"
+    "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" --entry-title="Tries Title"
+    assert_eq "$(count_commits)" "7"
+    # A UKI with two profiles has two entries per commit
+    ukify build \
+        --profile $'ID=debug\nTITLE=Debug' \
+        --cmdline "debug" \
+        --output "$LINK_WORKDIR/profile1.efi"
+    ukify build \
+        --linux "$LINK_WORKDIR/vmlinuz" \
+        --initrd "$LINK_WORKDIR/initrd" \
+        --os-release "@$LINK_WORKDIR/os-release" \
+        --uname "1.2.3-testkernel" \
+        --cmdline "quiet" \
+        --join-profile "$LINK_WORKDIR/profile1.efi" \
+        --output "$LINK_WORKDIR/multiuki.efi"
+    "${BOOTCTL[@]}" link "$LINK_WORKDIR/multiuki.efi"
+    test -f "$ESP/loader/entries/${TOKEN}-commit_8.conf"
+    test -f "$ESP/loader/entries/${TOKEN}-commit_8@1.conf"
+    "${BOOTCTL[@]}" link "$LINK_WORKDIR/multiuki.efi"
+    assert_eq "$(count_commits)" "9"
+    # A commit that has an additional entry is not the same
+    cp "$ESP/loader/entries/${TOKEN}-commit_8@1.conf" "$ESP/loader/entries/${TOKEN}-commit_8@2.conf"
+    "${BOOTCTL[@]}" link "$LINK_WORKDIR/multiuki.efi"
+    test -f "$ESP/loader/entries/${TOKEN}-commit_9.conf"
+    test -f "$ESP/loader/entries/${TOKEN}-commit_9@1.conf"
+    "${BOOTCTL[@]}" unlink "${TOKEN}-commit_9.conf"
+    "${BOOTCTL[@]}" unlink "${TOKEN}-commit_9@1.conf"
+    rm "$ESP/loader/entries/${TOKEN}-commit_8@2.conf"
+    "${BOOTCTL[@]}" unlink "${TOKEN}-commit_8.conf"
+    "${BOOTCTL[@]}" unlink "${TOKEN}-commit_8@1.conf"
+    "${BOOTCTL[@]}" unlink "${TOKEN}-commit_7.conf"
+    "${BOOTCTL[@]}" unlink "${TOKEN}-commit_6.conf"
+    "${BOOTCTL[@]}" unlink "${TOKEN}-commit_5.9.8.7.conf"
+    "${BOOTCTL[@]}" unlink "${TOKEN}-commit_4.conf"
+    "${BOOTCTL[@]}" unlink "${TOKEN}-commit_3.conf"
+    "${BOOTCTL[@]}" unlink "${TOKEN}-commit_2.conf"
+    assert_eq "$(count_commits)" "1"
+    test -f "$ENTRY"
+    test -f "$ESP/$TOKEN/testuki.efi"
+
     # Remove it again using the ID (entry IDs include the .conf suffix)
     "${BOOTCTL[@]}" unlink "${TOKEN}-commit_1.conf"
     test ! -e "$ENTRY"
@@ -662,6 +752,14 @@ EOF
     (! "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" --entry-commit=77 --entry-title="Other Title")
     (! "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" --entry-commit=77 --force)
     "${BOOTCTL[@]}" unlink "${TOKEN}-commit_77.conf"
+    # The same applies if the existing entry has a tries counter in its name
+    "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" --entry-commit=78 --tries-left=3
+    test -f "$ESP/loader/entries/${TOKEN}-commit_78+3.conf"
+    "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" --entry-commit=78
+    (! "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" --entry-commit=78 --entry-title="Other Title")
+    (! "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" --entry-commit=78 --force)
+    test ! -e "$ESP/loader/entries/${TOKEN}-commit_78.conf"
+    "${BOOTCTL[@]}" unlink "${TOKEN}-commit_78.conf"
 
     # --- Test 9: passing a non-UKI is rejected ---
     (! "${BOOTCTL[@]}" link "$LINK_WORKDIR/vmlinuz")
@@ -764,7 +862,7 @@ EOF
     # has no way to supply a literal entry token (unlike --entry-token= on
     # the command line), so the token is chosen by bootctl from
     # machine-id/os-release — we recover it from the returned id.
-    local BOOTCTL_BIN vreply vid vtoken
+    local BOOTCTL_BIN vreply vid vid2 vtoken
     BOOTCTL_BIN="$(type -p bootctl)"
 
     # --- Test 10: Link + Unlink via varlink ---
@@ -775,12 +873,32 @@ EOF
     vid="$(echo "$vreply" | jq -r '.ids[0]')"
     test -n "$vid"
     test "$vid" != "null"
+    assert_eq "$(echo "$vreply" | jq -r '.created')" "true"
     vtoken="${vid%%-commit_*}"
     test -n "$vtoken"
 
     test -f "$ESP/loader/entries/$vid"
     test -f "$ESP/$vtoken/vluki.efi"
     grep "^uki /$vtoken/vluki.efi\$" "$ESP/loader/entries/$vid" >/dev/null
+
+    # A second call creates no new entry and returns the ID of the existing one
+    vreply="$(varlinkctl call --json=short \
+                  --push-fd="$LINK_WORKDIR/testuki.efi" \
+                  "$BOOTCTL_BIN" io.systemd.BootControl.Link \
+                  '{"kernelFilename":"vluki.efi","kernelFileDescriptor":0}')"
+    assert_eq "$(echo "$vreply" | jq -r '.ids | length')" "1"
+    assert_eq "$(echo "$vreply" | jq -r '.ids[0]')" "$vid"
+    assert_eq "$(echo "$vreply" | jq -r '.created')" "false"
+    # With "force" it creates a new entry
+    vreply="$(varlinkctl call --json=short \
+                  --push-fd="$LINK_WORKDIR/testuki.efi" \
+                  "$BOOTCTL_BIN" io.systemd.BootControl.Link \
+                  '{"kernelFilename":"vluki.efi","kernelFileDescriptor":0,"force":true}')"
+    assert_eq "$(echo "$vreply" | jq -r '.created')" "true"
+    vid2="$(echo "$vreply" | jq -r '.ids[0]')"
+    test "$vid2" != "$vid"
+    test -f "$ESP/loader/entries/$vid2"
+    varlinkctl call --quiet "$BOOTCTL_BIN" io.systemd.BootControl.Unlink "{\"id\":\"$vid2\"}"
 
     varlinkctl call --quiet "$BOOTCTL_BIN" io.systemd.BootControl.Unlink \
                     "{\"id\":\"$vid\"}"
@@ -860,6 +978,13 @@ EOF
     assert_eq "$vid" "$vtoken-commit_300.conf"
     cmp "$LINK_WORKDIR/hello.addon.efi" "$ESP/$vtoken/hello.addon.efi"
     grep "^extra /$vtoken/hello.addon.efi\$" "$ESP/loader/entries/$vid" >/dev/null
+    # A second call with the same literal data creates no new entry
+    vreply="$(varlinkctl call --json=short \
+                  --push-fd="$LINK_WORKDIR/testuki.efi" \
+                  "$BOOTCTL_BIN" io.systemd.BootControl.Link \
+                  "{\"kernelFilename\":\"vluki4.efi\",\"kernelFileDescriptor\":0,\"entryCommit\":300,\"extraFiles\":[{\"filename\":\"hello.addon.efi\",\"data\":\"$(base64 -w0 "$LINK_WORKDIR/hello.addon.efi")\"}]}")"
+    assert_eq "$(echo "$vreply" | jq -r '.ids[0]')" "$vid"
+    assert_eq "$(echo "$vreply" | jq -r '.created')" "false"
     varlinkctl call --quiet "$BOOTCTL_BIN" io.systemd.BootControl.Unlink "{\"id\":\"$vid\"}"
     test ! -e "$ESP/$vtoken/hello.addon.efi"
 
@@ -1041,7 +1166,7 @@ EOF
     test -z "$leftover"
 
     # === Varlink coverage: io.systemd.BootControl.LinkAuto ===
-    local BOOTCTL_BIN vreply vid vtoken
+    local BOOTCTL_BIN vreply vid vid2 vtoken
     BOOTCTL_BIN="$(type -p bootctl)"
 
     # --- Test 5: LinkAuto discovers kernel.efi + extras ---
@@ -1062,6 +1187,22 @@ EOF
     test -f "$ESP/$vtoken/hello.cred"
     grep "^uki /$vtoken/kernel.efi\$" "$ESP/loader/entries/$vid" >/dev/null
 
+    # A second call creates no new entry and returns the ID of the existing one
+    vreply="$(varlinkctl call --json=short "$BOOTCTL_BIN" io.systemd.BootControl.LinkAuto '{}')"
+    assert_eq "$(echo "$vreply" | jq -r '.ids | length')" "1"
+    assert_eq "$(echo "$vreply" | jq -r '.ids[0]')" "$vid"
+    assert_eq "$(echo "$vreply" | jq -r '.created')" "false"
+    # A null "force" is the same as an absent one
+    vreply="$(varlinkctl call --json=short "$BOOTCTL_BIN" io.systemd.BootControl.LinkAuto '{"force":null}')"
+    assert_eq "$(echo "$vreply" | jq -r '.created')" "false"
+    # With "force" it creates a new entry
+    vreply="$(varlinkctl call --json=short "$BOOTCTL_BIN" io.systemd.BootControl.LinkAuto '{"force":true}')"
+    assert_eq "$(echo "$vreply" | jq -r '.created')" "true"
+    vid2="$(echo "$vreply" | jq -r '.ids[0]')"
+    test "$vid2" != "$vid"
+    test -f "$ESP/loader/entries/$vid2"
+    varlinkctl call --quiet "$BOOTCTL_BIN" io.systemd.BootControl.Unlink "{\"id\":\"$vid2\"}"
+
     varlinkctl call --quiet "$BOOTCTL_BIN" io.systemd.BootControl.Unlink "{\"id\":\"$vid\"}"
     test ! -e "$ESP/loader/entries/$vid"
     test ! -e "$ESP/$vtoken/kernel.efi"
@@ -1071,6 +1212,7 @@ EOF
     rm -rf /run/systemd/uki
     vreply="$(varlinkctl call --json=short "$BOOTCTL_BIN" io.systemd.BootControl.LinkAuto '{}')"
     assert_eq "$(echo "$vreply" | jq -r '.ids | length')" "0"
+    assert_eq "$(echo "$vreply" | jq -r '.created')" "false"
 }
 
 run_testcases
