@@ -79,6 +79,16 @@ static SD_VARLINK_DEFINE_METHOD(
 static SD_VARLINK_DEFINE_METHOD(
                 ClearAll);
 
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                Subscribe,
+                SD_VARLINK_REQUIRES_MORE,
+                SD_VARLINK_FIELD_COMMENT("If non-null, report only the jobs of units whose name matches one of these unit names or glob patterns. If null or empty, report the jobs of all units."),
+                SD_VARLINK_DEFINE_INPUT(units, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("Set on one notification only, the one that concludes the initial list of queued jobs. From then on the subscription reports every state change of a matching job."),
+                SD_VARLINK_DEFINE_OUTPUT(ready, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The job that is queued or changed state. Not set on the ready notification. A job in the 'finished' state always has Result set, and gets no further notification. A job that finishes right after it is enqueued might be reported only once, as 'finished'."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(job, Job, SD_VARLINK_NULLABLE));
+
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Job,
                 "io.systemd.Job",
@@ -89,6 +99,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_Cancel,
                 SD_VARLINK_SYMBOL_COMMENT("Cancel all pending jobs"),
                 &vl_method_ClearAll,
+                SD_VARLINK_SYMBOL_COMMENT("Subscribe to job state changes. Each reply is one job that is queued or that changed state. The subscription ends when the client disconnects."),
+                &vl_method_Subscribe,
                 SD_VARLINK_SYMBOL_COMMENT("Job type"),
                 &vl_type_JobType,
                 SD_VARLINK_SYMBOL_COMMENT("Job state"),
