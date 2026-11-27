@@ -8,6 +8,7 @@ const struct ConfigPerfItem* timesyncd_gperf_lookup(const char *str, GPERF_LEN_T
 int manager_parse_server_string(Manager *m, ServerType type, const char *string);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_servers);
+CONFIG_PARSER_PROTOTYPE(config_parse_phc);
 
 int manager_parse_config_file(Manager *m);
 int manager_parse_fallback_string(Manager *m, const char *string);
