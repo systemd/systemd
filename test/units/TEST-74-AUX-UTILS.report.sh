@@ -708,6 +708,16 @@ testcase_generate() {
     assert_fail "$REPORT" generate --nonce='!!!not base64!!!' io.systemd.Manager.UnitsTotal
 }
 
+testcase_upload_url_validation() {
+    # --url= must reject anything that is not a valid http:// or https:// URL
+    assert_fail "$REPORT" upload --url=file:///tmp/test.txt
+    assert_fail "$REPORT" upload --url=ftp://example.com/report
+    assert_fail "$REPORT" upload --url=example.com
+    assert_fail "$REPORT" upload --url=
+    # Verify the error message mentions HTTP(S)
+    assert_fail "$REPORT" upload --url=file:///tmp/test.txt 2>&1 | grep "Invalid HTTP(S) URL" >/dev/null
+}
+
 testcase_upload_http() {
     trap 'systemctl stop fake-report-server' EXIT
 
