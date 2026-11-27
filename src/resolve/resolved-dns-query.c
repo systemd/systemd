@@ -125,6 +125,29 @@ static DnsQueryCandidate* dns_query_candidate_free(DnsQueryCandidate *c) {
 
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(DnsQueryCandidate, dns_query_candidate, dns_query_candidate_free);
 
+/* Would "<name>.<search domain>" be refused, e.g. "onion.corp.alt"? */
+static bool dns_query_candidate_search_domain_refused(DnsQueryCandidate *c, DnsSearchDomain *sd) {
+        _cleanup_free_ char *name = NULL;
+        const char *first_name;
+        int r;
+
+        assert(c);
+        assert(sd);
+
+        if (c->scope->protocol != DNS_PROTOCOL_DNS)
+                return false;
+
+        first_name = dns_question_first_name(c->query->question_idna);
+        if (!first_name)
+                return false;
+
+        r = dns_name_concat(first_name, sd->name, /* flags= */ 0, &name);
+        if (r < 0)
+                return false;
+
+        return dns_name_dont_resolve(name);
+}
+
 static int dns_query_candidate_next_search_domain(DnsQueryCandidate *c) {
         DnsSearchDomain *next;
 
@@ -139,10 +162,11 @@ static int dns_query_candidate_next_search_domain(DnsQueryCandidate *c) {
                 if (!next) /* We hit the end of the list */
                         return 0;
 
-                if (!next->route_only)
+                if (!next->route_only &&
+                    !dns_query_candidate_search_domain_refused(c, next))
                         break;
 
-                /* Skip over route-only domains */
+                /* Skip over route-only domains and domains whose expansion is refused */
                 next = next->domains_next;
         }
 
@@ -394,28 +418,26 @@ void dns_query_candidate_notify(DnsQueryCandidate *c) {
 
                 (void) event_source_disable(c->timeout_event_source);
 
-                r = dns_query_candidate_next_search_domain(c);
-                if (r < 0)
-                        goto fail;
-
-                if (r > 0) {
-                        /* OK, there's another search domain to try, let's do so. */
+                for (;;) {
+                        r = dns_query_candidate_next_search_domain(c);
+                        if (r < 0)
+                                goto fail;
+                        if (r == 0)
+                                break; /* No more search domains to try */
 
                         r = dns_query_candidate_setup_transactions(c);
                         if (r < 0)
                                 goto fail;
+                        if (r == 0)
+                                continue; /* All names were refused, try the next search domain */
 
-                        if (r > 0) {
-                                /* New transactions have been queued. Start them and wait */
+                        /* New transactions have been queued. Start them and wait */
+                        r = dns_query_candidate_go(c);
+                        if (r < 0)
+                                goto fail;
 
-                                r = dns_query_candidate_go(c);
-                                if (r < 0)
-                                        goto fail;
-
-                                return;
-                        }
+                        return;
                 }
-
         }
 
         dns_query_ready(c->query);
@@ -1211,9 +1233,20 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
         dns_search_domain_unref(q->answer_search_domain);
         q->answer_search_domain = dns_search_domain_ref(c->search_domain);
 
-        r = dns_query_synthesize_reply(q, &state);
-        if (r < 0)
-                goto fail;
+        /* If a search domain was appended and a lookup was really done, the outcome, even a failure, is
+         * about "<name>.<search domain>". The synthesizer only sees the bare name, and would replace it
+         * with an unconditional NXDOMAIN for names like "onion". If all names were refused, nothing was
+         * looked up, so the synthesized NXDOMAIN is still correct. */
+        const char *first_name = dns_question_first_name(
+                        q->question_bypass ? q->question_bypass->question : q->question_utf8);
+        if (!c->search_domain ||
+            set_isempty(c->transactions) ||
+            !first_name ||
+            !dns_name_dont_resolve(first_name)) {
+                r = dns_query_synthesize_reply(q, &state);
+                if (r < 0)
+                        goto fail;
+        }
 
         dns_query_complete(q, state);
         return;
