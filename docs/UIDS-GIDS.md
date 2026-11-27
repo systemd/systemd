@@ -341,3 +341,11 @@ Or in other words: if you hack on some networked user database project, then mak
 service `Before=nss-user-lookup.target` and that you pull it in with `Wants=nss-user-lookup.target`.
 However, if you hack on some project that needs the user database to be up in full, then order your service
 `After=nss-user-lookup.target`, but do *not* pull it in via a `Wants=` dependency.
+
+## Negative Group and ACL Permissions
+
+Group memberships and ACL entries may only be used to grant access, never to take it away.
+"Negative" permissions, i.e. group permission bits or ACL entries for specific users or groups
+that grant less access than the "other" permission bits, are not supported on `systemd`.
+Processes can drop supplementary groups or switch to other UIDs and GIDs,
+for example in a user namespace, at which point the "other" permissions apply.
