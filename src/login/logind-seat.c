@@ -8,6 +8,7 @@
 
 #include "acl-util.h"
 #include "alloc-util.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "dirent-util.h"
 #include "errno-util.h"
@@ -32,11 +33,17 @@
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
 #include "udev-util.h"
 #include "user-record.h"
 #include "user-util.h"
+
+/* Key of the extra argument that seat_trigger_devices() appends to the uevents it triggers, to make
+ * them recognizable in manager_process_device_triggered_by_seat(). The kernel exposes it as
+ * SYNTH_ARG_LogindSeatEvent=1. */
+#define SEAT_EVENT_ARG_KEY "LogindSeatEvent"
 
 int seat_new(Manager *m, const char *id, Seat **ret) {
         _cleanup_(seat_freep) Seat *s = NULL;
@@ -241,10 +248,15 @@ int manager_process_device_triggered_by_seat(Manager *m, sd_device *dev) {
         assert(m);
         assert(dev);
 
+        /* Check if the uevent is one of those triggered by seat_trigger_devices(). */
+        r = device_get_property_bool(dev, "SYNTH_ARG_" SEAT_EVENT_ARG_KEY);
+        if (IN_SET(r, 0, -ENOENT))
+                return 0;
+        if (r < 0)
+                return r;
+
         sd_id128_t uuid;
         r = sd_device_get_trigger_uuid(dev, &uuid);
-        if (IN_SET(r, -ENOENT, -ENODATA))
-                return 0;
         if (r < 0)
                 return r;
 
@@ -252,8 +264,11 @@ int manager_process_device_triggered_by_seat(Manager *m, sd_device *dev) {
         HASHMAP_FOREACH(s, m->seats)
                 if (set_contains(s->uevents, &uuid))
                         break;
+
+        /* The UUID is already removed, when another monitor instance received the same event earlier,
+         * or the event was triggered before the current batch. */
         if (!s)
-                return 0;
+                return 1;
 
         log_device_uevent(dev, "Received event processed by udevd");
         free(ASSERT_PTR(set_remove(s->uevents, &uuid)));
@@ -279,6 +294,16 @@ static int seat_trigger_devices(Seat *s) {
         assert(s->manager);
 
         set_clear(s->uevents);
+
+        /* Append the extra argument to make the triggered uevents recognizable in
+         * manager_process_device_triggered_by_seat(). */
+        _cleanup_strv_free_ char **args = strv_copy(s->manager->device_trigger_args);
+        if (!args)
+                return -ENOMEM;
+
+        r = strv_extend_many(&args, SEAT_EVENT_ARG_KEY, "1");
+        if (r < 0)
+                return r;
 
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         r = sd_device_enumerator_new(&e);
@@ -313,7 +338,7 @@ static int seat_trigger_devices(Seat *s) {
                         continue;
 
                 sd_id128_t uuid;
-                r = device_trigger_with_timestamp(d, SD_DEVICE_CHANGE, s->manager->device_trigger_args, &uuid);
+                r = device_trigger_with_timestamp(d, SD_DEVICE_CHANGE, args, &uuid);
                 if (r < 0) {
                         log_device_debug_errno(d, r, "Failed to trigger 'change' event, ignoring: %m");
                         continue;
