@@ -1440,7 +1440,7 @@ static void boot_entry_add_type1(
 
                 } else if (streq8(key, "profile")) {
                         uint64_t u;
-                        if (parse_number8(value, &u, /* ret_tail= */ NULL) && u <= UINT_MAX)
+                        if (parse_number8(value, &u, /* ret_tail= */ NULL) && u < UINT_MAX)
                                 entry->profile = (unsigned)u;
                         else
                                 log_warning("Error parsing 'profile' entry option, ignoring: %s", value);
