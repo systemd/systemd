@@ -168,8 +168,8 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   a 32bit param
 
 - in unit files add a new knob RestartKillSignal= for configuring an
-  alternative signal to send instead of KillSignal= if a start job is qeueued
-  alrady. REstartTimeoutSec= that applies here.
+  alternative signal to send instead of KillSignal= if a start job is queued
+  already. REstartTimeoutSec= that applies here.
 
 - service health varlink dir, per-service policy on what should happen if
   varlink dir fails: reboot, count down vpick, invalidat whole system
