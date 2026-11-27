@@ -13,8 +13,10 @@
 #include "resolve-util.h"
 #include "resolve-varlink-util.h"
 #include "set.h"
+#include "socket-netlink.h"
 #include "string-util.h"
 #include "strv.h"
+#include "web-util.h"
 
 void resolve_error_done(ResolveError *error) {
         if (!error)
@@ -388,8 +390,70 @@ DNSServer* dns_server_free(DNSServer *s) {
                 return NULL;
 
         free(s->server_name);
+        free(s->scheme);
+        free(s->path);
+        free(s->query);
+        strv_free(s->parameters);
+        free(s->uri);
 
         return mfree(s);
+}
+
+int dns_server_to_in_addr_full(const DNSServer *s, struct in_addr_full **ret) {
+        _cleanup_(in_addr_full_freep) struct in_addr_full *a = NULL;
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        r = in_addr_full_new(s->family, &s->in_addr.address, s->port, s->ifindex, s->server_name, &a);
+        if (r < 0)
+                return r;
+
+        if (strdup_to(&a->scheme, s->scheme) < 0 ||
+            strdup_to(&a->path, s->path) < 0 ||
+            strdup_to(&a->query, s->query) < 0)
+                return -ENOMEM;
+
+        if (s->parameters) {
+                a->params = strv_copy(s->parameters);
+                if (!a->params)
+                        return -ENOMEM;
+        }
+
+        *ret = TAKE_PTR(a);
+        return 0;
+}
+
+static int dispatch_uri_parameters(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        char ***ret = ASSERT_PTR(userdata);
+        _cleanup_strv_free_ char **l = NULL;
+        const char *key;
+        sd_json_variant *value;
+        int r;
+
+        if (sd_json_variant_is_null(variant)) {
+                *ret = strv_free(*ret);
+                return 0;
+        }
+
+        if (!sd_json_variant_is_object(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an object.", strna(name));
+
+        JSON_VARIANT_OBJECT_FOREACH(key, value, variant) {
+                if (!sd_json_variant_is_string(value))
+                        return json_log(value, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an object of strings.", strna(name));
+
+                /* The server name and interface have fields of their own */
+                if (isempty(key) || strchr(key, '=') || STR_IN_SET(key, "name", "ifname"))
+                        return json_log(value, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' contains invalid key '%s'.", strna(name), key);
+
+                r = strv_extendf(&l, "%s=%s", key, sd_json_variant_string(value));
+                if (r < 0)
+                        return json_log_oom(variant, flags);
+        }
+
+        return strv_free_and_replace(*ret, l);
 }
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
@@ -408,19 +472,99 @@ static const sd_json_dispatch_field dns_server_runtime_dispatch_table[] = {
         { "port",          SD_JSON_VARIANT_UNSIGNED,      sd_json_dispatch_uint16,        offsetof(DNSServer, port),        0                 },
         { "ifindex",       SD_JSON_VARIANT_UNSIGNED,      json_dispatch_ifindex,          offsetof(DNSServer, ifindex),     SD_JSON_RELAX     },
         { "name",          SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,        offsetof(DNSServer, server_name), 0                 },
+        { "scheme",        SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,        offsetof(DNSServer, scheme),      SD_JSON_NULLABLE  },
+        { "path",          SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,        offsetof(DNSServer, path),        SD_JSON_NULLABLE  },
+        { "query",         SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,        offsetof(DNSServer, query),       SD_JSON_NULLABLE  },
+        { "parameters",    SD_JSON_VARIANT_OBJECT,        dispatch_uri_parameters,        offsetof(DNSServer, parameters),  SD_JSON_NULLABLE  },
+        { "uri",           SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,        offsetof(DNSServer, uri),         SD_JSON_NULLABLE  },
         { "accessible",    SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       offsetof(DNSServer, accessible),  SD_JSON_MANDATORY },
         {},
 };
 
 static const sd_json_dispatch_field dns_server_context_dispatch_table[] = {
         /* This table is for context, i.e. input */
-        { "address", SD_JSON_VARIANT_ARRAY,    json_dispatch_in_addr_data,     offsetof(DNSServer, in_addr),     SD_JSON_MANDATORY                     },
-        { "family",  SD_JSON_VARIANT_INTEGER,  json_dispatch_address_family,   offsetof(DNSServer, family),      SD_JSON_MANDATORY                     },
-        { "port",    SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint16,        offsetof(DNSServer, port),        SD_JSON_NULLABLE|SD_JSON_NULL_TO_ZERO },
-        { "ifindex", SD_JSON_VARIANT_UNSIGNED, json_dispatch_ifindex,          offsetof(DNSServer, ifindex),     SD_JSON_NULLABLE|SD_JSON_RELAX        },
-        { "name",    SD_JSON_VARIANT_STRING,   json_dispatch_string_non_empty, offsetof(DNSServer, server_name), SD_JSON_NULLABLE                      },
+        /* The address and family are required unless "uri" is given, see dispatch_dns_server(). */
+        { "address",    SD_JSON_VARIANT_ARRAY,    json_dispatch_in_addr_data,     offsetof(DNSServer, in_addr),     SD_JSON_NULLABLE                      },
+        { "family",     SD_JSON_VARIANT_INTEGER,  json_dispatch_address_family,   offsetof(DNSServer, family),      SD_JSON_NULLABLE                      },
+        { "port",       SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint16,        offsetof(DNSServer, port),        SD_JSON_NULLABLE|SD_JSON_NULL_TO_ZERO },
+        { "ifindex",    SD_JSON_VARIANT_UNSIGNED, json_dispatch_ifindex,          offsetof(DNSServer, ifindex),     SD_JSON_NULLABLE|SD_JSON_RELAX        },
+        { "name",       SD_JSON_VARIANT_STRING,   json_dispatch_string_non_empty, offsetof(DNSServer, server_name), SD_JSON_NULLABLE                      },
+        { "scheme",     SD_JSON_VARIANT_STRING,   json_dispatch_string_non_empty, offsetof(DNSServer, scheme),      SD_JSON_NULLABLE                      },
+        { "path",       SD_JSON_VARIANT_STRING,   json_dispatch_string_non_empty, offsetof(DNSServer, path),        SD_JSON_NULLABLE                      },
+        { "query",      SD_JSON_VARIANT_STRING,   json_dispatch_string_non_empty, offsetof(DNSServer, query),       SD_JSON_NULLABLE                      },
+        { "parameters", SD_JSON_VARIANT_OBJECT,   dispatch_uri_parameters,        offsetof(DNSServer, parameters),  SD_JSON_NULLABLE                      },
+        { "uri",        SD_JSON_VARIANT_STRING,   json_dispatch_string_non_empty, offsetof(DNSServer, uri),         SD_JSON_NULLABLE                      },
         {},
 };
+
+static int dns_server_context_from_uri(DNSServer *s, sd_json_variant *variant, sd_json_dispatch_flags_t flags) {
+        _cleanup_(in_addr_full_freep) struct in_addr_full *a = NULL;
+        int r;
+
+        assert(s);
+        assert(s->uri);
+
+        /* The URI is the server as a whole, hence refuse any of the fields it is split into. */
+        if (s->in_addr.family != AF_UNSPEC || s->family != AF_UNSPEC || s->port != 0 || s->ifindex != 0 ||
+            s->server_name || s->scheme || s->path || s->query || s->parameters)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "'uri' may not be combined with other fields.");
+
+        r = in_addr_full_new_from_string(s->uri, &a);
+        if (r < 0)
+                return json_log(variant, flags, r, "Invalid DNS server URI: %s", s->uri);
+
+        s->in_addr = (struct in_addr_data) { .family = a->family, .address = a->address };
+        s->family = a->family;
+        s->port = a->port;
+        s->ifindex = a->ifindex;
+        s->server_name = TAKE_PTR(a->server_name);
+        s->scheme = TAKE_PTR(a->scheme);
+        s->path = TAKE_PTR(a->path);
+        s->query = TAKE_PTR(a->query);
+        s->parameters = TAKE_PTR(a->params);
+        s->uri = mfree(s->uri);
+
+        return 0;
+}
+
+static int dns_server_context_verify_uri(const DNSServer *s, sd_json_variant *variant, sd_json_dispatch_flags_t flags) {
+        _cleanup_(in_addr_full_freep) struct in_addr_full *a = NULL, *parsed = NULL;
+        const char *t;
+        int r;
+
+        assert(s);
+
+        /* Check that the parts form a valid URI, by formatting and parsing it again, and that they come back
+         * the same, i.e. no part contains delimiters of another. */
+
+        if (!s->scheme) {
+                if (s->path || s->query || s->parameters)
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "URI parts given without 'scheme'.");
+                return 0;
+        }
+
+        if (!url_scheme_is_valid(s->scheme))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Invalid URI scheme: %s", s->scheme);
+
+        r = dns_server_to_in_addr_full(s, &a);
+        if (r < 0)
+                return json_log(variant, flags, r, "Failed to assemble DNS server URI: %m");
+
+        t = in_addr_full_to_string(a);
+        if (!t)
+                return json_log_oom(variant, flags);
+
+        r = in_addr_full_new_from_uri(t, &parsed);
+        if (r < 0)
+                return json_log(variant, flags, r, "Invalid DNS server URI: %s", t);
+
+        if (!streq_ptr(parsed->path, s->path) ||
+            !streq_ptr(parsed->query, s->query) ||
+            !strv_equal(parsed->params, s->parameters))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Invalid DNS server URI parts: %s", t);
+
+        return 0;
+}
 
 static int dispatch_dns_server(
                 const sd_json_dispatch_field table[],
@@ -442,6 +586,19 @@ static int dispatch_dns_server(
         if (r < 0)
                 return r;
 
+        if (input) {
+                if (s->uri) {
+                        r = dns_server_context_from_uri(s, variant, flags);
+                        if (r < 0)
+                                return r;
+                } else if (s->in_addr.family == AF_UNSPEC || s->family == AF_UNSPEC)
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "'%s' requires 'address' and 'family', or 'uri'.", strna(name));
+
+                r = dns_server_context_verify_uri(s, variant, flags);
+                if (r < 0)
+                        return r;
+        }
+
         if (s->family != s->in_addr.family)
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "'%s' address and family are inconsistent.", strna(name));
 
@@ -451,7 +608,9 @@ static int dispatch_dns_server(
         if (input && !dns_server_address_valid(s->family, &s->in_addr.address))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Invalid DNS server address.");
 
-        if (IN_SET(s->port, 53, 853))
+        /* Without a scheme the port applies to all transports, hence treat the default port of either as
+         * none. With a scheme only systemd-resolved knows the transport, and with it the default port. */
+        if (!s->scheme && IN_SET(s->port, 53, 853))
                 s->port = 0;
 
         *ret = TAKE_PTR(s);

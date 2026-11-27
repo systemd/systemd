@@ -10,17 +10,19 @@ static SD_VARLINK_DEFINE_ERROR(ManagedByNetworkd);
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 DNSServerContext,
-                /* The address and family are always required as input, so are not nullable. */
-                SD_VARLINK_FIELD_COMMENT("IPv4 or IPv6 address of the server."),
-                SD_VARLINK_DEFINE_FIELD(address, SD_VARLINK_INT, SD_VARLINK_ARRAY),
-                SD_VARLINK_FIELD_COMMENT("Address family of the server, one of AF_INET or AF_INET6."),
-                SD_VARLINK_DEFINE_FIELD(family, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("IPv4 or IPv6 address of the server. Required unless 'uri' is given."),
+                SD_VARLINK_DEFINE_FIELD(address, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Address family of the server, one of AF_INET or AF_INET6. Required unless 'uri' is given."),
+                SD_VARLINK_DEFINE_FIELD(family, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Port number of the server."),
                 SD_VARLINK_DEFINE_FIELD(port, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Interface index for which this server is configured."),
                 SD_VARLINK_DEFINE_FIELD(ifindex, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Server Name Indication (SNI) of the server."),
-                SD_VARLINK_DEFINE_FIELD(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                DNS_SERVER_URI_FIELDS,
+                SD_VARLINK_FIELD_COMMENT("The server as a whole, in the URI or legacy format accepted by DNS= in resolved.conf(5). If given, none of the other fields may be."),
+                SD_VARLINK_DEFINE_FIELD(uri, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
                 SetDNS,

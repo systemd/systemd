@@ -5,6 +5,7 @@
 #include <string.h>
 #include <sys/stat.h>
 
+#include "sd-json.h"
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
@@ -595,6 +596,36 @@ const char* in_addr_full_to_string(struct in_addr_full *a) {
                                 &a->cached_server_string);
 
         return a->cached_server_string;
+}
+
+int in_addr_full_params_to_json(const struct in_addr_full *a, sd_json_variant **ret) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        int r;
+
+        assert(a);
+        assert(ret);
+
+        /* Returns the fragment parameters of a URI as JSON object, or NULL if there are none. */
+
+        STRV_FOREACH(p, a->params) {
+                _cleanup_free_ char *key = NULL;
+                const char *e;
+
+                e = strchr(*p, '=');
+                if (!e)
+                        return -EINVAL;
+
+                key = strndup(*p, e - *p);
+                if (!key)
+                        return -ENOMEM;
+
+                r = sd_json_variant_set_field_string(&v, key, e + 1);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
 }
 
 int netns_get_nsid(int netnsfd, uint32_t *ret) {

@@ -745,42 +745,58 @@ const char* dns_server_string(DnsServer *server) {
         return server->server_string;
 }
 
-int dns_server_to_uri(DnsServer *s, bool with_ifindex, char **ret) {
+static int dns_server_to_address_full(DnsServer *s, bool with_ifindex, struct in_addr_full **ret) {
         _cleanup_(in_addr_full_freep) struct in_addr_full *a = NULL;
         DnsTransportKind best;
-        const char *t;
         int r;
 
         assert(s);
         assert(ret);
 
-        /* Formats the server the way it is configured: as URI if it was given a scheme, and in the legacy
-         * "address[:port][%ifname][#name]" form otherwise. The interface is left out unless with_ifindex
-         * is set, for callers that report it separately. */
+        /* Describes the server the way it is configured: with a scheme and parameters if it was given a
+         * scheme, and without otherwise. The interface is left out unless with_ifindex is set, for callers
+         * that report it separately. */
 
         r = in_addr_full_new(s->family, &s->address, s->port, with_ifindex ? dns_server_ifindex(s) : 0,
                              s->server_name, &a);
         if (r < 0)
                 return r;
 
-        if (s->transport_policy == 0)
-                goto finish;
+        if (s->transport_policy != 0) {
+                best = dns_transport_policy_best(s->transport_policy);
+                r = strdup_to(&a->scheme, dns_transport_kind_to_string(best));
+                if (r < 0)
+                        return r;
 
-        best = dns_transport_policy_best(s->transport_policy);
-        r = strdup_to(&a->scheme, dns_transport_kind_to_string(best));
+                if (dns_transport_policy_next(s->transport_policy, best) >= 0) {
+                        if (s->downgrade_port > 0)
+                                r = strv_extendf(&a->params, "downgrade=%" PRIu16, s->downgrade_port);
+                        else
+                                r = strv_extend(&a->params, "downgrade=");
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        *ret = TAKE_PTR(a);
+        return 0;
+}
+
+int dns_server_to_uri(DnsServer *s, bool with_ifindex, char **ret) {
+        _cleanup_(in_addr_full_freep) struct in_addr_full *a = NULL;
+        const char *t;
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        /* Formats the server as URI if it was given a scheme, and in the legacy
+         * "address[:port][%ifname][#name]" form otherwise. See dns_server_to_address_full(). */
+
+        r = dns_server_to_address_full(s, with_ifindex, &a);
         if (r < 0)
                 return r;
 
-        if (dns_transport_policy_next(s->transport_policy, best) >= 0) {
-                if (s->downgrade_port > 0)
-                        r = strv_extendf(&a->params, "downgrade=%" PRIu16, s->downgrade_port);
-                else
-                        r = strv_extend(&a->params, "downgrade=");
-                if (r < 0)
-                        return r;
-        }
-
-finish:
         t = in_addr_full_to_string(a);
         if (!t)
                 return -ENOMEM;
@@ -1619,13 +1635,36 @@ void dns_server_reset_accessible_all(DnsServer *first) {
 }
 
 int dns_server_dump_configuration_to_json(DnsServer *server, sd_json_variant **ret) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        _cleanup_(in_addr_full_freep) struct in_addr_full *a = NULL;
         bool accessible = false;
+        const char *uri = NULL;
+        uint16_t port;
         int ifindex, r;
 
         assert(server);
         assert(ret);
 
         ifindex = dns_server_ifindex(server);
+
+        /* The interface of a link's server is implied by the link, as in the legacy fields. */
+        r = dns_server_to_address_full(server, /* with_ifindex= */ !server->link, &a);
+        if (r < 0)
+                return r;
+
+        if (a->scheme) {
+                r = in_addr_full_params_to_json(a, &parameters);
+                if (r < 0)
+                        return r;
+
+                uri = in_addr_full_to_string(a);
+                if (!uri)
+                        return -ENOMEM;
+
+                /* The port of the transport the scheme selects, rather than the one of classic DNS */
+                port = dns_server_transport_port(ASSERT_PTR(server->transports[dns_transport_policy_best(server->transport_policy)]));
+        } else
+                port = dns_server_port(server);
 
         r = dns_server_is_accessible(server);
         if (r < 0)
@@ -1638,8 +1677,11 @@ int dns_server_dump_configuration_to_json(DnsServer *server, sd_json_variant **r
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("addressString", dns_server_string(server)),
                         JSON_BUILD_PAIR_IN_ADDR("address", server->family, &server->address),
                         SD_JSON_BUILD_PAIR_INTEGER("family", server->family),
-                        SD_JSON_BUILD_PAIR_UNSIGNED("port", dns_server_port(server)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("port", port),
                         SD_JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", SD_JSON_BUILD_UNSIGNED(ifindex)),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("name", server->server_name),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("scheme", a->scheme),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("parameters", parameters),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("uri", uri),
                         SD_JSON_BUILD_PAIR_BOOLEAN("accessible", accessible));
 }

@@ -48,6 +48,7 @@ int in_addr_full_new(int family, const union in_addr_union *a, uint16_t port, in
 int in_addr_full_new_from_string(const char *s, struct in_addr_full **ret);
 int in_addr_full_new_from_uri(const char *s, struct in_addr_full **ret);
 const char* in_addr_full_to_string(struct in_addr_full *a);
+int in_addr_full_params_to_json(const struct in_addr_full *a, sd_json_variant **ret);
 
 int netns_get_nsid(int netnsfd, uint32_t *ret);
 

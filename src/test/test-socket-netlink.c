@@ -3,6 +3,8 @@
 #include <fcntl.h>
 #include <sys/eventfd.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -408,6 +410,33 @@ static void test_in_addr_full_new_from_uri_one(
         ASSERT_STREQ(a->query, query);
         ASSERT_TRUE(strv_equal(a->params, params));
         ASSERT_STREQ(in_addr_full_to_string(a), str_repr ?: str);
+}
+
+static void test_in_addr_full_params_to_json_one(const char *uri, const char *expected) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_(in_addr_full_freep) struct in_addr_full *a = NULL;
+        _cleanup_free_ char *j = NULL;
+
+        log_debug("/* %s(%s) */", __func__, uri);
+
+        ASSERT_OK(in_addr_full_new_from_uri(uri, &a));
+        ASSERT_OK(in_addr_full_params_to_json(a, &v));
+        if (!expected) {
+                ASSERT_NULL(v);
+                return;
+        }
+
+        ASSERT_OK(sd_json_variant_format(v, /* flags= */ 0, &j));
+        ASSERT_STREQ(j, expected);
+}
+
+TEST(in_addr_full_params_to_json) {
+        test_in_addr_full_params_to_json_one("dnss://192.0.2.1", NULL);
+        /* The server name and interface have fields of their own */
+        test_in_addr_full_params_to_json_one("dnss://192.0.2.1#name=example.com", NULL);
+        test_in_addr_full_params_to_json_one("dnss://192.0.2.1#downgrade", "{\"downgrade\":\"\"}");
+        test_in_addr_full_params_to_json_one("dnss://192.0.2.1#name=example.com&downgrade=5353&a=b",
+                                             "{\"downgrade\":\"5353\",\"a\":\"b\"}");
 }
 
 TEST(in_addr_full_new_from_uri) {
