@@ -70,14 +70,14 @@ static int context_installdb_acquire_fd(Context *c, bool make) {
         } else
                 p = "/var/lib/systemd/sysupdate/installdb";
 
-        ChaseFlags flags = CHASE_MUST_BE_DIRECTORY|CHASE_PREFIX_ROOT;
+        ChaseFlags flags = CHASE_MUST_BE_DIRECTORY;
 
         if (make)
                 flags |= CHASE_MKDIR_0755;
 
-        c->installdb_fd = chase_and_open(
+        c->installdb_fd = chase_and_openat(
+                        c->root_fd, c->root_fd,
                         p,
-                        c->root,
                         flags,
                         O_DIRECTORY|(make ? O_CREAT : 0),
                         /* ret_path= */ NULL);
@@ -367,7 +367,7 @@ static int context_installdb_process_entry(
 
         /* NB: We set CHASE_PROHIBIT_SYMLINKS because the path was normalized by the writer of the entry
          * already, and if it isn't anymore, then something is fishy. */
-        _cleanup_close_ int dir_fd = chase_and_open(path, c->root, CHASE_MUST_BE_DIRECTORY|CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, O_DIRECTORY, /* ret_path= */ NULL);
+        _cleanup_close_ int dir_fd = chase_and_openat(c->root_fd, c->root_fd, path, CHASE_MUST_BE_DIRECTORY|CHASE_PROHIBIT_SYMLINKS, O_DIRECTORY, /* ret_path= */ NULL);
         if (dir_fd == -ENOENT) {
                 log_debug("Install database path '%s' does not exist, expunging database entry.", path);
                 return 0;
@@ -436,10 +436,10 @@ int installdb_list_components(Context *context, char ***ret) {
         assert(context);
         assert(ret);
 
-        _cleanup_close_ int dir_fd = chase_and_open(
+        _cleanup_close_ int dir_fd = chase_and_openat(
+                        context->root_fd, context->root_fd,
                         "/var/lib/systemd/sysupdate",
-                        context->root,
-                        CHASE_MUST_BE_DIRECTORY|CHASE_PREFIX_ROOT,
+                        CHASE_MUST_BE_DIRECTORY,
                         O_DIRECTORY,
                         /* ret_path= */ NULL);
         if (dir_fd == -ENOENT) {

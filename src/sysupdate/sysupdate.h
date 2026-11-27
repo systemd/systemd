@@ -35,6 +35,7 @@ typedef struct Context {
         char *transfer_source;
 
         /* Loaded state: */
+        int root_fd;
         LoopDevice *loop_device;
         char *mounted_dir;
 

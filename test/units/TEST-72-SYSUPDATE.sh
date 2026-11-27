@@ -965,37 +965,72 @@ cmp "$WORKDIR/source/tiny-v1.bin" "$WORKDIR/blobs/tiny-v1.bin"
 [[ $(varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListFeatures '{"target":{"class":"host"}}' | jq -r '.features') == "[]" ]]
 
 # Test that definitions found through --root= are not prefixed twice.
-rm -rf "$WORKDIR/root-definitions"
-mkdir -p "$WORKDIR/root-definitions/etc/sysupdate.d" \
-         "$WORKDIR/root-definitions/etc" \
-         "$WORKDIR/root-definitions/source" \
-         "$WORKDIR/root-definitions/target"
-printf '%s\n' 'ID=repro' 'VERSION_ID=1' >"$WORKDIR/root-definitions/etc/os-release"
-cat >"$WORKDIR/root-definitions/etc/sysupdate.d/rootfeat.feature" <<EOF
+ROOTDIR="$WORKDIR/root-definitions"
+ROOT_TRANSFER="$ROOTDIR/etc/sysupdate.d/01-root.transfer"
+mkdir -p "$ROOTDIR/etc/sysupdate.d" "$ROOTDIR/source" "$ROOTDIR/store"
+ln -s /store "$ROOTDIR/target"
+printf '%s\n' 'ID=repro' 'VERSION_ID=1' >"$ROOTDIR/etc/os-release"
+cat >"$ROOTDIR/etc/sysupdate.d/rootfeat.feature" <<EOF
 [Feature]
 Description=Root Feature
 EOF
-cat >"$WORKDIR/root-definitions/etc/sysupdate.d/01-root.transfer" <<EOF
-[Transfer]
-
+root_transfer() {
+    local source_type="${1:?}" source_path="${2:?}" target_type="${3:?}" target_path="${4:?}" source_option="${5:-}"
+    cat >"$ROOT_TRANSFER" <<EOF
 [Source]
-Type=regular-file
-Path=/source
-MatchPattern=root-@v.bin
+Type=$source_type
+Path=$source_path
+MatchPattern=root-@v
+$source_option
 
 [Target]
-Type=regular-file
-Path=/target
-MatchPattern=root-@v.bin
-InstancesMax=2
+Type=$target_type
+Path=$target_path
+MatchPattern=root-@v
 EOF
-"$SYSUPDATE" \
-    --root="$WORKDIR/root-definitions" \
-    --verify=no \
-    --offline \
-    features rootfeat \
-    | grep -F "Root Feature" >/dev/null
-rm -rf "$WORKDIR/root-definitions"
+}
+root_transfer regular-file /source regular-file /target/nested
+cat >>"$ROOT_TRANSFER" <<EOF
+InstancesMax=2
+CurrentSymlink=current
+RemoveTemporary=no
+EOF
+"$SYSUPDATE" --root="$ROOTDIR" --verify=no --offline features rootfeat | grep -F "Root Feature" >/dev/null
+
+# Absolute symlinks resolve inside the root. An occupied staging name must not overwrite an installed file.
+printf 'first update\n' >"$ROOTDIR/source/root-1"
+"$SYSUPDATE" --root="$ROOTDIR" update
+[[ $(readlink "$ROOTDIR/store/nested/current") == root-1 ]]
+cmp "$ROOTDIR/source/root-1" "$ROOTDIR/store/nested/current"
+printf 'second update\n' >"$ROOTDIR/source/root-2"
+ln -s root-1 "$ROOTDIR/store/nested/.sysupdate.partial.root-2"
+(! "$SYSUPDATE" --root="$ROOTDIR" update)
+cmp "$ROOTDIR/source/root-1" "$ROOTDIR/store/nested/root-1"
+rm "$ROOTDIR/store/nested/.sysupdate.partial.root-2"
+
+# Rename the destination while the helper is running. Both the write and publication must use the
+# original directory, not its replacement.
+cat >"$WORKDIR/move-and-import" <<'EOF'
+#!/bin/sh
+set -eu
+mv "$STORE/nested" "$STORE/moved"
+mkdir "$STORE/nested"
+exec /usr/lib/systemd/systemd-import "$@"
+EOF
+chmod +x "$WORKDIR/move-and-import"
+STORE="$ROOTDIR/store" SYSTEMD_IMPORT_PATH="$WORKDIR/move-and-import" "$SYSUPDATE" --root="$ROOTDIR" update
+cmp "$ROOTDIR/source/root-2" "$ROOTDIR/store/moved/root-2"
+cmp "$ROOTDIR/source/root-2" "$ROOTDIR/store/nested/current"
+test ! -e "$ROOTDIR/store/nested/root-2"
+
+# A directory supplied by the caller is a valid external source.
+mkdir -p "$WORKDIR/root-source/root-1"
+printf 'directory update\n' >"$WORKDIR/root-source/root-1/content"
+root_transfer directory / directory /target PathRelativeTo=explicit
+"$SYSUPDATE" --root="$ROOTDIR" --transfer-source="$WORKDIR/root-source" update
+cmp "$WORKDIR/root-source/root-1/content" "$ROOTDIR/store/root-1/content"
+
+rm -rf "$ROOTDIR"
 
 # Cleanup
 rm "$CONFIGDIR/01-tiny-url.transfer"
