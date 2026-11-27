@@ -820,6 +820,27 @@ TEST(chaseat) {
 
         ASSERT_ERROR(chaseat(XAT_FDROOT, tfd, "i/../p", CHASE_MKDIR_0755|CHASE_NONEXISTENT, /* ret_path= */ NULL, /* ret_fd= */ NULL), ENOENT);
 
+        /* Test CHASE_MKDIR_0700 */
+
+        ASSERT_OK(chaseat(XAT_FDROOT, tfd, "m700/a/b", CHASE_MKDIR_0700|CHASE_MUST_BE_DIRECTORY, &result, &fd));
+        ASSERT_OK(fd_verify_directory(fd));
+        fd = safe_close(fd);
+        ASSERT_STREQ(result, "m700/a/b");
+        result = mfree(result);
+        FOREACH_STRING(d, "m700", "m700/a", "m700/a/b") {
+                ASSERT_OK_ERRNO(fstatat(tfd, d, &st, AT_SYMLINK_NOFOLLOW));
+                ASSERT_TRUE(S_ISDIR(st.st_mode));
+                ASSERT_EQ(st.st_mode & 07777, (mode_t) 0700);
+        }
+
+        /* Only the missing final component is created, below directories created earlier with 0755 */
+        ASSERT_OK(chaseat(XAT_FDROOT, tfd, "m/k/d/i/r2", CHASE_MKDIR_0700, /* ret_path= */ NULL, /* ret_fd= */ NULL));
+        ASSERT_OK_ERRNO(fstatat(tfd, "m/k/d/i/r2", &st, AT_SYMLINK_NOFOLLOW));
+        ASSERT_EQ(st.st_mode & 07777, (mode_t) 0700);
+
+        ASSERT_ERROR(chaseat(XAT_FDROOT, tfd, "m700/c", CHASE_MKDIR_0755|CHASE_MKDIR_0700, /* ret_path= */ NULL, /* ret_fd= */ NULL), EINVAL);
+        ASSERT_ERROR(RET_NERRNO(faccessat(tfd, "m700/c", F_OK, 0)), ENOENT);
+
         /* Test CHASE_MKDIR_0755|CHASE_PARENT — creates intermediate dirs but not the final component */
 
         ASSERT_OK(chaseat(XAT_FDROOT, tfd, "mkp/a/r/e/n/t/file", CHASE_MKDIR_0755|CHASE_PARENT, &result, &fd));
@@ -865,6 +886,24 @@ TEST(chaseat) {
         fd = ASSERT_OK(chase_and_openat(XAT_FDROOT, tfd, "o/p/e/n/d/i/r", CHASE_MKDIR_0755, O_DIRECTORY|O_CREAT|O_EXCL, /* ret_path= */ NULL));
         ASSERT_OK(fd_verify_directory(fd));
         fd = safe_close(fd);
+
+        /* With CHASE_MKDIR_0700 the final directory is created with 0700 too, but not regular files */
+        fd = ASSERT_OK(chase_and_openat(XAT_FDROOT, tfd, "o700/d/i/r", CHASE_MKDIR_0700, O_DIRECTORY|O_CREAT|O_EXCL, /* ret_path= */ NULL));
+        ASSERT_OK(fd_verify_directory(fd));
+        fd = safe_close(fd);
+        FOREACH_STRING(d, "o700", "o700/d", "o700/d/i", "o700/d/i/r") {
+                ASSERT_OK_ERRNO(fstatat(tfd, d, &st, AT_SYMLINK_NOFOLLOW));
+                ASSERT_TRUE(S_ISDIR(st.st_mode));
+                ASSERT_EQ(st.st_mode & 07777, (mode_t) 0700);
+        }
+
+        fd = ASSERT_OK(chase_and_openat(XAT_FDROOT, tfd, "o700/f/file", CHASE_MKDIR_0700, O_CREAT|O_EXCL|O_WRONLY, /* ret_path= */ NULL));
+        ASSERT_OK(fd_verify_regular(fd));
+        fd = safe_close(fd);
+        ASSERT_OK_ERRNO(fstatat(tfd, "o700/f", &st, AT_SYMLINK_NOFOLLOW));
+        ASSERT_EQ(st.st_mode & 07777, (mode_t) 0700);
+        ASSERT_OK_ERRNO(fstatat(tfd, "o700/f/file", &st, AT_SYMLINK_NOFOLLOW));
+        ASSERT_NE(st.st_mode & 07777, (mode_t) 0700);
 
         fd = ASSERT_OK(chase_and_openat(XAT_FDROOT, tfd, /* path= */ NULL, CHASE_PARENT|CHASE_EXTRACT_FILENAME_HARDER|CHASE_EMPTY_PATH, O_PATH|O_DIRECTORY, &result));
         ASSERT_STREQ(result, ".");
