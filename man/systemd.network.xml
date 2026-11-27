@@ -2789,7 +2789,10 @@ MultiPathRoute=2001:db8::1@eth0</programlisting>
         <term><varname>UseDNR=</varname></term>
         <listitem>
           <para>When true, designated resolvers advertised by the DHCP server will be used as encrypted
-          DNS servers. See <ulink url="https://datatracker.ietf.org/doc/html/rfc9463">RFC 9463</ulink>.</para>
+          DNS servers. See <ulink url="https://datatracker.ietf.org/doc/html/rfc9463">RFC 9463</ulink>.
+          Resolvers offering DNS over TLS are used with DNS over TLS only, and their certificate is verified
+          against the advertised authentication domain name, regardless of <varname>DNSOverTLS=</varname>.
+          Resolvers offering other encrypted transports only are ignored.</para>
 
           <para>Defaults to unset, and the value for <varname>UseDNS=</varname> will be used.</para>
 
@@ -3654,8 +3657,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>UseDNR=</varname></term>
         <listitem>
-          <para> When true, the DNR servers received in the Router Advertisement will be used. Defaults to
-            the value of <option>UseDNS=</option>.</para>
+          <para> When true, the DNR servers received in the Router Advertisement will be used, as with
+            <varname>UseDNR=</varname> in the [DHCPv4] section. Defaults to the value of
+            <option>UseDNS=</option>.</para>
 
           <xi:include href="version-info.xml" xpointer="v257"/>
         </listitem>

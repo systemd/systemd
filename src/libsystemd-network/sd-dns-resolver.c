@@ -315,6 +315,13 @@ int dns_resolvers_to_dot_addrs(const sd_dns_resolver *resolvers, size_t n_resolv
                         if (!GREEDY_REALLOC(addrs, n+1))
                                 return -ENOMEM;
 
+                        /* Designated resolvers are only known to offer DNS over TLS, and their authentication
+                         * domain name is what to verify the certificate against. Hence write them in URI form,
+                         * selecting DNS over TLS only, so that systemd-resolved doesn't fall back to
+                         * unencrypted DNS, nor depends on the DNSOverTLS= setting for them. */
+                        r = free_and_strdup(&addr->scheme, "dnss");
+                        if (r < 0)
+                                return r;
                         r = free_and_strdup(&addr->server_name, res->auth_name);
                         if (r < 0)
                                 return r;
