@@ -26,13 +26,14 @@ at_exit() {
                    update-helper-bridge.socket 'update-helper-bridge@*.service'
     loginctl disable-linger testuser
     rm -rf /run/systemd/system/update-helper-bridge.socket.d
-    rm -f /etc/systemd/system/update-helper-test.service \
-          /etc/systemd/system/update-helper-test@.service \
+    rm -f /usr/lib/systemd/system/update-helper-test.service \
+          /usr/lib/systemd/system/update-helper-test@.service \
+          /usr/lib/systemd/system/multi-user.target.wants/update-helper-test@vendor.service \
           /run/systemd/system/update-helper-victim.service \
           /run/systemd/system/update-helper-bridge.socket \
           /run/systemd/system/update-helper-bridge@.service \
           /etc/systemd/system-preset/00-update-helper-test.preset \
-          /etc/systemd/user/update-helper-test.service \
+          /usr/lib/systemd/user/update-helper-test.service \
           /etc/systemd/user-preset/00-update-helper-test.preset \
           /etc/systemd/user/default.target.wants/update-helper-test.service \
           /home/testuser/.config/systemd/user/default.target.wants/update-helper-test.service
@@ -53,14 +54,14 @@ user_systemctl() {
 (! "$HELPER" --system remove-user-units update-helper-test.service)
 
 : "System units"
-cat >/etc/systemd/system/update-helper-test.service <<EOF
+cat >/usr/lib/systemd/system/update-helper-test.service <<EOF
 [Service]
 ExecStart=sleep infinity
 
 [Install]
 WantedBy=multi-user.target
 EOF
-cat >/etc/systemd/system/update-helper-test@.service <<EOF
+cat >/usr/lib/systemd/system/update-helper-test@.service <<EOF
 [Service]
 ExecStart=sleep infinity
 
@@ -75,6 +76,9 @@ systemctl daemon-reload
 [[ "$(systemctl is-enabled update-helper-test.service)" == disabled ]]
 "$HELPER" install-system-units update-helper-test.service
 [[ "$(systemctl is-enabled update-helper-test.service)" == enabled ]]
+# The package also enables an instance with a vendor symlink below /usr/.
+mkdir -p /usr/lib/systemd/system/multi-user.target.wants
+ln -s ../update-helper-test@.service /usr/lib/systemd/system/multi-user.target.wants/update-helper-test@vendor.service
 
 systemctl start update-helper-test.service update-helper-test@a.service update-helper-test@b.service
 id="$(systemctl show -P InvocationID update-helper-test.service)"
@@ -94,15 +98,19 @@ id_b="$(systemctl show -P InvocationID update-helper-test@b.service)"
 [[ "$(systemctl is-enabled update-helper-test.service)" == enabled ]]
 systemctl is-active update-helper-test.service update-helper-test@a.service update-helper-test@b.service
 
-printf '%s\n' /etc/systemd/system/update-helper-test.service /etc/systemd/system/update-helper-test@.service /etc/passwd |
+printf '%s\n' /usr/lib/systemd/system/update-helper-test.service /usr/lib/systemd/system/update-helper-test@.service /etc/passwd |
     "$HELPER" --stdin remove-units
 [[ "$(systemctl is-enabled update-helper-test.service)" == disabled ]]
+# Removing the units must leave no mask in /etc/, for the symlink in /etc/ and for the vendor symlink
+# below /usr/.
+test ! -L /etc/systemd/system/multi-user.target.wants/update-helper-test.service
+test ! -L /etc/systemd/system/multi-user.target.wants/update-helper-test@vendor.service
 (! systemctl is-active update-helper-test.service)
 (! systemctl is-active update-helper-test@a.service)
 (! systemctl is-active update-helper-test@b.service)
 
 : "User units"
-cat >/etc/systemd/user/update-helper-test.service <<EOF
+cat >/usr/lib/systemd/user/update-helper-test.service <<EOF
 [Service]
 ExecStart=sleep infinity
 

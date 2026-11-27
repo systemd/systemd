@@ -77,7 +77,11 @@
 
         <listitem><para>Disables the units and stops them. With <option>--global</option>, each running user
         service manager also disables the units in the configuration of its user, where
-        <command>systemctl --user enable</command> creates its symlinks.</para>
+        <command>systemctl --user enable</command> creates its symlinks. Unlike
+        <command>systemctl disable</command>, this command only removes symlinks and places no
+        <filename>/dev/null</filename> entries in <filename>/etc/</filename>. The package removal also
+        removes the vendor symlinks, so the entries would only keep the units disabled when the package is
+        installed again.</para>
 
         <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>

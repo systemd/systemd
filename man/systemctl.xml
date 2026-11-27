@@ -980,9 +980,15 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             </para>
 
             <para>This command also removes the <filename>/dev/null</filename> entries that a prior
-            <command>disable</command> placed in the unit configuration directory to shadow the symlinks the
-            vendor enabled the unit with below <filename>/usr/</filename>, see <command>disable</command>
-            below.</para>
+            <command>disable</command> placed in the unit configuration directory, see
+            <command>disable</command> below.</para>
+
+            <para>The service manager uses only the dependency entry with the highest priority for each name.
+            A symlink that <option>--runtime</option> creates in <filename>/run/</filename> therefore has no
+            effect while <filename>/etc/</filename> contains a <filename>/dev/null</filename> entry with the
+            same name. <option>--runtime</option> never changes <filename>/etc/</filename>, so in this case
+            <command>enable</command> prints a warning that names both entries. To enable the unit, run
+            <command>enable</command> without <option>--runtime</option>.</para>
 
             <para>When using this operation on units without install information, a warning about it is shown.
             <option>--no-warn</option> can be used to suppress the warning.</para>
@@ -1028,6 +1034,45 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             effect. Existing masks stay too, including the masks of instances when a template unit is
             disabled.</para>
 
+            <para>The <filename>/dev/null</filename> entry in <filename>/etc/</filename> also hides a
+            symlink with the same name in <filename>/run/</filename>, for example one that
+            <command>enable --runtime</command> created. <command>disable</command> prints a warning for
+            each symlink of the unit that it hides this way.</para>
+
+            <para>If the vendor supplies the unit file below <filename>/usr/</filename>, a persistent
+            <command>disable</command> also places a <filename>/dev/null</filename> entry for each symlink
+            that <command>enable</command> would create, even if no such symlink exists below
+            <filename>/usr/</filename> yet. A later image or package update that enables the unit with a
+            symlink below <filename>/usr/</filename> then leaves it disabled. This also applies when
+            <command>disable</command> removes a symlink that <command>enable</command> created, and to the
+            symlinks of <varname>DefaultInstance=</varname> when a template unit is disabled. No entry is
+            placed:</para>
+
+            <itemizedlist>
+              <listitem><para>for units without a unit file below <filename>/usr/</filename>, for example
+              units that exist only in <filename>/etc/</filename> or units linked into the search
+              path,</para></listitem>
+
+              <listitem><para>for instances other than the <varname>DefaultInstance=</varname> of a template,
+              since the vendor does not install symlinks for local instance names,</para></listitem>
+
+              <listitem><para>with <option>--runtime</option>, since <filename>/run/</filename> is lost on
+              reboot,</para></listitem>
+
+              <listitem><para>if another directory enables the unit with a symlink of the same name, for
+              example <filename>/run/</filename>, a generator, or the directory of attached portable
+              services. If such a symlink appears later in a directory with a lower priority than
+              <filename>/etc/</filename>, for example in <filename>/run/</filename>, the entry hides it.
+              <command>systemctl</command> only warns about that when it enables, disables or presets the
+              unit.</para></listitem>
+            </itemizedlist>
+
+            <para>The entries cover the [Install] section at the time of the <command>disable</command>.
+            An update that adds rules to the [Install] section can still enable the unit through those.
+            <command>enable</command> and <command>revert</command> remove the entries again. Package removal
+            scripts use <command>systemd-update-helper remove-units</command>, which only removes symlinks
+            and places no entries in <filename>/etc/</filename>.</para>
+
             <para>This command expects valid unit names only, it does not accept paths to unit files.</para>
 
             <para>In addition to the units specified as arguments, all units are disabled that are listed in the
@@ -1039,8 +1084,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             combine this command with the <option>--now</option> switch, or invoke the <command>stop</command> command
             with appropriate arguments later.</para>
 
-            <para>This command will print information about the file system operations (symlink removals)
-            executed. This output may be suppressed by passing <option>--quiet</option>.
+            <para>This command will print information about the file system operations (symlink removals and
+            the <filename>/dev/null</filename> entries it places) executed. This output may be suppressed by
+            passing <option>--quiet</option>.
             </para>
 
             <para>If a unit gets disabled but its triggering units are still active, a warning containing
@@ -1306,8 +1352,16 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             file stored below <filename>/usr/</filename>), then it is not removed. Also, if a unit is masked, it is
             unmasked.</para>
 
+            <para>If the unit file has a vendor-supplied version, this command also removes the
+            <filename>/dev/null</filename> entries that <command>disable</command> placed in the
+            <filename>.wants/</filename>, <filename>.requires/</filename> and <filename>.upholds/</filename>
+            directories named by the [Install] section, so that the symlinks below <filename>/usr/</filename>
+            take effect again. Symlinks that <command>enable</command> created stay. Units listed in
+            <varname>Also=</varname> are not reverted.</para>
+
             <para>Effectively, this command may be used to undo all changes made with <command>systemctl
-            edit</command>, <command>systemctl set-property</command> and <command>systemctl mask</command> and puts
+            edit</command>, <command>systemctl set-property</command>, <command>systemctl mask</command> and the
+            masks of <command>systemctl disable</command>, and puts
             the original unit file with its settings back in effect.</para>
 
             <xi:include href="version-info.xml" xpointer="v230"/>

@@ -472,6 +472,55 @@ static int manager_stop_units(sd_bus *bus, const ManagerOperation *op) {
         return 0;
 }
 
+static int manager_disable_units(
+                sd_bus *bus,
+                char **units,
+                UnitFileFlags flags,
+                sd_bus_error *error,
+                sd_bus_message **ret_reply) {
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        int r;
+
+        assert(bus);
+        assert(error);
+        assert(ret_reply);
+
+        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "DisableUnitFilesWithFlags");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append_strv(m, units);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(m, "t", (uint64_t) flags);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return sd_bus_call(bus, m, /* usec= */ 0, error, ret_reply);
+}
+
+static int manager_disable_flags(sd_bus *bus, UnitFileFlags *ret) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        int r;
+
+        assert(bus);
+        assert(ret);
+
+        /* PID 1 runs the old version until it is reexecuted after the update. A manager without support for
+         * UNIT_FILE_REMOVE_ONLY rejects the flag with InvalidArgs before it looks at the units. Such a
+         * manager is older than v263 and doesn't create masks on disable at all. The disable call itself
+         * can also fail with InvalidArgs for other reasons, so we probe with an empty list of units. */
+        r = manager_disable_units(bus, STRV_EMPTY, UNIT_FILE_REMOVE_ONLY, &error, &reply);
+        if (r == -ETIME)
+                return r;
+
+        *ret = r < 0 && sd_bus_error_has_name(&error, SD_BUS_ERROR_INVALID_ARGS) ? 0 : UNIT_FILE_REMOVE_ONLY;
+        return 0;
+}
+
 static int manager_disable_and_stop_units(sd_bus *bus, const ManagerOperation *op) {
         int r;
 
@@ -482,22 +531,15 @@ static int manager_disable_and_stop_units(sd_bus *bus, const ManagerOperation *o
                 STRV_FOREACH(unit, op->units)
                         log_info("Would disable unit '%s'", *unit);
         else {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-                r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "DisableUnitFilesWithFlags");
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_append_strv(m, op->units);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_append(m, "t", UINT64_C(0));
-                if (r < 0)
-                        return bus_log_create_error(r);
-
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-                r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
+                UnitFileFlags flags;
+
+                r = manager_disable_flags(bus, &flags);
+                if (r < 0)
+                        return r;
+
+                r = manager_disable_units(bus, op->units, flags, &error, &reply);
                 if (r == -ETIME)
                         return r;
                 if (r < 0) {
@@ -835,7 +877,7 @@ static int verb_remove_units(int argc, char **argv, uintptr_t data, void *userda
 
                 r = unit_file_disable(
                                 scope,
-                                (arg_dry_run ? UNIT_FILE_DRY_RUN : 0),
+                                UNIT_FILE_REMOVE_ONLY|(arg_dry_run ? UNIT_FILE_DRY_RUN : 0),
                                 /* root_dir= */ NULL,
                                 units,
                                 &changes,
