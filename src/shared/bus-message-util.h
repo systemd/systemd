@@ -9,7 +9,7 @@ int bus_message_read_ifindex(sd_bus_message *message, sd_bus_error *reterr_error
 int bus_message_read_family(sd_bus_message *message, sd_bus_error *reterr_error, int *ret);
 int bus_message_read_in_addr_auto(sd_bus_message *message, sd_bus_error *reterr_error, int *ret_family, union in_addr_union *ret_addr);
 
-int bus_message_read_dns_servers(
+int bus_message_read_dns_servers_legacy(
                         sd_bus_message *message,
                         sd_bus_error *reterr_error,
                         bool extended,

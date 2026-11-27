@@ -106,7 +106,7 @@ int bus_link_method_set_ntp_servers(sd_bus_message *message, void *userdata, sd_
         return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
-static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, void *userdata, sd_bus_error *error, bool extended) {
+static int bus_link_method_set_dns_servers_legacy_internal(sd_bus_message *message, void *userdata, sd_bus_error *error, bool extended) {
         struct in_addr_full **dns;
         Link *l = ASSERT_PTR(userdata);
         size_t n;
@@ -118,7 +118,7 @@ static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, voi
         if (r < 0)
                 return r;
 
-        r = bus_message_read_dns_servers(message, error, extended, &dns, &n);
+        r = bus_message_read_dns_servers_legacy(message, error, extended, &dns, &n);
         if (r < 0)
                 return r;
 
@@ -151,12 +151,12 @@ finalize:
         return r;
 }
 
-int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return bus_link_method_set_dns_servers_internal(message, userdata, error, /* extended= */ false);
+int bus_link_method_set_dns_servers_legacy(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_link_method_set_dns_servers_legacy_internal(message, userdata, error, /* extended= */ false);
 }
 
-int bus_link_method_set_dns_servers_ex(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return bus_link_method_set_dns_servers_internal(message, userdata, error, /* extended= */ true);
+int bus_link_method_set_dns_servers_legacy_ex(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_link_method_set_dns_servers_legacy_internal(message, userdata, error, /* extended= */ true);
 }
 
 int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -708,12 +708,12 @@ static const sd_bus_vtable link_vtable[] = {
         SD_BUS_METHOD_WITH_ARGS("SetDNS",
                                 SD_BUS_ARGS("a(iay)", addresses),
                                 SD_BUS_NO_RESULT,
-                                bus_link_method_set_dns_servers,
+                                bus_link_method_set_dns_servers_legacy,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("SetDNSEx",
                                 SD_BUS_ARGS("a(iayqs)", addresses),
                                 SD_BUS_NO_RESULT,
-                                bus_link_method_set_dns_servers_ex,
+                                bus_link_method_set_dns_servers_legacy_ex,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("SetDomains",
                                 SD_BUS_ARGS("a(sb)", domains),

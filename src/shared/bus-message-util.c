@@ -164,7 +164,7 @@ static int bus_message_read_dns_one(
         return 1;
 }
 
-int bus_message_read_dns_servers(
+int bus_message_read_dns_servers_legacy(
                         sd_bus_message *message,
                         sd_bus_error *reterr_error,
                         bool extended,

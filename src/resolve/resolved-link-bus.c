@@ -52,7 +52,7 @@ static int property_get_dns_over_tls_mode(
         return sd_bus_message_append(reply, "s", dns_over_tls_mode_to_string(link_get_dns_over_tls_mode(l)));
 }
 
-static int property_get_dns_internal(
+static int property_get_dns_legacy_internal(
                 sd_bus *bus,
                 const char *path,
                 const char *interface,
@@ -72,7 +72,7 @@ static int property_get_dns_internal(
                 return r;
 
         LIST_FOREACH(servers, s, l->dns_servers) {
-                r = bus_dns_server_append(reply, s, /* with_ifindex= */ false, extended);
+                r = bus_dns_server_append_legacy(reply, s, /* with_ifindex= */ false, extended);
                 if (r < 0)
                         return r;
         }
@@ -80,7 +80,7 @@ static int property_get_dns_internal(
         return sd_bus_message_close_container(reply);
 }
 
-static int property_get_dns(
+static int property_get_dns_legacy(
                 sd_bus *bus,
                 const char *path,
                 const char *interface,
@@ -88,10 +88,10 @@ static int property_get_dns(
                 sd_bus_message *reply,
                 void *userdata,
                 sd_bus_error *error) {
-        return property_get_dns_internal(bus, path, interface, property, reply, userdata, error, /* extended= */ false);
+        return property_get_dns_legacy_internal(bus, path, interface, property, reply, userdata, error, /* extended= */ false);
 }
 
-static int property_get_dns_ex(
+static int property_get_dns_legacy_ex(
                 sd_bus *bus,
                 const char *path,
                 const char *interface,
@@ -99,10 +99,10 @@ static int property_get_dns_ex(
                 sd_bus_message *reply,
                 void *userdata,
                 sd_bus_error *error) {
-        return property_get_dns_internal(bus, path, interface, property, reply, userdata, error, /* extended= */ true);
+        return property_get_dns_legacy_internal(bus, path, interface, property, reply, userdata, error, /* extended= */ true);
 }
 
-static int property_get_current_dns_server_internal(
+static int property_get_current_dns_server_legacy_internal(
                 sd_bus *bus,
                 const char *path,
                 const char *interface,
@@ -119,10 +119,10 @@ static int property_get_current_dns_server_internal(
 
         s = *(DnsServer **) userdata;
 
-        return bus_dns_server_append(reply, s, /* with_ifindex= */ false, extended);
+        return bus_dns_server_append_legacy(reply, s, /* with_ifindex= */ false, extended);
 }
 
-static int property_get_current_dns_server(
+static int property_get_current_dns_server_legacy(
                 sd_bus *bus,
                 const char *path,
                 const char *interface,
@@ -130,10 +130,10 @@ static int property_get_current_dns_server(
                 sd_bus_message *reply,
                 void *userdata,
                 sd_bus_error *error) {
-        return property_get_current_dns_server_internal(bus, path, interface, property, reply, userdata, error, /* extended= */ false);
+        return property_get_current_dns_server_legacy_internal(bus, path, interface, property, reply, userdata, error, /* extended= */ false);
 }
 
-static int property_get_current_dns_server_ex(
+static int property_get_current_dns_server_legacy_ex(
                 sd_bus *bus,
                 const char *path,
                 const char *interface,
@@ -141,7 +141,7 @@ static int property_get_current_dns_server_ex(
                 sd_bus_message *reply,
                 void *userdata,
                 sd_bus_error *error) {
-        return property_get_current_dns_server_internal(bus, path, interface, property, reply, userdata, error, /* extended= */ true);
+        return property_get_current_dns_server_legacy_internal(bus, path, interface, property, reply, userdata, error, /* extended= */ true);
 }
 
 static int property_get_domains(
@@ -207,7 +207,7 @@ static int verify_unmanaged_link(Link *l, sd_bus_error *error) {
         return 0;
 }
 
-static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, void *userdata, sd_bus_error *error, bool extended) {
+static int bus_link_method_set_dns_servers_legacy_internal(sd_bus_message *message, void *userdata, sd_bus_error *error, bool extended) {
         struct in_addr_full **dns;
         Link *l = ASSERT_PTR(userdata);
         size_t n;
@@ -219,7 +219,7 @@ static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, voi
         if (r < 0)
                 return r;
 
-        r = bus_message_read_dns_servers(message, error, extended, &dns, &n);
+        r = bus_message_read_dns_servers_legacy(message, error, extended, &dns, &n);
         if (r < 0)
                 return r;
 
@@ -251,12 +251,12 @@ finalize:
         return r;
 }
 
-int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return bus_link_method_set_dns_servers_internal(message, userdata, error, /* extended= */ false);
+int bus_link_method_set_dns_servers_legacy(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_link_method_set_dns_servers_legacy_internal(message, userdata, error, /* extended= */ false);
 }
 
-int bus_link_method_set_dns_servers_ex(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return bus_link_method_set_dns_servers_internal(message, userdata, error, /* extended= */ true);
+int bus_link_method_set_dns_servers_legacy_ex(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_link_method_set_dns_servers_legacy_internal(message, userdata, error, /* extended= */ true);
 }
 
 int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -737,10 +737,10 @@ static const sd_bus_vtable link_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
         SD_BUS_PROPERTY("ScopesMask", "t", property_get_scopes_mask, 0, 0),
-        SD_BUS_PROPERTY("DNS", "a(iay)", property_get_dns, 0, 0),
-        SD_BUS_PROPERTY("DNSEx", "a(iayqs)", property_get_dns_ex, 0, 0),
-        SD_BUS_PROPERTY("CurrentDNSServer", "(iay)", property_get_current_dns_server, offsetof(Link, current_dns_server), 0),
-        SD_BUS_PROPERTY("CurrentDNSServerEx", "(iayqs)", property_get_current_dns_server_ex, offsetof(Link, current_dns_server), 0),
+        SD_BUS_PROPERTY("DNS", "a(iay)", property_get_dns_legacy, 0, 0),
+        SD_BUS_PROPERTY("DNSEx", "a(iayqs)", property_get_dns_legacy_ex, 0, 0),
+        SD_BUS_PROPERTY("CurrentDNSServer", "(iay)", property_get_current_dns_server_legacy, offsetof(Link, current_dns_server), 0),
+        SD_BUS_PROPERTY("CurrentDNSServerEx", "(iayqs)", property_get_current_dns_server_legacy_ex, offsetof(Link, current_dns_server), 0),
         SD_BUS_PROPERTY("Domains", "a(sb)", property_get_domains, 0, 0),
         SD_BUS_PROPERTY("DefaultRoute", "b", property_get_default_route, 0, 0),
         SD_BUS_PROPERTY("LLMNR", "s", property_get_llmnr_support, 0, 0),
@@ -753,12 +753,12 @@ static const sd_bus_vtable link_vtable[] = {
         SD_BUS_METHOD_WITH_ARGS("SetDNS",
                                 SD_BUS_ARGS("a(iay)", addresses),
                                 SD_BUS_NO_RESULT,
-                                bus_link_method_set_dns_servers,
+                                bus_link_method_set_dns_servers_legacy,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("SetDNSEx",
                                 SD_BUS_ARGS("a(iayqs)", addresses),
                                 SD_BUS_NO_RESULT,
-                                bus_link_method_set_dns_servers_ex,
+                                bus_link_method_set_dns_servers_legacy_ex,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("SetDomains",
                                 SD_BUS_ARGS("a(sb)", domains),
