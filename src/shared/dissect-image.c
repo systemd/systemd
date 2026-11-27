@@ -3773,21 +3773,16 @@ done:
 
 static usec_t verity_timeout(void) {
         usec_t t = 100 * USEC_PER_MSEC;
-        const char *e;
         int r;
 
         /* On slower machines, like non-KVM vm, setting up device may take a long time.
          * Let's make the timeout configurable. */
 
-        e = getenv("SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC");
-        if (!e)
-                return t;
-
-        r = parse_sec(e, &t);
-        if (r < 0)
+        r = secure_getenv_usec("SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC", &t);
+        if (r < 0 && r != -ENXIO)
                 log_debug_errno(r,
                                 "Failed to parse timeout specified in $SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC, "
-                                "using the default timeout (%s).",
+                                "using the default timeout (%s), ignoring: %m",
                                 FORMAT_TIMESPAN(t, USEC_PER_MSEC));
 
         return t;

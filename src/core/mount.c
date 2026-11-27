@@ -12,6 +12,7 @@
 #include "dbus-mount.h"
 #include "dbus-unit.h"
 #include "device.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "exec-credential.h"
 #include "exit-status.h"
@@ -2121,14 +2122,12 @@ static void mount_enumerate(Manager *m) {
                 }
 
                 /* Let users override the default (5 in 1s), as it stalls the boot sequence on busy systems. */
-                const char *e = secure_getenv("SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_INTERVAL_SEC");
-                if (e) {
-                        r = parse_sec(e, &mount_rate_limit_interval);
-                        if (r < 0)
-                                log_debug_errno(r, "Invalid value in $SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_INTERVAL_SEC, ignoring: %s", e);
-                }
+                r = secure_getenv_usec("SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_INTERVAL_SEC",
+                                       &mount_rate_limit_interval);
+                if (r < 0 && r != -ENXIO)
+                        log_debug_errno(r, "Invalid value in $SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_INTERVAL_SEC, ignoring: %m");
 
-                e = secure_getenv("SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_BURST");
+                const char *e = secure_getenv("SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_BURST");
                 if (e) {
                         r = safe_atou(e, &mount_rate_limit_burst);
                         if (r < 0)

@@ -8,6 +8,7 @@
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "hashmap.h"
@@ -173,17 +174,12 @@ static usec_t timespan_to_timestamp(sd_netlink *nl, usec_t usec) {
 
         if (usec == 0) {
                 if (!default_timeout_set) {
-                        const char *e;
-
                         default_timeout_set = true;
                         default_timeout = NETLINK_DEFAULT_TIMEOUT_USEC;
 
-                        e = secure_getenv("SYSTEMD_NETLINK_DEFAULT_TIMEOUT");
-                        if (e) {
-                                r = parse_sec(e, &default_timeout);
-                                if (r < 0)
-                                        log_debug_errno(r, "sd-netlink: Failed to parse $SYSTEMD_NETLINK_DEFAULT_TIMEOUT environment variable, ignoring: %m");
-                        }
+                        r = secure_getenv_usec("SYSTEMD_NETLINK_DEFAULT_TIMEOUT", &default_timeout);
+                        if (r < 0 && r != -ENXIO)
+                                log_debug_errno(r, "sd-netlink: Failed to parse $SYSTEMD_NETLINK_DEFAULT_TIMEOUT, ignoring: %m");
                 }
 
                 usec = default_timeout;
