@@ -441,6 +441,18 @@ TEST(in_addr_full_new_from_uri) {
 
         _cleanup_(in_addr_full_freep) struct in_addr_full *a = NULL;
 
+        /* in_addr_full_new_from_string() accepts both forms */
+        ASSERT_OK(in_addr_full_new_from_string("dnss://192.168.0.1:853#downgrade", &a));
+        ASSERT_STREQ(a->scheme, "dnss");
+        ASSERT_EQ(a->port, 853);
+        ASSERT_STREQ(in_addr_full_to_string(a), "dnss://192.168.0.1:853#downgrade");
+        a = in_addr_full_free(a);
+        ASSERT_OK(in_addr_full_new_from_string("192.168.0.1:853#example.com", &a));
+        ASSERT_NULL(a->scheme);
+        ASSERT_STREQ(a->server_name, "example.com");
+        a = in_addr_full_free(a);
+        ASSERT_ERROR(in_addr_full_new_from_string("dns://example.com", &a), EINVAL);
+
         /* Not in URI form */
         ASSERT_ERROR(in_addr_full_new_from_uri("192.168.0.1", &a), EPROTONOSUPPORT);
         ASSERT_ERROR(in_addr_full_new_from_uri("192.168.0.1#dns://x", &a), EPROTONOSUPPORT);
