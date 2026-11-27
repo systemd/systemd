@@ -2770,7 +2770,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   - systemd-bless-boot
   - systemd-measure
   - systemd-dissect
-  - systemd-sysupdate
   - systemd-analyze
   - kernel-install
   - systemd-mount (with PK so that desktop environments could use it to mount disks)
