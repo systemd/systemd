@@ -37,7 +37,7 @@ int mkdirat_safe_internal(
 
         r = _mkdirat(dir_fd, path, mode, label_context);
         if (r >= 0)
-                return chmod_and_chown_at(dir_fd, path, mode, uid, gid);
+                return chmod_and_chown_at(dir_fd, path, mode | S_IFDIR, uid, gid);
         if (r != -EEXIST)
                 return r;
 
