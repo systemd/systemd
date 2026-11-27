@@ -815,7 +815,7 @@ static int uapi16_object_resolve_sources(Resource *rr, Uapi16Object *o) {
                         }
 
                 } else if (c->url) {
-                        if (!http_url_is_valid(c->url) && !file_url_is_valid(c->url)) {
+                        if (!http_url_is_valid(c->url) && (rr->root || !file_url_is_valid(c->url))) {
                                 log_warning("File '%s' refers to invalid URL '%s' in its contents, ignoring source.", o->name, c->url);
                                 usable = false;
                         }
@@ -1234,6 +1234,10 @@ int resource_resolve_path(Resource *rr, Context *context) {
         const char *root = context->root;
         rr->root = root;
         rr->root_fd = context->root_fd;
+
+        if (root && RESOURCE_IS_URL(rr->type) &&
+            (!http_url_is_valid(rr->path) || (rr->manifest_path && !http_url_is_valid(rr->manifest_path))))
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Only HTTP(S) transfer URLs are allowed with --root= or --image=.");
 
         if (IN_SET(rr->path_relative_to, PATH_RELATIVE_TO_ESP, PATH_RELATIVE_TO_XBOOTLDR, PATH_RELATIVE_TO_BOOT) &&
             !IN_SET(rr->type, RESOURCE_REGULAR_FILE, RESOURCE_DIRECTORY))

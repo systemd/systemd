@@ -405,6 +405,11 @@
         <filename>sysupdate.d/*.conf</filename> files and resolving local transfer paths. Filesystem
         targets are installed beneath this root.</para>
 
+        <para>With <option>--root=</option> or <option>--image=</option>, transfer URLs for manifests and
+        payloads must use HTTP or HTTPS. Local file URLs and host resource provider sockets are not
+        accessible to the transfer definition. Use a local file source to read from the target installation,
+        or <option>--transfer-source=</option> to supply a separate source directory.</para>
+
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 

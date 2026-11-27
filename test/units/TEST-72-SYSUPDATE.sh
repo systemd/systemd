@@ -1030,6 +1030,15 @@ root_transfer directory / directory /target PathRelativeTo=explicit
 "$SYSUPDATE" --root="$ROOTDIR" --transfer-source="$WORKDIR/root-source" update
 cmp "$WORKDIR/root-source/root-1/content" "$ROOTDIR/store/root-1/content"
 
+root_reject() {
+    local error="${1:?}"
+    shift
+    root_transfer "$@"
+    (! "$SYSUPDATE" --root="$ROOTDIR" --offline list) |& grep -F "$error" >/dev/null
+}
+root_reject 'Only HTTP(S) transfer URLs' url-file file:///source regular-file /target
+root_reject 'Only HTTP(S) transfer URLs' url-file https://example.invalid/repo regular-file /target ManifestPath=file:///source/SHA256SUMS
+root_reject 'Only HTTP(S) transfer URLs' url-file 'provider:[/run/example.sock]/repo' regular-file /target
 rm -rf "$ROOTDIR"
 
 # Cleanup
@@ -1374,6 +1383,33 @@ grep -x '8073 open hhauth-v1.bin - -' "$HH/requests.log" >/dev/null
 # …and gives up eventually
 (! "$PULL" raw --verify=no --direct http://127.0.0.1:8072/loop/hhauth-v1.bin "$HH/pulled4.bin") |& \
     grep -F "Too many HTTP redirects" >/dev/null
+
+# An HTTP manifest cannot grant access to a local URL when updating a directory root. The file is
+# present and matches the digest, but must be rejected before acquisition in favor of the inline source.
+mkdir -p "$HH/root/etc/sysupdate.d"
+cat >"$HH/root/etc/sysupdate.d/01-root.transfer" <<EOF
+[Source]
+Type=url-file
+Path=http://127.0.0.1:8072/open
+ManifestFormat=uapi16
+MatchPattern=inline-@v.bin
+
+[Target]
+Type=regular-file
+Path=/target
+MatchPattern=inline-@v.bin
+EOF
+payload="$WORKDIR/uapi16/inline-v1.bin"
+{
+    printf '\036{"mediaType":"application/vnd.uapi.16.manifest"}\n'
+    printf '\036{"name":"inline-v1.bin","size":%s,"sha256":"%s","contents":[{"url":"file://%s"},{"literal":"%s"}]}\n' \
+        "$(stat -c %s "$payload")" "$(sha256_of "$payload")" "$payload" "$(base64 -w0 "$payload")"
+    printf '\036{"mediaType":"application/vnd.uapi.16.trailer"}\n'
+} >"$HH/srv/Uapi16Manifest"
+"$SYSUPDATE" --root="$HH/root" --verify=no update &>"$HH/root-update.log"
+grep -F "refers to invalid URL 'file://$payload' in its contents, ignoring source" "$HH/root-update.log" >/dev/null
+(! grep -F "Pulling 'file://$payload'" "$HH/root-update.log")
+cmp "$payload" "$HH/root/target/inline-v1.bin"
 
 systemctl stop test-72-http-a.service test-72-http-b.service
 
