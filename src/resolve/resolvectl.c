@@ -1361,6 +1361,15 @@ static int format_dns_server_one(DNSConfiguration *configuration, DNSServer *s, 
                 return 0;
         }
 
+        /* Servers configured with a scheme come with their URI, as configured. */
+        if (s->uri) {
+                r = strdup_to(ret, s->uri);
+                if (r < 0)
+                        return r;
+
+                return 1;
+        }
+
         r = in_addr_port_ifindex_name_to_string(
                         s->family,
                         &s->in_addr.address,
@@ -2466,28 +2475,38 @@ static int call_set_dns(char **dns) {
          * with an empty list, which will clear the list of DNS for an interface. */
         if (!strv_equal(dns, STRV_MAKE(""))) {
                 STRV_FOREACH(p, dns) {
-                        _cleanup_free_ char *name = NULL;
-                        struct in_addr_data data;
-                        uint16_t port;
-                        int ifindex;
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *uri_parameters = NULL;
+                        _cleanup_(in_addr_full_freep) struct in_addr_full *a = NULL;
 
-                        r = in_addr_port_ifindex_name_from_string_auto(*p, &data.family, &data.address, &port, &ifindex, &name);
+                        /* Only the syntax is checked here. The scheme selects transports of systemd-resolved,
+                         * which checks it. */
+                        r = in_addr_full_new_from_string(*p, &a);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse DNS server address: %s", *p);
 
-                        if (!dns_server_address_valid(data.family, &data.address))
+                        if (!dns_server_address_valid(a->family, &a->address))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid DNS server address %s", *p);
 
-                        if (ifindex != 0 && ifindex != arg_ifindex)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid ifindex: %i", ifindex);
+                        if (a->ifindex != 0 && a->ifindex != arg_ifindex)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid ifindex: %i", a->ifindex);
 
+                        r = in_addr_full_params_to_json(a, &uri_parameters);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add DNS to JSON parameters: %m");
+
+                        /* The URI fields are only sent if there is a scheme, so that servers without one can
+                         * still be configured on older services, which refuse unknown fields. */
                         r = sd_json_variant_append_arraybo(
                                         &servers,
-                                        SD_JSON_BUILD_PAIR_UNSIGNED("family", data.family),
-                                        JSON_BUILD_PAIR_IN_ADDR("address", data.family, &data.address),
-                                        SD_JSON_BUILD_PAIR_UNSIGNED("port", port),
-                                        JSON_BUILD_PAIR_CONDITION_UNSIGNED(ifindex > 0, "ifindex", ifindex),
-                                        JSON_BUILD_PAIR_STRING_NON_EMPTY("name", name));
+                                        SD_JSON_BUILD_PAIR_UNSIGNED("family", a->family),
+                                        JSON_BUILD_PAIR_IN_ADDR("address", a->family, &a->address),
+                                        SD_JSON_BUILD_PAIR_UNSIGNED("port", a->port),
+                                        JSON_BUILD_PAIR_CONDITION_UNSIGNED(a->ifindex > 0, "ifindex", a->ifindex),
+                                        JSON_BUILD_PAIR_STRING_NON_EMPTY("name", a->server_name),
+                                        JSON_BUILD_PAIR_STRING_NON_EMPTY("scheme", a->scheme),
+                                        JSON_BUILD_PAIR_STRING_NON_EMPTY("path", a->path),
+                                        JSON_BUILD_PAIR_STRING_NON_EMPTY("query", a->query),
+                                        JSON_BUILD_PAIR_VARIANT_NON_NULL("parameters", uri_parameters));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to add DNS to JSON parameters: %m");
                 }

@@ -99,11 +99,19 @@ typedef struct DNSServer {
         uint16_t port;
         int ifindex;
         char *server_name;
+        /* The generic parts of a server given as URI, as in struct in_addr_full */
+        char *scheme;
+        char *path;
+        char *query;
+        char **parameters;      /* As "key=value" */
+        char *uri;              /* Output only, for display. Input is split into the fields above. */
         bool accessible;
 } DNSServer;
 
 DNSServer* dns_server_free(DNSServer *s);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DNSServer*, dns_server_free);
+
+int dns_server_to_in_addr_full(const DNSServer *s, struct in_addr_full **ret);
 
 typedef struct SearchDomain {
         char *name;

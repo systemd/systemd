@@ -210,6 +210,7 @@ simple_tests += files(
         'test-recurse-dir.c',
         'test-replace-var.c',
         'test-reread-partition-table.c',
+        'test-resolve-varlink-util.c',
         'test-rlimit-util.c',
         'test-rm-rf.c',
         'test-secure-bits.c',
