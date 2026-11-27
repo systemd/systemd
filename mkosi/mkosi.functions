@@ -38,6 +38,14 @@ fi
 if ((COVERAGE)); then
     MKOSI_MESON_OPTIONS="$MKOSI_MESON_OPTIONS -D b_coverage=true"
     MKOSI_CFLAGS="$MKOSI_CFLAGS -fprofile-dir=/coverage"
+
+    # Instrument the EFI boot loaders as well, so that the integration tests
+    # cover them through the same pipeline. This requires the GCC toolchain
+    # (the instrumented loaders link the host libgcov), so clang distros are
+    # skipped.
+    if (( ! LLVM )); then
+        MKOSI_MESON_OPTIONS="$MKOSI_MESON_OPTIONS -D efi-coverage=true"
+    fi
 fi
 
 make_sysext_unsigned() {

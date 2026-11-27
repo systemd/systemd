@@ -1,8 +1,33 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+# The instrumented EFI boot loader writes its .gcda counter files to the UEFI
+# loader directory on the ESP. gpt-auto mounts the ESP at /boot or at /efi,
+# hence the loader directory is /boot/loader/ or /efi/loader/. Move the files
+# into /coverage (they use the same '#' encoded file names as the host
+# coverage data) and drop them from the ESP so that a later boot of the same
+# image does not report them twice.
+collect() {
+        for dir in /boot/loader /efi/loader; do
+                if [ -d "$dir" ]; then
+                        find "$dir" -maxdepth 1 -name '*.gcda' -exec mv -f {} /coverage/ \;
+                fi
+        done
+}
+
+# Invoked with "collect" (at boot, while the ESP is reliably mounted) the
+# script only moves the ESP files. Invoked without an argument (at shutdown
+# and at the initrd switch-root) it retries the collection as a fallback —
+# the ESP may already be unmounted — and generates the coverage report.
+if [ "$1" = collect ]; then
+        collect
+        exit 0
+fi
+
+collect
+
 logger --journald <<EOF
-MESSAGE=Tarball with coverage data from /coverage
+MESSAGE=Tarball with coverage data from /coverage and the EFI loader directory
 COVERAGE_TAR=$(tar --create --file - --directory /coverage --zstd . | base64 --wrap=0)
 EOF
 

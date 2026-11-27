@@ -13,6 +13,7 @@ on:
     paths:
       - .github/workflows/coverage.yml
       - test/integration-tests/integration-test-wrapper.py
+      - src/boot/efi-gcov.c
   pull_request_target:
     types: [closed]
 
@@ -25,7 +26,9 @@ permissions:
 
 jobs:
   coverage:
-    runs-on: ubuntu-24.04
+    # The host gcov must stay able to read the in-guest .gcda files, so this runner's
+    # compiler needs to be kept current.
+    runs-on: ubuntu-26.04
     if: >
       github.event_name != 'pull_request_target' &&
       (github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable')
@@ -104,6 +107,9 @@ jobs:
       - name: Initial coverage report
         run: |
           sudo mkdir -p build/test/coverage
+          # The capture mixes host and EFI sub-builds, which instrument the same headers under different
+          # SD_BOOT branches (e.g. explicit_bzero_safe in memory-util.h), hence inconsistent function
+          # metadata is expected here.
           sudo mkosi box -- \
             lcov \
             --directory build/mkosi.builddir/arch~rolling~x86-64 \
@@ -112,7 +118,7 @@ jobs:
             --exclude "*.gperf" \
             --output-file build/test/coverage/initial.coverage-info \
             --base-directory src/ \
-            --ignore-errors source \
+            --ignore-errors inconsistent,source \
             --no-external \
             --substitute "s#src/src#src#g"
 
@@ -123,7 +129,7 @@ jobs:
           # of failed tests.
           sudo --preserve-env mkosi box -- \
             env \
-            TEST_RUNNER=ubuntu-24.04 \
+            TEST_RUNNER=ubuntu-26.04 \
             meson test \
             -C build \
             --no-rebuild \
