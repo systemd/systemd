@@ -47,7 +47,7 @@ SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(currentVersion, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("All locally-known versions of the target."),
                 SD_VARLINK_DEFINE_FIELD(allVersions, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
-                SD_VARLINK_FIELD_COMMENT("Whether the current version is installed but pending a reboot to become active. Always set when returned by ListTargets(). Not set by component providers, since this is a property of the local installation."),
+                SD_VARLINK_FIELD_COMMENT("Whether the current version is installed but pending a reboot to become active. For the host, this is determined by comparing the current version with IMAGE_VERSION from os-release. Always set when returned by ListTargets(); false for target classes other than the host. Not set by component providers, since this is a property of the local installation."),
                 SD_VARLINK_DEFINE_FIELD(currentVersionIsPending, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("URLs to zero or more AppStream catalog XML files describing the target."),
                 SD_VARLINK_DEFINE_FIELD(appStream, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
