@@ -8,6 +8,7 @@
 #include "format-util.h"
 #include "log.h"
 #include "parse-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "string-table.h"
@@ -536,4 +537,36 @@ int pid_getrlimit(pid_t pid, int resource, struct rlimit *ret) {
         }
 
         return -ENOTRECOVERABLE;
+}
+
+int pidref_getrlimit(const PidRef *pid, int resource, struct rlimit *ret) {
+        struct rlimit rl;
+        int r;
+
+        assert(resource >= 0);
+        assert(resource < _RLIMIT_MAX);
+        assert(ret);
+
+        if (!pidref_is_set(pid))
+                return -ESRCH;
+        if (pidref_is_remote(pid))
+                return -EREMOTE;
+
+        r = pid_getrlimit(pid->pid, resource, &rl);
+        if (r < 0) {
+                /* If the process is gone, say so, regardless which error we got. (The procfs fallback in
+                 * pid_getrlimit() reports -EPERM in that case.) */
+                if (pidref_verify(pid) == -ESRCH)
+                        return -ESRCH;
+
+                return r;
+        }
+
+        /* Make sure the PID wasn't recycled before we return the limit we just read */
+        r = pidref_verify(pid);
+        if (r < 0)
+                return r;
+
+        *ret = rl;
+        return 0;
 }
