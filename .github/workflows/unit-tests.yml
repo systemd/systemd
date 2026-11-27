@@ -15,6 +15,10 @@ on:
       - "!LICENSES/**"
       - "!NEWS"
       - "!TODO.md"
+      - "!NEWS"
+      - "!AGENTS.md"
+      - "!CLAUDE.md"
+      - "!CITATION.cff"
       - '!po/**'
       - '!shell-completion/**'
       - '!test/**'
