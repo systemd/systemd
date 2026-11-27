@@ -24,22 +24,23 @@ typedef enum ChaseFlags {
                                              * CHASE_EXTRACT_FILENAME_HARDER, the filename is '.' in that case.
                                              * When this specified, chase() will succeed with 1 even if the
                                              * file points to the last path component does not exist. */
-        CHASE_MKDIR_0755         = 1 << 11, /* Create any missing directories in the given path. */
-        CHASE_EXTRACT_FILENAME   = 1 << 12, /* Extract a filename that passes filename_is_valid(), or fail. */
-        CHASE_MUST_BE_DIRECTORY  = 1 << 13, /* Fail if returned inode fd is not a dir */
-        CHASE_MUST_BE_REGULAR    = 1 << 14, /* Fail if returned inode fd is not a regular file */
-        CHASE_MUST_BE_SOCKET     = 1 << 15, /* Fail if returned inode fd is not a socket */
-        CHASE_MAX_MODE           = 1 << 16, /* Return -ENOLINK if a directory on the way, the starting one
+        CHASE_MKDIR_0755         = 1 << 11, /* Create any missing directories in the given path, with access mode 0755. */
+        CHASE_MKDIR_0700         = 1 << 12, /* Like CHASE_MKDIR_0755, but with access mode 0700. */
+        CHASE_EXTRACT_FILENAME   = 1 << 13, /* Extract a filename that passes filename_is_valid(), or fail. */
+        CHASE_MUST_BE_DIRECTORY  = 1 << 14, /* Fail if returned inode fd is not a dir */
+        CHASE_MUST_BE_REGULAR    = 1 << 15, /* Fail if returned inode fd is not a regular file */
+        CHASE_MUST_BE_SOCKET     = 1 << 16, /* Fail if returned inode fd is not a socket */
+        CHASE_MAX_MODE           = 1 << 17, /* Return -ENOLINK if a directory on the way, the starting one
                                              * and the root included, has permission bits beyond 0775, or
                                              * the final regular file any bit beyond 0664, suid/sgid/sticky
                                              * included. Symlinks are never checked. */
-        CHASE_NO_SYNC            = 1 << 17, /* Don't synchronize attributes with the server on network file systems,
+        CHASE_NO_SYNC            = 1 << 18, /* Don't synchronize attributes with the server on network file systems,
                                              * so that we don't block if it is unreachable. Attributes may hence be
                                              * stale, which also applies to the st_uid and st_mode that CHASE_SAFE
                                              * and CHASE_MAX_MODE check. Doesn't apply to the final fstat*() of
                                              * chase_and_stat*(). Keep this in mind */
-        CHASE_EXTRACT_FILENAME_HARDER = CHASE_EXTRACT_FILENAME | (1 << 18), /* Return "." if there is no filename. */
-        CHASE_EMPTY_PATH         = 1 << 19, /* An empty path refers to the inode of dir_fd itself. */
+        CHASE_EXTRACT_FILENAME_HARDER = CHASE_EXTRACT_FILENAME | (1 << 19), /* Return "." if there is no filename. */
+        CHASE_EMPTY_PATH         = 1 << 20, /* An empty path refers to the inode of dir_fd itself. */
 } ChaseFlags;
 
 int statx_unsafe_transition(const struct statx *a, const struct statx *b);
