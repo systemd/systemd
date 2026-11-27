@@ -116,6 +116,8 @@ int find_pkcs11_auto_data(
                         return log_error_errno(r, "Failed to read JSON token data off disk: %m");
 
                 ks = cryptsetup_get_keyslot_from_token(v);
+                if (ks == -ENOMEM)
+                        return log_oom();
                 if (ks < 0) {
                         /* Handle parsing errors of the keyslots field gracefully, since it's not 'owned' by
                          * us, but by the LUKS2 spec */
@@ -131,6 +133,9 @@ int find_pkcs11_auto_data(
                 keyslot = ks;
 
                 r = pkcs11_luks2_token_parse(v, &t);
+                if (r == -ENXIO) /* A mandatory field is missing, i.e. the token is broken */
+                        r = -EBADMSG; /* Do not return -ENXIO here, as callers use it to indicate that no
+                                       * PKCS#11 token is enrolled at all. */
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse PKCS#11 JSON data token %i: %m", token);
 
