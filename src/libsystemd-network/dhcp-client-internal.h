@@ -6,6 +6,7 @@
 #include "dhcp-client-id-internal.h"
 #include "dhcp-forward.h"
 #include "dhcp-protocol.h"
+#include "dhcp-rkap.h"
 #include "ether-addr-util.h"
 #include "iovec-wrapper.h"
 #include "network-common.h"
@@ -67,7 +68,14 @@ struct sd_dhcp_client {
         bool ipv6_acquired;
         bool bootp;
         bool send_release;
+        bool accept_reconfigure;
+        DHCPRKAPKey forcerenew_nonce;
 };
+
+/* RFC 6704: option 145 is not sent in the anonymize mode, nor without HMAC-MD5. */
+static inline bool dhcp_client_accepts_forcerenew(const sd_dhcp_client *client) {
+        return client->accept_reconfigure && !client->anonymize && dhcp_rkap_supported();
+}
 
 int dhcp_client_set_state_callback(
                 sd_dhcp_client *client,

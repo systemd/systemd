@@ -3,6 +3,7 @@
 
 #include "dhcp-client-id-internal.h"
 #include "dhcp-forward.h"
+#include "dhcp-rkap.h"
 #include "ether-addr-util.h"
 #include "time-util.h"
 
@@ -22,10 +23,12 @@ typedef struct DHCPRequest {
         be32_t server_address;
         usec_t lifetime;
         Set *parameter_request_list;
+        bool forcerenew_nonce_capable; /* RFC 6704: the client sent FORCERENEW_NONCE_CAPABLE with HMAC-MD5 */
 
         /* acquired data */
         sd_dhcp_server_lease *static_lease;
         be32_t address;
+        const DHCPRKAPKey *forcerenew_nonce; /* the nonce to include in the DHCPACK, if any */
 } DHCPRequest;
 
 int dhcp_request_get_lifetime_timestamp(DHCPRequest *req, clockid_t clock, usec_t *ret);

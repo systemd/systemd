@@ -4,10 +4,13 @@
 ***/
 
 #include <net/if_arp.h>
+#include <sys/stat.h>
 
 #include "sd-dhcp-server.h"
 #include "sd-event.h"
+#include "sd-json.h"
 
+#include "dhcp-rkap.h"
 #include "dhcp-server-internal.h"
 #include "dhcp-server-lease-internal.h"
 #include "dhcp-server-request.h"
@@ -15,8 +18,12 @@
 #include "hashmap.h"
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
+#include "ip-util.h"
+#include "rm-rf.h"
 #include "set.h"
+#include "socket-util.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 
 TEST(basic) {
         struct in_addr address_lo = {
@@ -392,6 +399,188 @@ static void check_bound_lease(sd_dhcp_server *server, be32_t address, const sd_d
         ASSERT_NOT_NULL(lease);
         ASSERT_TRUE(client_id_equal(&lease->client_id, client_id));
         ASSERT_EQ(hashmap_size(server->bound_leases_by_client_id), 1u);
+}
+
+static void receive_reply(int fd, struct iovec *ret_packet, sd_dhcp_message **ret) {
+        ssize_t buflen = ASSERT_OK_POSITIVE(next_datagram_size_fd(fd));
+        _cleanup_free_ void *buf = ASSERT_NOT_NULL(malloc0(buflen));
+        ssize_t len = ASSERT_OK_ERRNO(recv(fd, buf, buflen, MSG_DONTWAIT));
+
+        /* Unicast replies to a client without an address are sent via the raw socket, hence with IP and
+         * UDP headers. */
+        struct iovec payload = IOVEC_MAKE(buf, len);
+        if (len > 0 && ((const uint8_t*) buf)[0] == 0x45)
+                ASSERT_OK(udp_packet_verify(&payload, DHCP_PORT_CLIENT, /* checksum= */ true, &payload));
+
+        ASSERT_OK(dhcp_message_parse(&payload, BOOTREPLY, /* xid= */ NULL, ARPHRD_ETHER, /* hw_addr= */ NULL, ret));
+        ASSERT_NOT_NULL(iovec_memdup(&payload, ret_packet));
+}
+
+TEST(dhcp_server_forcerenew_nonce) {
+        if (!dhcp_rkap_supported())
+                return (void) log_tests_skipped("HMAC-MD5 is not available");
+
+        static const struct hw_addr_data hw_addr = {
+                .length = ETH_ALEN,
+                .ether = {{ 'A', 'B', 'C', 'D', 'E', 'F' }},
+        };
+
+        struct in_addr address_lo = {
+                .s_addr = htobe32(INADDR_LOOPBACK),
+        };
+
+        _cleanup_close_pair_ int socket_fd[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, socket_fd));
+
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        ASSERT_OK(sd_event_new(&event));
+
+        _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
+        _cleanup_close_ int dir_fd = ASSERT_OK(mkdtemp_open(/* template= */ NULL, /* flags= */ 0, &tmpdir));
+
+        _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
+        ASSERT_OK(sd_dhcp_server_new(&server, 4242));
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address_lo, 8, /* offset= */ 0, /* size= */ 0));
+        ASSERT_OK(sd_dhcp_server_attach_event(server, event, SD_EVENT_PRIORITY_NORMAL));
+        ASSERT_OK(sd_dhcp_server_set_lease_file(server, dir_fd, "leases"));
+        server->socket_fd = TAKE_FD(socket_fd[0]);
+        ASSERT_OK(sd_dhcp_server_start(server));
+
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m = NULL;
+        ASSERT_OK(dhcp_message_new(&m));
+        ASSERT_OK(dhcp_message_init_header(m, BOOTREQUEST, 0x12345678, ARPHRD_ETHER, &hw_addr));
+        ASSERT_OK(dhcp_message_append_option_u8(m, SD_DHCP_OPTION_FORCERENEW_NONCE_CAPABLE, DHCP_RKAP_ALGORITHM_HMAC_MD5));
+
+        /* DHCPOFFER announces the capability (RFC 6704 section 3.1.3). */
+        set_message_type(m, DHCP_DISCOVER);
+        ASSERT_OK_EQ(process_one(server, m), DHCP_OFFER);
+
+        _cleanup_(iovec_done) struct iovec packet = {};
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *reply = NULL;
+        receive_reply(socket_fd[1], &packet, &reply);
+        uint8_t algorithm;
+        ASSERT_OK(dhcp_message_get_option_u8(reply, SD_DHCP_OPTION_FORCERENEW_NONCE_CAPABLE, &algorithm));
+        ASSERT_EQ(algorithm, DHCP_RKAP_ALGORITHM_HMAC_MD5);
+        be32_t address = reply->header.yiaddr;
+        iovec_done(&packet);
+        reply = sd_dhcp_message_unref(reply);
+
+        /* DHCPACK in the selecting state contains the nonce. */
+        set_message_type(m, DHCP_REQUEST);
+        ASSERT_OK(dhcp_message_append_option_be32(m, SD_DHCP_OPTION_SERVER_IDENTIFIER, htobe32(INADDR_LOOPBACK)));
+        ASSERT_OK(dhcp_message_append_option_be32(m, SD_DHCP_OPTION_REQUESTED_IP_ADDRESS, address));
+        ASSERT_OK_EQ(process_one(server, m), DHCP_ACK);
+
+        receive_reply(socket_fd[1], &packet, &reply);
+        _cleanup_(iovec_done) struct iovec auth = {};
+        ASSERT_OK(dhcp_message_get_option_alloc(reply, SD_DHCP_OPTION_AUTHENTICATION, &auth));
+        DHCPRKAPKey nonce = {};
+        ASSERT_OK(dhcp_rkap_key_set_from_auth(&nonce, auth.iov_base, auth.iov_len));
+        iovec_done(&auth);
+        iovec_done(&packet);
+        reply = sd_dhcp_message_unref(reply);
+
+        /* DHCPACK to a renewal does not contain the nonce again. */
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_SERVER_IDENTIFIER);
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_REQUESTED_IP_ADDRESS);
+        m->header.ciaddr = address;
+        m->header.xid = htobe32(0x23456789);
+        ASSERT_OK_EQ(process_one(server, m), DHCP_ACK);
+
+        receive_reply(socket_fd[1], &packet, &reply);
+        ASSERT_FALSE(dhcp_message_has_option(reply, SD_DHCP_OPTION_AUTHENTICATION));
+        iovec_done(&packet);
+        reply = sd_dhcp_message_unref(reply);
+
+        /* DHCPFORCERENEW is authenticated with the nonce, with increasing replay detection values. */
+        _cleanup_(iovec_done) struct iovec first = {};
+        for (unsigned i = 0; i < 2; i++) {
+                ASSERT_OK(sd_dhcp_server_forcerenew(server));
+                receive_reply(socket_fd[1], &packet, &reply);
+
+                uint8_t type;
+                ASSERT_OK(dhcp_message_get_option_u8(reply, SD_DHCP_OPTION_MESSAGE_TYPE, &type));
+                ASSERT_EQ(type, DHCP_FORCERENEW);
+
+                struct iovec a;
+                ASSERT_OK(dhcp_message_find_raw_option(&packet, SD_DHCP_OPTION_AUTHENTICATION, &a));
+                ASSERT_OK(dhcp_rkap_verify(&nonce, packet.iov_base, packet.iov_len, a.iov_base, a.iov_len));
+
+                if (i == 0)
+                        first = TAKE_STRUCT(packet);
+                iovec_done(&packet);
+                reply = sd_dhcp_message_unref(reply);
+        }
+
+        /* A replayed message must not verify. */
+        struct iovec a;
+        ASSERT_OK(dhcp_message_find_raw_option(&first, SD_DHCP_OPTION_AUTHENTICATION, &a));
+        ASSERT_ERROR(dhcp_rkap_verify(&nonce, first.iov_base, first.iov_len, a.iov_base, a.iov_len), ESTALE);
+
+        /* The nonce and the last replay detection value are saved to the lease file, which is only
+         * readable by its owner. The nonce is not exposed otherwise. */
+        struct stat st;
+        ASSERT_OK_ERRNO(fstatat(dir_fd, "leases", &st, /* flags= */ 0));
+        ASSERT_EQ(st.st_mode & 07777, 0600u);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        ASSERT_OK(dhcp_server_bound_leases_append_json(server, &v));
+        sd_json_variant *leases = ASSERT_NOT_NULL(sd_json_variant_by_key(v, "Leases"));
+        ASSERT_NULL(sd_json_variant_by_key(sd_json_variant_by_index(leases, /* index= */ 0), "ForcerenewNonce"));
+
+        /* After the lease file is loaded again, e.g. when the interface is reconfigured, DHCPFORCERENEW is
+         * still authenticated with the nonce. */
+        uint64_t replay = server->forcerenew_replay;
+        server->bound_leases_by_address = hashmap_free(server->bound_leases_by_address);
+        server->bound_leases_by_client_id = hashmap_free(server->bound_leases_by_client_id);
+        server->forcerenew_replay = 0;
+        ASSERT_OK(dhcp_server_load_leases(server));
+        ASSERT_EQ(server->forcerenew_replay, replay);
+
+        ASSERT_OK(sd_dhcp_server_forcerenew(server));
+        receive_reply(socket_fd[1], &packet, &reply);
+        ASSERT_OK(dhcp_message_find_raw_option(&packet, SD_DHCP_OPTION_AUTHENTICATION, &a));
+        ASSERT_OK(dhcp_rkap_verify(&nonce, packet.iov_base, packet.iov_len, a.iov_base, a.iov_len));
+        iovec_done(&packet);
+        reply = sd_dhcp_message_unref(reply);
+
+        /* A renewing client without a recorded nonce gets a new one, also in the DHCPACK to a retransmission
+         * of its DHCPREQUEST, as the first DHCPACK may have been lost, but not in later renewals. */
+        sd_dhcp_server_lease *lease = ASSERT_NOT_NULL(hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(address)));
+        dhcp_rkap_key_clear(&lease->forcerenew_nonce);
+        m->header.xid = htobe32(0x3456789a);
+        for (unsigned i = 0; i < 3; i++) {
+                if (i == 2)
+                        m->header.xid = htobe32(0x456789ab);
+
+                ASSERT_OK_EQ(process_one(server, m), DHCP_ACK);
+                receive_reply(socket_fd[1], &packet, &reply);
+
+                if (i < 2) {
+                        ASSERT_OK(dhcp_message_get_option_alloc(reply, SD_DHCP_OPTION_AUTHENTICATION, &auth));
+                        ASSERT_OK(dhcp_rkap_key_set_from_auth(&nonce, auth.iov_base, auth.iov_len));
+                        ASSERT_MEMEQ(nonce.key, lease->forcerenew_nonce.key, sizeof(nonce.key));
+                        iovec_done(&auth);
+                } else
+                        ASSERT_FALSE(dhcp_message_has_option(reply, SD_DHCP_OPTION_AUTHENTICATION));
+
+                iovec_done(&packet);
+                reply = sd_dhcp_message_unref(reply);
+        }
+
+        /* A client that is not capable does not get the nonce, and DHCPFORCERENEW is not authenticated. */
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_FORCERENEW_NONCE_CAPABLE);
+        ASSERT_OK_EQ(process_one(server, m), DHCP_ACK);
+        receive_reply(socket_fd[1], &packet, &reply);
+        ASSERT_FALSE(dhcp_message_has_option(reply, SD_DHCP_OPTION_AUTHENTICATION));
+        iovec_done(&packet);
+        reply = sd_dhcp_message_unref(reply);
+
+        ASSERT_OK(sd_dhcp_server_forcerenew(server));
+        receive_reply(socket_fd[1], &packet, &reply);
+        ASSERT_FALSE(dhcp_message_has_option(reply, SD_DHCP_OPTION_AUTHENTICATION));
+
+        dhcp_rkap_key_clear(&nonce);
 }
 
 TEST(dhcp_server_static_lease_client_id_change) {

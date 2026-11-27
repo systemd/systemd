@@ -11,6 +11,7 @@
 
 #include "dhcp-forward.h"
 #include "dhcp-message.h"
+#include "dhcp-rkap.h"
 #include "time-util.h"
 
 struct sd_dhcp_lease {
@@ -24,6 +25,10 @@ struct sd_dhcp_lease {
         usec_t lifetime;
         triple_timestamp timestamp;
         usec_t ipv6_only_preferred_usec;
+
+        /* RFC 6704 */
+        bool forcerenew_nonce_capable; /* the DHCPOFFER contained the FORCERENEW_NONCE_CAPABLE option */
+        DHCPRKAPKey forcerenew_nonce;  /* the nonce from the DHCPACK, if any */
 
         /* each 0 if unset */
         be32_t address;
