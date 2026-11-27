@@ -13,6 +13,7 @@ typedef struct Seat {
         LIST_HEAD(Device, devices);
 
         Set *uevents;
+        sd_event_source *uevents_timeout_event_source;
 
         Session *active;
         Session *pending_switch;
@@ -36,7 +37,7 @@ int seat_load(Seat *s);
 
 int manager_process_device_triggered_by_seat(Manager *m, sd_device *dev);
 
-int seat_set_active(Seat *s, Session *session);
+void seat_set_active(Seat *s, Session *session);
 int seat_switch_to(Seat *s, unsigned num);
 int seat_switch_to_next(Seat *s);
 int seat_switch_to_previous(Seat *s);

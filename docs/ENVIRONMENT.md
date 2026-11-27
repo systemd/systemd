@@ -282,6 +282,13 @@ All tools:
   or whenever they change if it wants to integrate with `systemd-logind`'s
   APIs.
 
+* `$SYSTEMD_SEAT_UEVENTS_TIMEOUT_SEC` — specifies the maximum time
+  `systemd-logind` waits for `systemd-udevd` to process the uevents it
+  triggers when the active session of a seat changes, before it resumes the
+  devices of the active session anyway. If no time unit is specified, assumes
+  seconds. The usual other units are understood, too (us, ms, s, min, h, d, w,
+  month, y). If it is not set, the built-in default of 30 seconds is used.
+
 `systemd-udevd` and sd-device library:
 
 * `$NET_NAMING_SCHEME=` — if set, takes a network naming scheme (i.e. one of
