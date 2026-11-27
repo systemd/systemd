@@ -1986,30 +1986,14 @@ static int context_on_acquire_progress(const Transfer *t, const Instance *inst, 
                                               overall, n - i, i, inst->metadata.version, overall);
 }
 
-static int context_process_partial_and_pending(Context *c, const char *version);
+static int context_process_partial_and_pending(Context *c, UpdateSet *us);
 
-static int context_acquire(
-                Context *c,
-                const char *version) {
+static int context_acquire(Context *c, UpdateSet *us) {
 
-        UpdateSet *us = NULL;
         int r;
 
         assert(c);
-
-        if (version) {
-                us = context_update_set_by_version(c, version);
-                if (!us)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Update '%s' not found.", version);
-        } else {
-                if (!c->candidate) {
-                        log_info("No update needed.");
-
-                        return 0;
-                }
-
-                us = c->candidate;
-        }
+        assert(us);
 
         if (FLAGS_SET(us->flags, UPDATE_INCOMPLETE))
                 log_info("Selected update '%s' is already installed, but incomplete. Repairing.", us->version);
@@ -2018,7 +2002,7 @@ static int context_acquire(
         } else if (FLAGS_SET(us->flags, UPDATE_PENDING)) {
                 log_info("Selected update '%s' is already acquired and pending installation.", us->version);
 
-                return context_process_partial_and_pending(c, version);
+                return context_process_partial_and_pending(c, us);
         } else if (FLAGS_SET(us->flags, UPDATE_INSTALLED)) {
                 log_info("Selected update '%s' is already installed. Skipping update.", us->version);
 
@@ -2103,28 +2087,11 @@ static int context_acquire(
 }
 
 /* Check to see if we have an update set acquired and pending installation. */
-static int context_process_partial_and_pending(
-                Context *c,
-                const char *version) {
-
-        UpdateSet *us = NULL;
+static int context_process_partial_and_pending(Context *c, UpdateSet *us) {
         int r;
 
         assert(c);
-
-        if (version) {
-                us = context_update_set_by_version(c, version);
-                if (!us)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Update '%s' not found.", version);
-        } else {
-                if (!c->candidate) {
-                        log_info("No update needed.");
-
-                        return 0;
-                }
-
-                us = c->candidate;
-        }
+        assert(us);
 
         if (FLAGS_SET(us->flags, UPDATE_INCOMPLETE))
                 log_info("Selected update '%s' is already installed, but incomplete. Repairing.", us->version);
@@ -2150,6 +2117,11 @@ static int context_process_partial_and_pending(
                 log_notice("Selected update '%s' is older than newest installed version, proceeding anyway.", us->version);
 
         log_info("Selected update '%s' for install.", us->version);
+
+        (void) sd_notifyf(/* unset_environment=*/ false,
+                          "READY=1\n"
+                          "X_SYSUPDATE_VERSION=%s",
+                          us->version);
 
         /* There should now be one instance picked for each transfer, and the order is the same */
         assert(us->n_instances == c->n_transfers);
@@ -2244,34 +2216,14 @@ static int context_notify_subscribers(Context *c, UpdateSet *us) {
         return 0;
 }
 
-static int context_install(
-                Context *c,
-                const char *version,
-                UpdateSet **ret_applied) {
-
-        UpdateSet *us = NULL;
+static int context_install(Context *c, UpdateSet *us) {
         int r;
 
         assert(c);
-
-        if (version) {
-                us = context_update_set_by_version(c, version);
-                if (!us)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Update '%s' not found.", version);
-        } else {
-                if (!c->candidate) {
-                        log_info("No update needed.");
-
-                        return 0;
-                }
-
-                us = c->candidate;
-        }
+        assert(us);
 
         (void) sd_notifyf(/* unset_environment=*/ false,
-                          "READY=1\n"
-                          "X_SYSUPDATE_VERSION=%s\n"
-                          "STATUS=Installing '%s'.", us->version, us->version);
+                          "STATUS=Installing '%s'.", us->version);
 
         for (size_t i = 0; i < c->n_transfers; i++) {
                 Instance *inst = us->instances[i];
@@ -2294,10 +2246,7 @@ static int context_install(
         (void) sd_notifyf(/* unset_environment= */ false,
                           "STATUS=Installed '%s'.", us->version);
 
-        if (ret_applied)
-                *ret_applied = us;
-
-        return 1;
+        return 0;
 }
 
 static int context_get_transfers_for_feature(Context *context, const char *feature_id, char ***ret_transfers) {
@@ -3058,10 +3007,10 @@ static int context_update(
                 bool *reboot_needed) {
 
         UpdateSet *applied = NULL;
-        bool updated = false;
         int r, ret = 0;
 
         assert(c);
+        assert(action_flags > 0);
         assert(installed);
         assert(reboot_needed);
 
@@ -3083,26 +3032,36 @@ static int context_update(
                 /* No transfer files found. In that case, still do the installdb cleanup below */
                 RET_GATHER(ret, r);
         } else {
-                if (FLAGS_SET(action_flags, UPDATE_ACTION_ACQUIRE))
-                        r = context_acquire(c, version);
+                UpdateSet *us = NULL;
+                if (version) {
+                        us = context_update_set_by_version(c, version);
+                        if (!us)
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Update '%s' not found.", version);
+                } else
+                        us = c->candidate;
+
+                if (!us)
+                        log_info("No update needed.");
+                else if (FLAGS_SET(action_flags, UPDATE_ACTION_ACQUIRE))
+                        r = context_acquire(c, us);
                 else
-                        r = context_process_partial_and_pending(c, version);
+                        r = context_process_partial_and_pending(c, us);
                 if (r < 0)
                         return r;
 
-                if (FLAGS_SET(action_flags, UPDATE_ACTION_INSTALL) && r > 0) { /* installation of update indicated */
-                        r = context_install(c, version, &applied);
+                if (us && FLAGS_SET(action_flags, UPDATE_ACTION_INSTALL) && r > 0) { /* installation of update indicated */
+                        r = context_install(c, us);
                         if (r < 0)
                                 return r;
 
-                        if (r > 0)
-                                updated = *installed = true;
+                        applied = us;
+                        *installed = true;
                 }
 
-                /* context_install() returns > 0 (and emits a notification) only if it actually applied an update. If
-                 * nothing was applied but SYSTEMD_SYSUPDATE_FORCE_NOTIFY=1 is set, still notify subscribers (without a
-                 * resource list), so e.g. a kernel/policy refresh can be triggered unconditionally. */
-                if (FLAGS_SET(action_flags, UPDATE_ACTION_INSTALL) && !updated) {
+                /* context_install() emits a notification only if it actually applied an update. If nothing
+                 * was applied but SYSTEMD_SYSUPDATE_FORCE_NOTIFY=1 is set, still notify subscribers (without
+                 * a resource list), so e.g. a kernel/policy refresh can be triggered unconditionally. */
+                if (FLAGS_SET(action_flags, UPDATE_ACTION_INSTALL) && !applied) {
                         int f = secure_getenv_bool("SYSTEMD_SYSUPDATE_FORCE_NOTIFY");
                         if (f < 0 && f != -ENXIO)
                                 log_debug_errno(f, "Failed to parse $SYSTEMD_SYSUPDATE_FORCE_NOTIFY, ignoring: %m");
@@ -3114,10 +3073,9 @@ static int context_update(
         if (c->cleanup > 0)
                 RET_GATHER(ret, installdb_cleanup_component(c));
 
-        if (updated && c->reboot) {
+        if (applied && c->reboot) {
                 /* We installed something, yay */
 
-                assert(applied);
                 assert(booted_version);
 
                 if (strverscmp_improved(applied->version, booted_version) > 0) {
