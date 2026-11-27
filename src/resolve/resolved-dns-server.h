@@ -109,6 +109,7 @@ int dns_server_adjust_opt(DnsServer *server, DnsPacket *packet, DnsServerFeature
 
 const char* dns_server_string(DnsServer *server);
 const char* dns_server_string_full(DnsServer *server);
+int dns_server_to_uri(DnsServer *s, bool with_ifindex, char **ret);
 int dns_server_ifindex(const DnsServer *s);
 uint16_t dns_server_port(const DnsServer *s);
 
@@ -126,6 +127,10 @@ DnsServer *dns_server_find(
                 DnsTransportPolicy transport_policy,
                 uint16_t downgrade_port);
 
+int dns_server_transport_from_address(
+                struct in_addr_full *a,
+                DnsTransportPolicy *ret_transport_policy,
+                uint16_t *ret_downgrade_port);
 int dns_server_parse_string(
                 const char *s,
                 struct in_addr_full **ret_address,

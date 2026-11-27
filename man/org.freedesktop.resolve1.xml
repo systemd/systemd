@@ -88,6 +88,8 @@ node /org/freedesktop/resolve1 {
                  in  a(iay) addresses);
       SetLinkDNSEx(in  i ifindex,
                    in  a(iayqs) addresses);
+      SetLinkDNSURI(in  i ifindex,
+                    in  as servers);
       SetLinkDomains(in  i ifindex,
                      in  a(sb) domains);
       SetLinkDefaultRoute(in  i ifindex,
@@ -134,6 +136,10 @@ node /org/freedesktop/resolve1 {
       readonly a(iiayqs) FallbackDNSEx = [...];
       readonly (iiay) CurrentDNSServer = ...;
       readonly (iiayqs) CurrentDNSServerEx = ...;
+      readonly a(is) DNSURI = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as FallbackDNSURI = ['...', ...];
+      readonly (is) CurrentDNSServerURI = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(isb) Domains = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -178,6 +184,8 @@ node /org/freedesktop/resolve1 {
     <variablelist class="dbus-method" generated="True" extra-ref="SetLinkDNS()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="SetLinkDNSEx()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetLinkDNSURI()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="SetLinkDomains()"/>
 
@@ -228,6 +236,12 @@ node /org/freedesktop/resolve1 {
     <variablelist class="dbus-property" generated="True" extra-ref="CurrentDNSServer"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CurrentDNSServerEx"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DNSURI"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="FallbackDNSURI"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CurrentDNSServerURI"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Domains"/>
 
@@ -372,6 +386,15 @@ node /org/freedesktop/resolve1 {
       used. C.f. <varname>DNS=</varname> in
       <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
       </para>
+
+      <para><function>SetLinkDNSURI()</function> is similar to <function>SetLinkDNSEx()</function>, but
+      takes each DNS server as a string, in the format accepted by <varname>DNS=</varname> in
+      <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>. A
+      server given as URI selects its transport with the URI scheme, e.g.
+      <literal>dnss://192.0.2.1#name=dns.example.com</literal>. The interface is given by the link and may
+      not be specified in the strings. Servers set with <function>SetLinkDNS()</function> or
+      <function>SetLinkDNSEx()</function> are given without a scheme, so that their transport is selected
+      by <function>SetLinkDNSOverTLS()</function>.</para>
 
       <para><function>SetLinkDefaultRoute()</function> specifies whether the link shall be used as the
       default route for name queries. See the description of name routing in
@@ -620,6 +643,16 @@ node /org/freedesktop/resolve1 {
       that is currently used for query resolution, in the same format as a single entry in the
       <varname>DNS</varname> and <varname>DNSEx</varname> arrays described above.</para>
 
+      <para><varname>DNSURI</varname>, <varname>FallbackDNSURI</varname> and
+      <varname>CurrentDNSServerURI</varname> are similar, but contain each server as a string, in the format
+      accepted by <function>SetLinkDNSURI()</function>: as URI if the server was configured with a scheme,
+      and in the <literal>address[:port][%interface][#name]</literal> format otherwise. Only these
+      properties show the transport of a server configured as URI. The entries of <varname>DNSURI</varname>
+      and <varname>CurrentDNSServerURI</varname> consist of the network interface index, as in
+      <varname>DNS</varname>, and the string without it. Fallback servers are not bound to an interface, so
+      the strings of <varname>FallbackDNSURI</varname> include it. <varname>CurrentDNSServerURI</varname>
+      contains an empty string if no server is currently used.</para>
+
       <para>Similarly, the <varname>Domains</varname> property contains an array of all search and routing
       domains currently used by <filename>systemd-resolved</filename>. Each entry consists of a network
       interface index (again, 0 encodes system-wide entries), the actual domain name, and whether the entry
@@ -696,6 +729,7 @@ node /org/freedesktop/resolve1/link/_1 {
     methods:
       SetDNS(in  a(iay) addresses);
       SetDNSEx(in  a(iayqs) addresses);
+      SetDNSURI(in  as servers);
       SetDomains(in  a(sb) domains);
       SetDefaultRoute(in  b enable);
       SetLLMNR(in  s mode);
@@ -715,6 +749,10 @@ node /org/freedesktop/resolve1/link/_1 {
       readonly (iay) CurrentDNSServer = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly (iayqs) CurrentDNSServerEx = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly as DNSURI = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s CurrentDNSServerURI = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(sb) Domains = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -748,6 +786,8 @@ node /org/freedesktop/resolve1/link/_1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="SetDNSEx()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="SetDNSURI()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="SetDomains()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="SetDefaultRoute()"/>
@@ -773,6 +813,10 @@ node /org/freedesktop/resolve1/link/_1 {
     <variablelist class="dbus-property" generated="True" extra-ref="CurrentDNSServer"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CurrentDNSServerEx"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DNSURI"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CurrentDNSServerURI"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Domains"/>
 
@@ -805,7 +849,7 @@ node /org/freedesktop/resolve1/link/_1 {
       expects an interface index to be specified. Invoking the methods on the Manager interface has the
       benefit of reducing roundtrips, as it is not necessary to first request the Link object path via
       <function>GetLink()</function> before invoking the methods. The same relationship holds for
-      <function>SetDNSEx()</function>, <function>SetDomains()</function>,
+      <function>SetDNSEx()</function>, <function>SetDNSURI()</function>, <function>SetDomains()</function>,
       <function>SetDefaultRoute()</function>, <function>SetLLMNR()</function>,
       <function>SetMulticastDNS()</function>, <function>SetDNSOverTLS()</function>,
       <function>SetDNSSEC()</function>, <function>SetDNSSECNegativeTrustAnchors()</function>, and
@@ -974,6 +1018,14 @@ $ gdbus introspect --system \
       <title>The Manager Object</title>
 
       <para><function>GetDelegate()</function> and <function>ListDelegates()</function> were added in version 258.</para>
+      <para><function>SetLinkDNSURI()</function>, <varname>DNSURI</varname>, <varname>FallbackDNSURI</varname>, and
+      <varname>CurrentDNSServerURI</varname> were added in version 263.</para>
+    </refsect2>
+    <refsect2>
+      <title>The Link Object</title>
+
+      <para><function>SetDNSURI()</function>, <varname>DNSURI</varname>, and
+      <varname>CurrentDNSServerURI</varname> were added in version 263.</para>
     </refsect2>
   </refsect1>
 

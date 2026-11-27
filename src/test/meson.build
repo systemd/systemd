@@ -73,6 +73,7 @@ simple_tests += files(
         'test-bmp.c',
         'test-bootspec.c',
         'test-build-path.c',
+        'test-bus-message-util.c',
         'test-bus-unit-util.c',
         'test-bus-util.c',
         'test-calendarspec.c',

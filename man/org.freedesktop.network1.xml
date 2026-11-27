@@ -55,6 +55,8 @@ node /org/freedesktop/network1 {
                  in  a(iay) addresses);
       SetLinkDNSEx(in  i ifindex,
                    in  a(iayqs) addresses);
+      SetLinkDNSURI(in  i ifindex,
+                    in  as servers);
       SetLinkDomains(in  i ifindex,
                      in  a(sb) domains);
       SetLinkDefaultRoute(in  i ifindex,
@@ -107,6 +109,8 @@ node /org/freedesktop/network1 {
     <!--method SetLinkDNS is not documented!-->
 
     <!--method SetLinkDNSEx is not documented!-->
+
+    <!--method SetLinkDNSURI is not documented!-->
 
     <!--method SetLinkDomains is not documented!-->
 
@@ -167,6 +171,8 @@ node /org/freedesktop/network1 {
     <variablelist class="dbus-method" generated="True" extra-ref="SetLinkDNS()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="SetLinkDNSEx()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetLinkDNSURI()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="SetLinkDomains()"/>
 
@@ -242,6 +248,7 @@ node /org/freedesktop/network1/link/_1 {
       SetNTP(in  as servers);
       SetDNS(in  a(iay) addresses);
       SetDNSEx(in  a(iayqs) addresses);
+      SetDNSURI(in  as servers);
       SetDomains(in  a(sb) domains);
       SetDefaultRoute(in  b enable);
       SetLLMNR(in  s mode);
@@ -277,6 +284,8 @@ node /org/freedesktop/network1/link/_1 {
     <!--method SetDNS is not documented!-->
 
     <!--method SetDNSEx is not documented!-->
+
+    <!--method SetDNSURI is not documented!-->
 
     <!--method SetDomains is not documented!-->
 
@@ -331,6 +340,8 @@ node /org/freedesktop/network1/link/_1 {
     <variablelist class="dbus-method" generated="True" extra-ref="SetDNS()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="SetDNSEx()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetDNSURI()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="SetDomains()"/>
 
@@ -618,8 +629,13 @@ $ gdbus introspect --system \
       <para><varname>State</varname> was added in version 255.</para>
     </refsect2>
     <refsect2>
+      <title>Link Object</title>
+      <para><function>SetDNSURI()</function> was added in version 263.</para>
+    </refsect2>
+    <refsect2>
       <title>Manager Object</title>
       <para><varname>NamespaceNSID</varname> was added in version 256.</para>
+      <para><function>SetLinkDNSURI()</function> was added in version 263.</para>
     </refsect2>
   </refsect1>
 

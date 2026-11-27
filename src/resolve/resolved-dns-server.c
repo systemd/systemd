@@ -745,19 +745,26 @@ const char* dns_server_string(DnsServer *server) {
         return server->server_string;
 }
 
-static int dns_server_uri(DnsServer *s, char **ret) {
+int dns_server_to_uri(DnsServer *s, bool with_ifindex, char **ret) {
         _cleanup_(in_addr_full_freep) struct in_addr_full *a = NULL;
         DnsTransportKind best;
         const char *t;
         int r;
 
         assert(s);
-        assert(s->transport_policy != 0);
         assert(ret);
 
-        r = in_addr_full_new(s->family, &s->address, s->port, dns_server_ifindex(s), s->server_name, &a);
+        /* Formats the server the way it is configured: as URI if it was given a scheme, and in the legacy
+         * "address[:port][%ifname][#name]" form otherwise. The interface is left out unless with_ifindex
+         * is set, for callers that report it separately. */
+
+        r = in_addr_full_new(s->family, &s->address, s->port, with_ifindex ? dns_server_ifindex(s) : 0,
+                             s->server_name, &a);
         if (r < 0)
                 return r;
+
+        if (s->transport_policy == 0)
+                goto finish;
 
         best = dns_transport_policy_best(s->transport_policy);
         r = strdup_to(&a->scheme, dns_transport_kind_to_string(best));
@@ -773,6 +780,7 @@ static int dns_server_uri(DnsServer *s, char **ret) {
                         return r;
         }
 
+finish:
         t = in_addr_full_to_string(a);
         if (!t)
                 return -ENOMEM;
@@ -783,17 +791,8 @@ static int dns_server_uri(DnsServer *s, char **ret) {
 const char* dns_server_string_full(DnsServer *server) {
         assert(server);
 
-        if (!server->server_string_full && server->transport_policy != 0)
-                (void) dns_server_uri(server, &server->server_string_full);
-
         if (!server->server_string_full)
-                (void) in_addr_port_ifindex_name_to_string(
-                                server->family,
-                                &server->address,
-                                server->port,
-                                dns_server_ifindex(server),
-                                server->server_name,
-                                &server->server_string_full);
+                (void) dns_server_to_uri(server, /* with_ifindex= */ true, &server->server_string_full);
 
         return server->server_string_full;
 }
@@ -970,39 +969,33 @@ DnsServer *dns_server_find(
         return NULL;
 }
 
-int dns_server_parse_string(
-                const char *s,
-                struct in_addr_full **ret_address,
+int dns_server_transport_from_address(
+                struct in_addr_full *a,
                 DnsTransportPolicy *ret_transport_policy,
                 uint16_t *ret_downgrade_port) {
 
-        _cleanup_(in_addr_full_freep) struct in_addr_full *a = NULL;
         const DnsTransportVTable *vt;
         DnsTransportPolicy policy = 0;
         uint16_t downgrade_port = 0;
         DnsTransportKind kind;
         int r;
 
-        assert(s);
-        assert(ret_address);
+        assert(a);
         assert(ret_transport_policy);
         assert(ret_downgrade_port);
 
-        /* Parses a DNS server setting, either in the legacy "address[:port][%ifname][#name]" form, or as
-         * "scheme://address[:port][#key=value&...]". The scheme selects the transport, which is then the
-         * only one permitted, unless the "downgrade" parameter also permits the unencrypted one it may
-         * downgrade to, optionally on the port given as its value. Without a scheme, *ret_transport_policy
-         * is 0, and the DNSOverTLS= setting decides.
+        /* Determines the transports of a DNS server address, either in the legacy
+         * "address[:port][%ifname][#name]" form, or as "scheme://address[:port][#key=value&...]", see
+         * in_addr_full_new_from_string(). The scheme selects the transport, which is then the only one
+         * permitted, unless the "downgrade" parameter also permits the unencrypted one it may downgrade to,
+         * optionally on the port given as its value. Without a scheme, *ret_transport_policy is 0, and the
+         * DNSOverTLS= setting decides.
          *
          * Schemes of transports this build doesn't support are refused like unknown ones. Other tools
-         * accepting these settings only check their syntax, since the transports are ours.
+         * accepting these addresses only check their syntax, since the transports are ours.
          *
-         * A port that is the default of its transport is normalized to 0, so that it is chosen with the
-         * transport. See dns_server_transport_port(). */
-
-        r = in_addr_full_new_from_string(s, &a);
-        if (r < 0)
-                return r;
+         * A port that is the default of its transport is normalized to 0 in the address, so that it is
+         * chosen with the transport. See dns_server_transport_port(). */
 
         if (!a->scheme) {
                 /* Without a scheme the port applies to all transports, so treat the default of either as
@@ -1045,9 +1038,32 @@ int dns_server_parse_string(
         }
 
 finish:
-        *ret_address = TAKE_PTR(a);
         *ret_transport_policy = policy;
         *ret_downgrade_port = downgrade_port;
+        return 0;
+}
+
+int dns_server_parse_string(
+                const char *s,
+                struct in_addr_full **ret_address,
+                DnsTransportPolicy *ret_transport_policy,
+                uint16_t *ret_downgrade_port) {
+
+        _cleanup_(in_addr_full_freep) struct in_addr_full *a = NULL;
+        int r;
+
+        assert(s);
+        assert(ret_address);
+
+        r = in_addr_full_new_from_string(s, &a);
+        if (r < 0)
+                return r;
+
+        r = dns_server_transport_from_address(a, ret_transport_policy, ret_downgrade_port);
+        if (r < 0)
+                return r;
+
+        *ret_address = TAKE_PTR(a);
         return 0;
 }
 
@@ -1206,7 +1222,7 @@ DnsServer *manager_set_dns_server(Manager *m, DnsServer *s) {
         if (m->unicast_scope && m->stale_retention_usec == 0)
                 dns_cache_flush(&m->unicast_scope->cache);
 
-        (void) manager_send_changed(m, "CurrentDNSServer");
+        (void) manager_send_changed(m, "CurrentDNSServer", "CurrentDNSServerURI");
         (void) manager_send_dns_configuration_changed(m, NULL, /* reset= */ false);
 
         return s;

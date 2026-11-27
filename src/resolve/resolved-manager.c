@@ -351,7 +351,7 @@ static int on_network_event(sd_event_source *source, int fd, uint32_t revents, v
         }
 
         (void) manager_write_resolv_conf(m);
-        (void) manager_send_changed(m, "DNS");
+        (void) manager_send_changed(m, "DNS", "DNSURI");
         (void) manager_send_dns_configuration_changed(m, NULL, /* reset= */ true);
 
         /* Now check all the links, and if mDNS/llmr are disabled everywhere, stop them globally too. */
