@@ -63,6 +63,15 @@ if conf.get('HAVE_TPM2') == 1
         udevadm_export_sources += files('udev-builtin-tpm2_id.c')
 endif
 
+# fuzz-device-monitor includes udev-manager.c, to reach its static functions, hence it is built from the other
+# udevadm sources (plus the generated ones) instead of importing them
+fuzz_device_monitor_sources = files('fuzz-device-monitor.c', '../fuzz/fuzz-network.c')
+foreach s : udevadm_export_sources
+        if fs.name(s) != 'udev-manager.c'
+                fuzz_device_monitor_sources += s
+        endif
+endforeach
+
 ############################################################
 
 generate_keyboard_keys_list = files('generate-keyboard-keys-list.sh')
@@ -238,6 +247,15 @@ executables += [
         },
         udev_fuzz_template + {
                 'sources' : files('net/fuzz-link-parser.c'),
+        },
+        fuzz_template + {
+                'sources' : fuzz_device_monitor_sources +
+                            [link_config_gperf_c, keyboard_keys_from_name_inc],
+                'include_directories' : [
+                        include_directories('.', 'net'),
+                        fuzz_template['include_directories'],
+                ],
+                'dependencies' : udev_dependencies,
         },
         udev_fuzz_template + {
                 'sources' : files('fuzz-udev-rule-parse-value.c'),
