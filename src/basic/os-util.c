@@ -177,7 +177,7 @@ int open_os_release_at(int rfd, char **ret_path, int *ret_fd) {
                 return chaseat(rfd, rfd, e, /* flags= */ 0, ret_path, ret_fd);
 
         FOREACH_STRING(path, "/etc/os-release", "/usr/lib/os-release") {
-                r = chaseat(rfd, rfd, path, /* flags= */ 0, ret_path, ret_fd);
+                r = chaseat(rfd, rfd, path, CHASE_MUST_BE_REGULAR, ret_path, ret_fd);
                 if (r != -ENOENT)
                         return r;
         }

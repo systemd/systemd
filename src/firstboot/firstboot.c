@@ -300,7 +300,7 @@ static int should_configure(const Context *c, int dir_fd, const char *filename) 
                 return true;
         }
 
-        r = xfopenat(dir_fd, "shadow", "re", O_NOFOLLOW, &shadow);
+        r = xfopenat(dir_fd, "shadow", "re", O_NOFOLLOW|O_NONBLOCK, &shadow);
         if (r == -ENOENT) {
                 log_debug("No shadow file found, assuming root is not configured.");
                 return true; /* missing */
