@@ -525,10 +525,11 @@ int blockdev_partscan_enabled_fd(int fd) {
         return blockdev_partscan_enabled(dev);
 }
 
-static int blockdev_is_encrypted(const char *sysfs_path, BlockDeviceEncryptedFlags flags, unsigned depth_left) {
+static int blockdev_data_is_protected(const char *sysfs_path, DataProtectFlags flags, unsigned depth_left) {
         _cleanup_free_ char *p = NULL, *uuids = NULL;
         _cleanup_closedir_ DIR *d = NULL;
-        int r, found_encrypted = false;
+        bool found_protected = false;
+        int r;
 
         assert(sysfs_path);
 
@@ -554,10 +555,10 @@ static int blockdev_is_encrypted(const char *sysfs_path, BlockDeviceEncryptedFla
                 const char *e = startswith(uuids, "CRYPT-");
                 if (e) {
                         if (startswith(e, "VERITY-")) {
-                                if (FLAGS_SET(flags, BLOCK_DEVICE_ENCRYPTED_DM_VERITY))
+                                if (FLAGS_SET(flags, DATA_PROTECT_VERITY))
                                         return true;
                         } else if (!STARTSWITH_SET(e, "INTEGRITY-", "SUBDEV-")) {
-                                if (FLAGS_SET(flags, BLOCK_DEVICE_ENCRYPTED_DM_CRYPT))
+                                if (FLAGS_SET(flags, DATA_PROTECT_CRYPT))
                                         return true;
                         }
                 }
@@ -596,19 +597,19 @@ static int blockdev_is_encrypted(const char *sysfs_path, BlockDeviceEncryptedFla
                 if (!q)
                         return -ENOMEM;
 
-                r = blockdev_is_encrypted(q, flags, depth_left - 1);
+                r = blockdev_data_is_protected(q, flags, depth_left - 1);
                 if (r < 0)
                         return r;
-                if (r == 0) /* we found one that is not encrypted? then propagate that immediately */
+                if (r == 0) /* we found one that is not protected? then propagate that immediately */
                         return false;
 
-                found_encrypted = true;
+                found_protected = true;
         }
 
-        return found_encrypted;
+        return found_protected;
 }
 
-int fd_is_encrypted(int fd, BlockDeviceEncryptedFlags flags) {
+int fd_data_is_protected(int fd, DataProtectFlags flags) {
         char p[SYS_BLOCK_PATH_MAX("")];
         dev_t devt;
         int r;
@@ -620,9 +621,8 @@ int fd_is_encrypted(int fd, BlockDeviceEncryptedFlags flags) {
          * check if it is protected itself (the devices it is stacked on are not checked then), or if it is
          * stacked on top of other block devices that all pass the check (recursively).
          *
-         * Note that despite the name of this function, dm-verity devices pass the check too if
-         * BLOCK_DEVICE_ENCRYPTED_DM_VERITY is set in flags, even though dm-verity only authenticates and
-         * does not encrypt. */
+         * Note that dm-crypt provides confidentiality, while dm-verity only authenticates and does not
+         * encrypt. */
 
         r = get_block_device_fd(fd, &devt);
         if (r < 0)
@@ -632,22 +632,19 @@ int fd_is_encrypted(int fd, BlockDeviceEncryptedFlags flags) {
 
         xsprintf_sys_block_path(p, NULL, devt);
 
-        return blockdev_is_encrypted(p, flags, 10 /* safety net: maximum recursion depth */);
+        return blockdev_data_is_protected(p, flags, 10 /* safety net: maximum recursion depth */);
 }
 
-int path_is_encrypted(const char *path, BlockDeviceEncryptedFlags flags) {
+int path_data_is_protected(const char *path, DataProtectFlags flags) {
         _cleanup_close_ int fd = -EBADF;
 
         assert(path);
-
-        /* Note that despite the name, this also checks for dm-verity if the flags say so, see
-         * fd_is_encrypted() for details. */
 
         fd = xopenat(AT_FDCWD, path, O_RDONLY|O_NOFOLLOW);
         if (fd < 0)
                 return fd;
 
-        return fd_is_encrypted(fd, flags);
+        return fd_data_is_protected(fd, flags);
 }
 
 int fd_get_whole_disk(int fd, bool backing, dev_t *ret) {
