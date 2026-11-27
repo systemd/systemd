@@ -13,9 +13,11 @@ body:
       label: systemd version the issue has been seen with
       description: |
         Do not submit bug reports about anything but the two most recently released *major* systemd versions upstream!
-        If there have been multiple stable releases for that major version, please consider updating to a recent one before reporting an issue.
-        When using a distro package, please make sure that the version reported is meaningful for upstream.
-        If a distro build is used, please just paste the package version, e.g. `systemd-259.8-1.fc44.x86_64`.
+        If a stable release has been made for that major version, consider updating to the latest one before reporting the issue.
+        When using a distro package,
+        report the package version if it is meaningful for upstream, e.g. `systemd-259.8-1.fc44.x86_64`.
+        Otherwise, make sure to provide enough information for upstream to be able to figure out
+        from which upstream version of the code the distro package was built.
         See https://github.com/systemd/systemd/tags for the list of most recent releases.
         For older versions use distribution trackers instead (see https://systemd.io/CONTRIBUTING#filing-issues).
         A repository with packages built from latest main for the major distributions and architectures is available from our
