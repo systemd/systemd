@@ -269,34 +269,32 @@ int link_process_rtnl(Link *l, sd_netlink_message *m) {
 }
 
 static int link_update_dns_server_one(Link *l, const char *str) {
-        _cleanup_free_ char *name = NULL;
-        int family, ifindex, r;
-        union in_addr_union a;
+        _cleanup_(in_addr_full_freep) struct in_addr_full *a = NULL;
+        DnsTransportPolicy transport_policy;
+        uint16_t downgrade_port;
         DnsServer *s;
-        uint16_t port;
+        int r;
 
         assert(l);
         assert(str);
 
-        r = in_addr_port_ifindex_name_from_string_auto(str, &family, &a, &port, &ifindex, &name);
+        r = dns_server_parse_string(str, &a, &transport_policy, &downgrade_port);
         if (r < 0)
                 return r;
 
-        if (ifindex != 0 && ifindex != l->ifindex)
+        if (a->ifindex != 0 && a->ifindex != l->ifindex)
                 return -EINVAL;
 
-        /* By default, the port number is determined with the transaction feature level.
-         * See dns_server_transport_port() and dns_server_port(). */
-        if (IN_SET(port, 53, 853))
-                port = 0;
-
-        s = dns_server_find(l->dns_servers, family, &a, port, /* ifindex= */ 0, name);
+        s = dns_server_find(l->dns_servers, a->family, &a->address, a->port, /* ifindex= */ 0, a->server_name,
+                            transport_policy, downgrade_port);
         if (s) {
                 dns_server_move_back_and_unmark(s);
                 return 0;
         }
 
-        return dns_server_new(l->manager, /* ret= */ NULL, DNS_SERVER_LINK, l, /* delegate= */ NULL, family, &a, port, /* ifindex= */ 0, name, RESOLVE_CONFIG_SOURCE_NETWORKD);
+        return dns_server_new(l->manager, /* ret= */ NULL, DNS_SERVER_LINK, l, /* delegate= */ NULL,
+                              a->family, &a->address, a->port, /* ifindex= */ 0, a->server_name,
+                              transport_policy, downgrade_port, RESOLVE_CONFIG_SOURCE_NETWORKD);
 }
 
 static int link_update_dns_servers(Link *l) {
@@ -1549,7 +1547,9 @@ int link_set_dns_servers(Link *l, struct in_addr_full **dns, size_t n_dns, Resol
                                                &addr->address,
                                                addr->port,
                                                /* ifindex= */ 0,
-                                               addr->server_name);
+                                               addr->server_name,
+                                               /* transport_policy= */ 0,
+                                               /* downgrade_port= */ 0);
                 if (s)
                         dns_server_move_back_and_unmark(s);
                 else {
@@ -1563,6 +1563,8 @@ int link_set_dns_servers(Link *l, struct in_addr_full **dns, size_t n_dns, Resol
                                            addr->port,
                                            /* ifindex= */ 0,
                                            addr->server_name,
+                                           /* transport_policy= */ 0,
+                                           /* downgrade_port= */ 0,
                                            source);
                         if (r < 0) {
                                 dns_server_unlink_all(l->dns_servers);

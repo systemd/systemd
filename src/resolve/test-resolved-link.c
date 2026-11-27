@@ -187,7 +187,9 @@ static void link_alloc_env_setup(LinkAllocEnv *env, int family, DnsServerType se
 
         ASSERT_OK(dns_server_new(&env->manager, &env->server, env->server_type,
                         link, /* delegate= */ NULL, family, &env->server_addr, env->server_port,
-                        env->ifindex, env->server_name, RESOLVE_CONFIG_SOURCE_DBUS));
+                        env->ifindex, env->server_name,
+                        /* transport_policy= */ 0, /* downgrade_port= */ 0,
+                        RESOLVE_CONFIG_SOURCE_DBUS));
 
         ASSERT_NOT_NULL(env->server);
 }

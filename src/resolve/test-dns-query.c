@@ -807,7 +807,9 @@ static void go_env_setup(GoEnvironment *env, GoConfig *cfg) {
 
                 ASSERT_OK(dns_server_new(&env->manager, &env->server, env->server_type,
                                          env->link, /* delegate= */ NULL, env->family, &env->server_addr, env->server_port,
-                                env->ifindex, env->server_name, RESOLVE_CONFIG_SOURCE_DBUS));
+                                env->ifindex, env->server_name,
+                                /* transport_policy= */ 0, /* downgrade_port= */ 0,
+                                RESOLVE_CONFIG_SOURCE_DBUS));
 
                 ASSERT_NOT_NULL(env->server);
         } else {
