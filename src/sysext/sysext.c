@@ -38,6 +38,7 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "host-properties.h"
+#include "id128-util.h"
 #include "image-policy.h"
 #include "initrd-util.h"
 #include "label-util.h"                 /* IWYU pragma: keep */
@@ -397,6 +398,34 @@ static int is_our_mount_point(
 
         if (st.st_dev != dev) {
                 log_debug("Hierarchy '%s' reports a different device major/minor than what we are seeing, assuming offline copy.", p);
+                return false;
+        }
+
+        /* Device numbers are reused quickly, hence if we stored the file system UUID of the overlayfs too,
+         * check that as well. Older versions of systemd-sysext did not store it, and older kernels do not
+         * assign or expose overlayfs UUIDs, hence skip this check gracefully if it is not available. */
+        _cleanup_free_ char *uuid_path = path_join(p, image_class_info[image_class].dot_directory_name, "uuid");
+        if (!uuid_path)
+                return log_oom();
+
+        sd_id128_t uuid;
+        r = id128_read(uuid_path, ID128_FORMAT_ANY|ID128_REFUSE_NULL, &uuid);
+        if (r == -ENOENT) {
+                log_debug("Hierarchy '%s' does not carry a %s/uuid file, not checking file system UUID.", p, image_class_info[image_class].dot_directory_name);
+                return true;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read file system UUID stored in '%s/uuid' file on '%s': %m", image_class_info[image_class].dot_directory_name, p);
+
+        sd_id128_t actual_uuid;
+        r = id128_get_fs_uuid(p, &actual_uuid);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to get file system UUID of '%s', not checking it: %m", p);
+                return true;
+        }
+
+        if (!sd_id128_equal(uuid, actual_uuid)) {
+                log_debug("Hierarchy '%s' reports a different file system UUID than what we are seeing, assuming offline copy.", p);
                 return false;
         }
 
@@ -1285,26 +1314,46 @@ static int hierarchy_as_lower_dir(const Context *c, OverlayFSPaths *op) {
         return 0;
 }
 
-static int determine_bottom_lower_dirs(const Context *c, OverlayFSPaths *op, dev_t *ret_backing_devnum) {
+static int determine_bottom_lower_dirs(
+                const Context *c,
+                OverlayFSPaths *op,
+                dev_t *ret_backing_devnum,
+                sd_id128_t *ret_backing_uuid) {
+
         int r;
 
         assert(c);
         assert(op);
         assert(ret_backing_devnum);
+        assert(ret_backing_uuid);
 
         r = hierarchy_as_lower_dir(c, op);
         if (r < 0)
                 return r;
-        if (!r) {
-                if (strv_extend(&op->lower_dirs, op->resolved_hierarchy) < 0)
-                        return log_oom();
-
-                r = get_block_device(op->resolved_hierarchy, ret_backing_devnum);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get block device of '%s': %m", op->resolved_hierarchy);
-        } else
+        if (r > 0) {
                 *ret_backing_devnum = 0;
+                *ret_backing_uuid = SD_ID128_NULL;
+                return 0;
+        }
 
+        if (strv_extend(&op->lower_dirs, op->resolved_hierarchy) < 0)
+                return log_oom();
+
+        dev_t devnum;
+        r = get_block_device(op->resolved_hierarchy, &devnum);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get block device of '%s': %m", op->resolved_hierarchy);
+
+        /* Not all file systems expose their UUID via FS_IOC_GETFSUUID, hence handle this gracefully */
+        sd_id128_t uuid;
+        r = id128_get_fs_uuid(op->resolved_hierarchy, &uuid);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to get file system UUID of '%s', ignoring: %m", op->resolved_hierarchy);
+                uuid = SD_ID128_NULL;
+        }
+
+        *ret_backing_devnum = devnum;
+        *ret_backing_uuid = uuid;
         return 0;
 }
 
@@ -1313,7 +1362,8 @@ static int determine_lower_dirs(
                 OverlayFSPaths *op,
                 char **paths,
                 const char *meta_path,
-                dev_t *ret_backing_devnum) {
+                dev_t *ret_backing_devnum,
+                sd_id128_t *ret_backing_uuid) {
 
         int r;
 
@@ -1321,6 +1371,7 @@ static int determine_lower_dirs(
         assert(op);
         assert(meta_path);
         assert(ret_backing_devnum);
+        assert(ret_backing_uuid);
 
         r = determine_top_lower_dirs(c, op, meta_path);
         if (r < 0)
@@ -1330,7 +1381,7 @@ static int determine_lower_dirs(
         if (r < 0)
                 return r;
 
-        r = determine_bottom_lower_dirs(c, op, ret_backing_devnum);
+        r = determine_bottom_lower_dirs(c, op, ret_backing_devnum, ret_backing_uuid);
         if (r < 0)
                 return r;
 
@@ -1598,6 +1649,64 @@ static int write_dev_file(ImageClass image_class, const char *meta_path, const c
         return 0;
 }
 
+static int write_uuid_file(ImageClass image_class, const char *meta_path, const char *overlay_path, const char *hierarchy) {
+        int r;
+
+        assert(meta_path);
+        assert(overlay_path);
+        assert(hierarchy);
+
+        /* Similar to write_dev_file(), but stores the UUID of the new file system, if it has one. Unlike the
+         * device number this is not reused if the file system is unmounted and a new one mounted, hence
+         * provides a stronger check. Older kernels do not assign a UUID to overlayfs or do not expose it via
+         * FS_IOC_GETFSUUID, hence handle that gracefully. */
+        sd_id128_t uuid;
+        r = id128_get_fs_uuid(overlay_path, &uuid);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to get file system UUID of '%s', not storing it: %m", overlay_path);
+                return 0;
+        }
+
+        _cleanup_free_ char *f = path_join(meta_path, image_class_info[image_class].dot_directory_name, "uuid");
+        if (!f)
+                return log_oom();
+
+        _cleanup_free_ char *hierarchy_path = path_join(hierarchy, image_class_info[image_class].dot_directory_name, "uuid");
+        if (!hierarchy_path)
+                return log_oom();
+
+        r = write_string_file_full(AT_FDCWD, f, SD_ID128_TO_UUID_STRING(uuid), WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_LABEL, /* ts= */ NULL, hierarchy_path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write '%s': %m", f);
+
+        return 0;
+}
+
+static int write_backing_uuid_file(ImageClass image_class, const char *meta_path, const char *hierarchy, sd_id128_t backing_uuid) {
+        int r;
+
+        assert(meta_path);
+        assert(hierarchy);
+
+        if (sd_id128_is_null(backing_uuid))
+                return 0;
+
+        /* Like write_backing_file(), but stores the UUID of the backing file system, if it has one */
+        _cleanup_free_ char *f = path_join(meta_path, image_class_info[image_class].dot_directory_name, "backing_uuid");
+        if (!f)
+                return log_oom();
+
+        _cleanup_free_ char *hierarchy_path = path_join(hierarchy, image_class_info[image_class].dot_directory_name, "backing_uuid");
+        if (!hierarchy_path)
+                return log_oom();
+
+        r = write_string_file_full(AT_FDCWD, f, SD_ID128_TO_UUID_STRING(backing_uuid), WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_LABEL, /* ts= */ NULL, hierarchy_path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write '%s': %m", f);
+
+        return 0;
+}
+
 static int write_backing_file(ImageClass image_class, const char *meta_path, const char *overlay_path, const char *hierarchy, dev_t backing) {
         int r;
 
@@ -1675,7 +1784,8 @@ static int store_info_in_meta(
                 const char *overlay_path,
                 const char *work_dir,
                 const char *hierarchy,
-                dev_t backing) {
+                dev_t backing,
+                sd_id128_t backing_uuid) {
 
         int r;
 
@@ -1712,11 +1822,19 @@ static int store_info_in_meta(
         if (r < 0)
                 return r;
 
+        r = write_uuid_file(c->image_class, meta_path, overlay_path, hierarchy);
+        if (r < 0)
+                return r;
+
         r = write_work_dir_file(c, meta_path, work_dir, hierarchy);
         if (r < 0)
                 return r;
 
         r = write_backing_file(c->image_class, meta_path, overlay_path, hierarchy, backing);
+        if (r < 0)
+                return r;
+
+        r = write_backing_uuid_file(c->image_class, meta_path, hierarchy, backing_uuid);
         if (r < 0)
                 return r;
 
@@ -1795,8 +1913,9 @@ static int merge_hierarchy(
         if (r < 0)
                 return r;
 
+        sd_id128_t backing_uuid;
         dev_t backing;
-        r = determine_lower_dirs(c, op, used_paths, meta_path, &backing);
+        r = determine_lower_dirs(c, op, used_paths, meta_path, &backing, &backing_uuid);
         if (r < 0)
                 return r;
 
@@ -1812,7 +1931,7 @@ static int merge_hierarchy(
         if (r < 0)
                 return r;
 
-        r = store_info_in_meta(c, extensions, origin_content, meta_path, overlay_path, op->work_dir, op->hierarchy, backing);
+        r = store_info_in_meta(c, extensions, origin_content, meta_path, overlay_path, op->work_dir, op->hierarchy, backing, backing_uuid);
         if (r < 0)
                 return r;
 
