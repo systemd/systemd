@@ -101,6 +101,7 @@ networkctl_export_sources = files(
         'tc/hhf.c',
         'tc/htb.c',
         'tc/mq.c',
+        'tc/mqprio.c',
         'tc/multiq.c',
         'tc/netem.c',
         'tc/pie.c',
