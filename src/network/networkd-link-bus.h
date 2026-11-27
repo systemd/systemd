@@ -17,6 +17,7 @@ int property_get_address_state(sd_bus *bus, const char *path, const char *interf
 int property_get_online_state(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
 
 int bus_link_method_set_ntp_servers(sd_bus_message *message, void *userdata, sd_bus_error *error);
+int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_link_method_set_dns_servers_legacy(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_link_method_set_dns_servers_legacy_ex(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_error *error);

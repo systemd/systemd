@@ -12,7 +12,69 @@
 #include "resolved-dns-search-domain.h"
 #include "resolved-dns-server.h"        /* IWYU pragma: keep */
 #include "resolved-manager.h"
+#include "string-util.h"
 #include "strv.h"
+
+static int property_get_dns(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        DnsDelegate *d = ASSERT_PTR(userdata);
+        int r;
+
+        assert(reply);
+
+        /* Delegate servers are not bound to a link, so a server's interface is part of its URI. */
+
+        r = sd_bus_message_open_container(reply, 'a', "s");
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(servers, s, d->dns_servers) {
+                _cleanup_free_ char *uri = NULL;
+
+                r = dns_server_to_uri(s, /* with_ifindex= */ true, &uri);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_append(reply, "s", uri);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
+static int property_get_current_dns_server(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        DnsDelegate *d = ASSERT_PTR(userdata);
+        _cleanup_free_ char *uri = NULL;
+        int r;
+
+        assert(reply);
+
+        if (d->current_dns_server) {
+                r = dns_server_to_uri(d->current_dns_server, /* with_ifindex= */ true, &uri);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_append(reply, "s", strempty(uri));
+}
+
+/* Legacy struct based DNS server properties (DNS, CurrentDNSServer), superseded by the URI ones. */
 
 static int property_get_dns_legacy(
                 sd_bus *bus,
@@ -147,6 +209,8 @@ static const sd_bus_vtable dns_delegate_vtable[] = {
 
         SD_BUS_PROPERTY("DNS", "a(iiayqs)", property_get_dns_legacy, 0, 0),
         SD_BUS_PROPERTY("CurrentDNSServer", "(iiayqs)", property_get_current_dns_server_legacy, 0, 0),
+        SD_BUS_PROPERTY("DNSURI", "as", property_get_dns, 0, 0),
+        SD_BUS_PROPERTY("CurrentDNSServerURI", "s", property_get_current_dns_server, 0, 0),
         SD_BUS_PROPERTY("Domains", "a(sb)", property_get_domains, 0, 0),
         SD_BUS_PROPERTY("DefaultRoute", "b", bus_property_get_tristate, offsetof(DnsDelegate, default_route), 0),
 
