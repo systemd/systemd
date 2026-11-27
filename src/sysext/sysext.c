@@ -726,6 +726,8 @@ static int mount_overlayfs(
                 char **layers,
                 const char *upper_dir,
                 const char *work_dir,
+                bool read_only,
+                bool generate_uuid,
                 const char *mount_options) {
 
         _cleanup_free_ char *options = NULL;
@@ -735,6 +737,7 @@ static int mount_overlayfs(
 
         assert(where);
         assert((upper_dir && work_dir) || (!upper_dir && !work_dir));
+        assert(read_only || upper_dir);
 
         options = strdup("lowerdir=");
         if (!options)
@@ -757,22 +760,46 @@ static int mount_overlayfs(
                 if (r < 0)
                         return r;
 
-                flags &= ~MS_RDONLY;
-
                 r = append_overlayfs_path_option(&options, ",", "workdir", work_dir);
                 if (r < 0)
                         return r;
 
-                if (!mount_options)
-                        mount_options = MUTABLE_EXTENSIONS_MOUNT_OPTIONS;
+                if (!read_only) {
+                        flags &= ~MS_RDONLY;
+
+                        if (!mount_options)
+                                mount_options = MUTABLE_EXTENSIONS_MOUNT_OPTIONS;
+                }
         }
 
+        /* Remember where the options common to both mount attempts below end */
+        size_t n = strlen(options);
+
+        /* Ask overlayfs to generate a random UUID for the new superblock, and store it in the upper
+         * directory, so that it is exposed via FS_IOC_GETFSUUID. We place this before the user supplied mount
+         * options, so that the user may override it. */
+        if (generate_uuid && !strextend(&options, ",uuid=on"))
+                return log_oom();
 
         if (!isempty(mount_options) && !strextend(&options, ",", mount_options))
                 return log_oom();
 
         /* Now mount the actual overlayfs */
-        r = mount_nofollow_verbose(LOG_ERR, image_class_info[image_class].short_identifier, where, "overlay", flags, options);
+        r = mount_nofollow_verbose(generate_uuid ? LOG_DEBUG : LOG_ERR, image_class_info[image_class].short_identifier, where, "overlay", flags, options);
+        if (r == -EINVAL && generate_uuid) {
+                /* Kernels older than 5.12 do not know the "uuid=" option at all (and kernels older than 6.6
+                 * do not know how to generate a UUID, but at least accept the option). Hence try again
+                 * without. */
+                log_debug("Failed to mount overlayfs with uuid=on, retrying without.");
+
+                options[n] = 0;
+                if (!isempty(mount_options) && !strextend(&options, ",", mount_options))
+                        return log_oom();
+
+                r = mount_nofollow_verbose(LOG_ERR, image_class_info[image_class].short_identifier, where, "overlay", flags, options);
+        } else if (r < 0 && generate_uuid)
+                /* Log the failure at error level, since we suppressed that above */
+                return log_error_errno(r, "Failed to mount overlayfs on '%s': %m", where);
         if (r < 0)
                 return r;
 
@@ -1367,16 +1394,21 @@ static int determine_work_dir(const Context *c, OverlayFSPaths *op) {
 static int mount_overlayfs_with_op(
                 OverlayFSPaths *op,
                 ImageClass image_class,
+                MutableMode mutable,
                 int noexec,
                 const char *overlay_path,
                 const char *meta_path,
                 const char *mount_options) {
 
+        _cleanup_free_ char *meta_work_dir = NULL;
+        const char *top_layer = NULL, *upper_dir, *work_dir;
+        bool generate_uuid;
+        char **layers;
         int r;
-        const char *top_layer = NULL;
 
         assert(op);
         assert(overlay_path);
+        assert(meta_path);
 
         r = mkdir_p(overlay_path, 0700);
         if (r < 0)
@@ -1408,9 +1440,49 @@ static int mount_overlayfs_with_op(
                         return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", op->work_dir);
 
                 top_layer = op->upper_dir;
+
+                upper_dir = op->upper_dir;
+                work_dir = op->work_dir;
+                layers = op->lower_dirs;
+
+                /* Only generate a UUID if the upper directory is located on our own temporary workspace,
+                 * as it is persistently stored in an xattr on it. Persistent upper directories are left
+                 * as they are, i.e. the kernel's default logic applies. */
+                generate_uuid = IN_SET(mutable, MUTABLE_EPHEMERAL, MUTABLE_EPHEMERAL_IMPORT);
         } else {
                 assert(!strv_isempty(op->lower_dirs));
                 top_layer = op->lower_dirs[0];
+
+                if (path_equal(top_layer, meta_path) && strv_length(op->lower_dirs) >= 2) {
+                        /* overlayfs only assigns a UUID to its superblock (as exposed via FS_IOC_GETFSUUID)
+                         * if it has an upper directory. Hence, for read-only overlays, use our metadata
+                         * directory (which is the top layer anyway, and which is located on our temporary
+                         * workspace) as upper directory, and mount the overlayfs read-only. */
+                        r = work_dir_for_hierarchy(op->hierarchy, meta_path, &meta_work_dir);
+                        if (r < 0)
+                                return r;
+
+                        r = mkdir_p(meta_work_dir, 0700);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to make directory '%s': %m", meta_work_dir);
+
+                        _cleanup_close_ int dfd = xopenat(AT_FDCWD, meta_work_dir, O_DIRECTORY);
+                        if (dfd < 0)
+                                return log_error_errno(dfd, "Failed to open directory '%s': %m", meta_work_dir);
+
+                        r = mac_selinux_fix_full(dfd, /* inode_path= */ NULL, op->hierarchy, /* flags= */ 0, /* label_context= */ NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", meta_work_dir);
+
+                        upper_dir = meta_path;
+                        work_dir = meta_work_dir;
+                        layers = op->lower_dirs + 1;
+                        generate_uuid = true;
+                } else {
+                        upper_dir = work_dir = NULL;
+                        layers = op->lower_dirs;
+                        generate_uuid = false;
+                }
         }
 
         /* Overlayfs merged directory has the same mode as the top layer (either first lowerdir in options in
@@ -1420,7 +1492,16 @@ static int mount_overlayfs_with_op(
         if (chmod(top_layer, op->hierarchy_mode) < 0)
                 return log_error_errno(errno, "Failed to set permissions of '%s' to %04o: %m", top_layer, op->hierarchy_mode);
 
-        r = mount_overlayfs(image_class, noexec, overlay_path, op->lower_dirs, op->upper_dir, op->work_dir, mount_options);
+        r = mount_overlayfs(
+                        image_class,
+                        noexec,
+                        overlay_path,
+                        layers,
+                        upper_dir,
+                        work_dir,
+                        /* read_only= */ !op->upper_dir,
+                        generate_uuid,
+                        mount_options);
         if (r < 0)
                 return r;
 
@@ -1727,7 +1808,7 @@ static int merge_hierarchy(
         if (r < 0)
                 return r;
 
-        r = mount_overlayfs_with_op(op, c->image_class, c->noexec, overlay_path, meta_path, c->overlayfs_mount_options);
+        r = mount_overlayfs_with_op(op, c->image_class, c->mutable, c->noexec, overlay_path, meta_path, c->overlayfs_mount_options);
         if (r < 0)
                 return r;
 
