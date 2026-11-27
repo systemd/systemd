@@ -254,6 +254,8 @@ TEST(feature_level_permitted) {
 static void possible_feature_level_setup(Manager *m, DnsServer *s, DnsOverTlsMode dns_over_tls, DnssecMode dnssec) {
         m->dns_over_tls_mode = dns_over_tls;
         m->dnssec_mode = dnssec;
+        /* Claim that libcrypto is available, as otherwise allow-downgrade is turned off */
+        m->dnssec_crypto = 1;
         dns_server_reset_features(s);
 }
 

@@ -987,6 +987,124 @@ int dnssec_key_match_rrsig(const DnsResourceKey *key, DnsResourceRecord *rrsig) 
         return dns_name_equal(dns_resource_key_name(rrsig->key), dns_resource_key_name(key));
 }
 
+static const EVP_MD* digest_to_hash_md(uint8_t algorithm) {
+
+        /* Translates a DNSSEC digest algorithm into an openssl digest identifier */
+
+        switch (algorithm) {
+
+        case DNSSEC_DIGEST_SHA1:
+                return sym_EVP_sha1();
+
+        case DNSSEC_DIGEST_SHA256:
+                return sym_EVP_sha256();
+
+        case DNSSEC_DIGEST_SHA384:
+                return sym_EVP_sha384();
+
+        default:
+                return NULL;
+        }
+}
+
+static bool md_supported(const EVP_MD *md) {
+        if (!md)
+                return false;
+
+        /* The digest might be disabled by host policy */
+        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *ctx = sym_EVP_MD_CTX_new();
+        if (!ctx)
+                return true; /* If in doubt, claim support */
+
+        if (sym_EVP_DigestInit_ex(ctx, md, /* impl= */ NULL) <= 0) {
+                sym_ERR_clear_error();
+                return false;
+        }
+
+        return true;
+}
+
+static bool dnssec_algorithm_supported(uint8_t algorithm) {
+
+        /* Must match dnssec_rrset_verify_sig(). If in doubt, return true. */
+
+        switch (algorithm) {
+
+        case DNSSEC_ALGORITHM_ED25519:
+                return true;
+
+        case DNSSEC_ALGORITHM_ED448:
+                return false;
+
+        case DNSSEC_ALGORITHM_MLDSA44: {
+                /* Like dnssec_mldsa_verify(), only -EOPNOTSUPP means unsupported */
+                sym_ERR_clear_error();
+
+                _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *kctx = sym_EVP_PKEY_CTX_new_from_name(
+                                /* libctx= */ NULL,
+                                "ML-DSA-44",
+                                /* propquery= */ NULL);
+                if (kctx)
+                        return true;
+
+                return log_openssl_errors(LOG_DEBUG, "Failed to create ML-DSA-44 key context") != -EOPNOTSUPP;
+        }
+
+        default:
+                return md_supported(algorithm_to_implementation_id(algorithm));
+        }
+}
+
+static int dnssec_zone_has_supported_algorithm(DnsAnswer *validated_keys, const char *zone) {
+        DnsResourceRecord *rr;
+        DnsAnswerFlags flags;
+        int r;
+
+        DNS_ANSWER_FOREACH_FLAGS(rr, flags, validated_keys) {
+                bool supported;
+
+                if ((flags & DNS_ANSWER_AUTHENTICATED) == 0)
+                        continue;
+                if (!IN_SET(rr->key->type, DNS_TYPE_DS, DNS_TYPE_DNSKEY))
+                        continue;
+
+                /* Cheaper than the algorithm checks */
+                r = dns_name_equal(dns_resource_key_name(rr->key), zone);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                if (rr->key->type == DNS_TYPE_DS)
+                        supported = dnssec_algorithm_supported(rr->ds.algorithm) &&
+                                md_supported(digest_to_hash_md(rr->ds.digest_type));
+                else
+                        supported = dnssec_algorithm_supported(rr->dnskey.algorithm);
+                if (supported)
+                        return true;
+        }
+
+        return false;
+}
+
+static int dnssec_unsupported_algorithm_is_insecure(DnsAnswer *validated_keys, DnsResourceRecord *rrsig) {
+        int r;
+
+        assert(rrsig);
+
+        /* Only insecure if the zone has no authentication path we support (RFC 6840, Section 5.2) */
+
+        r = dlopen_libcrypto(LOG_WARNING);
+        if (r < 0)
+                return r;
+
+        r = dnssec_zone_has_supported_algorithm(validated_keys, rrsig->rrsig.signer);
+        if (r < 0)
+                return r;
+
+        return !r;
+}
+
 int dnssec_verify_rrset_search(
                 DnsAnswer *a,
                 const DnsResourceKey *key,
@@ -1012,6 +1130,7 @@ int dnssec_verify_rrset_search(
         DNS_ANSWER_FOREACH(rrsig, a) {
                 DnsResourceRecord *dnskey;
                 DnsAnswerFlags flags;
+                bool unsupported_algorithm = false;
 
                 /* Is this an RRSIG RR that applies to RRs matching our key? */
                 r = dnssec_key_match_rrsig(key, rrsig);
@@ -1037,7 +1156,7 @@ int dnssec_verify_rrset_search(
                                 /* An unauthenticated DNSKEY in validated_dnskeys is a key we are not able to
                                  * authenticate, but might still be valid. Record this as an unsupported
                                  * algorithm so we can still at least report an insecure answer. */
-                                found_unsupported_algorithm = true;
+                                unsupported_algorithm = true;
                                 continue;
                         }
 
@@ -1093,7 +1212,7 @@ int dnssec_verify_rrset_search(
                                    encountered this, so that we can
                                    return a proper error when we
                                    encounter nothing better. */
-                                found_unsupported_algorithm = true;
+                                unsupported_algorithm = true;
                                 continue;
 
                         case DNSSEC_SIGNATURE_EXPIRED:
@@ -1106,6 +1225,14 @@ int dnssec_verify_rrset_search(
                         default:
                                 assert_not_reached();
                         }
+                }
+
+                /* Once per RRSIG, not per DNSKEY, as this goes through all validated keys */
+                if (unsupported_algorithm && !found_unsupported_algorithm) {
+                        r = dnssec_unsupported_algorithm_is_insecure(validated_dnskeys, rrsig);
+                        if (r < 0)
+                                return r;
+                        found_unsupported_algorithm = r > 0;
                 }
         }
 
@@ -1141,26 +1268,6 @@ int dnssec_has_rrsig(DnsAnswer *a, const DnsResourceKey *key) {
         }
 
         return 0;
-}
-
-static const EVP_MD* digest_to_hash_md(uint8_t algorithm) {
-
-        /* Translates a DNSSEC digest algorithm into an openssl digest identifier */
-
-        switch (algorithm) {
-
-        case DNSSEC_DIGEST_SHA1:
-                return sym_EVP_sha1();
-
-        case DNSSEC_DIGEST_SHA256:
-                return sym_EVP_sha256();
-
-        case DNSSEC_DIGEST_SHA384:
-                return sym_EVP_sha384();
-
-        default:
-                return NULL;
-        }
 }
 
 int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds, bool mask_revoke) {
@@ -1243,10 +1350,25 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         return memcmp(result, ds->ds.digest, ds->ds.digest_size) == 0;
 }
 
+static int ds_applies_to_dnskey(DnsResourceRecord *ds, DnsAnswerFlags flags, DnsResourceRecord *dnskey) {
+        assert(ds);
+        assert(dnskey);
+
+        if ((flags & DNS_ANSWER_AUTHENTICATED) == 0)
+                return false;
+
+        if (ds->key->type != DNS_TYPE_DS)
+                return false;
+        if (ds->key->class != dnskey->key->class)
+                return false;
+
+        return dns_name_equal(dns_resource_key_name(dnskey->key), dns_resource_key_name(ds->key));
+}
+
 int dnssec_verify_dnskey_by_ds_search(DnsResourceRecord *dnskey, DnsAnswer *validated_ds) {
         DnsResourceRecord *ds;
         DnsAnswerFlags flags;
-        bool found_unsupported_algorithm = false;
+        bool found_unsupported_algorithm = false, ignore_sha1 = false;
         int r;
 
         assert(dnskey);
@@ -1254,20 +1376,37 @@ int dnssec_verify_dnskey_by_ds_search(DnsResourceRecord *dnskey, DnsAnswer *vali
         if (dnskey->key->type != DNS_TYPE_DNSKEY)
                 return 0;
 
+        /* RFC 4509, Section 3: ignore SHA-1 DS RRs if there's a stronger one we can use */
+
+        r = dlopen_libcrypto(LOG_WARNING);
+        if (r < 0)
+                return r;
+
         DNS_ANSWER_FOREACH_FLAGS(ds, flags, validated_ds) {
 
-                if ((flags & DNS_ANSWER_AUTHENTICATED) == 0)
-                        continue;
-
-                if (ds->key->type != DNS_TYPE_DS)
-                        continue;
-                if (ds->key->class != dnskey->key->class)
-                        continue;
-
-                r = dns_name_equal(dns_resource_key_name(dnskey->key), dns_resource_key_name(ds->key));
+                r = ds_applies_to_dnskey(ds, flags, dnskey);
                 if (r < 0)
                         return r;
                 if (r == 0)
+                        continue;
+
+                if (IN_SET(ds->ds.digest_type, DNSSEC_DIGEST_SHA256, DNSSEC_DIGEST_SHA384) &&
+                    dnssec_algorithm_supported(ds->ds.algorithm) &&
+                    md_supported(digest_to_hash_md(ds->ds.digest_type))) {
+                        ignore_sha1 = true;
+                        break;
+                }
+        }
+
+        DNS_ANSWER_FOREACH_FLAGS(ds, flags, validated_ds) {
+
+                r = ds_applies_to_dnskey(ds, flags, dnskey);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                if (ignore_sha1 && ds->ds.digest_type == DNSSEC_DIGEST_SHA1)
                         continue;
 
                 r = dnssec_verify_dnskey_by_ds(dnskey, ds, /* mask_revoke= */ false);
@@ -2349,6 +2488,7 @@ static const char* const dnssec_result_table[_DNSSEC_RESULT_MAX] = {
         [DNSSEC_NSEC_MISMATCH]         = "nsec-mismatch",
         [DNSSEC_INCOMPATIBLE_SERVER]   = "incompatible-server",
         [DNSSEC_UPSTREAM_FAILURE]      = "upstream-failure",
+        [DNSSEC_CRYPTO_UNAVAILABLE]    = "crypto-unavailable",
         [DNSSEC_TOO_MANY_VALIDATIONS]  = "too-many-validations",
 };
 DEFINE_STRING_TABLE_LOOKUP(dnssec_result, DnssecResult);
