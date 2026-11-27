@@ -8,6 +8,9 @@
 #define DEFAULT_CACHE_MAX 4096U
 #define CACHE_MAX_UPPER_LIMIT (1U << 24)
 
+/* We never keep any item longer than 2h in our cache unless StaleRetentionSec is greater than zero. */
+#define CACHE_TTL_MAX_USEC (2 * USEC_PER_HOUR)
+
 /* The max TTL for stale data is set to 30 seconds. See RFC 8767, Section 6. */
 #define CACHE_STALE_TTL_MAX_USEC (30 * USEC_PER_SEC)
 
