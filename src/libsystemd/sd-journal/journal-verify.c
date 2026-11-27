@@ -97,7 +97,7 @@ static void flush_progress(void) {
 
 #define warning(_offset, _fmt, ...) do {                                \
                 flush_progress();                                       \
-                log_warning(OFSfmt": " _fmt, _offset, ##__VA_ARGS__);   \
+                log_warning(OFSfmt": " _fmt, (uint64_t)_offset, ##__VA_ARGS__); \
         } while (0)
 
 #define error(_offset, _fmt, ...) do {                                  \
@@ -521,11 +521,20 @@ static int offset_array_contains(const OffsetArray *a, uint64_t p) {
         return false;
 }
 
+static bool verify_mismatch(bool online, uint64_t verified_value, uint64_t live_value) {
+        /* The counters and tail pointers in the journal file header only ever move forward. If the file
+         * is being appended to while we verify it, the live values may have moved beyond the values we
+         * verified, which is not an error. Only values that go backwards indicate corruption. */
+        return online ? verified_value > live_value : verified_value != live_value;
+}
+
 static int verify_data(
                 JournalFile *f,
                 Object *o, uint64_t p,
                 const OffsetArray *entries,
-                const OffsetArray *entry_arrays) {
+                const OffsetArray *entry_arrays,
+                uint64_t max_offset,
+                bool online) {
 
         uint64_t i, n, a, last, q;
         int r;
@@ -551,6 +560,16 @@ static int verify_data(
         assert(o->data.entry_offset);
 
         last = q = le64toh(o->data.entry_offset);
+
+        /* If the file is being appended to while we verify it, this data object may have been updated in
+         * place to reference entries that were appended after we took our snapshot. Such references are
+         * beyond our verification horizon and cannot be validated right now, hence skip them instead of
+         * reporting bogus corruption. */
+        if (online && q > max_offset) {
+                debug(p, "Data object references entry beyond verification horizon "OFSfmt", skipping", q);
+                return 0;
+        }
+
         r = offset_array_contains(entries, q);
         if (r < 0)
                 return r;
@@ -571,6 +590,13 @@ static int verify_data(
                 if (a == 0) {
                         error(p, "Array chain too short");
                         return -EBADMSG;
+                }
+
+                /* The data object's entry array chain may have been extended with arrays that were
+                 * appended after we took our snapshot. See above. */
+                if (online && a > max_offset) {
+                        debug(p, "Data object references entry array beyond verification horizon "OFSfmt", skipping", a);
+                        return 0;
                 }
 
                 r = offset_array_contains(entry_arrays, a);
@@ -595,6 +621,14 @@ static int verify_data(
                 for (j = 0; i < n && j < m; i++, j++) {
 
                         q = journal_file_entry_array_item(f, o, j);
+
+                        /* Entries referenced by a data object are strictly ordered, hence entries
+                         * beyond the verification horizon are at the end of the array. See above. */
+                        if (online && q > max_offset) {
+                                debug(p, "Data object references entry beyond verification horizon "OFSfmt", skipping", q);
+                                return 0;
+                        }
+
                         if (q <= last) {
                                 error(p, "Data object's entry array not sorted (%"PRIu64" <= %"PRIu64")", q, last);
                                 return -EBADMSG;
@@ -623,6 +657,8 @@ static int verify_data_hash_table(
                 const OffsetArray *data,
                 const OffsetArray *entries,
                 const OffsetArray *entry_arrays,
+                uint64_t max_offset,
+                bool online,
                 usec_t *last_usec,
                 bool show_progress) {
 
@@ -654,6 +690,15 @@ static int verify_data_hash_table(
                         Object *o;
                         uint64_t next;
 
+                        /* Data objects are always appended at the end of the hash chain, and the chain is
+                         * strictly ordered. Hence, as soon as we reach an object that was appended after
+                         * our snapshot was taken, everything that follows is new as well, and cannot be
+                         * validated right now. */
+                        if (online && p > max_offset) {
+                                debug(p, "Data object beyond verification horizon, skipping the rest of the hash chain");
+                                break;
+                        }
+
                         r = offset_array_contains(data, p);
                         if (r < 0)
                                 return r;
@@ -677,7 +722,7 @@ static int verify_data_hash_table(
                                 return -EBADMSG;
                         }
 
-                        r = verify_data(f, o, p, entries, entry_arrays);
+                        r = verify_data(f, o, p, entries, entry_arrays, max_offset, online);
                         if (r < 0)
                                 return r;
 
@@ -686,11 +731,18 @@ static int verify_data_hash_table(
                 }
 
                 if (last != le64toh(f->data_hash_table[i].tail_hash_offset)) {
-                        error(last,
-                              "Tail hash pointer mismatch in hash table (%"PRIu64" != %"PRIu64")",
-                              last,
-                              le64toh(f->data_hash_table[i].tail_hash_offset));
-                        return -EBADMSG;
+                        /* If the file is being appended to while we verify it, new data objects may have
+                         * been appended to the chain, in which case the tail pointer legitimately points
+                         * beyond our verification horizon. Anything else is a genuine inconsistency. */
+                        if (online && le64toh(f->data_hash_table[i].tail_hash_offset) > max_offset)
+                                debug(last, "Tail hash pointer moved forward while verifying (file is being appended to)");
+                        else {
+                                error(last,
+                                      "Tail hash pointer mismatch in hash table (%"PRIu64" != %"PRIu64")",
+                                      last,
+                                      le64toh(f->data_hash_table[i].tail_hash_offset));
+                                return -EBADMSG;
+                        }
                 }
         }
 
@@ -807,7 +859,10 @@ static int verify_entry_array(
         assert(entry_arrays);
         assert(last_usec);
 
-        n = le64toh(f->header->n_entries);
+        /* Use the number of entries counted in the first pass rather than the live header counter: if
+         * the file is being appended to, the header may already advertise entries that were appended
+         * after our snapshot was taken, which we must not (and cannot) validate. */
+        n = entries->n;
         a = le64toh(f->header->entry_array_offset);
         while (i < n) {
                 uint64_t next, m, j;
@@ -1095,7 +1150,8 @@ int journal_file_verify(
         _cleanup_(offset_array_done) OffsetArray data = {}, entries = {}, entry_arrays = {};
         OffsetArray *a;
         unsigned i;
-        bool found_last = false;
+        bool found_last = false, online;
+        uint64_t max_offset;
 
         assert(f);
 
@@ -1109,6 +1165,12 @@ int journal_file_verify(
         r = journal_file_verify_header(f);
         if (r < 0)
                 return log_error_errno(r, "Journal file header is broken: %m");
+
+        /* Snapshot the current tail of the file, and whether it is being appended to. If journald keeps
+         * appending to the file while we verify it, we limit both passes to this snapshot, and must not
+         * consider references to objects beyond it as corruption. */
+        max_offset = le64toh(f->header->tail_object_offset);
+        online = f->header->state == STATE_ONLINE;
 
         if (key) {
                 r = journal_file_auth_load_key(f, key);
@@ -1163,11 +1225,11 @@ int journal_file_verify(
         p = tag.last_tag_end = le64toh(f->header->header_size);
         for (;;) {
                 /* Early exit if there are no objects in the file, at all */
-                if (le64toh(f->header->tail_object_offset) == 0)
+                if (max_offset == 0)
                         break;
 
                 if (show_progress)
-                        draw_progress(scale_progress(0x7FFF, p, le64toh(f->header->tail_object_offset)), &last_usec);
+                        draw_progress(scale_progress(0x7FFF, p, max_offset), &last_usec);
 
                 r = journal_file_move_to_object(f, OBJECT_UNUSED, p, &o);
                 if (r < 0) {
@@ -1175,11 +1237,11 @@ int journal_file_verify(
                         goto fail;
                 }
 
-                if (p > le64toh(f->header->tail_object_offset)) {
+                if (p > max_offset) {
                         error(offsetof(Header, tail_object_offset),
                               "Invalid tail object pointer (%"PRIu64" > %"PRIu64")",
                               p,
-                              le64toh(f->header->tail_object_offset));
+                              max_offset);
                         r = -EBADMSG;
                         goto fail;
                 }
@@ -1315,7 +1377,7 @@ int journal_file_verify(
                         break;
                 }
 
-                if (p == le64toh(f->header->tail_object_offset)) {
+                if (p == max_offset) {
                         found_last = true;
                         break;
                 }
@@ -1323,15 +1385,15 @@ int journal_file_verify(
                 p = p + ALIGN64(le64toh(o->object.size));
         };
 
-        if (!found_last && le64toh(f->header->tail_object_offset) != 0) {
-                error(le64toh(f->header->tail_object_offset),
+        if (!found_last && max_offset != 0) {
+                error(max_offset,
                       "Tail object pointer dead (%"PRIu64" != 0)",
-                      le64toh(f->header->tail_object_offset));
+                      max_offset);
                 r = -EBADMSG;
                 goto fail;
         }
 
-        if (n_objects != le64toh(f->header->n_objects)) {
+        if (verify_mismatch(online, n_objects, le64toh(f->header->n_objects))) {
                 error(offsetof(Header, n_objects),
                       "Object number mismatch (%"PRIu64" != %"PRIu64")",
                       n_objects,
@@ -1340,7 +1402,7 @@ int journal_file_verify(
                 goto fail;
         }
 
-        if (n_entries != le64toh(f->header->n_entries)) {
+        if (verify_mismatch(online, n_entries, le64toh(f->header->n_entries))) {
                 error(offsetof(Header, n_entries),
                       "Entry number mismatch (%"PRIu64" != %"PRIu64")",
                       n_entries,
@@ -1350,7 +1412,7 @@ int journal_file_verify(
         }
 
         if (JOURNAL_HEADER_CONTAINS(f->header, n_data) &&
-            n_data != le64toh(f->header->n_data)) {
+            verify_mismatch(online, n_data, le64toh(f->header->n_data))) {
                 error(offsetof(Header, n_data),
                       "Data number mismatch (%"PRIu64" != %"PRIu64")",
                       n_data,
@@ -1360,7 +1422,7 @@ int journal_file_verify(
         }
 
         if (JOURNAL_HEADER_CONTAINS(f->header, n_fields) &&
-            n_fields != le64toh(f->header->n_fields)) {
+            verify_mismatch(online, n_fields, le64toh(f->header->n_fields))) {
                 error(offsetof(Header, n_fields),
                       "Field number mismatch (%"PRIu64" != %"PRIu64")",
                       n_fields,
@@ -1370,7 +1432,7 @@ int journal_file_verify(
         }
 
         if (JOURNAL_HEADER_CONTAINS(f->header, n_tags) &&
-            tag.n_tags != le64toh(f->header->n_tags)) {
+            verify_mismatch(online, tag.n_tags, le64toh(f->header->n_tags))) {
                 error(offsetof(Header, n_tags),
                       "Tag number mismatch (%"PRIu64" != %"PRIu64")",
                       tag.n_tags,
@@ -1380,7 +1442,7 @@ int journal_file_verify(
         }
 
         if (JOURNAL_HEADER_CONTAINS(f->header, n_entry_arrays) &&
-            n_entry_arrays != le64toh(f->header->n_entry_arrays)) {
+            verify_mismatch(online, n_entry_arrays, le64toh(f->header->n_entry_arrays))) {
                 error(offsetof(Header, n_entry_arrays),
                       "Entry array number mismatch (%"PRIu64" != %"PRIu64")",
                       n_entry_arrays,
@@ -1390,13 +1452,20 @@ int journal_file_verify(
         }
 
         if (!found_main_entry_array && le64toh(f->header->entry_array_offset) != 0) {
-                error(0, "Missing main entry array");
-                r = -EBADMSG;
-                goto fail;
+                /* The main entry array may have been created after we took our snapshot, if the file is
+                 * being appended to. In that case it is beyond our verification horizon. Anything else
+                 * is a genuine inconsistency. */
+                if (online && le64toh(f->header->entry_array_offset) > max_offset)
+                        warning(0, "Main entry array beyond verification horizon (file is being appended to)");
+                else {
+                        error(0, "Missing main entry array");
+                        r = -EBADMSG;
+                        goto fail;
+                }
         }
 
         if (entry_seqnum_set &&
-            entry_seqnum != le64toh(f->header->tail_entry_seqnum)) {
+            verify_mismatch(online, entry_seqnum, le64toh(f->header->tail_entry_seqnum))) {
                 error(offsetof(Header, tail_entry_seqnum),
                       "Tail entry sequence number incorrect (%"PRIu64" != %"PRIu64")",
                       entry_seqnum,
@@ -1406,9 +1475,9 @@ int journal_file_verify(
         }
 
         if (entry_monotonic_set &&
-            (sd_id128_equal(entry_boot_id, f->header->tail_entry_boot_id) &&
-             JOURNAL_HEADER_TAIL_ENTRY_BOOT_ID(f->header) &&
-             entry_monotonic != le64toh(f->header->tail_entry_monotonic))) {
+            sd_id128_equal(entry_boot_id, f->header->tail_entry_boot_id) &&
+            JOURNAL_HEADER_TAIL_ENTRY_BOOT_ID(f->header) &&
+            verify_mismatch(online, entry_monotonic, le64toh(f->header->tail_entry_monotonic))) {
                 error(0,
                       "Invalid tail monotonic timestamp (%"PRIu64" != %"PRIu64")",
                       entry_monotonic,
@@ -1417,7 +1486,8 @@ int journal_file_verify(
                 goto fail;
         }
 
-        if (entry_realtime_set && tag.last_entry_realtime != le64toh(f->header->tail_entry_realtime)) {
+        if (entry_realtime_set &&
+            verify_mismatch(online, tag.last_entry_realtime, le64toh(f->header->tail_entry_realtime))) {
                 error(0,
                       "Invalid tail realtime timestamp (%"PRIu64" != %"PRIu64")",
                       tag.last_entry_realtime,
@@ -1453,6 +1523,8 @@ int journal_file_verify(
                                    &data,
                                    &entries,
                                    &entry_arrays,
+                                   max_offset,
+                                   online,
                                    &last_usec,
                                    show_progress);
         if (r < 0)
@@ -1460,6 +1532,10 @@ int journal_file_verify(
 
         if (show_progress)
                 flush_progress();
+
+        if (online && le64toh(f->header->tail_object_offset) != max_offset)
+                log_notice("Journal file was appended to while being verified, objects beyond offset %"PRIu64" were not validated.",
+                           max_offset);
 
         if (ret_first_contained)
                 *ret_first_contained = le64toh(f->header->head_entry_realtime);
