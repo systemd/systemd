@@ -42,7 +42,7 @@
 /* This program tests skipping around in a multi-file journal. */
 
 static bool arg_keep = false;
-static dual_timestamp previous_ts = {};
+static triple_timestamp previous_ts = {};
 
 static JournalFile* test_open_internal(const char *name, JournalFileFlags flags) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
@@ -83,11 +83,11 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(char*, test_done);
 
 static void append_number(JournalFile *f, unsigned n, const sd_id128_t *boot_id, uint64_t *seqnum, uint64_t *ret_offset) {
         _cleanup_free_ char *p = NULL, *q = NULL, *s = NULL;
-        dual_timestamp ts;
+        triple_timestamp ts;
         struct iovec iovec[3];
         size_t n_iov = 0;
 
-        dual_timestamp_now(&ts);
+        triple_timestamp_now(&ts);
 
         if (ts.monotonic <= previous_ts.monotonic)
                 ts.monotonic = previous_ts.monotonic + 1;
@@ -113,13 +113,15 @@ static void append_number(JournalFile *f, unsigned n, const sd_id128_t *boot_id,
 
 static void append_unreferenced_data(JournalFile *f, const sd_id128_t *boot_id) {
         _cleanup_free_ char *q = NULL;
-        dual_timestamp ts;
         struct iovec iovec;
 
         assert(boot_id);
 
-        ts.monotonic = usec_sub_unsigned(previous_ts.monotonic, 10);
-        ts.realtime = usec_sub_unsigned(previous_ts.realtime, 10);
+        triple_timestamp ts = {
+                .monotonic = usec_sub_unsigned(previous_ts.monotonic, 10),
+                .realtime = usec_sub_unsigned(previous_ts.realtime, 10),
+                .boottime = usec_sub_unsigned(previous_ts.boottime, 10),
+        };
 
         ASSERT_NOT_NULL((q = strjoin("_BOOT_ID=", SD_ID128_TO_STRING(*boot_id))));
         iovec = IOVEC_MAKE_STRING(q);
@@ -682,14 +684,14 @@ TEST(cursor_and_data_lifetime) {
         };
         uint64_t seqnum = 0, value, expected_xor;
         sd_id128_t seqnum_id, boot_id, id;
-        dual_timestamp ts;
+        triple_timestamp ts;
         const void *data;
         size_t size;
 
         mkdtemp_chdir_chattr("/var/tmp/journal-cursor-XXXXXX", &t);
         ASSERT_OK(sd_id128_randomize(&seqnum_id));
         ASSERT_OK(sd_id128_randomize(&boot_id));
-        ASSERT_NOT_NULL(dual_timestamp_now(&ts));
+        ASSERT_NOT_NULL(triple_timestamp_now(&ts));
 
         f = test_open_internal("test.journal", /* flags= */ 0);
         ASSERT_OK(journal_file_append_entry(
@@ -1365,7 +1367,7 @@ typedef struct TestEntry {
         uint64_t seqnum;
         sd_id128_t seqnum_id;
         sd_id128_t boot_id;
-        dual_timestamp ts;
+        triple_timestamp ts;
         unsigned number;
         unsigned data;
 } TestEntry;
@@ -1578,7 +1580,7 @@ static void append_test_entry_full(
                 uint64_t *seqnum,
                 sd_id128_t *seqnum_id,
                 const sd_id128_t *boot_id,
-                const dual_timestamp *ts,
+                const triple_timestamp *ts,
                 unsigned *number,
                 unsigned data,
                 bool expect_rotate) {
@@ -1658,7 +1660,7 @@ static void append_test_entry(
                 uint64_t *seqnum,
                 sd_id128_t *seqnum_id,
                 const sd_id128_t *boot_id,
-                const dual_timestamp *ts,
+                const triple_timestamp *ts,
                 unsigned *number,
                 unsigned data) {
 
@@ -1693,8 +1695,8 @@ TEST(seek_time) {
         ASSERT_OK(sd_id128_randomize(&seqnum_id));
         ASSERT_OK(sd_id128_randomize(&boot_id));
 
-        dual_timestamp base, ts;
-        dual_timestamp_now(&base);
+        triple_timestamp base, ts;
+        triple_timestamp_now(&base);
 
         unsigned n = 0;
 
@@ -1814,7 +1816,7 @@ static void append_number_at(
                 uint64_t monotonic) {
 
         _cleanup_free_ char *p = NULL, *q = NULL, *m = NULL;
-        dual_timestamp ts = { .realtime = realtime, .monotonic = monotonic };
+        triple_timestamp ts = { .realtime = realtime, .monotonic = monotonic };
         struct iovec iovec[3];
         size_t n_iov = 0;
 

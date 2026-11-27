@@ -3,5 +3,5 @@
 
 #include "journald-forward.h"
 
-int manager_forward_socket(Manager *m, const struct iovec *iovec, size_t n, const dual_timestamp *ts, int priority);
+int manager_forward_socket(Manager *m, const struct iovec *iovec, size_t n, const triple_timestamp *ts, int priority);
 void manager_reload_forward_socket(Manager *m, const SocketAddress *old);

@@ -26,7 +26,7 @@ typedef struct JournalImporter {
         struct iovec_wrapper iovw;
 
         int state;
-        dual_timestamp ts;
+        triple_timestamp ts;
         sd_id128_t boot_id;
 } JournalImporter;
 
