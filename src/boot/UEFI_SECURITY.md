@@ -53,13 +53,26 @@ Verification of next-stage payloads is implemented solely via the UEFI Image Ser
 security-critical libraries (such as OpenSSL or gnu-efi) are linked, embedded, or used.
 
 ## Additional Resources
-BLS Type #1 entries allow the user to load two types of additional resources that can affect the system
-before `ExitBootServices()` has been called — kernel command line arguments and DeviceTree blobs — that are
-not validated before use, as they do not carry signatures. For this reason, when SecureBoot is enabled,
-loading these resources is automatically disabled. There is no override for this security mechanism, neither
-at build time nor at runtime. Note that initrds are also not verified in BLS Type #1 configurations, for
-compatibility with how SecureBoot has been traditionally handled on Linux-based OSes, as the kernel will
-only load them after `ExitBootServices()` has been called.
+BLS Type #1 entries allow loading unauthenticated DeviceTree blobs (`devicetree`), which can affect the
+system before `ExitBootServices()` has been called and do not carry signatures. For this reason, when
+SecureBoot is enabled, loading DeviceTree blobs from Type #1 entries is automatically disabled in
+`systemd-boot`. There is no override for this security mechanism, neither at build time nor at runtime.
+
+For Unified Kernel Images, `systemd-stub` similarly ignores external kernel command line arguments passed
+via UEFI load options when SecureBoot is enabled and either the UKI contains an embedded `.cmdline` section
+or the system is running in a confidential computing VM, with no build-time or runtime override.
+`systemd-boot` also disables interactive command line editing for UKIs with an embedded `.cmdline` section
+under SecureBoot.
+
+By contrast, in BLS Type #1 configurations, neither initrds nor `options` (kernel command line arguments)
+are verified or disabled by `systemd-boot` under SecureBoot, for compatibility with how SecureBoot has been
+traditionally handled on Linux-based OSes (the kernel loads initrds after `ExitBootServices()`, and even
+when kernel lockdown is enabled it only restricts hardware-level parameters rather than userspace arguments
+such as `init=` or `systemd.*`). Passed load options are still measured into TPM PCR 12, and interactive
+editing at the boot menu can be disabled via `editor no` in `loader.conf`. Deployments that require locking
+down the kernel command line under SecureBoot should use signed UKIs with an embedded `.cmdline` section
+(noting that signed addons and, outside confidential computing VMs, hypervisor-provided `SMBIOS Type 11`
+strings described below may still append to it).
 
 Another mechanism is supported by `systemd-boot` and `systemd-stub` to add additional payloads to the boot
 process: "addons". Addons are PE signed binaries that can carry kernel command line arguments or DeviceTree
