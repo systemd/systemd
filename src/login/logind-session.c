@@ -1267,6 +1267,27 @@ int session_set_locked_hint(Session *s, bool b) {
         return 1;
 }
 
+static void session_reelect_display(Session *s) {
+        Session *previous;
+
+        assert(s);
+
+        /* The session's type or class changed, so it may now be the better choice for the user's
+         * display, e.g. a session that a compositor started from a text login made graphical with
+         * SetType(). Called before the session is saved, as its state file records whether it is
+         * the display. */
+
+        previous = s->user->display;
+        user_elect_display(s->user);
+        if (s->user->display == previous)
+                return;
+
+        if (previous && previous != s)
+                (void) session_save(previous);
+        (void) user_save(s->user);
+        (void) user_send_changed(s->user, "Display");
+}
+
 void session_set_type(Session *s, SessionType t) {
         assert(s);
 
@@ -1274,6 +1295,7 @@ void session_set_type(Session *s, SessionType t) {
                 return;
 
         s->type = t;
+        session_reelect_display(s);
         (void) session_save(s);
         (void) session_send_changed(s, "Type");
 }
@@ -1285,6 +1307,7 @@ void session_set_class(Session *s, SessionClass c) {
                 return;
 
         s->class = c;
+        session_reelect_display(s);
         (void) session_save(s);
         (void) session_send_changed(s, "Class");
 
