@@ -141,6 +141,10 @@ static int bus_method_set_link_ntp_servers(sd_bus_message *message, void *userda
         return call_link_method(userdata, message, bus_link_method_set_ntp_servers, error);
 }
 
+static int bus_method_set_link_dns_servers(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return call_link_method(userdata, message, bus_link_method_set_dns_servers, error);
+}
+
 static int bus_method_set_link_dns_servers_legacy(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return call_link_method(userdata, message, bus_link_method_set_dns_servers_legacy, error);
 }
@@ -351,6 +355,11 @@ static const sd_bus_vtable manager_vtable[] = {
                                 SD_BUS_ARGS("i", ifindex, "a(iayqs)", addresses),
                                 SD_BUS_NO_RESULT,
                                 bus_method_set_link_dns_servers_legacy_ex,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("SetLinkDNSURI",
+                                SD_BUS_ARGS("i", ifindex, "as", servers),
+                                SD_BUS_NO_RESULT,
+                                bus_method_set_link_dns_servers,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("SetLinkDomains",
                                 SD_BUS_ARGS("i", ifindex, "a(sb)", domains),

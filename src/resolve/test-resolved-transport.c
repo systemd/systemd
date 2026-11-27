@@ -1011,6 +1011,67 @@ TEST(server_transport_policy) {
 #endif
 }
 
+static void assert_server_uri(DnsServer *s, bool with_ifindex, const char *expected) {
+        _cleanup_free_ char *uri = NULL;
+
+        ASSERT_OK(dns_server_to_uri(s, with_ifindex, &uri));
+        ASSERT_STREQ(uri, expected);
+}
+
+TEST(server_to_uri) {
+        union in_addr_union address = { .in.s_addr = htobe32(0xc0000201) };
+        union in_addr_union link_local = { .in6.s6_addr = { 0xfe, 0x80, [15] = 0x01 } };
+        Manager manager = {};
+        DnsServer *s = NULL;
+
+        /* Without a scheme, the legacy form, which shows the interface only for link-local addresses */
+        ASSERT_OK(dns_server_new(&manager, &s, DNS_SERVER_SYSTEM, /* link= */ NULL, /* delegate= */ NULL,
+                                 AF_INET, &address, /* port= */ 5353, /* ifindex= */ 7, "example.com",
+                                 /* transport_policy= */ 0, /* downgrade_port= */ 0,
+                                 RESOLVE_CONFIG_SOURCE_DBUS));
+        assert_server_uri(s, /* with_ifindex= */ true, "192.0.2.1:5353#example.com");
+        dns_server_unlink(s);
+
+        ASSERT_OK(dns_server_new(&manager, &s, DNS_SERVER_SYSTEM, /* link= */ NULL, /* delegate= */ NULL,
+                                 AF_INET6, &link_local, /* port= */ 5353, /* ifindex= */ 7, "example.com",
+                                 /* transport_policy= */ 0, /* downgrade_port= */ 0,
+                                 RESOLVE_CONFIG_SOURCE_DBUS));
+        assert_server_uri(s, /* with_ifindex= */ true, "[fe80::1]:5353%7#example.com");
+        assert_server_uri(s, /* with_ifindex= */ false, "[fe80::1]:5353#example.com");
+        dns_server_unlink(s);
+
+        ASSERT_OK(dns_server_new(&manager, &s, DNS_SERVER_SYSTEM, /* link= */ NULL, /* delegate= */ NULL,
+                                 AF_INET, &address, /* port= */ 0, /* ifindex= */ 7, /* server_name= */ NULL,
+                                 INDEX_TO_MASK(DnsTransportPolicy, DNS_TRANSPORT_DNS), /* downgrade_port= */ 0,
+                                 RESOLVE_CONFIG_SOURCE_DBUS));
+        assert_server_uri(s, /* with_ifindex= */ true, "dns://192.0.2.1#ifname=7");
+        assert_server_uri(s, /* with_ifindex= */ false, "dns://192.0.2.1");
+        dns_server_unlink(s);
+}
+
+TEST(server_transport_from_address) {
+        _cleanup_(in_addr_full_freep) struct in_addr_full *a = NULL;
+        DnsTransportPolicy policy;
+        uint16_t downgrade_port;
+
+        /* Addresses that were read without systemd-resolved's transports, e.g. from D-Bus, are normalized
+         * the same way as when parsed */
+        ASSERT_OK(in_addr_full_new_from_string("dns://192.0.2.1:53", &a));
+        ASSERT_OK(dns_server_transport_from_address(a, &policy, &downgrade_port));
+        ASSERT_EQ(policy, INDEX_TO_MASK(DnsTransportPolicy, DNS_TRANSPORT_DNS));
+        ASSERT_EQ(downgrade_port, 0U);
+        ASSERT_EQ(a->port, 0U);
+
+        /* Doing it again changes nothing */
+        ASSERT_OK(dns_server_transport_from_address(a, &policy, &downgrade_port));
+        ASSERT_EQ(policy, INDEX_TO_MASK(DnsTransportPolicy, DNS_TRANSPORT_DNS));
+        ASSERT_EQ(a->port, 0U);
+        a = in_addr_full_free(a);
+
+        ASSERT_OK(in_addr_full_new_from_string("dnz://192.0.2.1", &a));
+        ASSERT_ERROR(dns_server_transport_from_address(a, &policy, &downgrade_port), EINVAL);
+}
+
 TEST(transport_port) {
         union in_addr_union address = { .in.s_addr = htobe32(0xc0000201) };
         Manager manager = {};
