@@ -74,7 +74,7 @@ typedef struct Manager {
         DUID dhcp6_duid;
         DUID duid_product_uuid;
         bool has_product_uuid;
-        bool product_uuid_requested;
+        sd_varlink *product_uuid_varlink;
 
         /* DHCP relay agent */
         sd_dhcp_relay *dhcp_relay;
@@ -89,6 +89,7 @@ typedef struct Manager {
         /* For updating the hostname sent by DHCP clients */
         sd_event_source *hostname_event_source;
         char *kernel_hostname;
+        sd_varlink *hostname_varlink;
 
         Set *rules;
 
@@ -161,7 +162,6 @@ int manager_enumerate_internal(
                 int (*process)(sd_netlink *, sd_netlink_message *, Manager *));
 int manager_enumerate(Manager *m);
 
-int manager_set_hostname(Manager *m, const char *hostname);
 int manager_set_timezone(Manager *m, const char *tz);
 
 int manager_reload(Manager *m, sd_bus_message *message, sd_varlink *varlink, bool reconfigure_links);
