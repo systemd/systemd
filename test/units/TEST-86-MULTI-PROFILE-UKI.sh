@@ -39,6 +39,20 @@ TOFU_TESTED=/root/tofu-tested
 TOFU_CRT=/root/tofu-keyring.crt
 # The modified stage replaces the key addon with one that contains this certificate instead.
 TOFU_PLANTED_CRT=/root/tofu-planted.crt
+# The MOK scenario state machine, cf. the TOFU stages: the setup boot builds the addon, the pos
+# boot checks it was loaded and re-signs it with an untrusted key, and the neg boot checks it was
+# rejected.
+MOK_STAGE=/root/mok-stage
+# Key pair of the MOK scenario, supplied by the image build rather than committed: the build
+# stages its SecureBoot key pair (in CI, mkosi genkey plus the shim job's ExtraTrees line, see
+# .github/workflows/mkosi.yml) into the image, with the certificate pre-enrolled in the MokList
+# EFI variable of the NVRAM (the shim's MOK allowlist); the key signs the addon. The
+# certificate must be RSA: some distribution shim builds (e.g. Red Hat's) do not verify ECDSA
+# MOK certificates at all and would reject the addon irrespective of the enrollment. Without
+# the staged key pair (non-shim builds) the MOK leg is skipped.
+MOK_KEYS_DIR=/usr/lib/systemd/tests/testdata/mok-keys
+MOK_KEY="$MOK_KEYS_DIR/mok.key"
+MOK_CRT="$MOK_KEYS_DIR/mok.crt"
 
 # Prints a string (list) EFI variable of systemd-stub, one entry per line
 stub_variable() {
@@ -447,6 +461,61 @@ PYEOF
     python3 /root/pcr12-check.py "$ID"
 }
 
+# The MOK scenario checks that the shim loads an addon signed with a certificate that is in the
+# MokList EFI variable (the shim's MOK allowlist) but not in db, and rejects the same addon once
+# it is re-signed with a key the shim does not trust. The NVRAM is pre-enrolled for the scenario:
+# db carries the image signing certificate of the build, so that the shim trusts the boot loader
+# and the UKI, and MokList carries the committed test certificate. At boot the shim mirrors
+# MokList into its runtime MOK state, which the kernel exposes as the MokListRT MOKvar table and
+# which the shim consults when it verifies the addon. The state machine mirrors the TOFU one: the
+# setup boot builds and installs the addon, the pos boot checks that it was loaded and re-signs it
+# with an untrusted key, and the neg boot checks that it was rejected and cleans up.
+
+# Whether the MOK scenario can be tested: the distro's shim must be the first stage (mkosi then
+# installs systemd-boot as its second stage, grub*.efi), secure boot must be active, the shim must
+# have mirrored the pre-enrolled MokList into its runtime MOK state (the kernel loads the
+# certificates from it and logs the "UEFI:MokListRT (MOKvar table)" lines), the build-supplied
+# key pair must have been staged into the image, and the tools to build and sign an addon must
+# exist.
+mok_supported() {
+    local sb="/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c"
+    # The OS-visible MOK state is the shim's runtime mirror of the persisted MokList. Firmwares
+    # that export the persisted variable to the guest efivars as well are covered by the second
+    # file test.
+    local mok="/sys/firmware/efi/efivars/MokListRT-605dab50-e046-4300-abb6-3dd810dd8b23"
+    local mok_persisted="/sys/firmware/efi/efivars/MokList-605dab50-e046-4300-abb6-3dd810dd8b23"
+    local loader
+
+    [[ -f "$sb" && "$(od -An -tu1 -j4 -N1 "$sb" | tr -d ' ')" == 1 ]] || return 1
+    loader=$(bootctl --print-loader-path) || return 1
+    [[ "${loader,,}" == */efi/boot/grub*.efi ]] || return 1
+    [[ -f "$mok" || -f "$mok_persisted" ]] || return 1
+    [[ -f "$MOK_KEY" && -f "$MOK_CRT" ]] || return 1
+    [[ -f "/usr/lib/systemd/boot/efi/addon$(bootctl --print-efi-architecture).efi.stub" ]] || return 1
+    command -v openssl >/dev/null || return 1
+    command -v systemd-sbsign >/dev/null || command -v /usr/lib/systemd/systemd-sbsign >/dev/null || return 1
+}
+
+mok_addon() {
+    local name="${1:?}" cmdline="${2:?}" key="${3:?}" crt="${4:?}"
+
+    ukify build \
+        --stub="/usr/lib/systemd/boot/efi/addon$(bootctl --print-efi-architecture).efi.stub" \
+        --cmdline="$cmdline" \
+        --output="$(bootctl --print-esp-path)/loader/addons/$name.addon.efi" \
+        --signtool=systemd-sbsign --secureboot-private-key="$key" --secureboot-certificate="$crt"
+}
+
+# Queue the MOK scenario: build and install the addon signed with the build-supplied key pair,
+# and boot the mok profile.
+mok_start() {
+    mok_addon moktest moktest=1 "$MOK_KEY" "$MOK_CRT"
+    echo pos >"$MOK_STAGE"
+    bootctl set-default "multi-profile.efi@mok"
+    reboot
+    exit 0
+}
+
 # Queue the capsule fixtures and enter the firmware update stages.
 fwupdate_start() {
     fwupdate_helper
@@ -455,6 +524,17 @@ fwupdate_start() {
     bootctl set-default "multi-profile.efi@tofu"
     reboot
     exit 0
+}
+
+# Queue the MOK scenario when it can be tested, otherwise fall through to the firmware update
+# scenario, which runs also when the Secure Boot scenarios were skipped.
+mok_or_fwupdate_start() {
+    if mok_supported; then
+        mok_start
+    else
+        echo "The MOK scenario cannot be tested here, skipping it"
+    fi
+    fwupdate_start
 }
 
 # This function checks which addons the stub trusted on first use on a boot where the modified addon is
@@ -558,7 +638,7 @@ if [[ "$ID" == "tofu" ]]; then
             (! stub_variable StubTofuAddons)
             tofu_cleanup
             touch "$TOFU_TESTED"
-            fwupdate_start
+            mok_or_fwupdate_start
             ;;
         planted)
             [[ "$(stub_variable StubTofuState)" == verified ]]
@@ -576,7 +656,7 @@ if [[ "$ID" == "tofu" ]]; then
 
             tofu_cleanup
             touch "$TOFU_TESTED"
-            fwupdate_start
+            mok_or_fwupdate_start
             ;;
         fwupdate)
             # The capsule was processed on this boot, before the OS started: the variable must be
@@ -604,6 +684,45 @@ if [[ "$ID" == "tofu" ]]; then
     esac
 fi
 
+if [[ "$ID" == "mok" ]]; then
+    grep testprofilemok=1 /proc/cmdline
+
+    case "$(cat "$MOK_STAGE")" in
+        pos)
+            # The addon signed with the certificate from MokList is trusted and loaded by the
+            # shim, hence its command line reached the kernel.
+            grep moktest=1 /proc/cmdline
+
+            # Re-sign the same addon with a key the shim does not trust; the profile has no TOFU=
+            # setting, hence the re-signed addon must be rejected on the next boot. The key is RSA
+            # like the enrolled MOK certificate (see MOK_CRT above), so that the rejection can
+            # only stem from the key not being in the MokList.
+            openssl req -x509 -newkey rsa:2048 -nodes \
+                -subj /CN=mok-untrusted -days 2 -keyout /tmp/mok-untrusted.key -out /tmp/mok-untrusted.crt
+            mok_addon moktest moktest=1 /tmp/mok-untrusted.key /tmp/mok-untrusted.crt
+            echo neg >"$MOK_STAGE"
+            bootctl set-default "multi-profile.efi@mok"
+            reboot
+            exit 0
+            ;;
+        neg)
+            # The re-signed addon must not have been loaded, hence its command line is not there.
+            (! grep moktest=1 /proc/cmdline)
+
+            # Remove the addon.
+            rm -f "$(bootctl --print-esp-path)/loader/addons/moktest.addon.efi" "$MOK_STAGE"
+            rm -f /tmp/mok-*.key /tmp/mok-*.crt
+
+            # Firmware update scenario: queue a capsule for the next boot and let the boot manager
+            # process it.
+            fwupdate_start
+            ;;
+        *)
+            exit 1
+            ;;
+    esac
+fi
+
 if [[ "$ID" == "main" ]]; then
     if [[ -f /root/encrypted.raw ]]; then
         exit 1
@@ -624,12 +743,14 @@ systemd-cryptsetup detach multiprof
 if [[ "$ID" == "main" ]]; then
     if "$SD_PCRLOCK" is-supported; then
         # lock-uki generates a .pcrlock file for each profile that enables PCRLOCK=. Profile @0 enables it
-        # by default, and Profile2 (@2) sets PCRLOCK=yes.
+        # by default, and Profile2 (@3) sets PCRLOCK=yes. The profiles sort alphabetically: mok is @1,
+        # profile1 @2, Profile2 @3, and tofu @4.
         "$SD_PCRLOCK" lock-uki --pcrlock="$PCRLOCK_UKI" "$CURRENT_UKI"
         test -f "$PCRLOCK_UKI"
         test ! -e "${PCRLOCK_UKI%.pcrlock}@1.pcrlock"
-        test -f "${PCRLOCK_UKI%.pcrlock}@2.pcrlock"
-        test ! -e "${PCRLOCK_UKI%.pcrlock}@3.pcrlock"
+        test ! -e "${PCRLOCK_UKI%.pcrlock}@2.pcrlock"
+        test -f "${PCRLOCK_UKI%.pcrlock}@3.pcrlock"
+        test ! -e "${PCRLOCK_UKI%.pcrlock}@4.pcrlock"
 
         # make-policy picks a random NV index out of 24 if none is specified. Each policy that is created
         # here gets an NV index of its own, so that the NV index of one policy is never picked for another.
@@ -735,7 +856,7 @@ elif [[ "$ID" == "Profile2" ]]; then
         "$SD_PCRLOCK" remove-policy
         "$SD_PCRLOCK" unlock-uki --pcrlock="$PCRLOCK_UKI"
         test ! -e "$PCRLOCK_UKI"
-        test ! -e "${PCRLOCK_UKI%.pcrlock}@2.pcrlock"
+        test ! -e "${PCRLOCK_UKI%.pcrlock}@3.pcrlock"
     fi
 
     # The test image is built with secure boot auto-enrollment, hence when this test runs under UEFI
@@ -772,8 +893,8 @@ elif [[ "$ID" == "Profile2" ]]; then
     fi
 
     # Firmware update scenario: queue a capsule for the next boot and let the boot manager process it.
-    # (Runs also when the TOFU scenarios were skipped, so that it is not gated on Secure Boot.)
-    fwupdate_start
+    # (Runs also when the TOFU and MOK scenarios were skipped, so that it is not gated on Secure Boot.)
+    mok_or_fwupdate_start
 else
     exit 1
 fi

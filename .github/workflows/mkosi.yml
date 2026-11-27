@@ -198,7 +198,13 @@ jobs:
       - name: Prepare shim integration
         run: |
           if [ "${{ matrix.shim || 0 }}" = 1 ]; then
+            # Stage the build's SecureBoot keypair where the image build can ferry it in:
+            # TEST-86-MULTI-PROFILE-UKI signs its MOK test addon with the same key that is
+            # enrolled in the MOK list below.
+            mkdir -p mkosi/mok-staging
+            cp mkosi/mkosi.crt mkosi/mkosi.key mkosi/mok-staging/
             { printf '[Content]\nPackages=shim-signed\nShimBootloader=signed\n'; \
+              printf 'ExtraTrees=mkosi/mok-staging:/usr/lib/systemd/tests/testdata/mok-keys\n'; \
               printf '[Runtime]\nFirmware=uefi-secure-boot\nFirmwareVariables=%%O/ovmf_vars_shim.fd\n'; } \
               >>mkosi/mkosi.local.conf
 
