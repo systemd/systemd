@@ -14,7 +14,7 @@
 #include "resolved-manager.h"
 #include "strv.h"
 
-static int property_get_dns(
+static int property_get_dns_legacy(
                 sd_bus *bus,
                 const char *path,
                 const char *interface,
@@ -33,7 +33,7 @@ static int property_get_dns(
                 return r;
 
         LIST_FOREACH(servers, s, d->dns_servers) {
-                r = bus_dns_server_append(reply, s, /* with_ifindex= */ true, /* extended= */ true);
+                r = bus_dns_server_append_legacy(reply, s, /* with_ifindex= */ true, /* extended= */ true);
                 if (r < 0)
                         return r;
         }
@@ -41,7 +41,7 @@ static int property_get_dns(
         return sd_bus_message_close_container(reply);
 }
 
-static int property_get_current_dns_server(
+static int property_get_current_dns_server_legacy(
                 sd_bus *bus,
                 const char *path,
                 const char *interface,
@@ -54,7 +54,7 @@ static int property_get_current_dns_server(
 
         assert(reply);
 
-        return bus_dns_server_append(reply, d->current_dns_server, /* with_ifindex= */ true, /* extended= */ true);
+        return bus_dns_server_append_legacy(reply, d->current_dns_server, /* with_ifindex= */ true, /* extended= */ true);
 }
 
 static int property_get_domains(
@@ -145,8 +145,8 @@ static int dns_delegate_node_enumerator(sd_bus *bus, const char *path, void *use
 static const sd_bus_vtable dns_delegate_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
-        SD_BUS_PROPERTY("DNS", "a(iiayqs)", property_get_dns, 0, 0),
-        SD_BUS_PROPERTY("CurrentDNSServer", "(iiayqs)", property_get_current_dns_server, 0, 0),
+        SD_BUS_PROPERTY("DNS", "a(iiayqs)", property_get_dns_legacy, 0, 0),
+        SD_BUS_PROPERTY("CurrentDNSServer", "(iiayqs)", property_get_current_dns_server_legacy, 0, 0),
         SD_BUS_PROPERTY("Domains", "a(sb)", property_get_domains, 0, 0),
         SD_BUS_PROPERTY("DefaultRoute", "b", bus_property_get_tristate, offsetof(DnsDelegate, default_route), 0),
 
