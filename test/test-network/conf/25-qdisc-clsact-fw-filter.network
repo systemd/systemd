@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=dummy98
+
+[Network]
+IPv6AcceptRA=no
+Address=10.1.2.3/16
+
+[QDisc]
+Parent=clsact
+
+[FirewallFilter]
+Parent=ingress
+Handle=1
+Protocol=ip
+Priority=1
+FlowId=1:1
+
+[FirewallFilter]
+Parent=egress
+Handle=2
+Protocol=ip
+Priority=1
+FlowId=1:2

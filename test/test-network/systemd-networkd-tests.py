@@ -6524,6 +6524,71 @@ class NetworkdTCTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'burst 123456')
         self.assertRegex(output, 'cburst 123457')
 
+    @expectedFailureIfModuleIsNotAvailable('sch_htb', 'cls_fw')
+    def test_qdisc_htb_fw_filter(self):
+        copy_network_unit('25-qdisc-htb-fw-filter.network', '12-dummy.netdev')
+        start_networkd()
+        self.wait_online('dummy98:routable')
+
+        output = check_output('tc qdisc show dev dummy98')
+        print(output)
+        self.assertRegex(output, 'qdisc htb 2: root')
+        self.assertRegex(output, r'default (0x30|30)')
+
+        output = check_output('tc -d class show dev dummy98')
+        print(output)
+        self.assertRegex(output, 'class htb 2:30 root')
+        self.assertRegex(output, 'class htb 2:31 root')
+
+        output = check_output('tc filter show dev dummy98')
+        print(output)
+        self.assertRegex(output, r'filter parent 2: protocol ip pref 1 fw .*handle 0x1 classid 2:31')
+        self.assertRegex(output, r'filter parent 2: protocol ipv6 pref 2 fw .*handle 0x10 classid 2:30')
+        self.assertEqual(output.count('handle '), 2)
+
+        output = check_output('tc filter show dev dummy98 parent 2:31')
+        print(output)
+        self.assertRegex(output, r'filter protocol all pref 3 fw .*handle 0x2 classid 2:31')
+        self.assertEqual(output.count('handle '), 1)
+
+        self.check_networkd_log('section without Priority= setting')
+
+    @expectedFailureIfModuleIsNotAvailable('sch_ingress', 'cls_fw')
+    def test_qdisc_clsact_fw_filter(self):
+        copy_network_unit('25-qdisc-clsact-fw-filter.network', '12-dummy.netdev')
+        start_networkd()
+        self.wait_online('dummy98:routable')
+        self.check_clsact_fw_filters()
+
+        # Reconfiguring must neither duplicate nor lose filters.
+        networkctl_reconfigure('dummy98')
+        self.wait_online('dummy98:routable')
+        self.check_clsact_fw_filters()
+
+        # Existing filters are taken over after a restart.
+        restart_networkd()
+        self.wait_online('dummy98:routable')
+        self.check_clsact_fw_filters()
+
+        # Removed filters are configured again on reconfiguration, both when a single filter is removed and
+        # when all filters of a priority are removed at once.
+        check_output('tc filter del dev dummy98 ingress protocol ip pref 1 handle 1 fw')
+        check_output('tc filter del dev dummy98 egress pref 1')
+        networkctl_reconfigure('dummy98')
+        self.wait_online('dummy98:routable')
+        self.check_clsact_fw_filters()
+
+    def check_clsact_fw_filters(self):
+        output = check_output('tc filter show dev dummy98 ingress')
+        print(output)
+        self.assertRegex(output, r'filter protocol ip pref 1 fw .*handle 0x1 classid 1:1')
+        self.assertEqual(output.count('handle '), 1)
+
+        output = check_output('tc filter show dev dummy98 egress')
+        print(output)
+        self.assertRegex(output, r'filter protocol ip pref 1 fw .*handle 0x2 classid 1:2')
+        self.assertEqual(output.count('handle '), 1)
+
     @expectedFailureIfModuleIsNotAvailable('sch_ingress')
     def test_qdisc_ingress(self):
         copy_network_unit(
