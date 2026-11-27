@@ -8,6 +8,7 @@ executables += [
                         'sysinstall.c',
                         'sysinstall-auto-device.c',
                 ),
+                'dependencies' : [libblkid_cflags],
         },
 ]
 
