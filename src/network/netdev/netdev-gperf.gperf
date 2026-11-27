@@ -255,6 +255,32 @@ VRF.Table,                                config_parse_vrf_table,               
 BareUDP.DestinationPort,                  config_parse_ip_port,                           0,                             offsetof(BareUDP, dest_port)
 BareUDP.MinSourcePort,                    config_parse_ip_port,                           0,                             offsetof(BareUDP, min_port)
 BareUDP.EtherType,                        config_parse_bare_udp_iftype,                   0,                             offsetof(BareUDP, iftype)
+AmneziaWG.Jc,                             config_parse_amneziawg_parameter,               AWGDEVICE_A_JC,                         0
+AmneziaWG.Jmin,                           config_parse_amneziawg_parameter,               AWGDEVICE_A_JMIN,                       0
+AmneziaWG.Jmax,                           config_parse_amneziawg_parameter,               AWGDEVICE_A_JMAX,                       0
+AmneziaWG.S1,                             config_parse_amneziawg_parameter,               AWGDEVICE_A_S1,                         0
+AmneziaWG.S2,                             config_parse_amneziawg_parameter,               AWGDEVICE_A_S2,                         0
+AmneziaWG.S3,                             config_parse_amneziawg_parameter,               AWGDEVICE_A_S3,                         0
+AmneziaWG.S4,                             config_parse_amneziawg_parameter,               AWGDEVICE_A_S4,                         0
+AmneziaWG.H1,                             config_parse_amneziawg_parameter,               AWGDEVICE_A_H1,                         0
+AmneziaWG.H2,                             config_parse_amneziawg_parameter,               AWGDEVICE_A_H2,                         0
+AmneziaWG.H3,                             config_parse_amneziawg_parameter,               AWGDEVICE_A_H3,                         0
+AmneziaWG.H4,                             config_parse_amneziawg_parameter,               AWGDEVICE_A_H4,                         0
+AmneziaWG.ContentPaddingAddition,         config_parse_amneziawg_parameter,               AWGDEVICE_A_CONTENT_PADDING_ADDITION,   0
+AmneziaWG.RekeyAfterTime,                 config_parse_amneziawg_parameter,               AWGDEVICE_A_REKEY_AFTER_TIME,           0
+AmneziaWG.RekeyTimeout,                   config_parse_amneziawg_parameter,               AWGDEVICE_A_REKEY_TIMEOUT,              0
+AmneziaWG.RejectAfterTime,                config_parse_amneziawg_parameter,               AWGDEVICE_A_REJECT_AFTER_TIME,          0
+AmneziaWG.KeepaliveTimeout,               config_parse_amneziawg_parameter,               AWGDEVICE_A_KEEPALIVE_TIMEOUT,          0
+AmneziaWG.MaxHandshakeAttempts,           config_parse_amneziawg_parameter,               AWGDEVICE_A_MAX_HANDSHAKE_ATTEMPTS,     0
+AmneziaWG.RandomTrailers,                 config_parse_amneziawg_parameter,               AWGDEVICE_A_RANDOM_TRAILERS,            0
+AmneziaWG.DisableCookies,                 config_parse_amneziawg_parameter,               AWGDEVICE_A_DISABLE_COOKIES,            0
+AmneziaWG.I1,                             config_parse_string,                            0,                                      offsetof(Wireguard, amnezia_signatures[0])
+AmneziaWG.I2,                             config_parse_string,                            0,                                      offsetof(Wireguard, amnezia_signatures[1])
+AmneziaWG.I3,                             config_parse_string,                            0,                                      offsetof(Wireguard, amnezia_signatures[2])
+AmneziaWG.I4,                             config_parse_string,                            0,                                      offsetof(Wireguard, amnezia_signatures[3])
+AmneziaWG.I5,                             config_parse_string,                            0,                                      offsetof(Wireguard, amnezia_signatures[4])
+AmneziaWG.HeaderProtectionKey,            config_parse_wireguard_private_key,             0,                                      0
+AmneziaWG.HeaderProtectionKeyFile,        config_parse_wireguard_private_key_file,        0,                                      0
 WireGuard.FirewallMark,                   config_parse_unsigned,                          0,                             offsetof(Wireguard, fwmark)
 WireGuard.FwMark,                         config_parse_unsigned,                          0,                             offsetof(Wireguard, fwmark) /* deprecated */
 WireGuard.ListenPort,                     config_parse_wireguard_listen_port,             0,                             offsetof(Wireguard, port)

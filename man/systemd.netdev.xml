@@ -186,6 +186,9 @@
           <row><entry><varname>wireguard</varname></entry>
           <entry>WireGuard Secure Network Tunnel.</entry></row>
 
+          <row><entry><varname>amneziawg</varname></entry>
+          <entry>An AmneziaWG secure network tunnel. Requires the AmneziaWG kernel module.</entry></row>
+
           <row><entry><varname>nlmon</varname></entry>
           <entry>A Netlink monitor device. Use an nlmon device when you want to monitor system Netlink messages.</entry></row>
 
@@ -2062,8 +2065,8 @@ Ports=eth2</programlisting>
   <refsect1>
     <title>[WireGuard] Section Options</title>
 
-    <para>The [WireGuard] section accepts the following
-    keys:</para>
+    <para>The [WireGuard] section applies to netdevs of kind <literal>wireguard</literal> and
+    <literal>amneziawg</literal>, and accepts the following keys:</para>
 
     <variablelist class='network-directives'>
       <varlistentry>
@@ -2153,10 +2156,130 @@ Ports=eth2</programlisting>
   </refsect1>
 
   <refsect1>
+    <title>[AmneziaWG] Section Options</title>
+
+    <para>The [AmneziaWG] section applies to netdevs of kind <literal>amneziawg</literal>. It configures
+    the obfuscation settings of the AmneziaWG 3.1 kernel module. The module must expose generic netlink
+    interface version 3. It accepts the following keys:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Jc=</varname></term>
+        <term><varname>Jmin=</varname></term>
+        <term><varname>Jmax=</varname></term>
+        <listitem>
+          <para>Set the number of junk packets sent before a handshake initiation, and their minimum
+          and maximum sizes in bytes, respectively. Each takes an integer in the range 0…65535.
+          <varname>Jmin=</varname> must not exceed <varname>Jmax=</varname>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>S1=</varname></term>
+        <term><varname>S2=</varname></term>
+        <term><varname>S3=</varname></term>
+        <term><varname>S4=</varname></term>
+        <listitem>
+          <para>Set the padding sizes in bytes for handshake initiation, handshake response, cookie
+          reply, and transport packets, respectively. Each takes an integer in the range 0…65535.
+          All four values must be at least 12 when <varname>HeaderProtectionKey=</varname> or
+          <varname>HeaderProtectionKeyFile=</varname> is specified.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>H1=</varname></term>
+        <term><varname>H2=</varname></term>
+        <term><varname>H3=</varname></term>
+        <term><varname>H4=</varname></term>
+        <listitem>
+          <para>Set the message type identifiers for handshake initiation, handshake response, cookie
+          reply, and transport packets, respectively. Each takes an integer in the range 0…4294967295,
+          or an inclusive range of such integers separated by a hyphen. The four ranges must not
+          overlap. The kernel defaults are 1, 2, 3, and 4, respectively.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>I1=</varname></term>
+        <term><varname>I2=</varname></term>
+        <term><varname>I3=</varname></term>
+        <term><varname>I4=</varname></term>
+        <term><varname>I5=</varname></term>
+        <listitem>
+          <para>Set the five custom protocol signature strings sent before a handshake initiation.
+          Each takes an AmneziaWG packet specification, for example <literal>&lt;b 0x01020304&gt;&lt;r 16&gt;</literal>.
+          The kernel module interprets these strings.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>HeaderProtectionKey=</varname></term>
+        <listitem>
+          <para>Sets the Base64 encoded 32-byte header protection key. This option honors the
+          <literal>@</literal> credential prefix in the same way as <varname>PrivateKey=</varname> in
+          the [WireGuard] section. It is recommended to store this secret in an encrypted credential.</para>
+
+          <para>Removing this setting does not disable header protection on an existing interface.
+          The kernel does not provide an operation to disable header protection; recreate the interface
+          to disable it. An all-zero key also enables header protection.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>HeaderProtectionKeyFile=</varname></term>
+        <listitem>
+          <para>Takes an absolute path to a file containing the Base64 encoded header protection key.
+          Overrides <varname>HeaderProtectionKey=</varname>. The file must be readable by
+          <literal>systemd-network</literal>. An <constant>AF_UNIX</constant> stream socket is also
+          accepted, as for <varname>PrivateKeyFile=</varname> in the [WireGuard] section.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>ContentPaddingAddition=</varname></term>
+        <term><varname>RekeyAfterTime=</varname></term>
+        <term><varname>RekeyTimeout=</varname></term>
+        <term><varname>RejectAfterTime=</varname></term>
+        <term><varname>KeepaliveTimeout=</varname></term>
+        <term><varname>MaxHandshakeAttempts=</varname></term>
+        <listitem>
+          <para>Set the additional content padding in bytes, time before rekeying, handshake retry
+          timeout, key rejection timeout, keepalive timeout, and maximum handshake attempts,
+          respectively. Times are in seconds. Each takes an integer in the range 0…65535, or an
+          inclusive range of such integers separated by a hyphen. The kernel selects values within
+          the specified ranges.</para>
+
+          <para>For the timing settings and <varname>MaxHandshakeAttempts=</varname>, <literal>0</literal>
+          or <literal>0-0</literal> selects the kernel default. An empty assignment has the same effect.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>RandomTrailers=</varname></term>
+        <term><varname>DisableCookies=</varname></term>
+        <listitem>
+          <para>Take boolean values. <varname>RandomTrailers=</varname> enables random transport packet
+          trailer sizes. <varname>DisableCookies=</varname> disables sending cookie replies.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>[WireGuardPeer] Section Options</title>
 
-    <para>The [WireGuardPeer] section accepts the following
-    keys:</para>
+    <para>The [WireGuardPeer] section applies to netdevs of kind <literal>wireguard</literal> and
+    <literal>amneziawg</literal>, and accepts the following keys:</para>
 
     <variablelist class='network-directives'>
       <varlistentry>
@@ -2260,6 +2383,9 @@ Ports=eth2</programlisting>
           interval of 25 seconds. If set to 0 or "off", this option is
           disabled. By default or when unspecified, this option is off.
           Most users will not need this.</para>
+
+          <para>For netdevs of kind <literal>amneziawg</literal>, an inclusive range of intervals
+          separated by a hyphen is also accepted, for example <literal>20-30</literal>.</para>
 
           <xi:include href="version-info.xml" xpointer="v237"/>
         </listitem>

@@ -13,6 +13,7 @@
 #define NETDEV_COMMON_SECTIONS "Match\0NetDev\0"
 /* This is the list of known sections. We need to ignore them in the initial parsing phase. */
 #define NETDEV_OTHER_SECTIONS                     \
+        "-AmneziaWG\0"                            \
         "-BareUDP\0"                              \
         "-BatmanAdvanced\0"                       \
         "-Bond\0"                                 \
@@ -45,6 +46,7 @@
         "-Xfrm\0"
 
 typedef enum NetDevKind {
+        NETDEV_KIND_AMNEZIAWG,
         NETDEV_KIND_BAREUDP,
         NETDEV_KIND_BATADV,
         NETDEV_KIND_BOND,

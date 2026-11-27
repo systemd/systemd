@@ -440,8 +440,8 @@ static int address_get_broadcast(const Address *a, Link *link, struct in_addr *r
         if (a->set_broadcast == 0)
                 goto finalize;
 
-        /* For wireguard interfaces, broadcast is disabled by default. */
-        if (a->set_broadcast < 0 && streq_ptr(link->kind, "wireguard"))
+        /* For WireGuard and AmneziaWG interfaces, broadcast is disabled by default. */
+        if (a->set_broadcast < 0 && STRPTR_IN_SET(link->kind, "wireguard", "amneziawg"))
                 goto finalize;
 
         /* If the main address is null, e.g. Address=0.0.0.0/24, the broadcast address will be automatically
@@ -2142,7 +2142,7 @@ static int config_parse_broadcast(
 
         if (isempty(rvalue)) {
                 /* The broadcast address will be calculated based on Address=, and set if the link is
-                 * not a wireguard interface. */
+                 * not a WireGuard or AmneziaWG interface. */
                 address->broadcast = (struct in_addr) {};
                 address->set_broadcast = -1;
                 return 1;
