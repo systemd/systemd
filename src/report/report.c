@@ -1004,6 +1004,8 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("url", "URL",
                             "Upload to this address"):
+                        if (!http_url_is_valid(opts.arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid HTTP(S) URL: %s", opts.arg);
                         r = free_and_strdup_warn(&arg_url, opts.arg);
                         if (r < 0)
                                 return r;
