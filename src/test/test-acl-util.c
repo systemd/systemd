@@ -138,4 +138,36 @@ TEST_RET(fd_acl_make_read_only) {
         return 0;
 }
 
+TEST_RET(acl_has_negative_permissions) {
+        int r;
+
+        r = dlopen_libacl(LOG_DEBUG);
+        if (r < 0)
+                return log_tests_skipped_errno(r, "libacl not available: %m");
+
+        FOREACH_STRING(s,
+                       "u::rwx,g::r-x,o::r-x",
+                       "u::rwx,g::rwx,o::---",
+                       "u::---,g::r-x,o::r-x",
+                       "u::rwx,u:1000:r-x,g::r-x,g:1000:rwx,m::rwx,o::r-x") {
+                _cleanup_(acl_freep) acl_t acl = NULL;
+
+                ASSERT_NOT_NULL(acl = sym_acl_from_text(s));
+                ASSERT_OK_ZERO(acl_has_negative_permissions(acl));
+        }
+
+        FOREACH_STRING(s,
+                       "u::rwx,g::---,o::r-x",
+                       "u::rwx,u:1000:---,g::r-x,m::r-x,o::r-x",
+                       "u::rwx,g::r-x,g:1000:--x,m::r-x,o::r-x",
+                       "u::rwx,u:1000:rwx,g::rwx,m::--x,o::r-x") {
+                _cleanup_(acl_freep) acl_t acl = NULL;
+
+                ASSERT_NOT_NULL(acl = sym_acl_from_text(s));
+                ASSERT_OK_POSITIVE(acl_has_negative_permissions(acl));
+        }
+
+        return 0;
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
