@@ -1009,6 +1009,10 @@ static int fd_set_perms(
 
         do_chmod = ((new_mode ^ st->st_mode) & 07777) != 0;
 
+        if (!S_ISLNK(st->st_mode) && mode_has_negative_permissions(new_mode))
+                log_warning("Mode %04o of '%s' has negative group permissions, which are not supported.",
+                            new_mode, path);
+
         if (do_chmod && do_chown) {
                 /* Before we issue the chmod() let's reduce the access mode to the common bits of the old and
                  * the new mode. That way there's no time window where the file exists under the old owner
@@ -1423,6 +1427,10 @@ static int path_set_acl(
                    "%s %s ACL %s on %s",
                    type == ACL_TYPE_ACCESS ? "access" : "default",
                    strna(t), pretty);
+
+        if (acl_has_negative_permissions(dup) > 0)
+                log_warning("%s ACL %s on '%s' has negative permissions, which are not supported.",
+                            type == ACL_TYPE_ACCESS ? "Access" : "Default", strna(t), pretty);
 
         if (!arg_dry_run &&
             (r = RET_NERRNO(sym_acl_set_file(path, type, dup))) < 0) {
