@@ -71,23 +71,16 @@ static int swtpm_find_best_profile(const char *swtpm_setup, char **ret) {
 
         /* NB: we ignore the exit status of --print-profiles, it's broken. Instead we check if we have
          * received a valid JSON object via STDOUT. */
-        (void) r;
-
-        _cleanup_free_ char *text = NULL;
-        r = read_full_file_full(
-                        mfd,
-                        /* filename= */ NULL,
-                        /* offset= */ 0,
-                        /* size= */ SIZE_MAX,
-                        /* flags= */ 0,
-                        /* bind_name= */ NULL,
-                        &text,
-                        /* ret_size= */ NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to read memory fd: %m");
-
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
-        r = sd_json_parse(text, SD_JSON_PARSE_MUST_BE_OBJECT, &j, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
+        r = sd_json_parse_fd(
+                        "swtpm-profiles",
+                        mfd,
+                        SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SEEK0,
+                        &j,
+                        /* reterr_line= */ NULL,
+                        /* reterr_column= */ NULL);
+        if (r == -ENOMEM)
+                return log_oom();
         if (r < 0) {
                 log_notice("Failed to parse swtpm's --print-profiles output as JSON, assuming the implementation is too old to know the concept of profiles.");
                 *ret = NULL;
