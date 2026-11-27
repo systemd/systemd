@@ -15,6 +15,7 @@
 #include "ansi-color.h"
 #include "ask-password-api.h"
 #include "creds-util.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -126,12 +127,9 @@ static usec_t keyring_cache_timeout(void) {
         if (saved_timeout_set)
                 return saved_timeout;
 
-        const char *e = secure_getenv("SYSTEMD_ASK_PASSWORD_KEYRING_TIMEOUT_SEC");
-        if (e) {
-                r = parse_sec(e, &saved_timeout);
-                if (r < 0)
-                        log_debug_errno(r, "Invalid value in $SYSTEMD_ASK_PASSWORD_KEYRING_TIMEOUT_SEC, ignoring: %s", e);
-        }
+        r = secure_getenv_usec("SYSTEMD_ASK_PASSWORD_KEYRING_TIMEOUT_SEC", &saved_timeout);
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Invalid value in $SYSTEMD_ASK_PASSWORD_KEYRING_TIMEOUT_SEC, ignoring: %m");
 
         saved_timeout_set = true;
 

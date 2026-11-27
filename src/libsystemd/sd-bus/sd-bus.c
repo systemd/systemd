@@ -29,6 +29,7 @@
 #include "bus-track.h"
 #include "bus-type.h"
 #include "cgroup-util.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -4428,7 +4429,6 @@ _public_ int sd_bus_set_method_call_timeout(sd_bus *bus, uint64_t usec) {
 }
 
 _public_ int sd_bus_get_method_call_timeout(sd_bus *bus, uint64_t *ret) {
-        const char *e;
         usec_t usec;
 
         assert_return(bus, -EINVAL);
@@ -4440,8 +4440,7 @@ _public_ int sd_bus_get_method_call_timeout(sd_bus *bus, uint64_t *ret) {
                 return 0;
         }
 
-        e = secure_getenv("SYSTEMD_BUS_TIMEOUT");
-        if (e && parse_sec(e, &usec) >= 0 && usec != 0) {
+        if (secure_getenv_usec("SYSTEMD_BUS_TIMEOUT", &usec) >= 0 && usec != 0) {
                 /* Save the parsed value to avoid multiple parsing. To change the timeout value,
                  * use sd_bus_set_method_call_timeout() instead of setenv(). */
                 *ret = bus->method_call_timeout = usec;
