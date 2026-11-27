@@ -93,9 +93,10 @@ testcase_configure() {
                 machineTags: ["foo", "bar", "foo", "quux=1"],
                 rootPasswordHashed: $hashed,
                 rootShell: "/bin/fooshell",
+                rootSshAuthorizedKeys: ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAA first@test", "", "# comment\n\nssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBBBB second@test\n"],
                 kernelCommandLine: "firstboot.varlink=1"
             }
-        }')" locale localeMessages hostname timezone machineId machineTags rootPasswordHashed rootShell kernelCommandLine
+        }')" locale localeMessages hostname timezone machineId machineTags rootPasswordHashed rootShell rootSshAuthorizedKeys kernelCommandLine
 
         assert_in "LANG=C.UTF-8" "$(cat "$(locale_file)")"
         assert_in "LC_MESSAGES=en_US.UTF-8" "$(cat "$(locale_file)")"
@@ -107,6 +108,11 @@ testcase_configure() {
         assert_eq "$(awk -F: '/^root/ { print $2; }' "$ROOT/etc/shadow")" "$HASHED"
         assert_eq "$(awk -F: '/^root/ { print $7; }' "$ROOT/etc/passwd")" /bin/fooshell
         assert_eq "$(cat "$ROOT/etc/kernel/cmdline")" firstboot.varlink=1
+        assert_eq "$(cat "$ROOT/root/.ssh/authorized_keys")" "$(printf '%s\n' \
+            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAA first@test" \
+            "# comment" \
+            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBBBB second@test")"
+        assert_eq "$(stat -c '%a' "$ROOT/root/.ssh" "$ROOT/root/.ssh/authorized_keys")" "$(printf '700\n600')"
     done
 }
 
@@ -155,6 +161,12 @@ testcase_invalid_settings() {
         expect_invalid_parameter '{"rootFileDescriptor":0,"settings":{"machineTags":["a=1","a=2"]}}' settings.machineTags
         expect_invalid_parameter '{"rootFileDescriptor":0,"settings":{"rootShell":"sh"}}' settings.rootShell
         expect_invalid_parameter '{"rootFileDescriptor":0,"settings":{"rootShell":"/bin/missing"}}' settings.rootShell
+        expect_invalid_parameter '{"rootFileDescriptor":0,"settings":{"rootSshAuthorizedKeys":["\u0001"]}}' settings.rootSshAuthorizedKeys
+        expect_invalid_parameter '{"rootFileDescriptor":0,"settings":{"rootSshAuthorizedKeys":["ssh-ed25519 AAAA\tfoo"]}}' settings.rootSshAuthorizedKeys
+        expect_invalid_parameter '{"rootFileDescriptor":0,"settings":{"rootSshAuthorizedKeys":["ssh-ed25519 AAAA\r\nssh-rsa BBBB"]}}' settings.rootSshAuthorizedKeys
+        # An empty list, or one with empty lines only, is nothing to apply
+        expect_invalid_parameter '{"rootFileDescriptor":0,"settings":{"rootSshAuthorizedKeys":[]}}' settings
+        expect_invalid_parameter '{"rootFileDescriptor":0,"settings":{"rootSshAuthorizedKeys":["", "\n\n"]}}' settings
         expect_invalid_parameter '{"rootFileDescriptor":0,"settings":{"machineId":"not-an-id"}}' settings.machineId
         expect_invalid_parameter '{"rootFileDescriptor":0,"settings":{"rootPassword":"a","rootPasswordHashed":"b"}}' settings.rootPasswordHashed
         expect_invalid_parameter '{"rootFileDescriptor":0,"imagePolicy":"bogus=foo","settings":{"hostname":"x"}}' imagePolicy
