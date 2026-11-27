@@ -16,8 +16,8 @@ account  required   pam_unix.so
 auth     required   pam_rootok.so
 
 {% if HAVE_SELINUX %}
-session  required   pam_selinux.so close
-session  required   pam_selinux.so open
+session  optional   pam_selinux.so close
+session  optional   pam_selinux.so open
 {% endif %}
 session  required   pam_loginuid.so
 session  optional   pam_keyinit.so force revoke

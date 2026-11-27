@@ -302,6 +302,14 @@ if conf.get('SYSTEMD_MULTICALL_BINARY') != 1
         ]
 endif
 
+executables += [
+        libexec_template + {
+                'name' : 'systemd-selinux-exec',
+                'sources' : files('selinux-exec.c'),
+                'conditions' : ['HAVE_SELINUX'],
+        },
+]
+
 in_files = [['system.conf',                     pkgconfigfiledir],
             ['user.conf',                       pkgconfigfiledir],
             ['org.freedesktop.systemd1.policy', polkitpolicydir]]
