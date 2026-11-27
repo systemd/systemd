@@ -637,8 +637,9 @@ TEST(path_is_network_fs_harder) {
                 log_debug("path_is_network_fs_harder_at(root, %s) → %i: %s", q, r, r < 0 ? STRERROR(r) : yes_no(r));
         }
 
-        /* An empty path checks the fd itself */
-        ASSERT_OK_EQ(path_is_network_fs_harder_at(dir_fd, ""), path_is_network_fs_harder("/"));
+        /* An empty path checks the fd itself. Note, it may fail with -ESTALE in a chroot environment. */
+        ASSERT_EQ(ASSERT_OK_OR(path_is_network_fs_harder_at(dir_fd, ""), -ESTALE),
+                  ASSERT_OK_OR(path_is_network_fs_harder("/"), -ESTALE));
 
         CHECK_PRIV;
 
