@@ -1412,6 +1412,89 @@ systemd-confext unmerge
 systemd-confext status --json=pretty | jq -e 'any(.[]; .hierarchy == "/etc" and .extensions == [] and .since == null)' >/dev/null
 rm -rf /run/confexts/
 
+# Check DirectoryPolicy=/--directory-policy=: in "auto" mode (the default) directory images are only
+# considered if they are below /usr/ or /var/, on tmpfs, on dm-crypt or dm-verity storage, or on the file
+# system of /, /usr/ or /var/. Hence a directory confext in /run/ (tmpfs) is permitted, but one on some
+# other, unprotected file system (such as the ESP or a removable medium) is refused. We use a loopback ext4
+# file system for that here, since vfat (which the ESP would typically use) cannot be used as an overlayfs
+# layer, due to its case-insensitive name lookups. With "no" even directory confexts in /run/ and /var/ are
+# refused. The configuration file setting is overridden by the command line switch
+# and the environment variable.
+DIRPOLICY_EXT4="$(mktemp -d /tmp/test-dirpolicy-ext4.XXXXXX)"
+truncate -s 64M "$DIRPOLICY_EXT4/ext4.img"
+mkfs.ext4 -q "$DIRPOLICY_EXT4/ext4.img"
+mkdir "$DIRPOLICY_EXT4/mnt"
+mount -o loop "$DIRPOLICY_EXT4/ext4.img" "$DIRPOLICY_EXT4/mnt"
+mkdir -p "$DIRPOLICY_EXT4/mnt/test-dirpolicy/etc/extension-release.d"
+echo "ID=_any" >"$DIRPOLICY_EXT4/mnt/test-dirpolicy/etc/extension-release.d/extension-release.test-dirpolicy"
+echo "MARKER_DIRPOLICY_EXT4" >"$DIRPOLICY_EXT4/mnt/test-dirpolicy/etc/test-dirpolicy-ext4"
+mkdir -p /run/confexts/test-dirpolicy
+mount --bind "$DIRPOLICY_EXT4/mnt/test-dirpolicy" /run/confexts/test-dirpolicy
+mkdir -p /run/confexts/test-dirpolicy-tmpfs/etc/extension-release.d
+echo "ID=_any" >/run/confexts/test-dirpolicy-tmpfs/etc/extension-release.d/extension-release.test-dirpolicy-tmpfs
+echo "MARKER_DIRPOLICY_TMPFS" >/run/confexts/test-dirpolicy-tmpfs/etc/test-dirpolicy-tmpfs
+mkdir -p /var/lib/confexts/test-dirpolicy-var/etc/extension-release.d
+echo "ID=_any" >/var/lib/confexts/test-dirpolicy-var/etc/extension-release.d/extension-release.test-dirpolicy-var
+echo "MARKER_DIRPOLICY_VAR" >/var/lib/confexts/test-dirpolicy-var/etc/test-dirpolicy-var
+# A refused directory image hides a disk image of the same name in a directory of lower priority, i.e. the
+# name is skipped entirely.
+mkdir -p "$DIRPOLICY_EXT4/mnt/test-dirpolicy-shadow/etc/extension-release.d"
+echo "ID=_any" >"$DIRPOLICY_EXT4/mnt/test-dirpolicy-shadow/etc/extension-release.d/extension-release.test-dirpolicy-shadow"
+echo "MARKER_DIRPOLICY_SHADOW_DIR" >"$DIRPOLICY_EXT4/mnt/test-dirpolicy-shadow/etc/test-dirpolicy-shadow"
+mkdir -p /run/confexts/test-dirpolicy-shadow
+mount --bind "$DIRPOLICY_EXT4/mnt/test-dirpolicy-shadow" /run/confexts/test-dirpolicy-shadow
+mkdir -p /tmp/test-dirpolicy-shadow/etc/extension-release.d
+echo "ID=_any" >/tmp/test-dirpolicy-shadow/etc/extension-release.d/extension-release.test-dirpolicy-shadow
+echo "MARKER_DIRPOLICY_SHADOW_RAW" >/tmp/test-dirpolicy-shadow/etc/test-dirpolicy-shadow
+mksquashfs /tmp/test-dirpolicy-shadow/ /var/lib/confexts/test-dirpolicy-shadow.raw -noappend
+rm -rf /tmp/test-dirpolicy-shadow
+systemd-confext merge
+test ! -e /etc/test-dirpolicy-ext4
+grep -F "MARKER_DIRPOLICY_TMPFS" /etc/test-dirpolicy-tmpfs >/dev/null
+grep -F "MARKER_DIRPOLICY_VAR" /etc/test-dirpolicy-var >/dev/null
+test ! -e /etc/test-dirpolicy-shadow
+systemd-confext unmerge
+# The directory policy is not taken into account when listing images
+systemd-confext list --json=short | \
+    jq -e 'any(.[]; .name == "test-dirpolicy" and .path == "/run/confexts/test-dirpolicy")' >/dev/null
+systemd-confext list --json=short | \
+    jq -e 'any(.[]; .name == "test-dirpolicy-shadow" and .path == "/run/confexts/test-dirpolicy-shadow")' >/dev/null
+systemd-confext merge --directory-policy=yes
+grep -F "MARKER_DIRPOLICY_EXT4" /etc/test-dirpolicy-ext4 >/dev/null
+grep -F "MARKER_DIRPOLICY_TMPFS" /etc/test-dirpolicy-tmpfs >/dev/null
+grep -F "MARKER_DIRPOLICY_VAR" /etc/test-dirpolicy-var >/dev/null
+grep -F "MARKER_DIRPOLICY_SHADOW_DIR" /etc/test-dirpolicy-shadow >/dev/null
+systemd-confext unmerge
+mkdir -p /run/systemd/confext.conf.d
+cat >/run/systemd/confext.conf.d/10-test-directory-policy.conf <<EOF
+[ConfExt]
+DirectoryPolicy=yes
+EOF
+systemd-confext merge
+grep -F "MARKER_DIRPOLICY_EXT4" /etc/test-dirpolicy-ext4 >/dev/null
+systemd-confext unmerge
+systemd-confext merge --directory-policy=auto
+test ! -e /etc/test-dirpolicy-ext4
+grep -F "MARKER_DIRPOLICY_TMPFS" /etc/test-dirpolicy-tmpfs >/dev/null
+systemd-confext unmerge
+SYSTEMD_CONFEXT_DIRECTORY_POLICY=no systemd-confext merge
+test ! -e /etc/test-dirpolicy-ext4
+test ! -e /etc/test-dirpolicy-tmpfs
+test ! -e /etc/test-dirpolicy-var
+test ! -e /etc/test-dirpolicy-shadow
+systemd-confext unmerge
+rm -f /run/systemd/confext.conf.d/10-test-directory-policy.conf
+umount /run/confexts/test-dirpolicy /run/confexts/test-dirpolicy-shadow
+rm -rf /run/confexts/test-dirpolicy /run/confexts/test-dirpolicy-shadow /run/confexts/test-dirpolicy-tmpfs
+# Without the shadowing directory the disk image is used again
+systemd-confext merge --directory-policy=no
+grep -F "MARKER_DIRPOLICY_SHADOW_RAW" /etc/test-dirpolicy-shadow >/dev/null
+test ! -e /etc/test-dirpolicy-var
+systemd-confext unmerge
+rm -rf /var/lib/confexts/test-dirpolicy-var /var/lib/confexts/test-dirpolicy-shadow.raw
+umount "$DIRPOLICY_EXT4/mnt"
+rm -rf "$DIRPOLICY_EXT4"
+
 cleanup_sysupdate_notify_confext_mutable() {
     local mutable_marker="$1"
     local notify_socket_was_active="$2"
