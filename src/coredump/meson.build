@@ -17,6 +17,7 @@ systemd_coredump_sources = files(
         'coredump-worker.c',
 )
 systemd_coredump_export_sources = files(
+        'coredump-records.c',
         'coredump-vacuum.c',
 )
 coredumpctl_sources = files(
@@ -59,6 +60,10 @@ executables += [
                 'sources' : coredumpctl_sources,
                 'link_with' : [libshared],
                 'dependencies' : common_dependencies,
+        },
+        test_template + {
+                'sources' : files('test-coredump-records.c'),
+                'import' : ['systemd-coredump'],
         },
         test_template + {
                 'sources' : files('test-coredump-vacuum.c'),

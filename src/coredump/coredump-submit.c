@@ -19,6 +19,7 @@
 #include "copy.h"
 #include "coredump-config.h"
 #include "coredump-context.h"
+#include "coredump-records.h"
 #include "coredump-submit.h"
 #include "coredump-util.h"
 #include "coredump-vacuum.h"
@@ -40,6 +41,7 @@
 #include "socket-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
 #include "uid-classification.h"
@@ -234,6 +236,27 @@ static int fix_permissions_and_link(
         return 0;
 }
 
+/* Whether a coredump may be received as records (COREDUMP_RECORDS), see save_external_coredump(). */
+bool coredump_submit_can_use_records(const CoredumpConfig *config) {
+        int r;
+
+        assert(config);
+
+        /* On tmpfs with compression, the temporary file is limited and the rest of the coredump is
+         * compressed directly from the socket, which needs a plain byte stream. */
+        if (!config->compress)
+                return true;
+
+        /* The directory may not exist yet, then it will be created in its parent. */
+        FOREACH_STRING(p, "/var/lib/systemd/coredump", "/var/lib/systemd") {
+                r = path_is_temporary_fs(p);
+                if (r != -ENOENT)
+                        return r == 0;
+        }
+
+        return false;
+}
+
 static int save_external_coredump(
                 const CoredumpConfig *config,
                 const CoredumpContext *context,
@@ -347,7 +370,10 @@ static int save_external_coredump(
                 log_debug("Limiting core file size to %" PRIu64 " bytes due to cgroup and/or filesystem limits.", max_size);
         }
 
-        r = copy_bytes(context->input_fd, fd, max_size, /* copy_flags= */ 0);
+        if (context->records)
+                r = coredump_copy_records(context->input_fd, fd, max_size);
+        else
+                r = copy_bytes(context->input_fd, fd, max_size, /* copy_flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Cannot store coredump of "PID_FMT" (%s): %m",
                                        context->pidref.pid, context->comm);
@@ -377,7 +403,9 @@ static int save_external_coredump(
                 if (r < 0)
                         return log_error_errno(r, "Failed to compress %s: %m", coredump_tmpfile_name(tmp_compressed));
 
-                if (truncated && storage_on_tmpfs) {
+                /* Records are not requested when storing on tmpfs, see coredump_submit_can_use_records().
+                 * Should the file system have changed since, don't feed records to the compressor. */
+                if (truncated && storage_on_tmpfs && !context->records) {
                         uint64_t partial_uncompressed_size = 0;
 
                         /* Uncompressed write was truncated and we are writing to tmpfs: delete
