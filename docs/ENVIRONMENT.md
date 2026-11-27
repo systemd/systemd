@@ -124,6 +124,12 @@ All tools:
   this only controls use of Unicode emoji glyphs, and has no effect on other
   Unicode glyphs.
 
+* `$SYSTEMD_PROGRESS_BAR=0` — if set, tools such as `systemd-repart`,
+  `systemd-import` or `systemd-pull` will not draw progress bars on the
+  terminal. This is used by `systemd-sysupdate` when invoking `systemd-import`
+  and `systemd-pull`, as it draws its own progress bars based on the progress
+  information they report via `sd_notify()`.
+
 * `$RUNTIME_DIRECTORY` — various tools use this variable to locate the
   appropriate path under `/run/`. This variable is also set by the manager when
   `RuntimeDirectory=` is used, see systemd.exec(5).

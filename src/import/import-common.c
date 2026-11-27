@@ -3,6 +3,7 @@
 #include <sched.h>
 #include <unistd.h>
 
+#include "sd-daemon.h"
 #include "sd-event.h"
 
 #include "acl-util.h"
@@ -30,6 +31,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "tar-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 
 static int drain_null_padding(int fd) {
@@ -606,4 +608,84 @@ int import_parse_compression_argument(const char *option, const char *s, Compres
 
         *ret = c;
         return 0;
+}
+
+/* Don't estimate anything in the first few seconds, the transfer rate is usually not settled yet then */
+#define IMPORT_PROGRESS_ESTIMATE_SETTLE_USEC (3 * USEC_PER_SEC)
+
+static usec_t import_progress_now(ImportProgress *p) {
+        assert(p);
+
+        usec_t n = now(CLOCK_MONOTONIC);
+
+        /* The elapsed time is counted from the first progress report on */
+        if (p->start_usec == 0)
+                p->start_usec = n;
+
+        return n;
+}
+
+usec_t import_progress_estimate(ImportProgress *p, uint64_t done, uint64_t total) {
+        assert(p);
+
+        usec_t n = import_progress_now(p);
+
+        /* Nothing to estimate if the total is not known or zero, or if we are done already */
+        if (total == 0 || total == UINT64_MAX || done >= total)
+                return USEC_INFINITY;
+
+        double percent = (double) done * 100.0 / (double) total;
+
+        if (p->estimate_start_usec == 0 || percent < p->estimate_start_percent) {
+                /* First report (or progress went backwards for some reason): start counting from here. Note
+                 * that we deliberately start counting at the first progress report, and not when the
+                 * operation was started, so that any initial setup time is not taken into account. */
+                p->estimate_start_usec = n;
+                p->estimate_start_percent = percent;
+                return USEC_INFINITY;
+        }
+
+        /* Wait until things settled a bit, both in time and in progress made, before giving any estimate. */
+        usec_t elapsed = usec_sub_unsigned(n, p->estimate_start_usec);
+        double progressed = percent - p->estimate_start_percent;
+        if (elapsed < IMPORT_PROGRESS_ESTIMATE_SETTLE_USEC || progressed < 1.0)
+                return USEC_INFINITY;
+
+        /* Extrapolate based on the average rate since the first report, which is less jumpy than any
+         * short-term rate, and adapts gracefully if things stall, since the rate decreases then. */
+        double left = (double) elapsed * (100.0 - percent) / progressed;
+        if (left >= (double) (USEC_INFINITY - 1))
+                return USEC_INFINITY;
+
+        return (usec_t) left;
+}
+
+void import_notify_progress(ImportProgress *p, unsigned percent, usec_t time_left) {
+        assert(p);
+
+        usec_t elapsed = usec_sub_unsigned(import_progress_now(p), p->start_usec);
+
+        /* On the wire we send the time elapsed plus the estimated total time of the operation, rather than
+         * the time left, so that both values remain meaningful on their own. */
+        if (time_left == USEC_INFINITY)
+                (void) sd_notifyf(/* unset_environment= */ false,
+                                  "X_IMPORT_PROGRESS=%u%%\n"
+                                  "X_IMPORT_TIME_ELAPSED_USEC=" USEC_FMT,
+                                  percent, elapsed);
+        else
+                (void) sd_notifyf(/* unset_environment= */ false,
+                                  "X_IMPORT_PROGRESS=%u%%\n"
+                                  "X_IMPORT_TIME_ELAPSED_USEC=" USEC_FMT "\n"
+                                  "X_IMPORT_TIME_TOTAL_USEC=" USEC_FMT,
+                                  percent, elapsed, usec_add(elapsed, time_left));
+}
+
+char* import_format_time_left(usec_t time_left) {
+        if (time_left == USEC_INFINITY)
+                return NULL;
+
+        /* Only show seconds granularity for the last hour, minutes are good enough otherwise */
+        return strjoin(" (",
+                       FORMAT_TIMESPAN(time_left, time_left >= USEC_PER_HOUR ? USEC_PER_MINUTE : USEC_PER_SEC),
+                       " left)");
 }
