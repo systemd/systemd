@@ -24,8 +24,9 @@ Stable branches are typically managed by distribution maintainers on an as-neede
 
 ## Stable Branch Repository for older releases
 
-Stable branches for releases up to 255 are available from
-[https://github.com/systemd/systemd-stable](https://github.com/systemd/systemd-stable).
+Stable branches for releases up to 255 remain available from
+[https://github.com/systemd/systemd-stable](https://github.com/systemd/systemd-stable),
+but are not supported anymore.
 
 ## Policy for backports into stable branches
 

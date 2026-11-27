@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   release:
-    if: github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable'
+    if: github.repository == 'systemd/systemd'
     runs-on: ubuntu-24.04
 
     permissions:
