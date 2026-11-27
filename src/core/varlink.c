@@ -406,6 +406,7 @@ static void vl_disconnect(sd_varlink_server *s, sd_varlink *link, void *userdata
                 }
 
         varlink_job_drop_stashed_client(m, link);
+        varlink_job_unsubscribe(m, link);
 }
 
 int manager_setup_varlink_server(Manager *m) {
@@ -443,6 +444,7 @@ int manager_setup_varlink_server(Manager *m) {
                         "io.systemd.Job.List", vl_method_list_jobs,
                         "io.systemd.Job.Cancel", vl_method_cancel_job,
                         "io.systemd.Job.ClearAll", vl_method_clear_all_jobs,
+                        "io.systemd.Job.Subscribe", vl_method_subscribe_jobs,
                         "io.systemd.Manager.Describe", vl_method_describe_manager,
                         "io.systemd.Manager.Reexecute", vl_method_reexecute_manager,
                         "io.systemd.Manager.Reload", vl_method_reload_manager,
@@ -651,6 +653,8 @@ void manager_varlink_done(Manager *m) {
         m->pending_reload_message_vl = sd_varlink_unref(m->pending_reload_message_vl);
         m->pending_reexecute_message_vl = sd_varlink_unref(m->pending_reexecute_message_vl);
         m->stashed_varlink_job_clients = hashmap_free(m->stashed_varlink_job_clients);
+        /* Each entry leaves the map before its link is unreffed, so vl_disconnect() cannot unref it again */
+        m->varlink_job_subscribers = hashmap_free(m->varlink_job_subscribers);
 
         m->varlink_server = sd_varlink_server_unref(m->varlink_server);
         m->managed_oom_varlink = sd_varlink_close_unref(m->managed_oom_varlink);
