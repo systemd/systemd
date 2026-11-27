@@ -1180,7 +1180,7 @@ static int transfer_instance_vacuum(
                 }
 
                 log_debug("Resetting partition '%s' to empty.", pinfo.device);
-                r = patch_partition(t->target.path, &pinfo, change);
+                r = patch_partition(&t->target, &pinfo, change);
                 if (r < 0)
                         return r;
 
@@ -1523,16 +1523,49 @@ static int transfer_open_install_parent(Transfer *t, bool make) {
 
 static const char* transfer_sync_argument(const Transfer *t) {
         /* For rooted transfers the helper only knows a procfd. Sync the real inode and directory ourselves. */
-        return t->context->sync && !(t->context->root && RESOURCE_IS_FILESYSTEM(t->target.type)) ? "--sync=yes" : "--sync=no";
+        return t->context->sync && !t->context->root ? "--sync=yes" : "--sync=no";
+}
+
+static int transfer_prepare_destination(Transfer *t, bool with_http_headers, char **ret_path) {
+        assert(t);
+        assert(t->staging_fd < 0);
+        assert(ret_path);
+
+        if (!t->context->root) {
+                if (strdup_to(ret_path, t->target.type == RESOURCE_PARTITION ? t->target.path : t->temporary_partial_path) < 0)
+                        return log_oom();
+                return 0;
+        }
+
+        /* FORK_PACK_FDS puts the destination immediately after the optional HTTP headers fd. Append "/."
+         * for directories so that helpers can open them without following a symlink at the final component. */
+        bool directory = IN_SET(t->target.type, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME);
+        _cleanup_free_ char *path = strjoin(FORMAT_PROC_FD_PATH(SD_LISTEN_FDS_START + with_http_headers), directory ? "/." : "");
+        if (!path)
+                return log_oom();
+
+        if (t->target.type == RESOURCE_PARTITION)
+                t->staging_fd = fd_reopen(ASSERT_FD(t->target.pin_fd), O_RDWR);
+        else
+                t->staging_fd = xopenat_full(
+                                ASSERT_FD(t->install_parent_fd), last_path_component(t->temporary_partial_path),
+                                O_CREAT|O_EXCL|O_NOFOLLOW|(directory ? O_DIRECTORY : O_RDWR),
+                                t->target.type == RESOURCE_SUBVOLUME ? XO_SUBVOLUME : 0,
+                                directory ? 0755 : 0664);
+        if (t->staging_fd < 0)
+                return log_error_errno(t->staging_fd, "Failed to open update destination for '%s': %m", t->target.path);
+
+        *ret_path = TAKE_PTR(path);
+        return 0;
 }
 
 static int run_callout(
                 const char *name,
                 char *cmdline[],
                 int stdin_fd,
-                int pass_fd,
-                const char *pass_fd_name,
-                Transfer *transfer,
+                int http_headers_fd,
+                int destination_fd,
+                const Transfer *transfer,
                 const Instance *instance,
                 TransferProgress callback,
                 void *userdata) {
@@ -1542,35 +1575,13 @@ static int run_callout(
         assert(name);
         assert(cmdline);
         assert(cmdline[0]);
-        assert(pass_fd < 0 || pass_fd_name);
 
-        _cleanup_close_ int source_fd = -EBADF;
         int fds[2];
         size_t n_fds = 0;
-        if (pass_fd >= 0)
-                fds[n_fds++] = pass_fd;
-
-        bool directory = IN_SET(transfer->target.type, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME);
-        if (transfer->context->root && RESOURCE_IS_FILESYSTEM(transfer->target.type)) {
-                if (RESOURCE_IS_FILESYSTEM(instance->resource->type)) {
-                        assert(stdin_fd < 0);
-                        source_fd = resource_open_instance(instance->resource, instance->path);
-                        if (source_fd < 0)
-                                return log_error_errno(source_fd, "Failed to pin local update source '%s': %m", instance->path);
-                        stdin_fd = source_fd;
-                }
-
-                assert(transfer->staging_fd < 0);
-                assert(transfer->install_parent_fd >= 0);
-                transfer->staging_fd = xopenat_full(
-                                transfer->install_parent_fd, last_path_component(transfer->temporary_partial_path),
-                                O_CREAT|O_EXCL|O_NOFOLLOW|(directory ? O_DIRECTORY : O_RDWR),
-                                transfer->target.type == RESOURCE_SUBVOLUME ? XO_SUBVOLUME : 0,
-                                directory ? 0755 : 0664);
-                if (transfer->staging_fd < 0)
-                        return log_error_errno(transfer->staging_fd, "Failed to open update destination for '%s': %m", transfer->target.path);
-                fds[n_fds++] = transfer->staging_fd;
-        }
+        if (http_headers_fd >= 0)
+                fds[n_fds++] = http_headers_fd;
+        if (destination_fd >= 0)
+                fds[n_fds++] = destination_fd;
 
         _cleanup_(callout_context_freep) CalloutContext *ctx = NULL;
         r = callout_context_new(transfer, instance, callback, name, userdata, &ctx);
@@ -1613,22 +1624,12 @@ static int run_callout(
                 return log_error_errno(r, "Failed to fork process %s: %m", ctx->name);
         if (r == 0) {
                 /* Child */
-                char proc[PROC_FD_PATH_MAX + 2];
-                if (transfer->staging_fd >= 0) {
-                        /* All import/pull helpers take the source and destination as their final two arguments. */
-                        size_t n = strv_length(cmdline);
-                        assert(n >= 3);
-                        if (source_fd >= 0)
-                                cmdline[n-2] = (char*) "-";
-                        xsprintf(proc, "/proc/self/fd/%i%s", fds[n_fds-1], directory ? "/." : "");
-                        cmdline[n-1] = proc;
-                }
                 if (setenv("NOTIFY_SOCKET", bind_name, 1) < 0) {
                         log_error_errno(errno, "setenv() failed: %m");
                         _exit(EXIT_FAILURE);
                 }
 
-                if (pass_fd >= 0) {
+                if (http_headers_fd >= 0) {
                         /* FORK_PACK_FDS moved the fd to fd 3 */
                         assert(fds[0] == SD_LISTEN_FDS_START);
 
@@ -1636,7 +1637,7 @@ static int run_callout(
                         if (r >= 0)
                                 r = RET_NERRNO(setenv("LISTEN_FDS", "1", /* overwrite= */ true));
                         if (r >= 0)
-                                r = RET_NERRNO(setenv("LISTEN_FDNAMES", pass_fd_name, /* overwrite= */ true));
+                                r = RET_NERRNO(setenv("LISTEN_FDNAMES", "http-headers", /* overwrite= */ true));
                         if (r >= 0) {
                                 /* Don't leave an inherited $LISTEN_PIDFDID around, it would make the
                                  * helper ignore the fd */
@@ -1777,9 +1778,9 @@ static int transfer_acquire_source(
                 void *userdata) {
 
         _cleanup_strv_free_ char **cmdline = NULL;
-        _cleanup_free_ char *digest = NULL;
+        _cleanup_free_ char *digest = NULL, *to = NULL;
         _cleanup_close_ int literal_fd = -EBADF, http_headers_fd = -EBADF;
-        const char *from, *to;
+        const char *from;
         int r;
 
         assert(t);
@@ -1945,8 +1946,6 @@ static int transfer_acquire_source(
                 if (r < 0)
                         return log_oom();
 
-                to = t->temporary_partial_path;
-
         } else if (t->target.type == RESOURCE_PARTITION) {
                 r = strv_extendf(&cmdline, "--offset=%" PRIu64, t->partition_info.start);
                 if (r < 0)
@@ -1960,12 +1959,12 @@ static int transfer_acquire_source(
                 if (r < 0)
                         return log_oom();
 
-                to = t->target.path;
-
-        } else {
+        } else
                 assert(t->target.type == RESOURCE_REGULAR_FILE);
-                to = t->temporary_partial_path;
-        }
+
+        r = transfer_prepare_destination(t, http_headers_fd >= 0, &to);
+        if (r < 0)
+                return r;
 
         r = strv_extend_many(&cmdline, from, to);
         if (r < 0)
@@ -1974,9 +1973,7 @@ static int transfer_acquire_source(
         return run_callout(
                         s->url ? (tar ? "(sd-pull-tar)" : "(sd-pull-raw)") : (tar ? "(sd-import-tar)" : "(sd-import-raw)"),
                         cmdline,
-                        /* stdin_fd= */ literal_fd,
-                        /* pass_fd= */ http_headers_fd,
-                        /* pass_fd_name= */ "http-headers",
+                        literal_fd, http_headers_fd, t->staging_fd,
                         t, i, cb, userdata);
 }
 
@@ -2046,7 +2043,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
 
         if (t->target.type == RESOURCE_PARTITION) {
                 r = find_suitable_partition(
-                                t->target.path,
+                                &t->target,
                                 i->metadata.size,
                                 t->target.partition_type_set ? &t->target.partition_type.uuid : NULL,
                                 &t->partition_info);
@@ -2071,7 +2068,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                           t->partition_info.label,
                           SD_ID128_TO_UUID_STRING(t->partition_info.type));
                 r = patch_partition(
-                                t->target.path,
+                                &t->target,
                                 &t->partition_info,
                                 t->partition_change);
                 if (r < 0)
@@ -2081,6 +2078,22 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
         assert(where);
 
         log_info("%s Acquiring %s %s %s...", glyph(GLYPH_DOWNLOAD), i->path, glyph(GLYPH_ARROW_RIGHT), where);
+
+        _cleanup_free_ char *to = NULL;
+        _cleanup_close_ int source_fd = -EBADF;
+        const char *from = i->path;
+        if (RESOURCE_IS_FILESYSTEM(i->resource->type)) {
+                if (t->context->root) {
+                        source_fd = resource_open_instance(i->resource, i->path);
+                        if (source_fd < 0)
+                                return log_error_errno(source_fd, "Failed to pin local update source '%s': %m", i->path);
+                        from = "-"; /* read the pinned inode from stdin */
+                }
+
+                r = transfer_prepare_destination(t, /* with_http_headers= */ false, &to);
+                if (r < 0)
+                        return r;
+        }
 
         switch (i->resource->type) { /* Source */
 
@@ -2101,9 +2114,8 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                                                "raw",
                                                "--direct",          /* just copy/unpack the specified file, don't do anything else */
                                                transfer_sync_argument(t),
-                                               i->path,
-                                               t->temporary_partial_path),
-                                        /* stdin_fd= */ -EBADF, /* pass_fd= */ -EBADF, /* pass_fd_name= */ NULL, t, i, cb, userdata);
+                                               from, to),
+                                        source_fd, /* http_headers_fd= */ -EBADF, t->staging_fd, t, i, cb, userdata);
                         break;
 
                 case RESOURCE_PARTITION:
@@ -2119,9 +2131,8 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                                                "--size-max", max_size,
                                                transfer_zero_fill(t) ? "--zero-fill=yes" : "--zero-fill=no",
                                                transfer_sync_argument(t),
-                                               i->path,
-                                               t->target.path),
-                                        /* stdin_fd= */ -EBADF, /* pass_fd= */ -EBADF, /* pass_fd_name= */ NULL, t, i, cb, userdata);
+                                               from, to),
+                                        source_fd, /* http_headers_fd= */ -EBADF, t->staging_fd, t, i, cb, userdata);
                         break;
 
                 default:
@@ -2143,9 +2154,8 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                                        "--direct",          /* just untar the specified file, don't do anything else */
                                        transfer_sync_argument(t),
                                        !t->context->root && t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" : "--btrfs-subvol=no",
-                                       i->path,
-                                       t->temporary_partial_path),
-                                /* stdin_fd= */ -EBADF, /* pass_fd= */ -EBADF, /* pass_fd_name= */ NULL, t, i, cb, userdata);
+                                       from, to),
+                                source_fd, /* http_headers_fd= */ -EBADF, t->staging_fd, t, i, cb, userdata);
                 break;
 
         case RESOURCE_TAR:
@@ -2160,9 +2170,8 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                                        "--direct",          /* just untar the specified file, don't do anything else */
                                        transfer_sync_argument(t),
                                        !t->context->root && t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" : "--btrfs-subvol=no",
-                                       i->path,
-                                       t->temporary_partial_path),
-                                /* stdin_fd= */ -EBADF, /* pass_fd= */ -EBADF, /* pass_fd_name= */ NULL, t, i, cb, userdata);
+                                       from, to),
+                                source_fd, /* http_headers_fd= */ -EBADF, t->staging_fd, t, i, cb, userdata);
                 break;
 
         case RESOURCE_URL_FILE:
@@ -2262,6 +2271,8 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
         }
 
         if (t->target.type == RESOURCE_PARTITION) {
+                if (t->staging_fd >= 0 && t->context->sync && fsync(t->staging_fd) < 0)
+                        return log_error_errno(errno, "Failed to synchronize partition data: %m");
                 /* Now change the partition type to the derived "pending" type UUID to indicate that the
                  * acquire is complete and the partition is ready for install. */
                 t->partition_info.type = t->partition_type_pending;
@@ -2296,7 +2307,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                           t->partition_info.device,
                           SD_ID128_TO_UUID_STRING(t->partition_info.type));
                 r = patch_partition(
-                                t->target.path,
+                                &t->target,
                                 &t->partition_info,
                                 t->partition_change);
                 if (r < 0)
@@ -2398,7 +2409,7 @@ int transfer_install_instance(Transfer *t, Instance *i) {
                 t->partition_change = PARTITION_LABEL | PARTITION_TYPE;
 
                 r = patch_partition(
-                                t->target.path,
+                                &t->target,
                                 &t->partition_info,
                                 t->partition_change);
                 if (r < 0)

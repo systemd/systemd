@@ -77,7 +77,7 @@ typedef struct Resource {
         char *path;
         const char *root; /* Borrowed prefix for display paths; resolve I/O relative to root_fd instead. */
         int root_fd;      /* Borrowed from the context, or pin_fd for an explicit transfer source */
-        int pin_fd;       /* Owned fd for an explicit source root */
+        int pin_fd;       /* Owned fd for an explicit source root, partition table file, or image device */
         bool path_auto; /* automatically find root path (only available if target resource, not source resource) */
         PathRelativeTo path_relative_to;
         char **patterns;

@@ -1030,17 +1030,14 @@ root_transfer directory / directory /target PathRelativeTo=explicit
 "$SYSUPDATE" --root="$ROOTDIR" --transfer-source="$WORKDIR/root-source" update
 cmp "$WORKDIR/root-source/root-1/content" "$ROOTDIR/store/root-1/content"
 
-root_reject() {
-    local error="${1:?}"
-    shift
+root_reject_manifest() {
     root_transfer "$@"
-    if [[ "$1" == url-file ]]; then
-        "$SYSUPDATE" --root="$ROOTDIR" --offline list
-    fi
-    (! "$SYSUPDATE" --root="$ROOTDIR" --verify=no list) |& grep -F "$error" >/dev/null
+    "$SYSUPDATE" --root="$ROOTDIR" --offline list
+    (! "$SYSUPDATE" --root="$ROOTDIR" --verify=no list) |& grep -F 'Only HTTP(S) transfer URLs are allowed with --root= or --image=, refusing manifest' >/dev/null
 }
-root_reject 'Only HTTP(S) transfer URLs' url-file file:///source regular-file /target
-root_reject 'Only HTTP(S) transfer URLs' url-file https://example.invalid/repo regular-file /target ManifestPath=file:///source/SHA256SUMS
+root_reject_manifest url-file file:///source regular-file /target
+root_reject_manifest url-file https://example.invalid/repo regular-file /target ManifestPath=file:///source/SHA256SUMS
+root_reject_manifest url-file 'provider:[/run/example.sock]/repo' regular-file /target
 "$SYSUPDATE" --root="$ROOTDIR" vacuum
 
 # A disabled transfer with a local URL must not prevent other transfers from discovering updates.
@@ -1051,7 +1048,25 @@ root_transfer regular-file /source regular-file /target
 "$SYSUPDATE" --root="$ROOTDIR" list 2
 rm "$ROOTDIR/etc/sysupdate.d/local-url.transfer"
 
-root_reject 'Only HTTP(S) transfer URLs' url-file 'provider:[/run/example.sock]/repo' regular-file /target
+root_transfer regular-file /source partition /target
+(! "$SYSUPDATE" --root="$ROOTDIR" --offline list) |& grep -F 'Cannot use the backing device of a directory' >/dev/null
+
+# A regular disk image inside the root, unlike a directory's backing device, is a valid partition target.
+truncate -s 4M "$ROOTDIR/disk.raw"
+sfdisk "$ROOTDIR/disk.raw" <<EOF
+label: gpt
+sector-size: 512
+
+start=2048, size=1024, type=linux, name=_empty
+start=4096, size=1024, type=linux, name=_empty
+EOF
+root_transfer regular-file /source partition /disk.raw
+ln "$ROOTDIR/disk.raw" "$ROOTDIR/second-link.raw"
+(! "$SYSUPDATE" --root="$ROOTDIR" update) |& grep -F 'Refusing to update a multiply linked disk image with --root=' >/dev/null
+rm "$ROOTDIR/second-link.raw"
+"$SYSUPDATE" --root="$ROOTDIR" update
+[[ $(sfdisk --part-label "$ROOTDIR/disk.raw" 1) == root-2 ]]
+cmp -n "$(stat -c %s "$ROOTDIR/source/root-2")" "$ROOTDIR/source/root-2" "$ROOTDIR/disk.raw" 0 $((2048 * 512))
 rm -rf "$ROOTDIR"
 
 # Cleanup
@@ -1423,6 +1438,12 @@ payload="$WORKDIR/uapi16/inline-v1.bin"
 grep -F "Local URL 'file://$payload' for 'inline-v1.bin' is not allowed with --root= or --image=, ignoring source" "$HH/root-update.log" >/dev/null
 (! grep -F "Pulling 'file://$payload'" "$HH/root-update.log")
 cmp "$payload" "$HH/root/target/inline-v1.bin"
+
+# The pull helper gets both a headers fd and a separate pinned output fd for this rooted transfer.
+cp "$HH/Uapi16Manifest" "$HH/srv/Uapi16Manifest"
+sed -i 's/inline-@v/hhauth-@v/g' "$HH/root/etc/sysupdate.d/01-root.transfer"
+"$SYSUPDATE" --root="$HH/root" --verify=no update
+cmp "$HH/srv/hhauth-v1.bin" "$HH/root/target/hhauth-v1.bin"
 
 # An allowed manifest may be listed, but its implicit payload URL must be checked separately on acquire.
 (cd "$HH/srv" && sha256sum hhsame-v1.bin >SHA256SUMS)

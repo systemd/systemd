@@ -3,11 +3,13 @@
 #include <sys/file.h>
 
 #include "alloc-util.h"
+#include "fd-util.h"
 #include "fdisk-util.h"
 #include "gpt.h"
 #include "log.h"
 #include "string-util.h"
 #include "sysupdate-partition.h"
+#include "sysupdate-resource.h"
 
 /* App-specific IDs used as HMAC keys to derive "partial" and "pending" partition type UUIDs from the
  * original partition type UUID. This way we can indicate sysupdate transfer state via a separate GPT
@@ -145,8 +147,25 @@ int read_partition_info(
         return 1; /* found! */
 }
 
+int partition_open_table(const Resource *resource, bool read_only, struct fdisk_context **ret) {
+        int r;
+
+        assert(resource);
+        assert(resource->type == RESOURCE_PARTITION);
+
+        r = dlopen_fdisk(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        r = fdisk_new_context_at(AT_FDCWD, resource->pin_fd >= 0 ? FORMAT_PROC_FD_PATH(resource->pin_fd) : resource->path,
+                                 read_only, /* sector_size= */ UINT32_MAX, ret);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create fdisk context from '%s': %m", resource->path);
+        return 0;
+}
+
 int find_suitable_partition(
-                const char *device,
+                const Resource *resource,
                 uint64_t space,
                 sd_id128_t *partition_type,
                 PartitionInfo *ret) {
@@ -157,20 +176,16 @@ int find_suitable_partition(
         size_t n_partitions;
         int r;
 
-        assert(device);
+        assert(resource);
         POINTER_MAY_BE_NULL(partition_type);
         assert(ret);
 
-        r = dlopen_fdisk(LOG_DEBUG);
+        r = partition_open_table(resource, /* read_only= */ true, &c);
         if (r < 0)
                 return r;
 
-        r = fdisk_new_context_at(AT_FDCWD, device, /* read_only= */ true, /* sector_size= */ UINT32_MAX, &c);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create fdisk context from '%s': %m", device);
-
         if (!sym_fdisk_is_labeltype(c, FDISK_DISKLABEL_GPT))
-                return log_error_errno(SYNTHETIC_ERRNO(EHWPOISON), "Disk %s has no GPT disk label, not suitable.", device);
+                return log_error_errno(SYNTHETIC_ERRNO(EHWPOISON), "Disk %s has no GPT disk label, not suitable.", resource->path);
 
         r = sym_fdisk_get_partitions(c, &t);
         if (r < 0)
@@ -213,7 +228,7 @@ int find_suitable_partition(
 }
 
 int patch_partition(
-                const char *device,
+                const Resource *resource,
                 const PartitionInfo *info,
                 PartitionChange change) {
 
@@ -223,21 +238,18 @@ int patch_partition(
         GptPartitionType type;
         int r, fd;
 
-        assert(device);
+        assert(resource);
         assert(info);
         assert(change <= _PARTITION_CHANGE_MAX);
 
         if (change == 0) /* Nothing to do */
                 return 0;
 
-        r = dlopen_fdisk(LOG_DEBUG);
+        r = partition_open_table(resource, /* read_only= */ false, &c);
         if (r < 0)
                 return r;
 
-        r = fdisk_new_context_at(AT_FDCWD, device, /* read_only= */ false, /* sector_size= */ UINT32_MAX, &c);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create fdisk context from '%s': %m", device);
-
+        const char *device = resource->path;
         fd = ASSERT_SE_NONNEG(sym_fdisk_get_devfd(c));
 
         /* Make sure udev doesn't read the device while we make changes (this lock is released automatically
