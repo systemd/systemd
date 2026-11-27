@@ -13,6 +13,7 @@ typedef struct Seat {
         LIST_HEAD(Device, devices);
 
         Set *uevents;
+        sd_event_source *uevents_timeout_event_source;
 
         Session *active;
         Session *pending_switch;

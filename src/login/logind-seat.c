@@ -10,7 +10,9 @@
 #include "alloc-util.h"
 #include "device-util.h"
 #include "dirent-util.h"
+#include "env-util.h"
 #include "errno-util.h"
+#include "event-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -33,10 +35,30 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "udev-util.h"
 #include "user-record.h"
 #include "user-util.h"
+
+/* Timeout for waiting uevents triggered by seat_trigger_devices() to be processed by udevd.
+ * May be overridden by $SYSTEMD_SEAT_UEVENTS_TIMEOUT_SEC. */
+#define SEAT_UEVENTS_TIMEOUT_USEC (30 * USEC_PER_SEC)
+
+static usec_t seat_uevents_timeout(void) {
+        static usec_t cached = USEC_INFINITY;
+        int r;
+
+        if (cached != USEC_INFINITY)
+                return cached;
+
+        usec_t t = SEAT_UEVENTS_TIMEOUT_USEC;
+        r = secure_getenv_usec("SYSTEMD_SEAT_UEVENTS_TIMEOUT_SEC", &t);
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_SEAT_UEVENTS_TIMEOUT_SEC, ignoring: %m");
+
+        return (cached = t);
+}
 
 int seat_new(Manager *m, const char *id, Seat **ret) {
         _cleanup_(seat_freep) Seat *s = NULL;
@@ -90,6 +112,7 @@ Seat* seat_free(Seat *s) {
 
         hashmap_remove(s->manager->seats, s->id);
 
+        sd_event_source_disable_unref(s->uevents_timeout_event_source);
         set_free(s->uevents);
         free(s->positions);
         free(s->state_file);
@@ -219,6 +242,8 @@ static void seat_triggered_uevents_done(Seat *s) {
                 return (void) log_debug("%s: waiting for %u events being processed by udevd.", s->id,
                                         set_size(s->uevents));
 
+        (void) event_source_disable(s->uevents_timeout_event_source);
+
         Session *session = s->active;
 
         if (session) {
@@ -233,6 +258,17 @@ static void seat_triggered_uevents_done(Seat *s) {
 
         if (!session || session->started)
                 seat_send_changed(s, "ActiveSession");
+}
+
+static int on_seat_uevents_timeout(sd_event_source *source, uint64_t usec, void *userdata) {
+        Seat *s = ASSERT_PTR(userdata);
+
+        log_warning("Seat %s: timed out waiting for %u uevents to be processed by udevd, resuming session devices anyway.",
+                    s->id, set_size(s->uevents));
+
+        set_clear(s->uevents);
+        seat_triggered_uevents_done(s);
+        return 0;
 }
 
 int manager_process_device_triggered_by_seat(Manager *m, sd_device *dev) {
@@ -328,6 +364,24 @@ static int seat_trigger_devices(Seat *s) {
                 r = set_ensure_consume(&s->uevents, &id128_hash_ops_free, TAKE_PTR(copy));
                 if (r < 0)
                         return r;
+        }
+
+        if (!set_isempty(s->uevents)) {
+                r = event_reset_time_relative(
+                                s->manager->event,
+                                &s->uevents_timeout_event_source,
+                                CLOCK_BOOTTIME,
+                                seat_uevents_timeout(),
+                                /* accuracy= */ 0,
+                                on_seat_uevents_timeout,
+                                s,
+                                /* Use lower priority than the device monitor sources, to prefer
+                                 * processing uevents echoed back by udevd. */
+                                SD_EVENT_PRIORITY_NORMAL + 1,
+                                "seat-uevents-timeout",
+                                /* force_reset= */ true);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set uevents timeout, ignoring: %m");
         }
 
         return 0;
