@@ -118,6 +118,16 @@ static void answer_add_cname(PutArgs *args, DnsResourceKey *key, const char *ali
         dns_answer_add(args->answer, rr, 1, flags, /* rrsig= */ NULL);
 }
 
+static void answer_add_dname(PutArgs *args, DnsResourceKey *key, const char *alias, int ttl, DnsAnswerFlags flags) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+        rr = dns_resource_record_new(key);
+        ASSERT_NOT_NULL(rr);
+        rr->dname.name = checked_strdup(alias);
+        rr->ttl = ttl;
+        dns_answer_add(args->answer, rr, 1, flags, /* rrsig= */ NULL);
+}
+
 static void answer_add_opt(PutArgs *args, DnsResourceKey *key, int ttl, DnsAnswerFlags flags) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
 
@@ -610,6 +620,40 @@ TEST(dns_cache_lookup_miss) {
         ASSERT_EQ(ret_query_flags, 0u);
 
         ASSERT_EQ(dns_answer_size(ret_answer), 0u);
+}
+
+TEST(dns_cache_lookup_dname_skips_owner) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        _cleanup_(dns_answer_unrefp) DnsAnswer *ret_answer = NULL;
+        _cleanup_(dns_packet_unrefp) DnsPacket *ret_full_packet = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *dname_key = NULL, *key = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        uint64_t ret_query_flags;
+        int ret_rcode;
+
+        put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "sub.example.com");
+        ASSERT_NOT_NULL(put_args.key);
+        dname_key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_DNAME, "example.com");
+        ASSERT_NOT_NULL(dname_key);
+        answer_add_dname(&put_args, dname_key, "target.example", 3600, DNS_ANSWER_CACHEABLE);
+        ASSERT_OK(cache_put(&cache, &put_args));
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_OK_ZERO(dns_cache_lookup(&cache, key, /* query_flags= */ 0, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, /* ret_dnssec_result= */ NULL));
+
+        key = dns_resource_key_unref(key);
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "other.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_OK_POSITIVE(dns_cache_lookup(&cache, key, /* query_flags= */ 0, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, /* ret_dnssec_result= */ NULL));
+
+        ASSERT_EQ(dns_answer_size(ret_answer), 1u);
+        rr = dns_resource_record_new(dname_key);
+        ASSERT_NOT_NULL(rr);
+        rr->dname.name = checked_strdup("target.example");
+        rr->ttl = 3600;
+        ASSERT_TRUE(dns_answer_contains(ret_answer, rr));
 }
 
 TEST(dns_cache_lookup_success) {

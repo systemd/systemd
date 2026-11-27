@@ -581,12 +581,23 @@ TEST(dns_resource_key_match_cname_or_dname_search_domain_cname_fail) {
 TEST(dns_resource_key_match_cname_or_dname_case_insensitive_dname) {
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *cname = NULL;
 
-        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.EXAMPLE.com");
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "foo.www.EXAMPLE.com");
         ASSERT_NOT_NULL(key);
         cname = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_DNAME, "www.example.com");
         ASSERT_NOT_NULL(cname);
 
         ASSERT_TRUE(dns_resource_key_match_cname_or_dname(key, cname, /* search_domain= */ NULL));
+}
+
+TEST(dns_resource_key_match_cname_or_dname_equal_dname) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *dname = NULL;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        dname = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_DNAME, "www.example.com");
+        ASSERT_NOT_NULL(dname);
+
+        ASSERT_FALSE(dns_resource_key_match_cname_or_dname(key, dname, /* search_domain= */ NULL));
 }
 
 TEST(dns_resource_key_match_cname_or_dname_prefix_dname) {
@@ -620,6 +631,17 @@ TEST(dns_resource_key_match_cname_or_dname_search_domain_dname_pass) {
         ASSERT_NOT_NULL(cname);
 
         ASSERT_TRUE(dns_resource_key_match_cname_or_dname(key, cname, "com"));
+}
+
+TEST(dns_resource_key_match_cname_or_dname_search_domain_equal_dname) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL, *dname = NULL;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "example");
+        ASSERT_NOT_NULL(key);
+        dname = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_DNAME, "example.com");
+        ASSERT_NOT_NULL(dname);
+
+        ASSERT_FALSE(dns_resource_key_match_cname_or_dname(key, dname, "com"));
 }
 
 TEST(dns_resource_key_match_cname_or_dname_search_domain_dname_fail) {

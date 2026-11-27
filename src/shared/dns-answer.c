@@ -815,6 +815,12 @@ int dns_answer_has_dname_for_cname(DnsAnswer *a, DnsResourceRecord *cname) {
                 if (rr->key->class != cname->key->class)
                         continue;
 
+                r = dns_name_endswith_strict(dns_resource_key_name(cname->key), dns_resource_key_name(rr->key));
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
                 r = dns_name_change_suffix(cname->cname.name, rr->dname.name, dns_resource_key_name(rr->key), &n);
                 if (r < 0)
                         return r;
