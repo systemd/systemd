@@ -2234,11 +2234,16 @@ static int copy_files(Context *c, Item *i) {
         if (dfd < 0)
                 return dfd;
 
+        /* If being run with --user as an unprivileged process COPY_UNPRIVILEGED is set and skips inhereting the source ownership
+        * Thereby also throw an error if uid or gid are explicitly set in the rule as these cannot be applied */
+        if (getuid() != 0 && (i->uid_set || i->gid_set))
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Cannot set explicit UID/GID on '%s' when running unprivileged.", i->path);
+
         r = copy_tree_at(AT_FDCWD, i->argument,
                          dfd, bn,
                          i->uid_set ? i->uid : UID_INVALID,
                          i->gid_set ? i->gid : GID_INVALID,
-                         ((i->append_or_force) ? COPY_MERGE : COPY_MERGE_EMPTY) | COPY_MAC_CREATE | COPY_HARDLINKS,
+                         ((i->append_or_force) ? COPY_MERGE : COPY_MERGE_EMPTY) | COPY_MAC_CREATE | COPY_HARDLINKS | (getuid() != 0 ? COPY_UNPRIVILEGED : 0),
                          /* denylist= */ NULL, /* subvolumes= */ NULL);
 
         fd = xopenat(dfd, bn, O_NOFOLLOW|O_PATH);

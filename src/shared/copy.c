@@ -612,11 +612,13 @@ static int fd_copy_symlink(
                 return r;
         }
 
-        if (fchownat(dt, to,
-                     uid_is_valid(override_uid) ? override_uid : st->st_uid,
-                     gid_is_valid(override_gid) ? override_gid : st->st_gid,
-                     AT_SYMLINK_NOFOLLOW) < 0)
-                r = -errno;
+        if (!FLAGS_SET(copy_flags, COPY_UNPRIVILEGED)) {
+                if (fchownat(dt, to,
+                             uid_is_valid(override_uid) ? override_uid : st->st_uid,
+                             gid_is_valid(override_gid) ? override_gid : st->st_gid,
+                             AT_SYMLINK_NOFOLLOW) < 0)
+                        r = -errno;
+        }
 
         (void) copy_xattr(df, from, dt, to, copy_flags);
 
@@ -973,10 +975,12 @@ static int fd_copy_regular(
         if (r < 0)
                 goto fail;
 
-        if (fchown(fdt,
-                   uid_is_valid(override_uid) ? override_uid : st->st_uid,
-                   gid_is_valid(override_gid) ? override_gid : st->st_gid) < 0)
-                r = -errno;
+        if (!FLAGS_SET(copy_flags, COPY_UNPRIVILEGED)) {
+                if (fchown(fdt,
+                           uid_is_valid(override_uid) ? override_uid : st->st_uid,
+                           gid_is_valid(override_gid) ? override_gid : st->st_gid) < 0)
+                        r = -errno;
+        }
 
         if (fchmod(fdt, st->st_mode & 07777) < 0)
                 r = -errno;
@@ -1059,11 +1063,13 @@ static int fd_copy_fifo(
         } else if (r < 0)
                 return r;
 
-        if (fchownat(dt, to,
-                     uid_is_valid(override_uid) ? override_uid : st->st_uid,
-                     gid_is_valid(override_gid) ? override_gid : st->st_gid,
-                     AT_SYMLINK_NOFOLLOW) < 0)
-                r = -errno;
+        if (!FLAGS_SET(copy_flags, COPY_UNPRIVILEGED)) {
+                if (fchownat(dt, to,
+                             uid_is_valid(override_uid) ? override_uid : st->st_uid,
+                             gid_is_valid(override_gid) ? override_gid : st->st_gid,
+                             AT_SYMLINK_NOFOLLOW) < 0)
+                        r = -errno;
+        }
 
         if (fchmodat(dt, to, st->st_mode & 07777, AT_SYMLINK_NOFOLLOW) < 0)
                 r = -errno;
@@ -1113,11 +1119,13 @@ static int fd_copy_node(
         } else if (r < 0)
                 return r;
 
-        if (fchownat(dt, to,
-                     uid_is_valid(override_uid) ? override_uid : st->st_uid,
-                     gid_is_valid(override_gid) ? override_gid : st->st_gid,
-                     AT_SYMLINK_NOFOLLOW) < 0)
-                r = -errno;
+        if (!FLAGS_SET(copy_flags, COPY_UNPRIVILEGED)) {
+                if (fchownat(dt, to,
+                             uid_is_valid(override_uid) ? override_uid : st->st_uid,
+                             gid_is_valid(override_gid) ? override_gid : st->st_gid,
+                             AT_SYMLINK_NOFOLLOW) < 0)
+                        r = -errno;
+        }
 
         if (fchmodat(dt, to, st->st_mode & 07777, AT_SYMLINK_NOFOLLOW) < 0)
                 r = -errno;
@@ -1304,10 +1312,12 @@ static int fd_copy_directory(
 
 finish:
         if (FLAGS_SET(copy_flags, COPY_MERGE_APPLY_STAT) || !exists) {
-                if (fchown(fdt,
-                           uid_is_valid(override_uid) ? override_uid : st->st_uid,
-                           gid_is_valid(override_gid) ? override_gid : st->st_gid) < 0)
-                        RET_GATHER(ret, -errno);
+                if (!FLAGS_SET(copy_flags, COPY_UNPRIVILEGED)) {
+                        if (fchown(fdt,
+                                   uid_is_valid(override_uid) ? override_uid : st->st_uid,
+                                   gid_is_valid(override_gid) ? override_gid : st->st_gid) < 0)
+                                RET_GATHER(ret, -errno);
+                }
 
                 if (fchmod(fdt, st->st_mode & 07777) < 0)
                         RET_GATHER(ret, -errno);

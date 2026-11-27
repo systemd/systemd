@@ -228,6 +228,20 @@ test -L /tmp/C-copy-link-dst
 test "$(readlink /tmp/C-copy-link-dst)" = "missing-target"
 rm -f /tmp/C-copy-link-src /tmp/C-copy-link-dst
 
+# Unprivileged copying of foreign-owned files should succeed
+rm -rf /tmp/C-copy-unpriv-src /tmp/C-copy-unpriv-dst
+mkdir -p /tmp/C-copy-unpriv-src /tmp/C-copy-unpriv-dst
+printf payload >/tmp/C-copy-unpriv-src/file
+chown nobody /tmp/C-copy-unpriv-dst
+
+runas nobody systemd-tmpfiles --create - <<EOF
+C     /tmp/C-copy-unpriv-dst/file    - - - - /tmp/C-copy-unpriv-src/file
+EOF
+test -f /tmp/C-copy-unpriv-dst/file
+test "$(cat /tmp/C-copy-unpriv-dst/file)" = "payload"
+test "$(stat -c %U /tmp/C-copy-unpriv-dst/file)" = nobody
+rm -rf /tmp/C-copy-unpriv-src /tmp/C-copy-unpriv-dst
+
 #
 # 'w'
 #
