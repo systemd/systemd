@@ -145,6 +145,10 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 ## Features
 
+- wherever we parse a file access mode complain loudly about access modes with
+  "negative" group member masks. i.e. if the "g" part has fewer privs than the
+  "o" part. similra. if "u" has fewer privs than the g or o part.
+
 - Maybe replace the getpid() anti-fork checks in sd-bus and similar with a
   MADV_WIPEONFORK page.
 
