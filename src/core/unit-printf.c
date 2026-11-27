@@ -71,6 +71,8 @@ static int specifier_last_component_unescaped(char specifier, const void *data, 
         r = specifier_last_component(specifier, data, root, userdata, &p);
         if (r < 0)
                 return r;
+        if (!p)
+                return -EINVAL;
 
         return unit_name_unescape(p, ret);
 }
