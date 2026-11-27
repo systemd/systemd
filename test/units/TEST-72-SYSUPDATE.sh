@@ -1030,6 +1030,28 @@ root_transfer directory / directory /target PathRelativeTo=explicit
 "$SYSUPDATE" --root="$ROOTDIR" --transfer-source="$WORKDIR/root-source" update
 cmp "$WORKDIR/root-source/root-1/content" "$ROOTDIR/store/root-1/content"
 
+root_reject() {
+    local error="${1:?}"
+    shift
+    root_transfer "$@"
+    if [[ "$1" == url-file ]]; then
+        "$SYSUPDATE" --root="$ROOTDIR" --offline list
+    fi
+    (! "$SYSUPDATE" --root="$ROOTDIR" --verify=no list) |& grep -F "$error" >/dev/null
+}
+root_reject 'Only HTTP(S) transfer URLs' url-file file:///source regular-file /target
+root_reject 'Only HTTP(S) transfer URLs' url-file https://example.invalid/repo regular-file /target ManifestPath=file:///source/SHA256SUMS
+"$SYSUPDATE" --root="$ROOTDIR" vacuum
+
+# A disabled transfer with a local URL must not prevent other transfers from discovering updates.
+mv "$ROOT_TRANSFER" "$ROOTDIR/etc/sysupdate.d/local-url.transfer"
+printf '\n[Transfer]\nFeatures=rootfeat\n' >>"$ROOTDIR/etc/sysupdate.d/local-url.transfer"
+root_transfer regular-file /source regular-file /target
+"$SYSUPDATE" --root="$ROOTDIR" disable-feature rootfeat
+"$SYSUPDATE" --root="$ROOTDIR" list 2
+rm "$ROOTDIR/etc/sysupdate.d/local-url.transfer"
+
+root_reject 'Only HTTP(S) transfer URLs' url-file 'provider:[/run/example.sock]/repo' regular-file /target
 rm -rf "$ROOTDIR"
 
 # Cleanup
@@ -1374,6 +1396,51 @@ grep -x '8073 open hhauth-v1.bin - -' "$HH/requests.log" >/dev/null
 # …and gives up eventually
 (! "$PULL" raw --verify=no --direct http://127.0.0.1:8072/loop/hhauth-v1.bin "$HH/pulled4.bin") |& \
     grep -F "Too many HTTP redirects" >/dev/null
+
+# An HTTP manifest cannot grant access to a local URL when updating a directory root. The file is
+# present and matches the digest, but must be rejected before acquisition in favor of the inline source.
+mkdir -p "$HH/root/etc/sysupdate.d"
+cat >"$HH/root/etc/sysupdate.d/01-root.transfer" <<EOF
+[Source]
+Type=url-file
+Path=http://127.0.0.1:8072/open
+ManifestFormat=uapi16
+MatchPattern=inline-@v.bin
+
+[Target]
+Type=regular-file
+Path=/target
+MatchPattern=inline-@v.bin
+EOF
+payload="$WORKDIR/uapi16/inline-v1.bin"
+{
+    printf '\036{"mediaType":"application/vnd.uapi.16.manifest"}\n'
+    printf '\036{"name":"inline-v1.bin","size":%s,"sha256":"%s","contents":[{"url":"file://%s"},{"literal":"%s"}]}\n' \
+        "$(stat -c %s "$payload")" "$(sha256_of "$payload")" "$payload" "$(base64 -w0 "$payload")"
+    printf '\036{"mediaType":"application/vnd.uapi.16.trailer"}\n'
+} >"$HH/srv/Uapi16Manifest"
+"$SYSUPDATE" --root="$HH/root" --verify=no update &>"$HH/root-update.log"
+grep -F "Local URL 'file://$payload' for 'inline-v1.bin' is not allowed with --root= or --image=, ignoring source" "$HH/root-update.log" >/dev/null
+(! grep -F "Pulling 'file://$payload'" "$HH/root-update.log")
+cmp "$payload" "$HH/root/target/inline-v1.bin"
+
+# An allowed manifest may be listed, but its implicit payload URL must be checked separately on acquire.
+(cd "$HH/srv" && sha256sum hhsame-v1.bin >SHA256SUMS)
+cat >"$HH/root/etc/sysupdate.d/01-root.transfer" <<EOF
+[Source]
+Type=url-file
+Path=file://$HH/srv
+ManifestPath=http://127.0.0.1:8072/open/SHA256SUMS
+MatchPattern=hhsame-@v.bin
+
+[Target]
+Type=regular-file
+Path=/target
+MatchPattern=hhsame-@v.bin
+EOF
+"$SYSUPDATE" --root="$HH/root" --verify=no list v1
+(! "$SYSUPDATE" --root="$HH/root" --verify=no update) |& grep -F "refusing payload 'file://$HH/srv/hhsame-v1.bin'" >/dev/null
+test ! -e "$HH/root/target/.sysupdate.partial.hhsame-v1.bin"
 
 systemctl stop test-72-http-a.service test-72-http-b.service
 

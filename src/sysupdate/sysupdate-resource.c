@@ -476,6 +476,13 @@ static bool resource_manifest_has_inline_signatures(ManifestFormat style) {
         return style == MANIFEST_FORMAT_UAPI16;
 }
 
+bool resource_url_is_allowed(const Resource *rr, const char *url) {
+        assert(rr);
+        assert(url);
+
+        return !rr->root || http_url_is_valid(url);
+}
+
 static int resource_manifest_url(Resource *rr, char **ret) {
         int r;
 
@@ -840,11 +847,14 @@ static int uapi16_object_resolve_sources(Resource *rr, Uapi16Object *o) {
                                 c->file = mfree(c->file);
                         }
 
-                } else if (c->url) {
-                        if (!http_url_is_valid(c->url) && !file_url_is_valid(c->url)) {
-                                log_warning("File '%s' refers to invalid URL '%s' in its contents, ignoring source.", o->name, c->url);
-                                usable = false;
-                        }
+                } else if (c->url && !http_url_is_valid(c->url) && !file_url_is_valid(c->url)) {
+                        log_warning("File '%s' refers to invalid URL '%s' in its contents, ignoring source.", o->name, c->url);
+                        usable = false;
+                }
+
+                if (usable && c->url && !resource_url_is_allowed(rr, c->url)) {
+                        log_warning("Local URL '%s' for '%s' is not allowed with --root= or --image=, ignoring source.", c->url, o->name);
+                        usable = false;
                 }
 
                 if (usable) {
@@ -1079,6 +1089,10 @@ static int resource_load_from_web(
         r = resource_manifest_url(rr, &manifest_url);
         if (r < 0)
                 return r;
+
+        if (!resource_url_is_allowed(rr, manifest_url))
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                       "Only HTTP(S) transfer URLs are allowed with --root= or --image=, refusing manifest '%s'.", manifest_url);
 
         WebCacheItem *ci = web_cache ? web_cache_get_item(*web_cache, manifest_url, verify) : NULL;
         if (ci) {
