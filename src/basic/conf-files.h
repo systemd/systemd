@@ -70,6 +70,7 @@ typedef int parse_line_t(
 
 typedef enum ConfFileReadFlags {
         CONF_FILE_READ_IGNORE_ENOENT      = 1 << 0, /* Do not fail if the file does not exist. */
+        CONF_FILE_READ_SEMICOLON_COMMENTS = 1 << 1, /* Also support ';' as comment marker. */
 } ConfFileReadFlags;
 
 int conf_file_read(
