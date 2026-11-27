@@ -1883,11 +1883,13 @@
 
           <listitem><para><varname>ConditionPathIsEncrypted=</varname> is similar to
           <varname>ConditionPathExists=</varname> but verifies that the underlying file system's backing
-          block device is encrypted using dm-crypt/LUKS. Block devices merely authenticated via dm-verity or
-          dm-integrity are not considered encrypted. Note that this check does not cover ext4
-          per-directory encryption, and only detects block level encryption. Moreover, if the specified path
-          resides on a file system on top of a loopback block device, only encryption above the loopback device is
-          detected. It is not detected whether the file system backing the loopback block device is encrypted.</para>
+          block device is encrypted (using LUKS, BitLocker, or some other mechanism supported by
+          <ulink url="https://docs.kernel.org/admin-guide/device-mapper/dm-crypt.html">dm-crypt</ulink>).
+          Block devices merely authenticated via dm-verity or dm-integrity are not considered encrypted. Note
+          that this check does not cover ext4 per-directory encryption, and only detects block level
+          encryption. Moreover, if the specified path resides on a file system on top of a loopback block
+          device, only encryption above the loopback device is detected. It is not detected whether the file
+          system backing the loopback block device is encrypted.</para>
 
           <xi:include href="version-info.xml" xpointer="v246"/>
           </listitem>
