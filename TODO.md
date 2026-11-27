@@ -2437,8 +2437,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   multiple versions are around of the same resource, show which ones. (in other
   words: show partition labels).
 
-- systemd-firstboot: optionally install an ssh key for root for offline use.
-
 - systemd-gpt-auto-generator: add kernel cmdline option to override block
   device to dissect. also support dissecting a regular file. useccase: include
   encrypted/verity root fs in UKI.
