@@ -323,7 +323,7 @@ static int parse_file(OrderedHashmap **sysctl_options, const char *path, bool ig
                         path,
                         parse_line,
                         sysctl_options,
-                        ignore_enoent ? CONF_FILE_READ_IGNORE_ENOENT : 0,
+                        (ignore_enoent ? CONF_FILE_READ_IGNORE_ENOENT : 0) | CONF_FILE_READ_SEMICOLON_COMMENTS,
                         /* invalid_config= */ NULL);
 }
 
@@ -557,7 +557,7 @@ static int run(int argc, char *argv[]) {
                                 pos++;
 
                                 const char *s = skip_leading_chars(*arg, /* bad= */ NULL);
-                                if (IN_SET(*s, '\0', '#'))
+                                if (IN_SET(*s, '\0', '#', ';'))
                                         continue;
 
                                 /* Use (argument):n, where n==1 for the first positional arg */
