@@ -1601,10 +1601,25 @@ static int event_log_record_validate_hash_firmware(
                  * Note: we already checked the general validity of the UEFI_VARIABLE_DATA structure, hence
                  * no need to do so again. */
 
-                assert(record->firmware_payload_size >= offsetof(UEFI_VARIABLE_DATA, unicodeName));
-                skip = offsetof(UEFI_VARIABLE_DATA, unicodeName) + vdata->unicodeNameLength * 2;
+                if (record->event_payload_valid == EVENT_PAYLOAD_VALID_NO)
+                        return 1;
 
-                assert(record->firmware_payload_size >= skip);
+                if (record->firmware_payload_size < offsetof(UEFI_VARIABLE_DATA, unicodeName))
+                        return log_debug_errno(
+                                SYNTHETIC_ERRNO(EBADMSG),
+                                "EFI variable payload too short.");
+
+                if (vdata->unicodeNameLength >
+                        (record->firmware_payload_size - offsetof(UEFI_VARIABLE_DATA, unicodeName)) / 2)
+                        return log_debug_errno(
+                                SYNTHETIC_ERRNO(EBADMSG),
+                                "EFI variable name length out of range.");
+
+                skip = offsetof(UEFI_VARIABLE_DATA, unicodeName) +
+                        vdata->unicodeNameLength * 2;
+
+                assert(skip <= record->firmware_payload_size);
+
                 hdata = (const uint8_t*) record->firmware_payload + skip;
                 hsz = record->firmware_payload_size - skip;
                 strict = true;
