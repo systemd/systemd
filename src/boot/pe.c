@@ -4,6 +4,7 @@
 #include "devicetree.h"
 #include "efi-firmware.h"
 #include "efi-log.h"
+#include "pe-reloc.h"
 #include "pe.h"
 #include "sha256.h"
 #include "util.h"
@@ -590,6 +591,7 @@ EFI_STATUS pe_kernel_info(
                 uint32_t *ret_entry_point,
                 uint32_t *ret_compat_entry_point,
                 size_t *ret_size_in_memory,
+                size_t *ret_headers_size,
                 uint32_t *ret_section_alignment) {
         assert(base);
 
@@ -602,6 +604,7 @@ EFI_STATUS pe_kernel_info(
         /* When allocating we need to also consider the virtual/uninitialized data sections, so parse it out
          * of the SizeOfImage field in the PE header and return it */
         size_t size_in_memory = pe->OptionalHeader.SizeOfImage;
+        size_t headers_size = pe->OptionalHeader.SizeOfHeaders;
 
         /* Honoring SectionAlignment lets callers place the image so the kernel's EFI stub need not relocate
          * it (SZ_64K on arm64). The PE spec requires a power of 2; for a non-conforming value fall back to
@@ -631,6 +634,8 @@ EFI_STATUS pe_kernel_info(
                         *ret_compat_entry_point = 0;
                 if (ret_size_in_memory)
                         *ret_size_in_memory = size_in_memory;
+                if (ret_headers_size)
+                        *ret_headers_size = headers_size;
                 if (ret_section_alignment)
                         *ret_section_alignment = section_alignment;
                 return EFI_SUCCESS;
@@ -650,33 +655,52 @@ EFI_STATUS pe_kernel_info(
                 *ret_compat_entry_point = compat_entry_point;
         if (ret_size_in_memory)
                 *ret_size_in_memory = size_in_memory;
+        if (ret_headers_size)
+                *ret_headers_size = headers_size;
         if (ret_section_alignment)
                 *ret_section_alignment = section_alignment;
 
         return EFI_SUCCESS;
 }
 
-/* We do not expect PE inner kernels to have any relocations. However that might be wrong for some
- * architectures, or it might change in the future. If the case of relocation arise, we should transform this
- * function in a function applying the relocations. However for now, since it would not be exercised and
- * would bitrot, we leave it as a check that relocations are never expected.
+/* Apply the subset of PE base relocations we need for 64-bit kernels.
+ *
+ * Our custom inner-kernel loader does not go through UEFI LoadImage(), hence it must
+ * apply the relocation directory itself whenever the image is loaded away from its
+ * preferred PE ImageBase. At the moment we only support IMAGE_REL_BASED_DIR64, which
+ * is sufficient for the affected 64-bit kernels.
+ *
+ * See: https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#the-reloc-section-image-only
  */
-EFI_STATUS pe_kernel_check_no_relocation(const void *base) {
-        assert(base);
+EFI_STATUS pe_kernel_apply_relocations(
+                const void *file_base,
+                size_t file_size,
+                uint8_t *loaded_base,
+                size_t loaded_size,
+                uint64_t actual_base) {
 
-        const DosFileHeader *dos = base;
-        if (!verify_dos(dos))
-                return EFI_LOAD_ERROR;
+        assert(file_base);
+        assert(loaded_base);
 
-        const PeFileHeader *pe = (const PeFileHeader *) ((const uint8_t *) base + dos->ExeHeader);
-        if (!verify_pe(dos, pe, /* allow_compatibility= */ true))
-                return EFI_LOAD_ERROR;
+        const DosFileHeader *dos;
+        const PeFileHeader *pe;
+        EFI_STATUS err = pe_headers_from_base(
+                        file_base,
+                        file_size,
+                        /* allow_compatibility= */ true,
+                        &dos,
+                        &pe);
+        if (err != EFI_SUCCESS)
+                return err;
 
         const PeImageDataDirectory *data_directory = pe_data_directory(pe);
-        if (data_directory[BASE_RELOCATION_TABLE_DATA_DIRECTORY_ENTRY].Size != 0)
-                return log_error_status(EFI_LOAD_ERROR, "Inner kernel image contains base relocations, which we do not support.");
+        uint64_t image_base = pe->OptionalHeader.Magic == OPTHDR32_MAGIC ?
+                pe->OptionalHeader.ImageBase32 : pe->OptionalHeader.ImageBase64;
 
-        return EFI_SUCCESS;
+        uint32_t reloc_rva = data_directory[BASE_RELOCATION_TABLE_DATA_DIRECTORY_ENTRY].VirtualAddress;
+        uint32_t reloc_size = data_directory[BASE_RELOCATION_TABLE_DATA_DIRECTORY_ENTRY].Size;
+
+        return pe_apply_base_relocations(loaded_base, loaded_size, reloc_rva, reloc_size, actual_base - image_base);
 }
 
 bool pe_kernel_check_nx_compat(const void *base) {
