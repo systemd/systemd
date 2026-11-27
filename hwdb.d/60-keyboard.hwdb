@@ -258,6 +258,11 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnNitro*ANV*15-51:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnNitro*ANV*15-52:pvr*
  KEYBOARD_KEY_f5=prog1                                  # NitroSense button
 
+# Nitro AN16-42
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnNitro*AN16-42:pvr*
+ KEYBOARD_KEY_f0=kbdillumdown                           # Fn+F11
+ KEYBOARD_KEY_ef=kbdillumup                             # Fn+F12
+
 ###########################################################
 # Alienware
 ###########################################################
