@@ -30,6 +30,8 @@ typedef enum CoredumpHandshakeState {
 typedef struct HandshakeContext {
         CoredumpHandshakeState state;
         struct coredump_req req;
+        bool allow_records;
+        bool records;
 } HandshakeContext;
 
 static int handshake_process_request(HandshakeContext *hc, sd_event_source *s, int fd, uint32_t revents) {
@@ -111,10 +113,17 @@ static int handshake_send_ack(HandshakeContext *hc, sd_event_source *s, int fd, 
         assert(fd >= 0);
         assert(FLAGS_SET(revents, EPOLLOUT));
 
+        uint64_t mask = COREDUMP_KERNEL | COREDUMP_WAIT;
+
+        /* If the kernel can describe holes as zero records, let it do that instead of sending the zeros.
+         * Not for coredumps that are passed on to a container, which might not understand records. */
+        if (hc->allow_records && FLAGS_SET(hc->req.mask, COREDUMP_RECORDS | COREDUMP_SPARSE))
+                mask |= COREDUMP_RECORDS | COREDUMP_SPARSE;
+
         struct coredump_ack ack = {
                 /* send the full coredump_ack structure if we can, but never more than what the kernel actually supports */
                 .size = MIN(sizeof(struct coredump_ack), hc->req.size_ack),
-                .mask = COREDUMP_KERNEL | COREDUMP_WAIT,
+                .mask = mask,
         };
 
         ssize_t n = send(fd, &ack, ack.size, MSG_NOSIGNAL);
@@ -128,7 +137,9 @@ static int handshake_send_ack(HandshakeContext *hc, sd_event_source *s, int fd, 
                                        "Sent size does not match with the size of coredump ack (%zi != %"PRIu32").",
                                        n, ack.size);
 
-        log_debug("Sent coredump ack, waiting for marker.");
+        hc->records = FLAGS_SET(mask, COREDUMP_RECORDS);
+
+        log_debug("Sent coredump ack (%s), waiting for marker.", hc->records ? "sparse records" : "byte stream");
         hc->state = COREDUMP_HANDSHAKE_WAITING_MARKER;
 
         r = sd_event_source_set_io_events(s, EPOLLIN);
@@ -220,7 +231,11 @@ static int coredump_handshake(CoredumpContext *context) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate sd-event object: %m");
 
-        HandshakeContext hc = {};
+        HandshakeContext hc = {
+                /* A coredump from another PID namespace may be passed on to a container, see
+                 * coredump_send_to_container(). */
+                .allow_records = context->same_pidns,
+        };
         r = sd_event_add_io(e, /* ret= */ NULL, context->input_fd, EPOLLIN, on_handshake_io, &hc);
         if (r < 0)
                 return log_error_errno(r, "Failed to add IO event source for kernel coredump socket: %m");
@@ -238,6 +253,7 @@ static int coredump_handshake(CoredumpContext *context) {
         if (hc.state != COREDUMP_HANDSHAKE_DONE) /* Maybe received SIGTERM/SIGINT. */
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Processing coredump request is cancelled.");
 
+        context->records = hc.records;
         return 0;
 }
 
