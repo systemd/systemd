@@ -38,6 +38,7 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "host-properties.h"
+#include "id128-util.h"
 #include "image-policy.h"
 #include "initrd-util.h"
 #include "label-util.h"                 /* IWYU pragma: keep */
@@ -400,6 +401,34 @@ static int is_our_mount_point(
                 return false;
         }
 
+        /* Device numbers are reused quickly, hence if we stored the file system UUID of the overlayfs too,
+         * check that as well. Older versions of systemd-sysext did not store it, and older kernels do not
+         * assign or expose overlayfs UUIDs, hence skip this check gracefully if it is not available. */
+        _cleanup_free_ char *uuid_path = path_join(p, image_class_info[image_class].dot_directory_name, "uuid");
+        if (!uuid_path)
+                return log_oom();
+
+        sd_id128_t uuid;
+        r = id128_read(uuid_path, ID128_FORMAT_ANY|ID128_REFUSE_NULL, &uuid);
+        if (r == -ENOENT) {
+                log_debug("Hierarchy '%s' does not carry a %s/uuid file, not checking file system UUID.", p, image_class_info[image_class].dot_directory_name);
+                return true;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read file system UUID stored in '%s/uuid' file on '%s': %m", image_class_info[image_class].dot_directory_name, p);
+
+        sd_id128_t actual_uuid;
+        r = id128_get_fs_uuid(p, &actual_uuid);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to get file system UUID of '%s', not checking it: %m", p);
+                return true;
+        }
+
+        if (!sd_id128_equal(uuid, actual_uuid)) {
+                log_debug("Hierarchy '%s' reports a different file system UUID than what we are seeing, assuming offline copy.", p);
+                return false;
+        }
+
         return true;
 }
 
@@ -726,6 +755,8 @@ static int mount_overlayfs(
                 char **layers,
                 const char *upper_dir,
                 const char *work_dir,
+                bool read_only,
+                bool generate_uuid,
                 const char *mount_options) {
 
         _cleanup_free_ char *options = NULL;
@@ -735,6 +766,7 @@ static int mount_overlayfs(
 
         assert(where);
         assert((upper_dir && work_dir) || (!upper_dir && !work_dir));
+        assert(read_only || upper_dir);
 
         options = strdup("lowerdir=");
         if (!options)
@@ -757,22 +789,46 @@ static int mount_overlayfs(
                 if (r < 0)
                         return r;
 
-                flags &= ~MS_RDONLY;
-
                 r = append_overlayfs_path_option(&options, ",", "workdir", work_dir);
                 if (r < 0)
                         return r;
 
-                if (!mount_options)
-                        mount_options = MUTABLE_EXTENSIONS_MOUNT_OPTIONS;
+                if (!read_only) {
+                        flags &= ~MS_RDONLY;
+
+                        if (!mount_options)
+                                mount_options = MUTABLE_EXTENSIONS_MOUNT_OPTIONS;
+                }
         }
 
+        /* Remember where the options common to both mount attempts below end */
+        size_t n = strlen(options);
+
+        /* Ask overlayfs to generate a random UUID for the new superblock, and store it in the upper
+         * directory, so that it is exposed via FS_IOC_GETFSUUID. We place this before the user supplied mount
+         * options, so that the user may override it. */
+        if (generate_uuid && !strextend(&options, ",uuid=on"))
+                return log_oom();
 
         if (!isempty(mount_options) && !strextend(&options, ",", mount_options))
                 return log_oom();
 
         /* Now mount the actual overlayfs */
-        r = mount_nofollow_verbose(LOG_ERR, image_class_info[image_class].short_identifier, where, "overlay", flags, options);
+        r = mount_nofollow_verbose(generate_uuid ? LOG_DEBUG : LOG_ERR, image_class_info[image_class].short_identifier, where, "overlay", flags, options);
+        if (r == -EINVAL && generate_uuid) {
+                /* Kernels older than 5.12 do not know the "uuid=" option at all (and kernels older than 6.6
+                 * do not know how to generate a UUID, but at least accept the option). Hence try again
+                 * without. */
+                log_debug("Failed to mount overlayfs with uuid=on, retrying without.");
+
+                options[n] = 0;
+                if (!isempty(mount_options) && !strextend(&options, ",", mount_options))
+                        return log_oom();
+
+                r = mount_nofollow_verbose(LOG_ERR, image_class_info[image_class].short_identifier, where, "overlay", flags, options);
+        } else if (r < 0 && generate_uuid)
+                /* Log the failure at error level, since we suppressed that above */
+                return log_error_errno(r, "Failed to mount overlayfs on '%s': %m", where);
         if (r < 0)
                 return r;
 
@@ -1258,26 +1314,46 @@ static int hierarchy_as_lower_dir(const Context *c, OverlayFSPaths *op) {
         return 0;
 }
 
-static int determine_bottom_lower_dirs(const Context *c, OverlayFSPaths *op, dev_t *ret_backing_devnum) {
+static int determine_bottom_lower_dirs(
+                const Context *c,
+                OverlayFSPaths *op,
+                dev_t *ret_backing_devnum,
+                sd_id128_t *ret_backing_uuid) {
+
         int r;
 
         assert(c);
         assert(op);
         assert(ret_backing_devnum);
+        assert(ret_backing_uuid);
 
         r = hierarchy_as_lower_dir(c, op);
         if (r < 0)
                 return r;
-        if (!r) {
-                if (strv_extend(&op->lower_dirs, op->resolved_hierarchy) < 0)
-                        return log_oom();
-
-                r = get_block_device(op->resolved_hierarchy, ret_backing_devnum);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get block device of '%s': %m", op->resolved_hierarchy);
-        } else
+        if (r > 0) {
                 *ret_backing_devnum = 0;
+                *ret_backing_uuid = SD_ID128_NULL;
+                return 0;
+        }
 
+        if (strv_extend(&op->lower_dirs, op->resolved_hierarchy) < 0)
+                return log_oom();
+
+        dev_t devnum;
+        r = get_block_device(op->resolved_hierarchy, &devnum);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get block device of '%s': %m", op->resolved_hierarchy);
+
+        /* Not all file systems expose their UUID via FS_IOC_GETFSUUID, hence handle this gracefully */
+        sd_id128_t uuid;
+        r = id128_get_fs_uuid(op->resolved_hierarchy, &uuid);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to get file system UUID of '%s', ignoring: %m", op->resolved_hierarchy);
+                uuid = SD_ID128_NULL;
+        }
+
+        *ret_backing_devnum = devnum;
+        *ret_backing_uuid = uuid;
         return 0;
 }
 
@@ -1286,7 +1362,8 @@ static int determine_lower_dirs(
                 OverlayFSPaths *op,
                 char **paths,
                 const char *meta_path,
-                dev_t *ret_backing_devnum) {
+                dev_t *ret_backing_devnum,
+                sd_id128_t *ret_backing_uuid) {
 
         int r;
 
@@ -1294,6 +1371,7 @@ static int determine_lower_dirs(
         assert(op);
         assert(meta_path);
         assert(ret_backing_devnum);
+        assert(ret_backing_uuid);
 
         r = determine_top_lower_dirs(c, op, meta_path);
         if (r < 0)
@@ -1303,7 +1381,7 @@ static int determine_lower_dirs(
         if (r < 0)
                 return r;
 
-        r = determine_bottom_lower_dirs(c, op, ret_backing_devnum);
+        r = determine_bottom_lower_dirs(c, op, ret_backing_devnum, ret_backing_uuid);
         if (r < 0)
                 return r;
 
@@ -1367,16 +1445,21 @@ static int determine_work_dir(const Context *c, OverlayFSPaths *op) {
 static int mount_overlayfs_with_op(
                 OverlayFSPaths *op,
                 ImageClass image_class,
+                MutableMode mutable,
                 int noexec,
                 const char *overlay_path,
                 const char *meta_path,
                 const char *mount_options) {
 
+        _cleanup_free_ char *meta_work_dir = NULL;
+        const char *top_layer = NULL, *upper_dir, *work_dir;
+        bool generate_uuid;
+        char **layers;
         int r;
-        const char *top_layer = NULL;
 
         assert(op);
         assert(overlay_path);
+        assert(meta_path);
 
         r = mkdir_p(overlay_path, 0700);
         if (r < 0)
@@ -1408,9 +1491,49 @@ static int mount_overlayfs_with_op(
                         return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", op->work_dir);
 
                 top_layer = op->upper_dir;
+
+                upper_dir = op->upper_dir;
+                work_dir = op->work_dir;
+                layers = op->lower_dirs;
+
+                /* Only generate a UUID if the upper directory is located on our own temporary workspace,
+                 * as it is persistently stored in an xattr on it. Persistent upper directories are left
+                 * as they are, i.e. the kernel's default logic applies. */
+                generate_uuid = IN_SET(mutable, MUTABLE_EPHEMERAL, MUTABLE_EPHEMERAL_IMPORT);
         } else {
                 assert(!strv_isempty(op->lower_dirs));
                 top_layer = op->lower_dirs[0];
+
+                if (path_equal(top_layer, meta_path) && strv_length(op->lower_dirs) >= 2) {
+                        /* overlayfs only assigns a UUID to its superblock (as exposed via FS_IOC_GETFSUUID)
+                         * if it has an upper directory. Hence, for read-only overlays, use our metadata
+                         * directory (which is the top layer anyway, and which is located on our temporary
+                         * workspace) as upper directory, and mount the overlayfs read-only. */
+                        r = work_dir_for_hierarchy(op->hierarchy, meta_path, &meta_work_dir);
+                        if (r < 0)
+                                return r;
+
+                        r = mkdir_p(meta_work_dir, 0700);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to make directory '%s': %m", meta_work_dir);
+
+                        _cleanup_close_ int dfd = xopenat(AT_FDCWD, meta_work_dir, O_DIRECTORY);
+                        if (dfd < 0)
+                                return log_error_errno(dfd, "Failed to open directory '%s': %m", meta_work_dir);
+
+                        r = mac_selinux_fix_full(dfd, /* inode_path= */ NULL, op->hierarchy, /* flags= */ 0, /* label_context= */ NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", meta_work_dir);
+
+                        upper_dir = meta_path;
+                        work_dir = meta_work_dir;
+                        layers = op->lower_dirs + 1;
+                        generate_uuid = true;
+                } else {
+                        upper_dir = work_dir = NULL;
+                        layers = op->lower_dirs;
+                        generate_uuid = false;
+                }
         }
 
         /* Overlayfs merged directory has the same mode as the top layer (either first lowerdir in options in
@@ -1420,7 +1543,16 @@ static int mount_overlayfs_with_op(
         if (chmod(top_layer, op->hierarchy_mode) < 0)
                 return log_error_errno(errno, "Failed to set permissions of '%s' to %04o: %m", top_layer, op->hierarchy_mode);
 
-        r = mount_overlayfs(image_class, noexec, overlay_path, op->lower_dirs, op->upper_dir, op->work_dir, mount_options);
+        r = mount_overlayfs(
+                        image_class,
+                        noexec,
+                        overlay_path,
+                        layers,
+                        upper_dir,
+                        work_dir,
+                        /* read_only= */ !op->upper_dir,
+                        generate_uuid,
+                        mount_options);
         if (r < 0)
                 return r;
 
@@ -1517,6 +1649,64 @@ static int write_dev_file(ImageClass image_class, const char *meta_path, const c
         return 0;
 }
 
+static int write_uuid_file(ImageClass image_class, const char *meta_path, const char *overlay_path, const char *hierarchy) {
+        int r;
+
+        assert(meta_path);
+        assert(overlay_path);
+        assert(hierarchy);
+
+        /* Similar to write_dev_file(), but stores the UUID of the new file system, if it has one. Unlike the
+         * device number this is not reused if the file system is unmounted and a new one mounted, hence
+         * provides a stronger check. Older kernels do not assign a UUID to overlayfs or do not expose it via
+         * FS_IOC_GETFSUUID, hence handle that gracefully. */
+        sd_id128_t uuid;
+        r = id128_get_fs_uuid(overlay_path, &uuid);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to get file system UUID of '%s', not storing it: %m", overlay_path);
+                return 0;
+        }
+
+        _cleanup_free_ char *f = path_join(meta_path, image_class_info[image_class].dot_directory_name, "uuid");
+        if (!f)
+                return log_oom();
+
+        _cleanup_free_ char *hierarchy_path = path_join(hierarchy, image_class_info[image_class].dot_directory_name, "uuid");
+        if (!hierarchy_path)
+                return log_oom();
+
+        r = write_string_file_full(AT_FDCWD, f, SD_ID128_TO_UUID_STRING(uuid), WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_LABEL, /* ts= */ NULL, hierarchy_path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write '%s': %m", f);
+
+        return 0;
+}
+
+static int write_backing_uuid_file(ImageClass image_class, const char *meta_path, const char *hierarchy, sd_id128_t backing_uuid) {
+        int r;
+
+        assert(meta_path);
+        assert(hierarchy);
+
+        if (sd_id128_is_null(backing_uuid))
+                return 0;
+
+        /* Like write_backing_file(), but stores the UUID of the backing file system, if it has one */
+        _cleanup_free_ char *f = path_join(meta_path, image_class_info[image_class].dot_directory_name, "backing_uuid");
+        if (!f)
+                return log_oom();
+
+        _cleanup_free_ char *hierarchy_path = path_join(hierarchy, image_class_info[image_class].dot_directory_name, "backing_uuid");
+        if (!hierarchy_path)
+                return log_oom();
+
+        r = write_string_file_full(AT_FDCWD, f, SD_ID128_TO_UUID_STRING(backing_uuid), WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_LABEL, /* ts= */ NULL, hierarchy_path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write '%s': %m", f);
+
+        return 0;
+}
+
 static int write_backing_file(ImageClass image_class, const char *meta_path, const char *overlay_path, const char *hierarchy, dev_t backing) {
         int r;
 
@@ -1594,7 +1784,8 @@ static int store_info_in_meta(
                 const char *overlay_path,
                 const char *work_dir,
                 const char *hierarchy,
-                dev_t backing) {
+                dev_t backing,
+                sd_id128_t backing_uuid) {
 
         int r;
 
@@ -1631,11 +1822,19 @@ static int store_info_in_meta(
         if (r < 0)
                 return r;
 
+        r = write_uuid_file(c->image_class, meta_path, overlay_path, hierarchy);
+        if (r < 0)
+                return r;
+
         r = write_work_dir_file(c, meta_path, work_dir, hierarchy);
         if (r < 0)
                 return r;
 
         r = write_backing_file(c->image_class, meta_path, overlay_path, hierarchy, backing);
+        if (r < 0)
+                return r;
+
+        r = write_backing_uuid_file(c->image_class, meta_path, hierarchy, backing_uuid);
         if (r < 0)
                 return r;
 
@@ -1714,8 +1913,9 @@ static int merge_hierarchy(
         if (r < 0)
                 return r;
 
+        sd_id128_t backing_uuid;
         dev_t backing;
-        r = determine_lower_dirs(c, op, used_paths, meta_path, &backing);
+        r = determine_lower_dirs(c, op, used_paths, meta_path, &backing, &backing_uuid);
         if (r < 0)
                 return r;
 
@@ -1727,11 +1927,11 @@ static int merge_hierarchy(
         if (r < 0)
                 return r;
 
-        r = mount_overlayfs_with_op(op, c->image_class, c->noexec, overlay_path, meta_path, c->overlayfs_mount_options);
+        r = mount_overlayfs_with_op(op, c->image_class, c->mutable, c->noexec, overlay_path, meta_path, c->overlayfs_mount_options);
         if (r < 0)
                 return r;
 
-        r = store_info_in_meta(c, extensions, origin_content, meta_path, overlay_path, op->work_dir, op->hierarchy, backing);
+        r = store_info_in_meta(c, extensions, origin_content, meta_path, overlay_path, op->work_dir, op->hierarchy, backing, backing_uuid);
         if (r < 0)
                 return r;
 
