@@ -274,6 +274,179 @@ if __name__ == "__main__":
 PYEOF
 }
 
+# The boot manager, the stub and the kernel extend PCR 12 (kernel-config) and log every extension
+# into the TPM event log the kernel exposes. Replaying the PCR 12 events of the log must give the
+# live PCR value, the measured data must correspond to what the kernel actually received, and a
+# non-default profile must have been measured (the default profile is not).
+pcr12_check() {
+    cat >/root/pcr12-check.py <<'PYEOF'
+#!/usr/bin/env python3
+"""Verify the PCR 12 (kernel-config) TPM measurements recorded during this boot."""
+import hashlib
+import json
+import os
+import struct
+import sys
+
+PCR = 12
+SHA256 = 0x000b
+EV_EVENT_TAG = 0x00000006
+EV_IPL = 0x0000000d
+UKI_PROFILE_TAG = 0x13aed6db
+SPEC_ID = b"Spec ID Event03\x00"
+
+def die(msg):
+    raise SystemExit(f"PCR 12 check failed: {msg}")
+
+def utf16(data):
+    # A NUL-terminated UTF-16LE string; the terminator is optional
+    if len(data) % 2:
+        data += b"\x00"
+    return data.decode("utf-16-le").rstrip("\x00")
+
+def main():
+    profile = sys.argv[1]
+
+    log = None
+    for path in ("/sys/kernel/security/tpm0/binary_bios_measurements",
+                 "/sys/kernel/security/tpm0/binary_tpm_eventlog"):
+        if os.path.exists(path):
+            log = open(path, "rb").read()
+            break
+    if log is None:
+        print("the kernel does not expose the TPM event log, skipping the PCR 12 check")
+        return
+
+    # The log starts with the Spec ID event in the legacy format (cf.
+    # validate_firmware_header() in src/pcrlock/pcrlock-firmware.c): pcrIndex,
+    # eventType, zeroed sha1 digest, eventDataSize, then the TCG_EfiSpecIDEvent
+    # with the table of hash algorithms as (algorithm ID, digest size) pairs.
+    pcr, etype, digest, size = struct.unpack_from("<II20sI", log, 0)
+    if pcr != 0 or etype != 0x3 or digest != b"\x00" * 20:
+        die(f"unexpected event log header: pcr={pcr} type={etype:#x}")
+    off = 32
+    if log[off:off + 16] != SPEC_ID:
+        die("missing Spec ID event signature")
+    (n_algs,) = struct.unpack_from("<I", log, off + 24)
+    if not 1 <= n_algs <= 16:
+        die(f"implausible number of hash algorithms in the event log: {n_algs}")
+    algs = struct.unpack_from(f"<{2 * n_algs}H", log, off + 28)
+    alg_sz_pairs = {algs[i]: algs[i + 1] for i in range(0, len(algs), 2)}
+    if SHA256 not in alg_sz_pairs:
+        print("the TPM event log has no sha256 bank, skipping the PCR 12 check")
+        return
+    off += size
+
+    # Replay the PCR 12 events. Each record is TCG_PCR_EVENT2: pcrIndex, eventType,
+    # the digests (count, then one hash algorithm entry per algorithm of the Spec
+    # ID table), eventSize, and the event data.
+    state = b"\x00" * 32
+    ipl = []
+    tags = []
+    while off < len(log):
+        p, etype, count = struct.unpack_from("<III", log, off)
+        if count > 16:
+            die(f"implausible number of digests in an event log record: {count}")
+        doff = off + 12
+        digests = {}
+        for _ in range(count):
+            (h,) = struct.unpack_from("<H", log, doff)
+            d = alg_sz_pairs.get(h, 0)
+            if h not in digests:
+                digests[h] = log[doff + 2:doff + 2 + d]
+            doff += 2 + d
+        (esize,) = struct.unpack_from("<I", log, doff)
+        data = log[doff + 4:doff + 4 + esize]
+        off = doff + 4 + esize
+        if p != PCR:
+            continue
+        if etype == EV_IPL:
+            try:
+                ipl.append(utf16(data))
+            except UnicodeDecodeError:
+                pass
+        elif etype == EV_EVENT_TAG and len(data) >= 8:
+            tag, tsize = struct.unpack_from("<II", data, 0)
+            if tag == UKI_PROFILE_TAG and tsize + 8 <= len(data):
+                try:
+                    tags.append(utf16(data[8:8 + tsize]))
+                except UnicodeDecodeError:
+                    die("malformed UTF-16 data in the UKI profile tag event")
+        if SHA256 not in digests:
+            die("PCR 12 event without a sha256 digest")
+        state = hashlib.sha256(state + digests[SHA256]).digest()
+
+    if not ipl and not tags:
+        die("no PCR 12 measurements in the event log")
+
+    # The firmware event log stops where the kernel takes over. Extensions made by userspace
+    # (like the os-separator) are in the TPM measurement log instead, so the replay covers both
+    # sources, firmware events first (cf. event_log_load() in src/pcrlock/pcrlock.c).
+    userspace = os.environ.get("SYSTEMD_MEASURE_LOG_USERSPACE", "/run/log/systemd/tpm2-measure.log")
+    if os.path.exists(userspace):
+        with open(userspace) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                except ValueError:
+                    die(f"malformed TPM measurement log entry: {line!r}")
+                if entry.get("pcr") != PCR:
+                    continue
+                digest = None
+                for d in entry.get("digests", []):
+                    if d.get("hashAlg") == "sha256":
+                        digest = d
+                        break
+                if digest is None:
+                    die(f"PCR 12 entry without a sha256 digest in the TPM measurement log: {line!r}")
+                try:
+                    state = hashlib.sha256(state + bytes.fromhex(digest["digest"])).digest()
+                except (KeyError, ValueError, TypeError):
+                    die(f"malformed sha256 digest in the TPM measurement log: {line!r}")
+
+    live = None
+    for path in (f"/sys/class/tpm/tpm0/pcr-sha256/{PCR}", f"/sys/class/tpm0/tpm0/pcr-{PCR}"):
+        if os.path.exists(path):
+            live = open(path).read().strip()
+            break
+    if live is None:
+        print("no sha256 PCR bank exposed via sysfs, skipping the PCR 12 check")
+        return
+    # The kernel may format the sysfs PCR value with any hex case, so compare case-insensitively.
+    if state.hex() != live.lower():
+        die(f"live PCR 12 is {live}, replaying the event log gives {state.hex()}")
+
+    # At least one of the measured strings must have made it into the kernel command line of the
+    # measured boot, i.e. the measured kernel configuration is what the kernel received.
+    with open("/proc/cmdline") as f:
+        cmdline = f.read().strip()
+    if not any(s and s in cmdline for s in ipl):
+        die(f"none of the measured strings {ipl!r} is part of the kernel command line {cmdline!r}")
+
+    if profile == "main":
+        # The default profile is not measured into the TPM.
+        if tags:
+            die(f"the default profile must not be measured, found profile tag events {tags!r}")
+    else:
+        if not tags:
+            die(f"profile {profile} was not measured into PCR 12")
+        for t in tags:
+            # The boot manager measures the profile marker, the stub the profile itself; both
+            # must agree.
+            if not any(s == f"@{t}" or s.startswith(f"@{t} ") for s in ipl):
+                die(f"no boot manager profile marker matching tag {t!r} among {ipl!r}")
+
+    print(f"PCR 12 check passed (profile {profile}): {len(ipl)} IPL string(s), {len(tags)} profile tag(s)")
+
+if __name__ == "__main__":
+    main()
+PYEOF
+    python3 /root/pcr12-check.py "$ID"
+}
+
 # Queue the capsule fixtures and enter the firmware update stages.
 fwupdate_start() {
     fwupdate_helper
@@ -325,6 +498,9 @@ test -f /run/systemd/stub/profile
 
 # shellcheck source=/dev/null
 . /run/systemd/stub/profile
+
+# Check the kernel-config (PCR 12) measurements of this boot, whatever the profile.
+pcr12_check
 
 if [[ "$ID" == "tofu" ]]; then
     grep testprofiletofu=1 /proc/cmdline
