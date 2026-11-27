@@ -415,6 +415,13 @@ int in_addr_full_new_from_string(const char *s, struct in_addr_full **ret) {
 
         assert(s);
 
+        /* Accepts both the "address[:port][%ifname][#name]" form and the URI form, see
+         * in_addr_full_new_from_uri() */
+
+        r = in_addr_full_new_from_uri(s, ret);
+        if (r != -EPROTONOSUPPORT)
+                return r;
+
         r = in_addr_port_ifindex_name_from_string_auto(s, &family, &a, &port, &ifindex, &server_name);
         if (r < 0)
                 return r;
