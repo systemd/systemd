@@ -15,8 +15,6 @@ typedef enum DnsTransportKind {
         _DNS_TRANSPORT_KIND_INVALID = -EINVAL,
 } DnsTransportKind;
 
-DECLARE_STRING_TABLE_LOOKUP(dns_transport_kind, DnsTransportKind);
-
 /* Whether traffic to a server has to be encrypted. Derived from the DNSOverTLS= setting. */
 typedef enum DnsEncryptionMode {
         DNS_ENCRYPTION_NO,             /* Classic DNS only */
@@ -40,6 +38,8 @@ void dns_transport_policy_init(DnsEncryptionMode mode, DnsTransportPolicy *ret);
 bool dns_transport_policy_contains(DnsTransportPolicy p, DnsTransportKind kind) _const_;
 DnsTransportKind dns_transport_policy_best(DnsTransportPolicy p) _const_;
 DnsTransportKind dns_transport_policy_next(DnsTransportPolicy p, DnsTransportKind kind) _const_;
+
+DnsEncryptionMode dns_encryption_mode_from_transport_policy(DnsTransportPolicy p) _const_;
 
 /* What the server understands at the DNS message layer, independently of the transport carrying it */
 typedef enum DnsServerEdnsLevel {
@@ -130,8 +130,20 @@ typedef struct DnsTransportVTable {
         /* Size of the transport specific object, which embeds DnsServerTransport as its first member */
         size_t object_size;
 
+        /* The URI scheme selecting this transport in DNS server settings, e.g. "dnss" for "dnss://192.0.2.1" */
+        const char *scheme;
+
+        bool encrypted;
+
+        /* The unencrypted transport this one may downgrade to, if a DNS server setting permits it with its
+         * "downgrade" parameter. _DNS_TRANSPORT_KIND_INVALID if none. */
+        DnsTransportKind downgrade;
+
         /* Port to use if the server has none configured */
         uint16_t default_port;
+
+        /* Whether DNS server settings selecting this transport may have a path and a query */
+        bool path;
 
         /* The lowest EDNS level this transport can be used with */
         DnsServerEdnsLevel edns_min;
@@ -191,6 +203,20 @@ extern const DnsTransportVTable * const dns_transport_vtable[_DNS_TRANSPORT_KIND
 
 static inline const DnsTransportVTable* DNS_TRANSPORT_VTABLE(const DnsServerTransport *tr) {
         return dns_transport_vtable[ASSERT_PTR(tr)->kind];
+}
+
+/* The transport implementing the URI scheme, or _DNS_TRANSPORT_KIND_INVALID if this build has none */
+DnsTransportKind dns_transport_kind_from_scheme(const char *scheme) _pure_;
+
+/* The URI scheme of a transport, or NULL if this build doesn't support it */
+static inline const char* dns_transport_kind_to_string(DnsTransportKind kind) {
+        const DnsTransportVTable *vt;
+
+        if (kind < 0 || kind >= _DNS_TRANSPORT_KIND_MAX)
+                return NULL;
+
+        vt = dns_transport_vtable[kind];
+        return vt ? vt->scheme : NULL;
 }
 
 int dns_server_transport_new(DnsServer *s, DnsTransportKind kind, DnsServerTransport **ret);

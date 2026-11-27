@@ -58,7 +58,9 @@ static void transaction_env_setup(TransactionEnv *env, DnssecMode dnssec_mode) {
 
         ASSERT_OK(dns_server_new(&env->manager, &env->server, DNS_SERVER_SYSTEM, /* link= */ NULL,
                                  /* delegate= */ NULL, AF_INET, &server_addr, 53, /* ifindex= */ 0,
-                                 /* server_name= */ NULL, RESOLVE_CONFIG_SOURCE_DBUS));
+                                 /* server_name= */ NULL,
+                                 /* transport_policy= */ 0, /* downgrade_port= */ 0,
+                                 RESOLVE_CONFIG_SOURCE_DBUS));
         ASSERT_NOT_NULL(env->server);
 }
 

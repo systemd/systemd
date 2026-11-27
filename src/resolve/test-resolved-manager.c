@@ -77,7 +77,9 @@ TEST(manager_compile_dns_servers_filters_before_deduplicating) {
         route_only_link->unicast_scope = route_only_scope;
         ASSERT_OK(dns_server_new(&manager, &route_only_server, DNS_SERVER_LINK, route_only_link,
                                  /* delegate= */ NULL, AF_INET, &address, 53, /* ifindex= */ 0,
-                                 /* server_name= */ NULL, RESOLVE_CONFIG_SOURCE_DBUS));
+                                 /* server_name= */ NULL,
+                                 /* transport_policy= */ 0, /* downgrade_port= */ 0,
+                                 RESOLVE_CONFIG_SOURCE_DBUS));
 
         ASSERT_OK(link_new(&manager, &default_route_link, 2));
         default_route_link->default_route = true;
@@ -86,7 +88,9 @@ TEST(manager_compile_dns_servers_filters_before_deduplicating) {
         default_route_link->unicast_scope = default_route_scope;
         ASSERT_OK(dns_server_new(&manager, &default_route_server, DNS_SERVER_LINK, default_route_link,
                                  /* delegate= */ NULL, AF_INET, &address, 53, /* ifindex= */ 0,
-                                 /* server_name= */ NULL, RESOLVE_CONFIG_SOURCE_DBUS));
+                                 /* server_name= */ NULL,
+                                 /* transport_policy= */ 0, /* downgrade_port= */ 0,
+                                 RESOLVE_CONFIG_SOURCE_DBUS));
 
         ASSERT_OK(manager_compile_dns_servers(&manager, &servers));
         ASSERT_EQ(ordered_set_size(servers), 1u);
@@ -119,10 +123,14 @@ TEST(manager_compile_dns_servers_does_not_use_fallback_for_route_only_servers) {
         link->unicast_scope = scope;
         ASSERT_OK(dns_server_new(&manager, &route_only_server, DNS_SERVER_LINK, link,
                                  /* delegate= */ NULL, AF_INET, &route_only_address, 53, /* ifindex= */ 0,
-                                 /* server_name= */ NULL, RESOLVE_CONFIG_SOURCE_DBUS));
+                                 /* server_name= */ NULL,
+                                 /* transport_policy= */ 0, /* downgrade_port= */ 0,
+                                 RESOLVE_CONFIG_SOURCE_DBUS));
         ASSERT_OK(dns_server_new(&manager, &fallback_server, DNS_SERVER_FALLBACK, /* link= */ NULL,
                                  /* delegate= */ NULL, AF_INET, &fallback_address, 53, /* ifindex= */ 0,
-                                 /* server_name= */ NULL, RESOLVE_CONFIG_SOURCE_DBUS));
+                                 /* server_name= */ NULL,
+                                 /* transport_policy= */ 0, /* downgrade_port= */ 0,
+                                 RESOLVE_CONFIG_SOURCE_DBUS));
 
         ASSERT_OK(manager_compile_dns_servers(&manager, &servers));
         ASSERT_EQ(ordered_set_size(servers), 0u);

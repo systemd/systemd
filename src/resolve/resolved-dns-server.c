@@ -4,6 +4,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "bitfield.h"
 #include "dns-domain.h"
 #include "dns-packet.h"
 #include "errno-util.h"
@@ -11,6 +12,7 @@
 #include "fd-util.h"
 #include "hash-funcs.h"
 #include "json-util.h"
+#include "parse-util.h"
 #include "resolve-util.h"
 #include "resolved-bus.h"
 #include "resolved-dns-cache.h"
@@ -27,6 +29,7 @@
 #include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
 
 /* The amount of time to wait before retrying with a full feature set */
@@ -44,6 +47,8 @@ int dns_server_new(
                 uint16_t port,
                 int ifindex,
                 const char *server_name,
+                DnsTransportPolicy transport_policy,
+                uint16_t downgrade_port,
                 ResolveConfigSource config_source) {
 
         _cleanup_(dns_server_unrefp) DnsServer *s = NULL;
@@ -54,6 +59,7 @@ int dns_server_new(
         assert((type == DNS_SERVER_LINK) == !!link);
         assert((type == DNS_SERVER_DELEGATE) == !!delegate);
         assert(in_addr);
+        assert(transport_policy != 0 || downgrade_port == 0);
 
         if (!IN_SET(family, AF_INET, AF_INET6))
                 return -EAFNOSUPPORT;
@@ -88,6 +94,8 @@ int dns_server_new(
                 .port = port,
                 .ifindex = ifindex,
                 .server_name = TAKE_PTR(name),
+                .transport_policy = transport_policy,
+                .downgrade_port = downgrade_port,
                 .config_source = config_source,
                 .accessible = -1,
         };
@@ -483,7 +491,10 @@ static void dns_server_transport_policy(DnsServer *s, DnsTransportPolicy *ret) {
         assert(s);
         assert(ret);
 
-        dns_transport_policy_init(dns_server_get_encryption_mode(s), ret);
+        if (s->transport_policy != 0)
+                *ret = s->transport_policy;
+        else
+                dns_transport_policy_init(dns_server_get_encryption_mode(s), ret);
 }
 
 DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
@@ -734,8 +745,46 @@ const char* dns_server_string(DnsServer *server) {
         return server->server_string;
 }
 
+static int dns_server_uri(DnsServer *s, char **ret) {
+        _cleanup_(in_addr_full_freep) struct in_addr_full *a = NULL;
+        DnsTransportKind best;
+        const char *t;
+        int r;
+
+        assert(s);
+        assert(s->transport_policy != 0);
+        assert(ret);
+
+        r = in_addr_full_new(s->family, &s->address, s->port, dns_server_ifindex(s), s->server_name, &a);
+        if (r < 0)
+                return r;
+
+        best = dns_transport_policy_best(s->transport_policy);
+        r = strdup_to(&a->scheme, dns_transport_kind_to_string(best));
+        if (r < 0)
+                return r;
+
+        if (dns_transport_policy_next(s->transport_policy, best) >= 0) {
+                if (s->downgrade_port > 0)
+                        r = strv_extendf(&a->params, "downgrade=%" PRIu16, s->downgrade_port);
+                else
+                        r = strv_extend(&a->params, "downgrade=");
+                if (r < 0)
+                        return r;
+        }
+
+        t = in_addr_full_to_string(a);
+        if (!t)
+                return -ENOMEM;
+
+        return strdup_to(ret, t);
+}
+
 const char* dns_server_string_full(DnsServer *server) {
         assert(server);
+
+        if (!server->server_string_full && server->transport_policy != 0)
+                (void) dns_server_uri(server, &server->server_string_full);
 
         if (!server->server_string_full)
                 (void) in_addr_port_ifindex_name_to_string(
@@ -813,6 +862,8 @@ static void dns_server_hash_func(const DnsServer *s, struct siphash *state) {
         siphash24_compress_typesafe(s->port, state);
         siphash24_compress_typesafe(s->ifindex, state);
         siphash24_compress_string(s->server_name, state);
+        siphash24_compress_typesafe(s->transport_policy, state);
+        siphash24_compress_typesafe(s->downgrade_port, state);
 }
 
 static int dns_server_compare_func(const DnsServer *x, const DnsServer *y) {
@@ -834,7 +885,15 @@ static int dns_server_compare_func(const DnsServer *x, const DnsServer *y) {
         if (r != 0)
                 return r;
 
-        return strcmp_ptr(x->server_name, y->server_name);
+        r = strcmp_ptr(x->server_name, y->server_name);
+        if (r != 0)
+                return r;
+
+        r = CMP(x->transport_policy, y->transport_policy);
+        if (r != 0)
+                return r;
+
+        return CMP(x->downgrade_port, y->downgrade_port);
 }
 
 DEFINE_HASH_OPS(dns_server_hash_ops, DnsServer, dns_server_hash_func, dns_server_compare_func);
@@ -888,43 +947,131 @@ void dns_server_mark_all(DnsServer *server) {
         }
 }
 
-DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_union *in_addr, uint16_t port, int ifindex, const char *name) {
+DnsServer *dns_server_find(
+                DnsServer *first,
+                int family,
+                const union in_addr_union *in_addr,
+                uint16_t port,
+                int ifindex,
+                const char *name,
+                DnsTransportPolicy transport_policy,
+                uint16_t downgrade_port) {
+
         LIST_FOREACH(servers, s, first)
                 if (s->family == family &&
                     in_addr_equal(family, &s->address, in_addr) > 0 &&
                     s->port == port &&
                     s->ifindex == ifindex &&
-                    streq_ptr(s->server_name, name))
+                    streq_ptr(s->server_name, name) &&
+                    s->transport_policy == transport_policy &&
+                    s->downgrade_port == downgrade_port)
                         return s;
 
         return NULL;
 }
 
+int dns_server_parse_string(
+                const char *s,
+                struct in_addr_full **ret_address,
+                DnsTransportPolicy *ret_transport_policy,
+                uint16_t *ret_downgrade_port) {
+
+        _cleanup_(in_addr_full_freep) struct in_addr_full *a = NULL;
+        const DnsTransportVTable *vt;
+        DnsTransportPolicy policy = 0;
+        uint16_t downgrade_port = 0;
+        DnsTransportKind kind;
+        int r;
+
+        assert(s);
+        assert(ret_address);
+        assert(ret_transport_policy);
+        assert(ret_downgrade_port);
+
+        /* Parses a DNS server setting, either in the legacy "address[:port][%ifname][#name]" form, or as
+         * "scheme://address[:port][#key=value&...]". The scheme selects the transport, which is then the
+         * only one permitted, unless the "downgrade" parameter also permits the unencrypted one it may
+         * downgrade to, optionally on the port given as its value. Without a scheme, *ret_transport_policy
+         * is 0, and the DNSOverTLS= setting decides.
+         *
+         * Schemes of transports this build doesn't support are refused like unknown ones. Other tools
+         * accepting these settings only check their syntax, since the transports are ours.
+         *
+         * A port that is the default of its transport is normalized to 0, so that it is chosen with the
+         * transport. See dns_server_transport_port(). */
+
+        r = in_addr_full_new_from_string(s, &a);
+        if (r < 0)
+                return r;
+
+        if (!a->scheme) {
+                /* Without a scheme the port applies to all transports, so treat the default of either as
+                 * none. */
+                if (IN_SET(a->port, 53, 853))
+                        a->port = 0;
+
+                goto finish;
+        }
+
+        kind = dns_transport_kind_from_scheme(a->scheme);
+        if (kind < 0)
+                return -EINVAL;
+
+        vt = dns_transport_vtable[kind];
+
+        if ((a->path || a->query) && !vt->path)
+                return -EINVAL;
+
+        if (a->port == vt->default_port)
+                a->port = 0;
+
+        policy = INDEX_TO_MASK(DnsTransportPolicy, kind);
+
+        STRV_FOREACH(p, a->params) {
+                const char *v = startswith(*p, "downgrade=");
+                if (!v || vt->downgrade < 0)
+                        return -EINVAL;
+
+                if (!isempty(v)) {
+                        r = parse_ip_port(v, &downgrade_port);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (downgrade_port == ASSERT_PTR(dns_transport_vtable[vt->downgrade])->default_port)
+                        downgrade_port = 0;
+
+                policy |= INDEX_TO_MASK(DnsTransportPolicy, vt->downgrade);
+        }
+
+finish:
+        *ret_address = TAKE_PTR(a);
+        *ret_transport_policy = policy;
+        *ret_downgrade_port = downgrade_port;
+        return 0;
+}
+
 static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, const char *word) {
-        _cleanup_free_ char *server_name = NULL;
-        union in_addr_union address;
-        int family, r, ifindex = 0;
-        uint16_t port;
+        _cleanup_(in_addr_full_freep) struct in_addr_full *a = NULL;
+        DnsTransportPolicy transport_policy;
+        uint16_t downgrade_port;
         DnsServer *s;
+        int r;
 
         assert(m);
         assert(word);
 
-        r = in_addr_port_ifindex_name_from_string_auto(word, &family, &address, &port, &ifindex, &server_name);
+        r = dns_server_parse_string(word, &a, &transport_policy, &downgrade_port);
         if (r < 0)
                 return r;
 
         /* Silently filter out 0.0.0.0, 127.0.0.53, 127.0.0.54 (our own stub DNS listener) */
-        if (!dns_server_address_valid(family, &address))
+        if (!dns_server_address_valid(a->family, &a->address))
                 return 0;
 
-        /* By default, the port number is determined with the transaction feature level.
-         * See dns_server_transport_port() and dns_server_port(). */
-        if (IN_SET(port, 53, 853))
-                port = 0;
-
         /* Filter out duplicates */
-        s = dns_server_find(manager_get_first_dns_server(m, type), family, &address, port, ifindex, server_name);
+        s = dns_server_find(manager_get_first_dns_server(m, type), a->family, &a->address, a->port, a->ifindex,
+                            a->server_name, transport_policy, downgrade_port);
         if (s) {
                 /* Drop the marker. This is used to find the servers that ceased to exist, see
                  * manager_mark_dns_servers() and manager_flush_marked_dns_servers(). */
@@ -938,11 +1085,13 @@ static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, cons
                         type,
                         /* link= */ NULL,
                         /* delegate= */ NULL,
-                        family,
-                        &address,
-                        port,
-                        ifindex,
-                        server_name,
+                        a->family,
+                        &a->address,
+                        a->port,
+                        a->ifindex,
+                        a->server_name,
+                        transport_policy,
+                        downgrade_port,
                         RESOLVE_CONFIG_SOURCE_FILE);
 }
 
@@ -1146,6 +1295,9 @@ DnssecMode dns_server_get_dnssec_mode(DnsServer *s) {
 
 DnsEncryptionMode dns_server_get_encryption_mode(DnsServer *s) {
         assert(s);
+
+        if (s->transport_policy != 0)
+                return dns_encryption_mode_from_transport_policy(s->transport_policy);
 
 #if ENABLE_DNS_OVER_TLS
         if (s->link)
