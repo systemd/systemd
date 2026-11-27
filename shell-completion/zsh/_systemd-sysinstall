@@ -28,4 +28,5 @@ _arguments \
     '--kernel=[Kernel image to install]:kernel image:_files' \
     '--set-credential=[Install a credential with a literal value]: : _message "ID:VALUE"' \
     '--load-credential=[Load credential from a file or AF_UNIX socket]: : _message "ID:PATH"' \
+    '--addon=[Pack credentials into an unsigned addon of the specified name]: : _message "addon name"' \
     '*::block device:_systemd-sysinstall_devices'

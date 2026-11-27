@@ -8,6 +8,7 @@
 static SD_VARLINK_DEFINE_ENUM_TYPE(
                 ProgressPhase,
                 SD_VARLINK_DEFINE_ENUM_VALUE(encrypt_credentials),
+                SD_VARLINK_DEFINE_ENUM_VALUE(make_credential_addon),
                 SD_VARLINK_DEFINE_ENUM_VALUE(install_partitions),
                 SD_VARLINK_DEFINE_ENUM_VALUE(mount_partitions),
                 SD_VARLINK_DEFINE_ENUM_VALUE(install_kernel),
@@ -51,6 +52,8 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
 
                 SD_VARLINK_FIELD_COMMENT("A list of credentials to be installed to target system."),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(credentials, Credential, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If set, the credentials are not encrypted for the local system, but packed in plaintext into a single unsigned systemd-stub addon of this name, placed next to the kernel image. Such an addon is only used if the booted UKI profile trusts addons on first use."),
+                SD_VARLINK_DEFINE_INPUT(addon, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
 
                 SD_VARLINK_FIELD_COMMENT("If used with the 'more' flag, a phase identifier is sent in progress updates."),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(phase, ProgressPhase, SD_VARLINK_NULLABLE),
