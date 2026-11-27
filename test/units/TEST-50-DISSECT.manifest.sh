@@ -314,6 +314,42 @@ runas testuser systemd-manifest make --graceful --format=list "$GRACE" >/dev/nul
 # The top-level inode must be covered even in graceful mode
 (! runas testuser systemd-manifest make --graceful "$GRACE/locked")
 
+: "The UID/GID 65535 cannot be represented in UAPI.16 manifests, it is omitted and makes generation fail, unless --graceful is used"
+IDS="$WORK/ids"
+mkdir "$IDS"
+echo -n "uid" >"$IDS/uid.txt"
+echo -n "gid" >"$IDS/gid.txt"
+chown 65535 "$IDS/uid.txt"
+chgrp 65535 "$IDS/gid.txt"
+(! systemd-manifest make "$IDS")
+systemd-manifest make --graceful "$IDS" >"$WORK/ids.manifest"
+jq --seq -s -e '.[] | select(.name == "uid.txt") | (has("uid") | not) and has("gid")' "$WORK/ids.manifest" >/dev/null
+jq --seq -s -e '.[] | select(.name == "gid.txt") | has("uid") and (has("gid") | not)' "$WORK/ids.manifest" >/dev/null
+systemd-manifest verify --verify-signature=no "$IDS" "$WORK/ids.manifest"
+
+: "Modification times before 1970 or after 2554 cannot be represented in UAPI.16 manifests, they are omitted and make generation fail, unless --graceful is used"
+# Unlike ext4 and xfs, tmpfs can store modification times after 2554
+FSMNT="$(mktemp -d /tmp/manifest-tool-mnt.XXXXXX)"
+mount -t tmpfs tmpfs "$FSMNT"
+mkdir "$FSMNT/past" "$FSMNT/future"
+echo -n "epoch" >"$FSMNT/past/epoch.txt"
+echo -n "past" >"$FSMNT/past/past.txt"
+echo -n "future" >"$FSMNT/future/future.txt"
+touch -d @0 "$FSMNT/past/epoch.txt"
+touch -d '1969-12-31' "$FSMNT/past/past.txt"
+touch -d '2600-01-01' "$FSMNT/future/future.txt"
+(! systemd-manifest make --field=+mtime "$FSMNT/past")
+(! systemd-manifest make --field=+mtime "$FSMNT/future")
+systemd-manifest make "$FSMNT" >/dev/null
+systemd-manifest make --graceful --field=+mtime "$FSMNT" >"$WORK/mtime-range.manifest"
+jq --seq -s -e '.[] | select(.name == "past/epoch.txt") | .mTimeNSec == 0' "$WORK/mtime-range.manifest" >/dev/null
+jq --seq -s -e '.[] | select(.name == "past/past.txt") | has("mTimeNSec") | not' "$WORK/mtime-range.manifest" >/dev/null
+jq --seq -s -e '.[] | select(.name == "future/future.txt") | has("mTimeNSec") | not' "$WORK/mtime-range.manifest" >/dev/null
+systemd-manifest verify --verify-signature=no --field=+mtime "$FSMNT" "$WORK/mtime-range.manifest"
+umount "$FSMNT"
+rmdir "$FSMNT"
+FSMNT=
+
 : "File contents that cannot be read make verification fail"
 HASHFAIL="$WORK/hashfail"
 mkdir "$HASHFAIL"

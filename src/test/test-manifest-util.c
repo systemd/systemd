@@ -29,6 +29,7 @@
 #include "path-util.h"
 #include "rm-rf.h"
 #include "sha256.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -817,6 +818,114 @@ TEST(manifest_omitted) {
 
         /* Make sure we can clean up */
         ASSERT_OK_ERRNO(fchmodat(tfd, "subdir", 0755, 0));
+}
+
+TEST(manifest_uapi16_invalid_uid_gid) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF;
+        _cleanup_free_ char *buf = NULL;
+        size_t size;
+        int r;
+
+        ASSERT_OK(tfd = make_tree(&t));
+
+        /* UAPI.16 manifests cannot carry the UID/GID 65535, hence it is omitted and counted. (The same
+         * applies to 4294967295, but the kernel never reports that as owner of an inode.) */
+        r = RET_NERRNO(fchownat(tfd, "regular.txt", 0xFFFF, getgid(), 0));
+        if (ERRNO_IS_NEG_PRIVILEGE(r) || r == -EINVAL) /* EINVAL if not mapped in our user namespace */
+                return (void) log_tests_skipped_errno(r, "Cannot change owner of files to 65535");
+        ASSERT_OK(r);
+        ASSERT_OK_ERRNO(fchownat(tfd, "subdir/nested.txt", getuid(), 0xFFFF, 0));
+
+        _cleanup_(manifest_context_done) ManifestContext c;
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        ASSERT_OK(generate(&c, tfd, &buf, &size));
+        ASSERT_EQ(c.n_skipped, 0U);
+        ASSERT_EQ(c.n_metadata_omitted, 2U);
+
+        sd_json_variant *v;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reg = find_object(buf, "regular.txt");
+        ASSERT_NOT_NULL(reg);
+        ASSERT_NULL(sd_json_variant_by_key(reg, "uid"));
+        ASSERT_NOT_NULL(v = sd_json_variant_by_key(reg, "gid"));
+        ASSERT_EQ(sd_json_variant_unsigned(v), (uint64_t) getgid());
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *nested = find_object(buf, "subdir/nested.txt");
+        ASSERT_NOT_NULL(nested);
+        ASSERT_NOT_NULL(v = sd_json_variant_by_key(nested, "uid"));
+        ASSERT_EQ(sd_json_variant_unsigned(v), (uint64_t) getuid());
+        ASSERT_NULL(sd_json_variant_by_key(nested, "gid"));
+
+        /* … and the result reads back, and matches the tree */
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        ASSERT_OK(verify_buffer(&c, tfd, buf, size));
+}
+
+static bool try_set_mtime(int dir_fd, const char *name, time_t sec) {
+        struct timespec ts = { .tv_sec = sec };
+        struct statx sx;
+
+        /* The kernel clamps timestamps to the range the file system can store, hence set and see */
+        ASSERT_OK_ERRNO(utimensat(dir_fd, name, (struct timespec[2]) { ts, ts }, 0));
+        ASSERT_OK(xstatx(dir_fd, name, /* statx_flags= */ 0, STATX_MTIME, &sx));
+        if (sx.stx_mtime.tv_sec != sec) {
+                log_info("Cannot set modification time of '%s' to %" PRIi64 " on this file system, not testing it.", name, (int64_t) sec);
+                return false;
+        }
+
+        return true;
+}
+
+TEST(manifest_uapi16_mtime_range) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF;
+        _cleanup_free_ char *buf = NULL;
+        size_t size;
+
+        ASSERT_OK(tfd = make_tree(&t));
+
+        /* UAPI.16 manifests record modification times in nanoseconds since the epoch, as unsigned 64-bit
+         * integer, i.e. cannot carry times before 1970 or after 2554. These are omitted and counted, the
+         * epoch itself is not. */
+        if (!try_set_mtime(tfd, "regular.txt", -1))
+                return (void) log_tests_skipped("Cannot set modification times before 1970");
+        ASSERT_TRUE(try_set_mtime(tfd, "subdir/nested.txt", /* sec= */ 0));
+#if SIZEOF_TIME_T == 8
+        bool future = try_set_mtime(tfd, "empty.txt", UINT64_MAX / NSEC_PER_SEC + 1);
+#else
+        bool future = false; /* A 32-bit time_t cannot express times after 2038 */
+#endif
+
+        _cleanup_(manifest_context_done) ManifestContext c;
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.fields |= MANIFEST_FIELD_MTIME;
+        ASSERT_OK(generate(&c, tfd, &buf, &size));
+        ASSERT_EQ(c.n_skipped, 0U);
+        ASSERT_EQ(c.n_metadata_omitted, 1U + future);
+
+        sd_json_variant *v;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reg = find_object(buf, "regular.txt");
+        ASSERT_NOT_NULL(reg);
+        ASSERT_NULL(sd_json_variant_by_key(reg, "mTimeNSec"));
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *nested = find_object(buf, "subdir/nested.txt");
+        ASSERT_NOT_NULL(nested);
+        ASSERT_NOT_NULL(v = sd_json_variant_by_key(nested, "mTimeNSec"));
+        ASSERT_EQ(sd_json_variant_unsigned(v), 0U);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *empty = find_object(buf, "empty.txt");
+        ASSERT_NOT_NULL(empty);
+        if (future)
+                ASSERT_NULL(sd_json_variant_by_key(empty, "mTimeNSec"));
+        else
+                ASSERT_NOT_NULL(sd_json_variant_by_key(empty, "mTimeNSec"));
+
+        /* … and the result reads back, and matches the tree */
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.fields |= MANIFEST_FIELD_MTIME;
+        ASSERT_OK(verify_buffer(&c, tfd, buf, size));
 }
 
 static int dispatch_with_features(const char *json, size_t n, ManifestField features, Uapi16Object *ret) {
