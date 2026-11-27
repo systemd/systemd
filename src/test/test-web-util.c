@@ -36,6 +36,25 @@ static void test_provider_url_parse_one(const char *url, const char *socket, con
         }
 }
 
+TEST(url_scheme_is_valid) {
+        ASSERT_TRUE(url_scheme_is_valid("dns"));
+        ASSERT_TRUE(url_scheme_is_valid("dnss"));
+        ASSERT_TRUE(url_scheme_is_valid("ssh-unix"));
+        ASSERT_TRUE(url_scheme_is_valid("svn+ssh"));
+        ASSERT_TRUE(url_scheme_is_valid("a.b-c+9"));
+        ASSERT_TRUE(url_scheme_is_valid("x"));
+
+        ASSERT_FALSE(url_scheme_is_valid(NULL));
+        ASSERT_FALSE(url_scheme_is_valid(""));
+        ASSERT_FALSE(url_scheme_is_valid("DNS"));
+        ASSERT_FALSE(url_scheme_is_valid("Dns"));
+        ASSERT_FALSE(url_scheme_is_valid("1dns"));
+        ASSERT_FALSE(url_scheme_is_valid("-dns"));
+        ASSERT_FALSE(url_scheme_is_valid("d_s"));
+        ASSERT_FALSE(url_scheme_is_valid("d/s"));
+        ASSERT_FALSE(url_scheme_is_valid("dns:"));
+}
+
 TEST(provider_url_parse) {
         test_provider_url_parse_one("provider:[/run/foobar]/waldo", "/run/foobar", "waldo");
         test_provider_url_parse_one("provider:[/run/systemd/sysupdate/provider/io.foo]/pool/x-v1.raw", "/run/systemd/sysupdate/provider/io.foo", "pool/x-v1.raw");
