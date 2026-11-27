@@ -21,46 +21,51 @@
 #include "swtpm-util.h"
 #include "sync-util.h"
 
-static int swtpm_find_best_profile(const char *swtpm_setup, char **ret) {
+/* Run the given command line and parse what it printed to STDOUT as a JSON object. The exit status of
+ * the child is ignored, since it cannot be trusted — swtpm_setup's --print-profiles for one exits with
+ * a failure status even when it successfully printed its profiles —, but whether a JSON object was
+ * printed decides. Returns 0 and the parsed JSON object in *ret, -ENODATA if the child did not print a
+ * parseable JSON object, or a negative errno on failure (which is logged). */
+static int swtpm_run_and_parse_json(char * const *args, const char *name, sd_json_variant **ret) {
         int r;
 
-        assert(swtpm_setup);
+        assert(args);
+        assert(name);
         assert(ret);
 
-        _cleanup_strv_free_ char **args = strv_new(
-                        swtpm_setup,
-                        "--tpm2",
-                        "--print-profiles");
-        if (!args)
+        _cleanup_strv_free_ char **copy = strv_copy(args);
+        if (!copy)
                 return log_oom();
 
-        _cleanup_close_ int mfd = memfd_new("swtpm-profiles");
+        _cleanup_close_ int mfd = memfd_new(name);
         if (mfd < 0)
                 return log_error_errno(mfd, "Failed to allocate memfd: %m");
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *cmdline = quote_command_line(args, SHELL_ESCAPE_EMPTY);
+                _cleanup_free_ char *cmdline = quote_command_line(copy, SHELL_ESCAPE_EMPTY);
                 log_debug("About to spawn: %s", strnull(cmdline));
         }
 
+        const char *procname = strjoina("(", name, ")");
+
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork_full(
-                        "(swtpm-lprof)",
+                        procname,
                         (int[]) { -EBADF, mfd, STDERR_FILENO },
                         /* except_fds= */ NULL,
                         /* n_except_fds= */ 0,
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_REARRANGE_STDIO|FORK_LOG,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_REARRANGE_STDIO,
                         &pidref);
         if (r < 0)
-                return log_error_errno(r, "Failed to run swtpm_setup: %m");
+                return log_error_errno(r, "Failed to run '%s': %m", copy[0]);
         if (r == 0) {
                 /* Child */
-                r = execvp_safe(args[0], args);
-                log_error_errno(r, "Failed to execute '%s': %m", args[0]);
+                r = execvp_safe(copy[0], copy);
+                log_error_errno(r, "Failed to execute '%s': %m", copy[0]);
                 _exit(EXIT_FAILURE);
         }
 
-        r = pidref_wait_for_terminate_and_check("(swtpm-lprof)", &pidref, WAIT_LOG_ABNORMAL);
+        r = pidref_wait_for_terminate_and_check(procname, &pidref, WAIT_LOG_ABNORMAL);
         /* An exit status, -EPROTO for a child killed by a signal, and -ECHILD mean that the child is gone.
          * The cleanup must not send SIGKILL then, because without a pidfd the PID might belong to another
          * process by now. After any other failure the child is not reaped yet, and the cleanup kills it. */
@@ -69,30 +74,41 @@ static int swtpm_find_best_profile(const char *swtpm_setup, char **ret) {
         if (r < 0)
                 return r;
 
-        /* NB: we ignore the exit status of --print-profiles, it's broken. Instead we check if we have
-         * received a valid JSON object via STDOUT. */
-        (void) r;
-
-        _cleanup_free_ char *text = NULL;
-        r = read_full_file_full(
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        r = sd_json_parse_fd(
+                        name,
                         mfd,
-                        /* filename= */ NULL,
-                        /* offset= */ 0,
-                        /* size= */ SIZE_MAX,
-                        /* flags= */ 0,
-                        /* bind_name= */ NULL,
-                        &text,
-                        /* ret_size= */ NULL);
+                        SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SEEK0,
+                        &j,
+                        /* reterr_line= */ NULL,
+                        /* reterr_column= */ NULL);
+        if (r == -ENOMEM)
+                return log_oom();
         if (r < 0)
-                return log_error_errno(r, "Failed to read memory fd: %m");
+                return -ENODATA;
+
+        *ret = TAKE_PTR(j);
+        return 0;
+}
+
+static int swtpm_find_best_profile(const char *swtpm_setup, char **ret) {
+        int r;
+
+        assert(swtpm_setup);
+        assert(ret);
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
-        r = sd_json_parse(text, SD_JSON_PARSE_MUST_BE_OBJECT, &j, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
-        if (r < 0) {
+        r = swtpm_run_and_parse_json(
+                        STRV_MAKE(swtpm_setup, "--tpm2", "--print-profiles"),
+                        "swtpm-lprof",
+                        &j);
+        if (r == -ENODATA) {
                 log_notice("Failed to parse swtpm's --print-profiles output as JSON, assuming the implementation is too old to know the concept of profiles.");
                 *ret = NULL;
                 return 0;
         }
+        if (r < 0)
+                return r;
 
         sd_json_variant *v = sd_json_variant_by_key(j, "builtin");
         if (!v) {
@@ -135,6 +151,52 @@ static int swtpm_find_best_profile(const char *swtpm_setup, char **ret) {
         }
 
         *ret = TAKE_PTR(copy);
+        return 0;
+}
+
+/* Check whether swtpm advertises the given feature in the capabilities JSON printed by
+ * "swtpm chardev --print-capabilities". Returns 1 if it does, 0 if it does not (in particular when swtpm
+ * is too old to know --print-capabilities or the feature), or a negative errno on failure. */
+int swtpm_has_feature(const char *swtpm, const char *feature) {
+        int r;
+
+        assert(swtpm);
+        assert(feature);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        r = swtpm_run_and_parse_json(
+                        STRV_MAKE(swtpm, "chardev", "--print-capabilities"),
+                        "swtpm-caps",
+                        &j);
+        if (r == -ENODATA) {
+                log_debug("Failed to parse swtpm's --print-capabilities output as JSON, assuming the implementation is too old to know the feature '%s'.", feature);
+                return 0;
+        }
+        if (r < 0)
+                return r;
+
+        sd_json_variant *v = sd_json_variant_by_key(j, "features");
+        if (!v) {
+                log_debug("swtpm's capabilities JSON has no 'features' field, assuming the implementation is too old to know the feature '%s'.", feature);
+                return 0;
+        }
+
+        if (!sd_json_variant_is_array(v)) {
+                log_debug("'features' field is not an array, assuming the implementation is too old to know the feature '%s'.", feature);
+                return 0;
+        }
+
+        sd_json_variant *i;
+        JSON_VARIANT_ARRAY_FOREACH(i, v) {
+                if (!sd_json_variant_is_string(i)) {
+                        log_debug("Entry in 'features' array is not a string, ignoring.");
+                        continue;
+                }
+
+                if (streq(sd_json_variant_string(i), feature))
+                        return 1;
+        }
+
         return 0;
 }
 
