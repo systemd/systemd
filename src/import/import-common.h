@@ -72,3 +72,23 @@ int import_digest_verify(ImportDigest *d);
 
 int import_parse_sha256_argument(const char *option, const char *s, struct iovec *checksum);
 int import_parse_compression_argument(const char *option, const char *s, Compression *ret);
+
+/* Tracks the time that passed since the first progress report of an operation, and estimates how much time it
+ * is likely going to take still, based on the progress made so far. No estimate is made until the progress
+ * settled a bit, i.e. not in the first few seconds. */
+typedef struct ImportProgress {
+        usec_t start_usec;              /* When we got the first progress report, 0 if not yet */
+        usec_t estimate_start_usec;     /* When we got the first progress report used for estimating, 0 if not yet */
+        double estimate_start_percent;  /* The progress at that time */
+} ImportProgress;
+
+/* Takes the progress as amount done of total, in whatever unit. Returns USEC_INFINITY if no estimate is known. */
+usec_t import_progress_estimate(ImportProgress *p, uint64_t done, uint64_t total);
+
+/* Sends X_IMPORT_PROGRESS=, X_IMPORT_TIME_ELAPSED_USEC= and, if an estimate of the time left is known, the
+ * estimated total time of the operation as X_IMPORT_TIME_TOTAL_USEC= to our supervisor */
+void import_notify_progress(ImportProgress *p, unsigned percent, usec_t time_left);
+
+/* Formats " (… left)" if the time left is known. Returns NULL if it is not known (or on OOM, since this is
+ * only used to decorate progress output), hence use with strempty(). */
+char* import_format_time_left(usec_t time_left);

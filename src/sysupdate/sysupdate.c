@@ -10,6 +10,7 @@
 
 #include "build.h"
 #include "bus-polkit.h"
+#include "chase.h"
 #include "conf-files.h"
 #include "constants.h"
 #include "discover-image.h"
@@ -26,6 +27,7 @@
 #include "hexdecoct.h"
 #include "image-policy.h"
 #include "json-util.h"
+#include "lock-util.h"
 #include "loop-util.h"
 #include "main-func.h"
 #include "mount-util.h"
@@ -40,6 +42,7 @@
 #include "siphash24.h"
 #include "sort-util.h"
 #include "stdio-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sysupdate.h"
@@ -149,6 +152,8 @@ void context_done(Context *c) {
         c->transfer_source = mfree(c->transfer_source);
 
         target_identifier_done(&c->target_identifier);
+
+        c->link = sd_varlink_unref(c->link);
 }
 
 static int context_from_cmdline(Context *ret) {
@@ -233,6 +238,10 @@ static int context_from_base(const Context *base, Context *ret) {
          * device node is needed to resolve partition targets. We do not take over .mounted_dir however,
          * since the base context is responsible for unmounting it, and is expected to outlive us. */
         context.loop_device = loop_device_ref(base->loop_device);
+
+        /* Keep sending progress notifications to the same Varlink client, if any */
+        context.link = sd_varlink_ref(base->link);
+        context.iteration = base->iteration;
 
         *ret = TAKE_GENERIC(context, Context, CONTEXT_NULL);
         return 0;
@@ -494,6 +503,13 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
 
         assert(c);
 
+        /* Returns -ESRCH if READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS is set and no (enabled, if
+         * READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS is set) transfers are defined, i.e. if there's nothing
+         * to update for the selected target or component. We use a dedicated error code for this, rather
+         * than -ENOENT, so that callers can distinguish this from other cases where something is not found,
+         * for example a specific version. Returns -EHOSTDOWN if READ_DEFINITIONS_REQUIRES_ENABLED_COMPONENT
+         * is set and the component is disabled. */
+
         if (c->definitions)
                 dirs = strv_new(c->definitions);
         else if (c->component) {
@@ -555,11 +571,11 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
         if (FLAGS_SET(flags, READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS) &&
             c->n_transfers + (FLAGS_SET(flags, READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS) ? 0 : c->n_disabled_transfers) == 0) {
                 if (c->component)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                        return log_error_errno(SYNTHETIC_ERRNO(ESRCH),
                                                "No transfer definitions for component '%s' found.",
                                                c->component);
 
-                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                return log_error_errno(SYNTHETIC_ERRNO(ESRCH),
                                        "No transfer definitions found.");
         }
 
@@ -1429,7 +1445,8 @@ static int context_load_offline(
         assert(context);
 
         /* Sets up a context object and initializes everything we can initialize offline, i.e. without
-         * checking on the update source (i.e. the Internet) what versions are available */
+         * checking on the update source (i.e. the Internet) what versions are available. Propagates -ESRCH
+         * and -EHOSTDOWN from context_read_definitions(), see there. */
 
         r = context_process_image(context, process_image_flags);
         if (r < 0)
@@ -1829,6 +1846,8 @@ static int context_load_paths_from_target(Context *context) {
         assert(context);
         assert(context->target_identifier.class != _TARGET_CLASS_INVALID);
 
+        /* Returns -ESRCH if the specified target doesn't exist. */
+
         /* These shouldn’t have been set up some other way first */
         assert(!context->component);
         assert(!context->root);
@@ -1893,7 +1912,7 @@ static int context_load_paths_from_target(Context *context) {
                 }
 
                 if (!selected_image)
-                        return -ENOENT;
+                        return -ESRCH;
 
                 r = context_load_paths_from_image(context, selected_image);
                 if (r < 0)
@@ -1912,7 +1931,7 @@ static int context_load_paths_from_target(Context *context) {
                         return r;
 
                 if (!strv_contains(component_names, context->target_identifier.name))
-                        return -ENOENT;
+                        return -ESRCH;
 
                 context->component = strdup(context->target_identifier.name);
                 if (!context->component)
@@ -1962,7 +1981,75 @@ static int context_load_offline_from_target(
         return context_load_offline(context, process_image_flags, read_definitions_flags);
 }
 
-static int context_on_acquire_progress(const Transfer *t, const Instance *inst, unsigned percentage) {
+typedef enum UpdatePhase {
+        UPDATE_PHASE_WAITING_FOR_LOCK,
+        UPDATE_PHASE_PREPARING,
+        UPDATE_PHASE_VACUUMING,
+        UPDATE_PHASE_ACQUIRING,
+        UPDATE_PHASE_INSTALLING,
+        UPDATE_PHASE_NOTIFYING,
+        _UPDATE_PHASE_MAX,
+        _UPDATE_PHASE_INVALID = -EINVAL,
+} UpdatePhase;
+
+static const char* const update_phase_table[_UPDATE_PHASE_MAX] = {
+        [UPDATE_PHASE_WAITING_FOR_LOCK] = "waiting-for-lock",
+        [UPDATE_PHASE_PREPARING]        = "preparing",
+        [UPDATE_PHASE_VACUUMING]        = "vacuuming",
+        [UPDATE_PHASE_ACQUIRING]        = "acquiring",
+        [UPDATE_PHASE_INSTALLING]       = "installing",
+        [UPDATE_PHASE_NOTIFYING]        = "notifying",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(update_phase, UpdatePhase);
+
+static void context_notify_phase(
+                const Context *c,
+                UpdatePhase phase,
+                const char *transfer,
+                const char *version,
+                unsigned percent,
+                usec_t time_elapsed,
+                usec_t time_total) {
+
+        int r;
+
+        assert(c);
+        assert(phase >= 0);
+        assert(phase < _UPDATE_PHASE_MAX);
+
+        /* Sends a progress notification to the Varlink client, if there is one. Note that failures here are
+         * deliberately ignored: a client that went away (or is slow to read) must never affect the update
+         * itself, we just stop telling it about it. */
+
+        if (!c->link)
+                return;
+
+        r = sd_varlink_notifybo(
+                        c->link,
+                        JSON_BUILD_PAIR_ENUM("phase", update_phase_to_string(phase)),
+                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("iteration", c->iteration),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("component", c->component),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("transfer", transfer),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("version", version),
+                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("progress", percent, UINT_MAX),
+                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("timeElapsedUSec", time_elapsed, USEC_INFINITY),
+                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("timeTotalUSec", time_total, USEC_INFINITY));
+        if (r < 0) {
+                log_debug_errno(r, "Failed to enqueue Varlink progress notification, ignoring: %m");
+                return;
+        }
+
+        /* We are running synchronously inside the method handler, and the event loop of the Varlink
+         * server is not dispatched while we do, hence write out the notification here, but without letting
+         * a client that doesn't read stall the update. If the client disconnected (or processing failed,
+         * in which case the connection is closed), all further notifications will fail (and be ignored). */
+        r = varlink_process_nonblocking(c->link);
+        if (r < 0)
+                log_debug_errno(r, "Failed to process Varlink connection, ignoring: %m");
+}
+
+static int context_on_acquire_progress(const Transfer *t, const Instance *inst, unsigned percentage, usec_t time_elapsed, usec_t time_total) {
         const Context *c = ASSERT_PTR(t->context);
         size_t i, n = c->n_transfers;
         uint64_t base, scaled;
@@ -1979,6 +2066,28 @@ static int context_on_acquire_progress(const Transfer *t, const Instance *inst, 
         assert(overall <= 100);
 
         log_debug("Transfer %zu/%zu is %u%% complete (%u%% overall).", i+1, n, percentage, overall);
+
+        /* Show the time left as estimated by the helper, if it has an estimate. This is purely cosmetic,
+         * hence if we run out of memory we just don't show it. */
+        _cleanup_free_ char *left = NULL;
+        if (time_total != USEC_INFINITY && time_elapsed != USEC_INFINITY) {
+                usec_t time_left = usec_sub_unsigned(time_total, time_elapsed);
+
+                left = strjoin(" (", FORMAT_TIMESPAN(time_left, time_left >= USEC_PER_HOUR ? USEC_PER_MINUTE : USEC_PER_SEC), " left)");
+        }
+
+        (void) draw_progress_barf(
+                        percentage,
+                        "%s%s%s %s %s%s",
+                        strempty(c->component),
+                        c->component ? "/" : "",
+                        t->id,
+                        glyph(GLYPH_ARROW_RIGHT),
+                        inst->metadata.version,
+                        strempty(left));
+
+        context_notify_phase(c, UPDATE_PHASE_ACQUIRING, t->id, inst->metadata.version, percentage, time_elapsed, time_total);
+
         return sd_notifyf(/* unset_environment= */ false, "X_SYSUPDATE_PROGRESS=%u\n"
                                               "X_SYSUPDATE_TRANSFERS_LEFT=%zu\n"
                                               "X_SYSUPDATE_TRANSFERS_DONE=%zu\n"
@@ -2061,6 +2170,8 @@ static int context_acquire(
                           "X_SYSUPDATE_VERSION=%s\n"
                           "STATUS=Making room for '%s'.", us->version, us->version);
 
+        context_notify_phase(c, UPDATE_PHASE_VACUUMING, /* transfer= */ NULL, us->version, /* percent= */ UINT_MAX, /* time_elapsed= */ USEC_INFINITY, /* time_total= */ USEC_INFINITY);
+
         /* Let's make some room. We make sure for each transfer we have one free space to fill. While
          * removing stuff we'll protect the version we are trying to acquire. Why that? Maybe an earlier
          * download succeeded already, in which case we shouldn't remove it just to acquire it again */
@@ -2091,7 +2202,10 @@ static int context_acquire(
                         continue;
                 }
 
+                context_notify_phase(c, UPDATE_PHASE_ACQUIRING, t->id, us->version, /* percent= */ UINT_MAX, /* time_elapsed= */ USEC_INFINITY, /* time_total= */ USEC_INFINITY);
+
                 r = transfer_acquire_instance(t, inst, metadata + i, context_on_acquire_progress, c);
+                clear_progress_bar(/* prefix= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -2189,6 +2303,10 @@ static int context_notify_subscribers(Context *c, UpdateSet *us) {
 
         assert(c);
 
+        /* Subscribers are only interested in updates of the host, not of some image or directory tree */
+        if (c->root)
+                return 0;
+
         /* 'us' is NULL when we are forced to notify even though no update was applied (via
          * SYSTEMD_SYSUPDATE_FORCE_NOTIFY=1). In that case we send neither a version nor a resource list. */
 
@@ -2273,6 +2391,8 @@ static int context_install(
                           "X_SYSUPDATE_VERSION=%s\n"
                           "STATUS=Installing '%s'.", us->version, us->version);
 
+        context_notify_phase(c, UPDATE_PHASE_INSTALLING, /* transfer= */ NULL, us->version, /* percent= */ UINT_MAX, /* time_elapsed= */ USEC_INFINITY, /* time_total= */ USEC_INFINITY);
+
         for (size_t i = 0; i < c->n_transfers; i++) {
                 Instance *inst = us->instances[i];
                 Transfer *t = c->transfers[i];
@@ -2287,9 +2407,6 @@ static int context_install(
         }
 
         log_info("%s Successfully installed update '%s'.", glyph(GLYPH_SPARKLES), us->version);
-
-        if (!c->root)
-                (void) context_notify_subscribers(c, us);
 
         (void) sd_notifyf(/* unset_environment= */ false,
                           "STATUS=Installed '%s'.", us->version);
@@ -2341,6 +2458,13 @@ static int dispatch_target_identifier(const char *name, sd_json_variant *variant
                 {}
         };
         int r;
+
+        /* For methods where the target is optional, leave the class unset to indicate that it was omitted */
+        if (sd_json_variant_is_null(variant)) {
+                target_identifier_done(t);
+                t->class = _TARGET_CLASS_INVALID;
+                return 0;
+        }
 
         r = sd_json_dispatch(variant, dispatch, flags, t);
         if (r < 0)
@@ -2912,7 +3036,7 @@ static int vl_method_list_features(sd_varlink *link, sd_json_variant *parameters
                         &context,
                         PROCESS_IMAGE_READ_ONLY,
                         READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
-        if (r == -ENOENT)
+        if (r == -ESRCH)
                 return sd_varlink_error(link, "io.systemd.SysUpdate.NoSuchTarget", /* parameters= */ NULL);
         if (r < 0)
                 return r;
@@ -2941,6 +3065,131 @@ static int vl_method_list_features(sd_varlink *link, sd_json_variant *parameters
                         SD_JSON_BUILD_PAIR_VARIANT("features", l));
 }
 
+typedef struct ComponentAvailable {
+        char *component;   /* NULL for the default, component-less installation */
+        char *available;   /* NULL if no new version is available */
+} ComponentAvailable;
+
+static void component_available_array_free(ComponentAvailable *array, size_t n) {
+        FOREACH_ARRAY(i, array, n) {
+                free(i->component);
+                free(i->available);
+        }
+
+        free(array);
+}
+
+static int component_available_to_json(const ComponentAvailable *ca, sd_json_variant **ret) {
+        assert(ca);
+        assert(ret);
+
+        return sd_json_buildo(
+                        ret,
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("component", ca->component),
+                        SD_JSON_BUILD_PAIR_STRING("available", ca->available)); /* NULL → null */
+}
+
+static int component_available_array_add(
+                ComponentAvailable **array,
+                size_t *n,
+                const char *component,
+                const UpdateSet *candidate) {
+
+        assert(array);
+        assert(n);
+
+        _cleanup_free_ char *cn = NULL, *cv = NULL;
+        if (strdup_to(&cn, component) < 0 ||
+            strdup_to(&cv, candidate ? candidate->version : NULL) < 0)
+                return log_oom();
+
+        if (!GREEDY_REALLOC(*array, *n + 1))
+                return log_oom();
+
+        (*array)[(*n)++] = (ComponentAvailable) {
+                .component = TAKE_PTR(cn),
+                .available = TAKE_PTR(cv),
+        };
+
+        return 0;
+}
+
+static int context_check_new_all(
+                Context *c,
+                ComponentAvailable **ret_components,
+                size_t *ret_n_components) {
+
+        int r;
+
+        assert(c);
+        assert(c->component_select == SELECT_ALL);
+        assert(ret_components);
+        assert(ret_n_components);
+
+        /* Checks for a new version of the default, component-less installation (if there is one) and of
+         * every enabled component. Returns an array with one entry for each of them, in this order, with the
+         * new version available, or NULL if there is none. If checking an individual component fails, this
+         * is logged, and the other components are still checked. In that case the array is returned
+         * nonetheless (without an entry for the failed components), along with the first such error. */
+
+        ComponentAvailable *components = NULL;
+        size_t n_components = 0;
+        CLEANUP_ARRAY(components, n_components, component_available_array_free);
+        int ret = 0;
+
+        /* Check the default installation first. This also ensures the image (if any) is mounted and
+         * c->root is set, so that we enumerate the components inside the image rather than on the
+         * host. A missing default installation (ESRCH) is not an error in this mode. */
+        r = context_load_online(
+                        c,
+                        PROCESS_IMAGE_READ_ONLY,
+                        READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS|
+                        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
+        if (r < 0 && r != -ESRCH)
+                return r;
+        if (r >= 0) {
+                r = component_available_array_add(&components, &n_components, /* component= */ NULL, c->candidate);
+                if (r < 0)
+                        return r;
+        }
+
+        _cleanup_strv_free_ char **component_names = NULL;
+        r = context_list_components(c, &component_names, /* ret_has_default_component= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate components: %m");
+
+        STRV_FOREACH(name, component_names) {
+                _cleanup_(context_done) Context cc = CONTEXT_NULL;
+
+                r = context_from_base_with_component(c, *name, &cc);
+                if (r < 0)
+                        return r;
+
+                r = context_load_online(
+                                &cc,
+                                PROCESS_IMAGE_READ_ONLY,
+                                READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS|
+                                READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS|
+                                READ_DEFINITIONS_REQUIRES_ENABLED_COMPONENT);
+                if (IN_SET(r, -EHOSTDOWN, -ESRCH)) { /* Component disabled or without transfers → skip it */
+                        log_debug_errno(r, "Skipping component '%s': %m", *name);
+                        continue;
+                }
+                if (r < 0) {
+                        RET_GATHER(ret, log_warning_errno(r, "Failed to check component '%s' for new versions, continuing with next component: %m", *name));
+                        continue;
+                }
+
+                r = component_available_array_add(&components, &n_components, *name, cc.candidate);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret_components = TAKE_PTR(components);
+        *ret_n_components = TAKE_GENERIC(n_components, size_t, 0);
+        return ret;
+}
+
 VERB_NOARG(verb_check_new, "check-new",
            "Check if there's a new version available");
 static int verb_check_new(int argc, char *argv[], uintptr_t _data, void *userdata) {
@@ -2955,8 +3204,81 @@ static int verb_check_new(int argc, char *argv[], uintptr_t _data, void *userdat
 
         if (context.feature_select != SELECT_EXPLICIT)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--feature-all/--feature-suggested is not supported for '%s'.", argv[0]);
-        if (context.component_select != SELECT_EXPLICIT)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-all/--component-suggested currently not supported for '%s'.", argv[0]);
+        if (!IN_SET(context.component_select, SELECT_EXPLICIT, SELECT_ALL))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-suggested currently not supported for '%s'.", argv[0]);
+
+        if (context.component_select == SELECT_ALL) {
+                ComponentAvailable *components = NULL;
+                size_t n_components = 0;
+                CLEANUP_ARRAY(components, n_components, component_available_array_free);
+
+                /* If some components could be checked, show them, but fail in the end nonetheless */
+                int ret = context_check_new_all(&context, &components, &n_components);
+                if (ret < 0 && n_components == 0)
+                        return ret;
+
+                bool any = false;
+                FOREACH_ARRAY(i, components, n_components)
+                        if (i->available) {
+                                any = true;
+                                break;
+                        }
+
+                if (!sd_json_format_enabled(arg_json_format_flags)) {
+                        if (n_components == 0) {
+                                log_info("No components defined.");
+                                return EXIT_FAILURE;
+                        }
+
+                        _cleanup_(table_unrefp) Table *t = table_new("component", "available");
+                        if (!t)
+                                return log_oom();
+
+                        table_set_ersatz_string(t, TABLE_ERSATZ_DASH);
+
+                        FOREACH_ARRAY(i, components, n_components) {
+                                r = table_add_many(
+                                                t,
+                                                TABLE_STRING, i->component ?: "<default>",
+                                                TABLE_SET_COLOR, i->component ? NULL : ansi_highlight(),
+                                                TABLE_STRING, i->available);
+                                if (r < 0)
+                                        return table_log_add_error(r);
+                        }
+
+                        r = table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
+                        if (r < 0)
+                                return r;
+                } else {
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+
+                        r = sd_json_variant_new_array(&array, /* array= */ NULL, 0);
+                        if (r < 0)
+                                return log_oom();
+
+                        FOREACH_ARRAY(i, components, n_components) {
+                                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                                r = component_available_to_json(i, &v);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to create JSON: %m");
+
+                                r = sd_json_variant_append_array(&array, v);
+                                if (r < 0)
+                                        return log_oom();
+                        }
+
+                        r = sd_json_variant_dump(array, arg_json_format_flags, stdout, /* prefix= */ NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to print JSON: %m");
+                }
+
+                if (ret < 0)
+                        return ret;
+
+                /* As in the single component case, return success only if there's a new version available */
+                return any ? EXIT_SUCCESS : EXIT_FAILURE;
+        }
 
         r = context_load_online(
                         &context,
@@ -3001,7 +3323,7 @@ static int vl_method_check_new(sd_varlink *link, sd_json_variant *parameters, sd
         assert(link);
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "target", SD_JSON_VARIANT_OBJECT, dispatch_target_identifier, voffsetof(context, target_identifier), SD_JSON_MANDATORY },
+                { "target", SD_JSON_VARIANT_OBJECT, dispatch_target_identifier, voffsetof(context, target_identifier), SD_JSON_NULLABLE },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {},
         };
@@ -3009,6 +3331,16 @@ static int vl_method_check_new(sd_varlink *link, sd_json_variant *parameters, sd
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &context);
         if (r != 0)
                 return r;
+
+        /* If no target is specified, check the host's default installation and all of its enabled
+         * components, and send one reply for each. */
+        if (context.target_identifier.class < 0) {
+                if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                        return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, /* parameters= */ NULL);
+
+                context.target_identifier.class = TARGET_HOST;
+                context.component_select = SELECT_ALL;
+        }
 
         r = verify_polkit(&context, link, "org.freedesktop.sysupdate1.check",
                         (const char**) STRV_MAKE(
@@ -3024,13 +3356,53 @@ static int vl_method_check_new(sd_varlink *link, sd_json_variant *parameters, sd
         /* CheckNew is always online */
         context.offline = false;
 
+        if (context.component_select == SELECT_ALL) {
+                ComponentAvailable *components = NULL;
+                size_t n_components = 0;
+                CLEANUP_ARRAY(components, n_components, component_available_array_free);
+
+                r = context_load_paths_from_target(&context);
+                if (r < 0)
+                        return r;
+
+                /* If some components could be checked, reply for them, and return the error afterwards */
+                int ret = context_check_new_all(&context, &components, &n_components);
+                if (ret < 0 && n_components == 0)
+                        return ret;
+
+                /* Send one reply for each component we checked, including those without a new version, so
+                 * that the client sees the full list. If there's nothing to check at all, return an error
+                 * rather than an empty reply, since the latter would be indistinguishable from the reply for
+                 * the default installation without a new version available. */
+                r = sd_varlink_set_sentinel(link, "io.systemd.SysUpdate.NoSuchTarget");
+                if (r < 0)
+                        return r;
+
+                FOREACH_ARRAY(i, components, n_components) {
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                        r = component_available_to_json(i, &v);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_varlink_reply(link, v);
+                        if (r < 0)
+                                return r;
+                }
+
+                return ret;
+        }
+
         r = context_load_online_from_target(
                         &context,
                         PROCESS_IMAGE_READ_ONLY,
                         READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS|
-                        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
-        if (r == -ENOENT)
+                        READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS|
+                        READ_DEFINITIONS_REQUIRES_ENABLED_COMPONENT);
+        if (r == -ESRCH)
                 return sd_varlink_error(link, "io.systemd.SysUpdate.NoSuchTarget", /* parameters= */ NULL);
+        if (r == -EHOSTDOWN)
+                return sd_varlink_error(link, "io.systemd.SysUpdate.ComponentDisabled", /* parameters= */ NULL);
         if (r < 0)
                 return r;
 
@@ -3044,10 +3416,88 @@ static int vl_method_check_new(sd_varlink *link, sd_json_variant *parameters, sd
         return 0;
 }
 
-typedef enum {
+typedef enum UpdateActionFlags {
         UPDATE_ACTION_ACQUIRE = 1 << 0,
         UPDATE_ACTION_INSTALL = 1 << 1,
+        _UPDATE_ACTION_INVALID = -EINVAL,
 } UpdateActionFlags;
+
+/* UpdateActionFlags is a bit mask, and the values of bit masks are generally not dense, hence we do not
+ * use a string table here, but map them manually. These functions work just like the ones generated for
+ * string tables though, and hence can be used with JSON_DISPATCH_ENUM_DEFINE(). */
+static const char* update_action_to_string(UpdateActionFlags a) {
+        if (a == (UPDATE_ACTION_ACQUIRE|UPDATE_ACTION_INSTALL))
+                return "update";
+        if (a == UPDATE_ACTION_ACQUIRE)
+                return "acquire";
+        if (a == UPDATE_ACTION_INSTALL)
+                return "install";
+
+        return NULL;
+}
+
+static UpdateActionFlags update_action_from_string(const char *s) {
+        if (streq_ptr(s, "update"))
+                return UPDATE_ACTION_ACQUIRE|UPDATE_ACTION_INSTALL;
+        if (streq_ptr(s, "acquire"))
+                return UPDATE_ACTION_ACQUIRE;
+        if (streq_ptr(s, "install"))
+                return UPDATE_ACTION_INSTALL;
+
+        return _UPDATE_ACTION_INVALID;
+}
+
+#define SYSUPDATE_LOCK_DIRECTORY "/run/systemd/sysupdate/lock"
+
+static int context_lock_component(Context *c, LockFile *ret) {
+        int r;
+
+        assert(c);
+        assert(ret);
+
+        /* Takes a lock on the component (or the default, component-less installation) we are about to
+         * update, so that concurrent updates of the same component (e.g. from the update timer and from an
+         * interactive invocation) are serialized. The lock is to be kept as long as the update runs, and
+         * released with release_lock_file(), which also removes the lock file again. Returns 0 without
+         * taking a lock if we do not operate on the host, as we have no place to put the lock then. */
+
+        if (c->root || c->image) {
+                *ret = LOCK_FILE_INIT;
+                return 0;
+        }
+
+        _cleanup_free_ char *fn = c->component ? strjoin("component-", c->component) : strdup("default");
+        if (!fn)
+                return log_oom();
+
+        /* Open the lock directory, creating it (and its parents) if needed */
+        _cleanup_close_ int dfd = chase_and_open(SYSUPDATE_LOCK_DIRECTORY, /* root= */ NULL, CHASE_MKDIR_0755, O_DIRECTORY|O_CREAT, /* ret_path= */ NULL);
+        if (dfd < 0)
+                return log_error_errno(dfd, "Failed to open '%s': %m", SYSUPDATE_LOCK_DIRECTORY);
+
+        r = make_lock_file_at(dfd, fn, LOCK_EX|LOCK_NB, ret);
+        if (r == -EBUSY) {
+                if (c->component)
+                        log_info("Component '%s' is currently being updated by another process, waiting.", c->component);
+                else
+                        log_info("Default installation is currently being updated by another process, waiting.");
+
+                /* Let the client know why nothing is happening, then wait for the lock. Also signal
+                 * readiness to sysupdated, which replies to the D-Bus method call only once we did so, and
+                 * hence would otherwise let it time out while we wait. */
+                (void) sd_notify(/* unset_environment= */ false,
+                                 "READY=1\n"
+                                 "STATUS=Waiting for another update to finish.");
+
+                context_notify_phase(c, UPDATE_PHASE_WAITING_FOR_LOCK, /* transfer= */ NULL, /* version= */ NULL, /* percent= */ UINT_MAX, /* time_elapsed= */ USEC_INFINITY, /* time_total= */ USEC_INFINITY);
+
+                r = make_lock_file_at(dfd, fn, LOCK_EX, ret);
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to lock '%s/%s': %m", SYSUPDATE_LOCK_DIRECTORY, fn);
+
+        return 1;
+}
 
 static int context_update(
                 Context *c,
@@ -3063,12 +3513,22 @@ static int context_update(
 
         assert(c);
         assert(installed);
-        assert(reboot_needed);
 
         /* Sets *installed to true if an update was installed, even if a later step (e.g. the installdb
-         * cleanup) failed. Doesn't reboot on its own, but sets *reboot_needed to true if --reboot is
-         * requested and the installed version warrants a reboot. It never resets *installed or
-         * *reboot_needed to false, so that they can be accumulated over multiple calls. */
+         * cleanup) failed. Doesn't reboot on its own, but sets *reboot_needed (if non-NULL) to true if a
+         * booted version is specified and the installed version warrants a reboot. It never resets
+         * *installed or *reboot_needed to false, so that they can be accumulated over multiple calls.
+         *
+         * Returns -ESRCH if no transfers are defined for the selected target or component (after still
+         * doing the installdb cleanup), -EHOSTDOWN if the component is disabled, and -ENOENT if the
+         * specified version is not found. */
+
+        _cleanup_(release_lock_file) LockFile lock = LOCK_FILE_INIT;
+        r = context_lock_component(c, &lock);
+        if (r < 0)
+                return r;
+
+        context_notify_phase(c, UPDATE_PHASE_PREPARING, /* transfer= */ NULL, version, /* percent= */ UINT_MAX, /* time_elapsed= */ USEC_INFINITY, /* time_total= */ USEC_INFINITY);
 
         r = context_load_online(
                         c,
@@ -3077,7 +3537,7 @@ static int context_update(
                         READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS|
                         READ_DEFINITIONS_REQUIRES_ENABLED_COMPONENT);
         if (r < 0) {
-                if (r != -ENOENT)
+                if (r != -ESRCH)
                         return r;
 
                 /* No transfer files found. In that case, still do the installdb cleanup below */
@@ -3099,34 +3559,42 @@ static int context_update(
                                 updated = *installed = true;
                 }
 
-                /* context_install() returns > 0 (and emits a notification) only if it actually applied an update. If
-                 * nothing was applied but SYSTEMD_SYSUPDATE_FORCE_NOTIFY=1 is set, still notify subscribers (without a
-                 * resource list), so e.g. a kernel/policy refresh can be triggered unconditionally. */
+                if (updated) {
+                        context_notify_phase(c, UPDATE_PHASE_NOTIFYING, /* transfer= */ NULL, applied->version, /* percent= */ UINT_MAX, /* time_elapsed= */ USEC_INFINITY, /* time_total= */ USEC_INFINITY);
+                        (void) context_notify_subscribers(c, applied);
+                }
+
+                /* context_install() returns > 0 only if it actually applied an update. If nothing was applied
+                 * but SYSTEMD_SYSUPDATE_FORCE_NOTIFY=1 is set, still notify subscribers (without a resource
+                 * list), so e.g. a kernel/policy refresh can be triggered unconditionally. */
                 if (FLAGS_SET(action_flags, UPDATE_ACTION_INSTALL) && !updated) {
                         int f = secure_getenv_bool("SYSTEMD_SYSUPDATE_FORCE_NOTIFY");
                         if (f < 0 && f != -ENXIO)
                                 log_debug_errno(f, "Failed to parse $SYSTEMD_SYSUPDATE_FORCE_NOTIFY, ignoring: %m");
-                        if (f > 0)
+                        if (f > 0) {
+                                context_notify_phase(c, UPDATE_PHASE_NOTIFYING, /* transfer= */ NULL, /* version= */ NULL, /* percent= */ UINT_MAX, /* time_elapsed= */ USEC_INFINITY, /* time_total= */ USEC_INFINITY);
                                 (void) context_notify_subscribers(c, /* us= */ NULL);
+                        }
                 }
         }
 
         if (c->cleanup > 0)
                 RET_GATHER(ret, installdb_cleanup_component(c));
 
-        if (updated && c->reboot) {
+        if (updated && booted_version) {
                 /* We installed something, yay */
 
                 assert(applied);
-                assert(booted_version);
 
                 if (strverscmp_improved(applied->version, booted_version) > 0) {
                         log_notice("Newly installed version is newer than booted version, reboot needed.");
-                        *reboot_needed = true;
+                        if (reboot_needed)
+                                *reboot_needed = true;
                 } else if (strverscmp_improved(applied->version, booted_version) == 0 &&
                            FLAGS_SET(applied->flags, UPDATE_INCOMPLETE)) {
                         log_notice("Currently booted version was incomplete and has been repaired, reboot needed.");
-                        *reboot_needed = true;
+                        if (reboot_needed)
+                                *reboot_needed = true;
                 } else
                         log_info("Booted version is newer or identical to newly installed version, no reboot needed.");
         }
@@ -3139,37 +3607,34 @@ static int context_update_iteration(
                 const char *version,
                 const char *booted_version,
                 UpdateActionFlags action_flags,
+                bool *installed,
                 bool *reboot_needed,
                 int *error) {
 
-        bool installed = false;
         int r;
 
         assert(context);
-        assert(reboot_needed);
+        assert(installed);
         assert(error);
 
-        /* Runs a single update iteration on the selected component(s). Returns > 0 if anything was
-         * installed, 0 if not, < 0 on a failure that shall abort the update logic. Failures of individual
-         * components with FailureAction=continue are not returned, but merged into *error, so that the
-         * caller can return them at the very end. */
+        /* Runs a single update iteration on the selected component(s). Returns 0 on success, < 0 on a
+         * failure that shall abort the update logic. Sets *installed to true if anything was installed, even
+         * on failure, since something might have been installed before something else failed. Failures of
+         * individual components with FailureAction=continue are not returned, but merged into *error, so
+         * that the caller can return them at the very end. */
 
         switch (context->component_select) {
 
         case SELECT_EXPLICIT:
-                r = context_update(context, version, booted_version, action_flags, &installed, reboot_needed);
-                if (r < 0)
-                        return r;
-
-                return installed;
+                return context_update(context, version, booted_version, action_flags, installed, reboot_needed);
 
         case SELECT_ALL: {
                 /* Update the default, component-less installation first (if any). Running it before the
                  * enumeration below also ensures the image (if any) is mounted and context->root is set, so
                  * that we enumerate the components inside the image rather than on the host. A missing
-                 * default installation (ENOENT) is not an error in this mode. */
-                r = context_update(context, version, booted_version, action_flags, &installed, reboot_needed);
-                if (r < 0 && r != -ENOENT)
+                 * default installation (ESRCH) is not an error in this mode. */
+                r = context_update(context, version, booted_version, action_flags, installed, reboot_needed);
+                if (r < 0 && r != -ESRCH)
                         RET_GATHER(*error, r);
 
                 _cleanup_strv_free_ char **component_names = NULL;
@@ -3186,8 +3651,12 @@ static int context_update_iteration(
                                 continue;
                         }
 
+                        /* The booted version refers to the default installation only, hence don't pass it
+                         * for components. */
                         bool component_installed = false;
-                        r = context_update(&cc, version, booted_version, action_flags, &component_installed, reboot_needed);
+                        r = context_update(&cc, version, /* booted_version= */ NULL, action_flags, &component_installed, reboot_needed);
+                        if (component_installed)
+                                *installed = true;
                         if (r == -EHOSTDOWN) /* Component disabled → skip it in the "all" case. */
                                 continue;
                         if (r < 0) {
@@ -3199,8 +3668,6 @@ static int context_update_iteration(
                                 RET_GATHER(*error, r);
                         }
                         if (component_installed) {
-                                installed = true;
-
                                 if (cc.component_info.success_action == COMPONENT_SUCCESS_RESTART) {
                                         /* The component asked us to start from the beginning after it
                                          * has been updated successfully, for example because it makes
@@ -3212,12 +3679,81 @@ static int context_update_iteration(
                         }
                 }
 
-                return installed;
+                return 0;
         }
 
         default:
                 assert_not_reached();
         }
+}
+
+static int context_update_loop(
+                Context *context,
+                const char *version,
+                const char *booted_version,
+                UpdateActionFlags action_flags,
+                unsigned loop,
+                bool *installed,
+                bool *reboot_needed) {
+
+        int r, ret = 0;
+
+        assert(context);
+        assert(loop >= 1);
+
+        /* Runs up to 'loop' update iterations, until a stable state is reached. Doesn't reboot on its own,
+         * but returns whether a reboot is needed, if the booted version is specified. Note that
+         * *installed and *reboot_needed (if non-NULL) are only ever set to true, never reset to false, hence
+         * they must be initialized by the caller. They are updated even on failure, since an update might
+         * have been installed before something else failed. */
+
+        for (unsigned iteration = 1;; iteration++) {
+                _cleanup_(context_done) Context copy = CONTEXT_NULL;
+                Context *c;
+
+                if (iteration == 1)
+                        /* The first iteration operates on the original context, so that the image (if any)
+                         * is mounted there, and remains mounted for all later iterations. */
+                        c = context;
+                else {
+                        /* Start from scratch in later iterations, so that we pick up any new or changed
+                         * definitions (and components) the previous iteration installed. */
+                        r = context_from_base(context, &copy);
+                        if (r < 0) {
+                                RET_GATHER(ret, r);
+                                break;
+                        }
+
+                        c = &copy;
+                }
+
+                if (loop > 1)
+                        log_debug("Starting update iteration %u of at most %u.", iteration, loop);
+
+                c->iteration = iteration;
+
+                bool iteration_installed = false;
+                r = context_update_iteration(c, version, booted_version, action_flags, &iteration_installed, reboot_needed, &ret);
+                if (iteration_installed && installed)
+                        *installed = true;
+                if (r < 0) {
+                        RET_GATHER(ret, r);
+                        break;
+                }
+                if (!iteration_installed) {
+                        if (iteration > 1)
+                                log_info("No further updates installed, stable state reached after %u iterations.", iteration);
+                        break;
+                }
+
+                if (iteration >= loop) {
+                        if (loop > 1)
+                                log_notice("Maximum number of update iterations (%u) reached, not looking for further updates.", loop);
+                        break;
+                }
+        }
+
+        return ret;
 }
 
 static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flags) {
@@ -3263,47 +3799,7 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
         }
 
         bool reboot_needed = false;
-        int ret = 0;
-
-        for (unsigned iteration = 1;; iteration++) {
-                _cleanup_(context_done) Context copy = CONTEXT_NULL;
-                Context *c;
-
-                if (iteration == 1)
-                        /* The first iteration operates on the original context, so that the image (if any)
-                         * is mounted there, and remains mounted for all later iterations. */
-                        c = &context;
-                else {
-                        /* Start from scratch in later iterations, so that we pick up any new or changed
-                         * definitions (and components) the previous iteration installed. */
-                        r = context_from_base(&context, &copy);
-                        if (r < 0) {
-                                RET_GATHER(ret, r);
-                                break;
-                        }
-
-                        c = &copy;
-                }
-
-                if (arg_loop > 1)
-                        log_debug("Starting update iteration %u of at most %u.", iteration, arg_loop);
-
-                r = context_update_iteration(c, version, booted_version, action_flags, &reboot_needed, &ret);
-                if (r < 0) {
-                        RET_GATHER(ret, r);
-                        break;
-                }
-                if (r == 0) {
-                        if (iteration > 1)
-                                log_info("No further updates installed, stable state reached after %u iterations.", iteration);
-                        break;
-                }
-                if (iteration >= arg_loop) {
-                        if (arg_loop > 1)
-                                log_notice("Maximum number of update iterations (%u) reached, not looking for further updates.", arg_loop);
-                        break;
-                }
-        }
+        int ret = context_update_loop(&context, version, booted_version, action_flags, arg_loop, /* installed= */ NULL, &reboot_needed);
 
         if (reboot_needed) {
                 log_notice("Rebooting.");
@@ -3311,6 +3807,164 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
         }
 
         return ret;
+}
+
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_update_action, UpdateActionFlags, update_action_from_string);
+
+typedef struct UpdateParameters {
+        Context context;
+        char *version;
+        UpdateActionFlags action_flags;
+        unsigned loop;
+} UpdateParameters;
+
+static void update_parameters_done(UpdateParameters *p) {
+        assert(p);
+
+        context_done(&p->context);
+        p->version = mfree(p->version);
+}
+
+static int vl_method_update(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        _cleanup_(update_parameters_done) UpdateParameters p = {
+                .context = CONTEXT_NULL,
+                .action_flags = _UPDATE_ACTION_INVALID,
+                .loop = 1,
+        };
+        int r;
+
+        assert(link);
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "target",  SD_JSON_VARIANT_OBJECT,        dispatch_target_identifier, offsetof(UpdateParameters, context.target_identifier), SD_JSON_NULLABLE },
+                { "version", SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,    offsetof(UpdateParameters, version),                   SD_JSON_NULLABLE },
+                { "action",  SD_JSON_VARIANT_STRING,        dispatch_update_action,     offsetof(UpdateParameters, action_flags),              SD_JSON_NULLABLE },
+                { "loop",    _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,      offsetof(UpdateParameters, loop),                      SD_JSON_NULLABLE },
+                { "cleanup", SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,  offsetof(UpdateParameters, context.cleanup),           SD_JSON_NULLABLE },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {},
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (p.action_flags < 0) /* not specified → default */
+                p.action_flags = UPDATE_ACTION_ACQUIRE|UPDATE_ACTION_INSTALL;
+
+        /* If no target is specified, update the host's default installation and all of its enabled
+         * components, like "update --component-all". */
+        if (p.context.target_identifier.class < 0) {
+                p.context.target_identifier.class = TARGET_HOST;
+                p.context.component_select = SELECT_ALL;
+        }
+
+        if (p.version && !version_is_valid(p.version, VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS))
+                return sd_varlink_error_invalid_parameter_name(link, "version");
+        if (p.loop == UINT_MAX) /* explicitly set to null → default */
+                p.loop = 1;
+        if (p.loop == 0)
+                return sd_varlink_error_invalid_parameter_name(link, "loop");
+        /* Only installing updates can make new updates available, hence looping makes no sense if we only
+         * acquire. */
+        if (p.loop > 1 && !FLAGS_SET(p.action_flags, UPDATE_ACTION_INSTALL))
+                return sd_varlink_error_invalid_parameter_name(link, "loop");
+
+        /* Polkit details are a NULL terminated list, hence we cannot have NULL entries in the middle. Add the
+         * optional pairs one by one. */
+        const char *details[6 * 2 + 1] = {
+                "class", target_class_to_string(p.context.target_identifier.class),
+                "offline", one_zero(!FLAGS_SET(p.action_flags, UPDATE_ACTION_ACQUIRE)),
+                "cleanup", one_zero(p.context.cleanup > 0),
+        };
+        size_t n_details = 6;
+        if (p.context.target_identifier.name) {
+                details[n_details++] = "name";
+                details[n_details++] = p.context.target_identifier.name;
+        }
+        if (p.version) {
+                details[n_details++] = "version";
+                details[n_details++] = p.version;
+        }
+        /* Without a target all components are updated too, let polkit rules distinguish that from an
+         * update of the host's default installation only. */
+        if (p.context.component_select == SELECT_ALL) {
+                details[n_details++] = "components";
+                details[n_details++] = "all";
+        }
+        assert(n_details < ELEMENTSOF(details));
+
+        /* We don’t have a separate polkit action for acquire/install as they are both effectively (part of)
+         * an update anyway. */
+        r = verify_polkit(&p.context, link,
+                          p.version ? "org.freedesktop.sysupdate1.update-to-version" : "org.freedesktop.sysupdate1.update",
+                          details);
+        if (r <= 0)
+                return r;
+
+        /* The cleanup removes resources of components that are no longer installed, which is close to
+         * vacuuming, hence require the same privileges for it. */
+        if (p.context.cleanup > 0) {
+                r = verify_polkit(&p.context, link, "org.freedesktop.sysupdate1.vacuum", details);
+                if (r <= 0)
+                        return r;
+        }
+
+        log_debug("Executing '%s' action.", update_action_to_string(p.action_flags));
+
+        if (getenv_bool("SYSTEMD_SYSUPDATE_NO_VERIFY") > 0)
+                p.context.verify = 0;
+
+        /* If we shall only install, then do so from what has already been acquired, like "update --offline" */
+        p.context.offline = !FLAGS_SET(p.action_flags, UPDATE_ACTION_ACQUIRE);
+
+        r = context_load_paths_from_target(&p.context);
+        if (r == -ESRCH)
+                return sd_varlink_error(link, "io.systemd.SysUpdate.NoSuchTarget", /* parameters= */ NULL);
+        if (r < 0)
+                return r;
+
+        /* If we update the host's default installation, determine the booted version, so that we can tell
+         * whether a reboot is needed afterwards. If it cannot be determined, we just don't report that. */
+        _cleanup_free_ char *booted_version = NULL;
+        if (p.context.target_identifier.class == TARGET_HOST) {
+                r = parse_os_release(/* root= */ NULL, "IMAGE_VERSION", &booted_version);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to read IMAGE_VERSION from /etc/os-release, not determining whether a reboot is needed: %m");
+                else if (!booted_version)
+                        log_debug("/etc/os-release lacks IMAGE_VERSION field, not determining whether a reboot is needed.");
+        }
+
+        /* Progress notifications are only sent if the client asked for them */
+        if (FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                p.context.link = sd_varlink_ref(link);
+
+        bool installed = false, reboot_needed = false;
+        r = context_update_loop(&p.context, p.version, booted_version, p.action_flags, p.loop, &installed, &reboot_needed);
+
+        /* Don't send any further notifications from here on */
+        p.context.link = sd_varlink_unref(p.context.link);
+
+        /* Like CheckNew(), report an explicitly specified target without (enabled) definitions as
+         * nonexistent, and a disabled component as such. */
+        if (p.context.component_select == SELECT_EXPLICIT && !installed) {
+                if (r == -ESRCH)
+                        return sd_varlink_error(link, "io.systemd.SysUpdate.NoSuchTarget", /* parameters= */ NULL);
+                if (r == -EHOSTDOWN)
+                        return sd_varlink_error(link, "io.systemd.SysUpdate.ComponentDisabled", /* parameters= */ NULL);
+        }
+        if (r < 0)
+                return r;
+
+        r = sd_varlink_replybo(
+                        link,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("installed", installed),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!booted_version, "rebootNeeded", SD_JSON_BUILD_BOOLEAN(reboot_needed)));
+        if (r < 0)
+                /* The client might have disconnected in the meantime, which is fine, the update is done anyway */
+                log_debug_errno(r, "Failed to send Varlink reply, ignoring: %m");
+
+        return 0;
 }
 
 VERB(verb_update, "update", "[VERSION]\0", VERB_ANY, 2, 0,
@@ -3351,6 +4005,12 @@ static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) 
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                       "The --instances-max= argument must be >= 1 while vacuuming");
 
+        /* Vacuuming changes the same instances as an update does, hence serialize it with updates */
+        _cleanup_(release_lock_file) LockFile lock = LOCK_FILE_INIT;
+        r = context_lock_component(&context, &lock);
+        if (r < 0)
+                return r;
+
         r = context_load_offline(
                         &context,
                         /* process_image_flags= */ 0,
@@ -3380,6 +4040,13 @@ static int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata)
         if (!IN_SET(context.component_select, SELECT_EXPLICIT, SELECT_ALL))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--component-suggested currently not supported for '%s'.", argv[0]);
 
+        /* The cleanup changes the same instances and installdb as an update does, hence serialize it with
+         * updates. */
+        _cleanup_(release_lock_file) LockFile lock = LOCK_FILE_INIT;
+        r = context_lock_component(&context, &lock);
+        if (r < 0)
+                return r;
+
         r = context_load_offline(
                         &context,
                         /* process_image_flags= */ 0,
@@ -3389,6 +4056,7 @@ static int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata)
 
         int ret = 0;
         RET_GATHER(ret, installdb_cleanup_component(&context));
+        release_lock_file(&lock);
 
         if (context.component_select == SELECT_ALL) {
                 _cleanup_strv_free_ char **z = NULL;
@@ -3406,6 +4074,11 @@ static int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata)
                         /* Override the component with our iter. This needs to be done in a fresh Context
                          * as the installdb_fd and other state are specific to the component. */
                         r = free_and_strdup_warn(&component_context.component, *i);
+                        if (r < 0)
+                                return r;
+
+                        _cleanup_(release_lock_file) LockFile component_lock = LOCK_FILE_INIT;
+                        r = context_lock_component(&component_context, &component_lock);
                         if (r < 0)
                                 return r;
 
@@ -4253,7 +4926,8 @@ static int vl_server(void) {
                         varlink_server,
                         "io.systemd.SysUpdate.CheckNew",     vl_method_check_new,
                         "io.systemd.SysUpdate.ListFeatures", vl_method_list_features,
-                        "io.systemd.SysUpdate.ListTargets",  vl_method_list_targets);
+                        "io.systemd.SysUpdate.ListTargets",  vl_method_list_targets,
+                        "io.systemd.SysUpdate.Update",       vl_method_update);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink method: %m");
 

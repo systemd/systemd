@@ -243,9 +243,15 @@ static void job_on_ready(Job *j) {
         if (!j->detach_cb)
                 return;
 
+        /* The worker might send READY=1 more than once (for example once before waiting for a lock, and
+         * again once it starts its actual work). The job is detached on the first one, ignore the rest. */
+        if (!j->dbus_msg) {
+                log_debug("Got repeated READY=1 from job %" PRIu64 ", ignoring.", j->id);
+                return;
+        }
+
         log_debug("Got READY=1 from job %" PRIu64", detaching.", j->id);
 
-        assert(j->dbus_msg);
         msg = TAKE_PTR(j->dbus_msg);
 
         j->complete_cb = NULL;

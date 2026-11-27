@@ -34,6 +34,8 @@ int varlink_check_privileged_peer(sd_varlink *vl);
 
 int varlink_dispatch_fd(sd_varlink *link, const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, int *fd);
 
+int varlink_process_nonblocking(sd_varlink *link);
+
 extern const struct hash_ops varlink_hash_ops;
 
 ssize_t varlink_execute_directory_full(const char *path, const char *method, sd_json_variant *parameters, bool more, usec_t timeout_usec, sd_varlink_reply_t reply, void *userdata, char ***ret_offline_sockets);
