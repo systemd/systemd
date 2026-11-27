@@ -326,6 +326,23 @@ TEST(fd_verify_linked) {
         ASSERT_ERROR(fd_verify_linked(fd), EIDRM);
 }
 
+TEST(mode_has_negative_permissions) {
+        ASSERT_FALSE(mode_has_negative_permissions(0755));
+        ASSERT_FALSE(mode_has_negative_permissions(0750));
+        ASSERT_FALSE(mode_has_negative_permissions(0700));
+        ASSERT_FALSE(mode_has_negative_permissions(0644));
+        ASSERT_FALSE(mode_has_negative_permissions(0751));
+        ASSERT_FALSE(mode_has_negative_permissions(0077));
+        ASSERT_FALSE(mode_has_negative_permissions(01777));
+        ASSERT_FALSE(mode_has_negative_permissions(S_IFDIR|02755));
+
+        ASSERT_TRUE(mode_has_negative_permissions(0705));
+        ASSERT_TRUE(mode_has_negative_permissions(0745));
+        ASSERT_TRUE(mode_has_negative_permissions(0604));
+        ASSERT_TRUE(mode_has_negative_permissions(0007));
+        ASSERT_TRUE(mode_has_negative_permissions(S_IFDIR|02705));
+}
+
 static int intro(void) {
         log_show_color(true);
         return EXIT_SUCCESS;
