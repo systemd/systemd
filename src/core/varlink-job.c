@@ -1,7 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fnmatch.h>
+
 #include "sd-varlink.h"
 
+#include "alloc-util.h"
+#include "glob-util.h"
+#include "hashmap.h"
 #include "job.h"
 #include "json-util.h"
 #include "locale-util.h"
@@ -9,8 +14,17 @@
 #include "selinux-access.h"
 #include "strv.h"
 #include "unit.h"
+#include "unit-name.h"
 #include "varlink-common.h"
 #include "varlink-job.h"
+
+/* PID 1 matches the unit filter of each subscriber against every job state change, hence bound it */
+#define JOB_SUBSCRIBER_UNITS_MAX 64U
+
+DEFINE_PRIVATE_HASH_OPS_FULL(
+                job_subscriber_hash_ops,
+                void, trivial_hash_func, trivial_compare_func, sd_varlink_unref,
+                char*, strv_free);
 
 static int activation_details_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
@@ -41,6 +55,12 @@ static int activation_details_build_json(sd_json_variant **ret, const char *name
 int job_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         Job *j = ASSERT_PTR(userdata);
 
+        /* A job removed without ever completing (e.g. because its unit is unloaded) has no result. Report
+         * it as canceled, so that a finished job always carries one. */
+        JobResult result = j->result;
+        if (j->state == JOB_FINISHED && result < 0)
+                result = JOB_CANCELED;
+
         /* "Unit" is omitted in StartTransient streaming notifications where the caller already knows the unit. */
         return sd_json_buildo(
                         ASSERT_PTR(ret),
@@ -48,7 +68,7 @@ int job_build_json(sd_json_variant **ret, const char *name, void *userdata) {
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("Unit", j->unit ? j->unit->id : NULL),
                         JSON_BUILD_PAIR_ENUM("JobType", job_type_to_string(j->type)),
                         JSON_BUILD_PAIR_ENUM("State", job_state_to_string(j->state)),
-                        JSON_BUILD_PAIR_ENUM_NON_EMPTY("Result", job_result_to_string(j->result)),
+                        JSON_BUILD_PAIR_ENUM_NON_EMPTY("Result", job_result_to_string(result)),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("ActivationDetails", activation_details_build_json, j));
 }
 
@@ -241,4 +261,142 @@ int vl_method_clear_all_jobs(sd_varlink *link, sd_json_variant *parameters, sd_v
         manager_clear_jobs(manager);
 
         return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
+bool varlink_job_unsubscribe(Manager *m, sd_varlink *link) {
+        char **units;
+
+        assert(m);
+        assert(link);
+
+        units = hashmap_remove(m->varlink_job_subscribers, link);
+        if (!units)
+                return false;
+
+        strv_free(units);
+        sd_varlink_unref(link);
+        return true;
+}
+
+static bool job_subscriber_wants(sd_varlink *link, char **units, Job *j) {
+        assert(link);
+        assert(j);
+        assert(j->unit);
+
+        if (!strv_fnmatch_or_empty(units, j->unit->id, FNM_NOESCAPE))
+                return false;
+
+        /* Silently skip the jobs the subscriber may not see, as List does */
+        return mac_selinux_unit_access_check_varlink(j->unit, link, "status") >= 0;
+}
+
+void varlink_job_notify_subscribers(Job *j) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        Manager *m;
+        sd_varlink *link;
+        char **units;
+        int r;
+
+        assert(j);
+        m = ASSERT_PTR(j->manager);
+
+        HASHMAP_FOREACH_KEY(units, link, m->varlink_job_subscribers) {
+                if (!job_subscriber_wants(link, units, j))
+                        continue;
+
+                /* Build the notification only once, all subscribers share it */
+                if (!v) {
+                        r = sd_json_buildo(&v, SD_JSON_BUILD_PAIR_CALLBACK("job", job_build_json, j));
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to build job notification, ignoring: %m");
+                                return;
+                        }
+                }
+
+                r = sd_varlink_notify(link, v);
+                if (r < 0) {
+                        /* The subscriber does not read (-ENOBUFS) or is gone. Do not queue more for it in
+                         * PID 1. Unsubscribe before closing, so that vl_disconnect() finds nothing to drop.
+                         * Removing the current entry while iterating is safe. */
+                        log_debug_errno(r, "Failed to notify job subscriber, disconnecting: %m");
+
+                        _cleanup_(sd_varlink_unrefp) sd_varlink *dead = sd_varlink_ref(link);
+                        (void) varlink_job_unsubscribe(m, dead);
+                        (void) sd_varlink_close(dead);
+                }
+        }
+}
+
+static int job_subscriber_send_queued(Manager *m, sd_varlink *link, char **units) {
+        Job *j;
+        int r;
+
+        assert(m);
+        assert(link);
+
+        HASHMAP_FOREACH(j, m->jobs) {
+                if (!job_subscriber_wants(link, units, j))
+                        continue;
+
+                r = sd_varlink_notifybo(link, SD_JSON_BUILD_PAIR_CALLBACK("job", job_build_json, j));
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_varlink_notifybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("ready", true));
+}
+
+int vl_method_subscribe_jobs(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "units", SD_JSON_VARIANT_ARRAY, sd_json_dispatch_strv, 0, SD_JSON_NULLABLE },
+                {}
+        };
+
+        Manager *m = ASSERT_PTR(userdata);
+        _cleanup_strv_free_ char **units = NULL;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        /* SD_VARLINK_REQUIRES_MORE in the IDL rejects calls without the 'more' flag before we get here */
+        assert(FLAGS_SET(flags, SD_VARLINK_METHOD_MORE));
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &units);
+        if (r != 0)
+                return r;
+
+        if (strv_length(units) > JOB_SUBSCRIBER_UNITS_MAX)
+                return sd_varlink_error_invalid_parameter_name(link, "units");
+
+        STRV_FOREACH(u, units)
+                if (strlen(*u) >= UNIT_NAME_MAX ||
+                    (!unit_name_is_valid(*u, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE) && !string_is_glob(*u)))
+                        return sd_varlink_error_invalid_parameter_name(link, "units");
+
+        /* The map value says whether a link is subscribed, hence it is never NULL. An empty list matches
+         * the jobs of all units. */
+        if (!units) {
+                units = new0(char*, 1);
+                if (!units)
+                        return -ENOMEM;
+        }
+
+        r = hashmap_ensure_put(&m->varlink_job_subscribers, &job_subscriber_hash_ops, link, units);
+        if (r < 0)
+                return r;
+
+        sd_varlink_ref(link);
+        char **filter = TAKE_PTR(units);
+
+        /* Report the jobs that are queued already, then conclude with the ready notification. All of this
+         * and the registration above happen in one dispatch, no job can change state in between. Hence a
+         * client that has seen the ready notification does not miss the job of a unit it enqueues next. */
+        r = job_subscriber_send_queued(m, link, filter);
+        if (r < 0) {
+                (void) varlink_job_unsubscribe(m, link);
+                return r;
+        }
+
+        return 1;
 }
