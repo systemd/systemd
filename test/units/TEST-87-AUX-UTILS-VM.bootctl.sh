@@ -656,9 +656,11 @@ EOF
     (! "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" --entry-commit=99 --keep-free=1T)
     test ! -e "$ESP/loader/entries/${TOKEN}-commit_99.conf"
 
-    # --- Test 8: refusing to re-link the same commit number ---
+    # --- Test 8: refusing to re-link the same commit number, unless the entry is identical ---
     "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" --entry-commit=77
-    (! "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" --entry-commit=77)
+    "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" --entry-commit=77
+    (! "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" --entry-commit=77 --entry-title="Other Title")
+    (! "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" --entry-commit=77 --force)
     "${BOOTCTL[@]}" unlink "${TOKEN}-commit_77.conf"
 
     # --- Test 9: passing a non-UKI is rejected ---

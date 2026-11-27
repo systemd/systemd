@@ -106,6 +106,7 @@ _arguments \
     '--graceful[Do not fail when locating ESP or writing fails]' \
     '(-n --dry-run)'{-n,--dry-run}'[Dry run (unlink and cleanup)]' \
     '--oldest=[Delete oldest boot menu entry]:options:(yes no)' \
+    '--force[Create a new boot menu entry even if an identical one exists]' \
     '--root=[Operate under the specified directory]:PATH' \
     '--image=[Operate on the specified image]:PATH' \
     '--install-source[Where to pick files when using --root=/--image=]:options:(image host auto)' \

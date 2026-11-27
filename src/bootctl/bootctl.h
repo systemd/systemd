@@ -58,6 +58,7 @@ extern char *arg_entry_version;
 extern uint64_t arg_entry_commit;
 extern char **arg_extras;
 extern unsigned arg_tries_left;
+extern bool arg_force;
 
 static inline const char* arg_dollar_boot_path(void) {
         /* $BOOT shall be the XBOOTLDR partition if it exists, and otherwise the ESP */

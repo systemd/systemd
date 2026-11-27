@@ -19,6 +19,7 @@
 #include "env-file.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "find-esp.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -34,6 +35,7 @@
 #include "path-util.h"
 #include "recurse-dir.h"
 #include "set.h"
+#include "sort-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -61,6 +63,9 @@ typedef struct ExtraFile {
 
 /* Keeps track of a specific UKI profile we need to generate a type entry for */
 typedef struct Profile {
+        /* make_entry() generates the entry from the .osrel and .profile sections of the UKI. */
+        char *osrelease, *profile;
+
         /* The final and the temporary file for the .conf entry file, while we write it */
         char *entry_filename, *entry_temp_filename;
         int entry_temp_fd;
@@ -77,6 +82,7 @@ typedef struct LinkContext {
         char *entry_title;
         char *entry_version;
         uint64_t entry_commit;
+        bool entry_commit_picked; /* The commit number was picked automatically, rather than passed in explicitly */
 
         BootEntrySource dollar_boot_source;
         char *dollar_boot_path;
@@ -100,7 +106,10 @@ typedef struct LinkContext {
 
         uint64_t keep_free;
 
+        bool force; /* Create new entries even if identical ones exist already */
+
         char **linked_ids;
+        bool created; /* False if linked_ids lists identical entries that existed before run_link() */
 } LinkContext;
 
 #define LINK_CONTEXT_NULL                                               \
@@ -129,6 +138,8 @@ static void extra_file_done(ExtraFile *x) {
 static void profile_done(Profile *p) {
         assert(p);
 
+        p->osrelease = mfree(p->osrelease);
+        p->profile = mfree(p->profile);
         p->entry_filename = mfree(p->entry_filename);
         p->entry_temp_filename = mfree(p->entry_temp_filename);
         p->entry_temp_fd = safe_close(p->entry_temp_fd);
@@ -281,6 +292,7 @@ static int link_context_from_cmdline_common(LinkContext *b) {
         b->tries_left = arg_tries_left;
         b->entry_commit = arg_entry_commit;
         b->keep_free = arg_keep_free;
+        b->force = arg_force;
 
         if (strdup_to(&b->entry_token, arg_entry_token) < 0 ||
             strdup_to(&b->entry_title, arg_entry_title) < 0 ||
@@ -577,22 +589,27 @@ static int begin_copy_file(
         return 1;
 }
 
-static int begin_write_entry_file(
+static int make_entry(
                 LinkContext *c,
+                uint64_t commit,
+                unsigned tries_left,
                 unsigned profile_nr,
                 const char *osrelease_text,
                 const char *profile_text,
-                Profile *ret) {
+                char **ret_filename,
+                char **ret_id,
+                char **ret_text) {
 
         int r;
 
         assert(c);
         assert(osrelease_text);
-        assert(ret);
+        assert(ret_filename);
+        assert(ret_id);
+        assert(ret_text);
 
         assert(c->entry_token);
         assert(c->kernel_filename);
-        assert(c->loader_entries_dir_fd >= 0);
 
         _cleanup_free_ char *good_name = NULL, *good_sort_key = NULL, *os_version_id = NULL, *image_version = NULL;
         r = bootspec_extract_osrelease(
@@ -627,28 +644,24 @@ static int begin_write_entry_file(
         _cleanup_free_ char *filename = NULL;
         r = boot_entry_make_commit_filename(
                         c->entry_token,
-                        c->entry_commit,
+                        commit,
                         version,
                         profile_nr,
-                        c->tries_left,
+                        tries_left,
                         &filename);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate filename for entry file: %m");
 
-        if (faccessat(c->loader_entries_dir_fd, filename, F_OK, AT_SYMLINK_NOFOLLOW) < 0) {
-                if (errno != ENOENT)
-                        return log_error_errno(errno, "Failed to check if '%s' exists: %m", filename);
-        } else
-                return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Boot menu entry '%s' exists already, refusing.", filename);
-
-        log_info("Writing new boot menu entry '%s/loader/entries/%s' for profile %u.", c->dollar_boot_path, filename, profile_nr);
-
-        _cleanup_free_ char *t = NULL;
-        _cleanup_close_ int write_fd = open_tmpfile_linkable_at(c->loader_entries_dir_fd, filename, O_WRONLY, &t);
-        if (write_fd < 0)
-                return log_error_errno(write_fd, "Failed to create '%s': %m", filename);
-
-        CLEANUP_TMPFILE_AT(c->loader_entries_dir_fd, t);
+        _cleanup_free_ char *id = NULL;
+        r = boot_entry_make_commit_filename(
+                        c->entry_token,
+                        commit,
+                        version,
+                        profile_nr,
+                        /* tries_left= */ UINT_MAX,
+                        &id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate filename for entry file: %m");
 
         _cleanup_free_ char *_title = NULL;
         const char *title;
@@ -680,7 +693,7 @@ static int begin_write_entry_file(
                      "version %" PRIu64 "%s%s\n",
                      title,
                      c->entry_token, c->kernel_filename,
-                     c->entry_commit, isempty(version) ? "" : ".", strempty(version)) < 0)
+                     commit, isempty(version) ? "" : ".", strempty(version)) < 0)
                 return log_oom();
 
         if (good_sort_key && strextendf(&text, "sort-key %s\n", good_sort_key) < 0)
@@ -703,15 +716,129 @@ static int begin_write_entry_file(
                         return log_oom();
         }
 
+        *ret_filename = TAKE_PTR(filename);
+        *ret_id = TAKE_PTR(id);
+        *ret_text = TAKE_PTR(text);
+        return 0;
+}
+
+static int find_entry_file(
+                const DirectoryEntries *dentries,
+                const char *id,
+                const char **ret_filename) {
+
+        int r;
+
+        assert(dentries);
+        assert(id);
+        assert(ret_filename);
+
+        /* The boot loader renames an entry file when it changes the tries counter in its name, hence
+         * find_entry_file() compares the names without the tries counters. $BOOT is typically VFAT, hence
+         * the comparison ignores case. */
+
+        FOREACH_ARRAY(i, dentries->entries, dentries->n_entries) {
+                const struct dirent *de = *i;
+
+                if (!dirent_is_file(de))
+                        continue;
+
+                _cleanup_free_ char *stripped = NULL;
+                r = boot_filename_extract_tries(de->d_name, &stripped, /* ret_tries_left= */ NULL, /* ret_tries_done= */ NULL);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0 || !strcaseeq(stripped, id))
+                        continue;
+
+                *ret_filename = de->d_name;
+                return 1;
+        }
+
+        *ret_filename = NULL;
+        return 0;
+}
+
+static int entry_file_has_text(int dir_fd, const char *filename, const char *text) {
+        int r;
+
+        assert(dir_fd >= 0);
+        assert(filename);
+        assert(text);
+
+        /* The boot loader spec parser ignores entry files that are symlinks, hence a symlink is never
+         * identical. Another process can rename or remove the file after the directory was read, which is
+         * not an error either. */
+        _cleanup_close_ int fd = xopenat_full(dir_fd, filename, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, XO_REGULAR, MODE_INVALID);
+        if (IN_SET(fd, -ENOENT, -ELOOP))
+                return false;
+        if (fd < 0)
+                return fd;
+
+        struct stat st;
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        size_t l = strlen(text);
+        if ((uint64_t) st.st_size != l)
+                return false;
+
+        _cleanup_free_ char *contents = NULL;
+        size_t n;
+        r = read_full_file_at(fd, /* filename= */ NULL, &contents, &n);
+        if (r < 0)
+                return r;
+
+        return n == l && memcmp(contents, text, l) == 0;
+}
+
+static int begin_write_entry_file(
+                LinkContext *c,
+                const DirectoryEntries *dentries,
+                unsigned profile_nr,
+                Profile *p) {
+
+        int r;
+
+        assert(c);
+        assert(p);
+
+        assert(c->loader_entries_dir_fd >= 0);
+
+        _cleanup_free_ char *filename = NULL, *id = NULL, *text = NULL;
+        r = make_entry(c, c->entry_commit, c->tries_left, profile_nr, p->osrelease, p->profile, &filename, &id, &text);
+        if (r < 0)
+                return r;
+
+        if (faccessat(c->loader_entries_dir_fd, filename, F_OK, AT_SYMLINK_NOFOLLOW) < 0) {
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to check if '%s' exists: %m", filename);
+        } else
+                return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Boot menu entry '%s' exists already, refusing.", filename);
+
+        /* An existing entry file can have other tries counters in its name than the file to create. */
+        const char *existing;
+        r = find_entry_file(dentries, id, &existing);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Boot menu entry '%s' exists already, refusing.", existing);
+
+        log_info("Writing new boot menu entry '%s/loader/entries/%s' for profile %u.", c->dollar_boot_path, filename, profile_nr);
+
+        _cleanup_free_ char *t = NULL;
+        _cleanup_close_ int write_fd = open_tmpfile_linkable_at(c->loader_entries_dir_fd, filename, O_WRONLY, &t);
+        if (write_fd < 0)
+                return log_error_errno(write_fd, "Failed to create '%s': %m", filename);
+
+        CLEANUP_TMPFILE_AT(c->loader_entries_dir_fd, t);
+
         r = loop_write(write_fd, text, /* nbytes= */ SIZE_MAX);
         if (r < 0)
                 return log_error_errno(r, "Failed to write entry file: %m");
 
-        *ret = (Profile) {
-                .entry_filename = TAKE_PTR(filename),
-                .entry_temp_filename = TAKE_PTR(t),
-                .entry_temp_fd = TAKE_FD(write_fd),
-        };
+        p->entry_filename = TAKE_PTR(filename);
+        p->entry_temp_filename = TAKE_PTR(t);
+        p->entry_temp_fd = TAKE_FD(write_fd);
 
         return 0;
 }
@@ -738,23 +865,36 @@ static int finalize_file(
         return 1;
 }
 
-static int link_context_pick_entry_commit(LinkContext *c) {
+typedef struct CommitInfo {
+        uint64_t commit;
+        size_t n_entries;
+} CommitInfo;
+
+static int commit_info_compare_reverse(const CommitInfo *a, const CommitInfo *b) {
+        assert(a);
+        assert(b);
+
+        return CMP(b->commit, a->commit);
+}
+
+static int link_context_list_commits(
+                LinkContext *c,
+                const DirectoryEntries *dentries,
+                CommitInfo **ret_commits,
+                size_t *ret_n_commits) {
+
         int r;
 
         assert(c);
-        assert(c->loader_entries_dir_fd >= 0);
         assert(c->entry_token);
+        assert(dentries);
+        assert(ret_commits);
+        assert(ret_n_commits);
 
-        /* Already have a commit nr? */
-        if (c->entry_commit != 0)
-                return 0;
+        /* link_context_list_commits() sorts the commits of our entry token from newest to oldest. */
 
-        _cleanup_free_ DirectoryEntries *dentries = NULL;
-        r = readdir_all(c->loader_entries_dir_fd, RECURSE_DIR_REOPEN|RECURSE_DIR_IGNORE_DOT, &dentries);
-        if (r < 0)
-                return log_error_errno(r, "Failed to read loader entries directory: %m");
-
-        uint64_t m = 0; /* largest commit number seen */
+        _cleanup_free_ CommitInfo *commits = NULL;
+        size_t n_commits = 0;
         FOREACH_ARRAY(i, dentries->entries, dentries->n_entries) {
                 const struct dirent *de = *i;
 
@@ -777,10 +917,44 @@ static int link_context_pick_entry_commit(LinkContext *c) {
                 if (!streq(c->entry_token, et))
                         continue;
 
+                CommitInfo *found = NULL;
+                FOREACH_ARRAY(k, commits, n_commits)
+                        if (k->commit == ec) {
+                                found = k;
+                                break;
+                        }
+                if (found) {
+                        found->n_entries++;
+                        continue;
+                }
+
                 log_debug("Found existing commit %" PRIu64 ".", ec);
-                if (ec > m)
-                        m = ec;
+
+                if (!GREEDY_REALLOC(commits, n_commits+1))
+                        return log_oom();
+
+                commits[n_commits++] = (CommitInfo) {
+                        .commit = ec,
+                        .n_entries = 1,
+                };
         }
+
+        typesafe_qsort(commits, n_commits, commit_info_compare_reverse);
+
+        *ret_commits = TAKE_PTR(commits);
+        *ret_n_commits = n_commits;
+        return 0;
+}
+
+static int link_context_pick_entry_commit(LinkContext *c, const CommitInfo *commits, size_t n_commits) {
+        assert(c);
+        assert(commits || n_commits == 0);
+
+        /* Already have a commit nr? */
+        if (c->entry_commit != 0)
+                return 0;
+
+        uint64_t m = n_commits > 0 ? commits[0].commit : 0; /* largest commit number seen */
 
         assert(m < UINT64_MAX);
         uint64_t next = m + 1;
@@ -790,6 +964,146 @@ static int link_context_pick_entry_commit(LinkContext *c) {
 
         log_debug("Picking commit %" PRIu64 " for new commit.", next);
         c->entry_commit = next;
+        c->entry_commit_picked = true;
+        return 0;
+}
+
+static int link_context_load_profiles(LinkContext *c, const char *path) {
+        int r;
+
+        assert(c);
+        assert(c->kernel_fd >= 0);
+
+        for (unsigned p = 0; p < UNIFIED_PROFILES_MAX; p++) {
+                _cleanup_free_ char *osrelease = NULL, *profile = NULL;
+                r = pe_find_uki_sections(
+                                c->kernel_fd,
+                                path,
+                                p,
+                                &osrelease,
+                                &profile,
+                                /* ret_cmdline= */ NULL,
+                                /* ret_uname= */ NULL);
+                if (r < 0)
+                        return r;
+                if (r == 0) /* this profile does not exist, we are done */
+                        break;
+
+                if (!GREEDY_REALLOC(c->profiles, c->n_profiles+1))
+                        return log_oom();
+
+                c->profiles[c->n_profiles++] = (Profile) {
+                        .osrelease = TAKE_PTR(osrelease),
+                        .profile = TAKE_PTR(profile),
+                        .entry_temp_fd = -EBADF,
+                };
+        }
+
+        if (c->n_profiles == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "UKI with no valid profile, refusing.");
+
+        return 0;
+}
+
+static int link_context_find_identical_commit(
+                LinkContext *c,
+                const DirectoryEntries *dentries,
+                const CommitInfo *commits,
+                size_t n_commits,
+                uint64_t *ret_commit,
+                char ***ret_ids) {
+
+        int r;
+
+        assert(c);
+        assert(c->loader_entries_dir_fd >= 0);
+        assert(c->entry_token_dir_fd >= 0);
+        assert(c->entry_commit != 0);
+        assert(c->n_profiles > 0);
+        assert(dentries);
+        assert(commits || n_commits == 0);
+        assert(ret_commit);
+        assert(ret_ids);
+
+        /* link_context_find_identical_commit() returns > 0 if an existing commit consists of exactly the
+         * entries we would create. If the commit number was specified explicitly, only that commit is
+         * considered. */
+
+        /* An entry whose resources are gone cannot be booted, hence it is not treated as identical. The
+         * contents of the resources are not compared, like in begin_copy_file(). */
+        if (faccessat(c->entry_token_dir_fd, c->kernel_filename, F_OK, AT_SYMLINK_NOFOLLOW) < 0) {
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to check if '%s' exists already: %m", c->kernel_filename);
+
+                goto nope;
+        }
+        FOREACH_ARRAY(x, c->extra, c->n_extra)
+                if (faccessat(c->entry_token_dir_fd, x->filename, F_OK, AT_SYMLINK_NOFOLLOW) < 0) {
+                        if (errno != ENOENT)
+                                return log_error_errno(errno, "Failed to check if '%s' exists already: %m", x->filename);
+
+                        goto nope;
+                }
+
+        FOREACH_ARRAY(commit, commits, n_commits) {
+                if (!c->entry_commit_picked && commit->commit != c->entry_commit)
+                        continue;
+
+                if (commit->n_entries != c->n_profiles)
+                        continue;
+
+                _cleanup_strv_free_ char **ids = NULL;
+                bool identical = true;
+                for (size_t p = 0; p < c->n_profiles; p++) {
+                        /* The entry text contains the commit number, hence generate it for the existing commit. */
+                        _cleanup_free_ char *filename = NULL, *id = NULL, *text = NULL;
+                        r = make_entry(
+                                        c,
+                                        commit->commit,
+                                        /* tries_left= */ UINT_MAX,
+                                        p,
+                                        c->profiles[p].osrelease,
+                                        c->profiles[p].profile,
+                                        &filename,
+                                        &id,
+                                        &text);
+                        if (r < 0)
+                                return r;
+
+                        const char *fn;
+                        r = find_entry_file(dentries, id, &fn);
+                        if (r < 0)
+                                return r;
+                        if (r > 0) {
+                                r = entry_file_has_text(c->loader_entries_dir_fd, fn, text);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to compare boot menu entry '%s': %m", fn);
+                        }
+                        if (r == 0) {
+                                identical = false;
+                                break;
+                        }
+
+                        _cleanup_free_ char *stripped = NULL;
+                        r = boot_filename_extract_tries(fn, &stripped, /* ret_tries_left= */ NULL, /* ret_tries_done= */ NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract tries counters from id '%s': %m", fn);
+
+                        if (strv_consume(&ids, TAKE_PTR(stripped)) < 0)
+                                return log_oom();
+                }
+
+                if (!identical)
+                        continue;
+
+                *ret_commit = commit->commit;
+                *ret_ids = TAKE_PTR(ids);
+                return 1;
+        }
+
+nope:
+        *ret_commit = 0;
+        *ret_ids = NULL;
         return 0;
 }
 
@@ -922,11 +1236,20 @@ static int run_link_now(LinkContext *c) {
         /* Remove any left-overs from an earlier run before we write new stuff */
         (void) clean_temporary_files(c->loader_entries_dir_fd);
 
-        r = link_context_pick_entry_commit(c);
+        _cleanup_free_ DirectoryEntries *dentries = NULL;
+        r = readdir_all(c->loader_entries_dir_fd, RECURSE_DIR_REOPEN|RECURSE_DIR_IGNORE_DOT, &dentries);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read loader entries directory: %m");
+
+        _cleanup_free_ CommitInfo *commits = NULL;
+        size_t n_commits = 0; /* avoid false maybe-uninitialized warning */
+        r = link_context_list_commits(c, dentries, &commits, &n_commits);
         if (r < 0)
                 return r;
 
-        log_info("Will create commit %" PRIu64 ".", c->entry_commit);
+        r = link_context_pick_entry_commit(c, commits, n_commits);
+        if (r < 0)
+                return r;
 
         if (c->entry_token_dir_fd < 0) {
                 r = chaseat(/* root_fd= */ c->dollar_boot_fd,
@@ -942,6 +1265,27 @@ static int run_link_now(LinkContext *c) {
         /* As above */
         (void) clean_temporary_files(c->entry_token_dir_fd);
 
+        r = link_context_load_profiles(c, j);
+        if (r < 0)
+                return r;
+
+        c->created = false;
+
+        if (!c->force) {
+                _cleanup_strv_free_ char **ids = NULL;
+                uint64_t commit = 0; /* avoid false maybe-uninitialized warning */
+                r = link_context_find_identical_commit(c, dentries, commits, n_commits, &commit, &ids);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        log_info("Commit %" PRIu64 " already links the requested resources, not creating a new commit.", commit);
+                        strv_free_and_replace(c->linked_ids, ids);
+                        return 0;
+                }
+        }
+
+        log_info("Will create commit %" PRIu64 ".", c->entry_commit);
+
         /* Synchronize everything to disk before we verify the disk space, to ensure the counters are
          * accurate (some file systems delay accurate counters) */
         (void) syncfs(c->dollar_boot_fd);
@@ -954,38 +1298,11 @@ static int run_link_now(LinkContext *c) {
         if (r < 0)
                 return r;
 
-        for (unsigned p = 0; p < UNIFIED_PROFILES_MAX; p++) {
-                _cleanup_free_ char *osrelease = NULL, *profile = NULL;
-                r = pe_find_uki_sections(
-                                c->kernel_fd,
-                                j,
-                                p,
-                                &osrelease,
-                                &profile,
-                                /* ret_cmdline= */ NULL,
-                                /* ret_uname= */ NULL);
+        for (size_t p = 0; p < c->n_profiles; p++) {
+                r = begin_write_entry_file(c, dentries, p, c->profiles + p);
                 if (r < 0)
                         return r;
-                if (r == 0) /* this profile does not exist, we are done */
-                        break;
-
-                if (!GREEDY_REALLOC(c->profiles, c->n_profiles+1))
-                        return log_oom();
-
-                r = begin_write_entry_file(
-                                c,
-                                p,
-                                osrelease,
-                                profile,
-                                c->profiles + c->n_profiles);
-                if (r < 0)
-                        return r;
-
-                c->n_profiles++;
         }
-
-        if (c->n_profiles == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "UKI with no valid profile, refusing.");
 
         r = begin_copy_file(
                         c->kernel_fd,
@@ -1075,6 +1392,8 @@ static int run_link_now(LinkContext *c) {
         }
 
         (void) syncfs(c->dollar_boot_fd);
+
+        c->created = true;
         return 0;
 }
 
@@ -1122,7 +1441,9 @@ static int run_link(LinkContext *c) {
         if (!j)
                 return log_oom();
 
-        if (n_removals > 0)
+        if (!c->created)
+                log_info("Boot loader entries '%s' are already installed.", j);
+        else if (n_removals > 0)
                 log_info("Successfully installed boot loader entries '%s', after removing %u old entries.", j, n_removals);
         else
                 log_info("Successfully installed boot loader entries '%s'.", j);
@@ -1659,7 +1980,10 @@ static int vl_link_finish(sd_varlink *link, LinkParameters *p, bool with_ids) {
                 return r;
 
         if (with_ids)
-                return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRV("ids", p->context.linked_ids));
+                return sd_varlink_replybo(
+                                link,
+                                SD_JSON_BUILD_PAIR_STRV("ids", p->context.linked_ids),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("created", p->context.created));
 
         return sd_varlink_reply(link, /* parameters= */ NULL);
 }
@@ -1690,6 +2014,7 @@ int vl_method_link(
                 { "entryTitle",           SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,                      voffsetof(p, context.entry_title),      0                 },
                 { "entryVersion",         SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,                      voffsetof(p, context.entry_version),    0                 },
                 { "entryCommit",          SD_JSON_VARIANT_INTEGER,       sd_json_dispatch_uint64,                      voffsetof(p, context.entry_commit),     0                 },
+                { "force",                SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,                     voffsetof(p, context.force),            SD_JSON_NULLABLE  },
                 { "kernelFilename",       SD_JSON_VARIANT_STRING,        json_dispatch_loader_entry_resource_filename, voffsetof(p, context.kernel_filename),  SD_JSON_MANDATORY },
                 { "kernelFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,                        voffsetof(p, kernel_fd_index),          SD_JSON_MANDATORY },
                 { "extraFiles",           SD_JSON_VARIANT_ARRAY,         dispatch_extras,                              0,                                      0                 },
@@ -1772,6 +2097,7 @@ int vl_method_link_auto(
                 { "entryTitle",         SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,             voffsetof(p, context.entry_title),      0 },
                 { "entryVersion",       SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,             voffsetof(p, context.entry_version),    0 },
                 { "entryCommit",        SD_JSON_VARIANT_INTEGER,       sd_json_dispatch_uint64,             voffsetof(p, context.entry_commit),     0 },
+                { "force",              SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,            voffsetof(p, context.force),            SD_JSON_NULLABLE },
                 { "triesLeft",          _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,               voffsetof(p, context.tries_left),       0 },
                 { "keepFree",           _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,             voffsetof(p, context.keep_free),        0 },
                 {},
@@ -1793,7 +2119,10 @@ int vl_method_link_auto(
         if (r < 0)
                 return r;
         if (r == 0) /* Nothing staged for linking. */
-                return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRV("ids", STRV_EMPTY));
+                return sd_varlink_replybo(
+                                link,
+                                SD_JSON_BUILD_PAIR_STRV("ids", STRV_EMPTY),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("created", false));
 
         r = link_context_validate_extras(&p.context);
         if (r < 0)
