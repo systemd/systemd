@@ -928,8 +928,11 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
         /* The kernel sometimes sends events in a wrong order, and we may receive an event with smaller
          * SEQNUM after one with larger SEQNUM. To workaround the issue, let's reorder events if necessary. */
 
+        /* Not LIST_FOREACH_BACKWARDS(), which caches the previous event before the body runs: unreffing
+         * e->blocker below may free that very event, if it is processed and only kept alive as e's blocker,
+         * and event_free() then unlinks it, which updates e->event_prev. */
         Event *prev = NULL;
-        LIST_FOREACH_BACKWARDS(event, e, manager->last_event) {
+        for (Event *e = manager->last_event; e; e = e->event_prev) {
                 if (e->seqnum < event->seqnum) {
                         prev = e;
                         break;
