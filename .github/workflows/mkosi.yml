@@ -69,7 +69,7 @@ jobs:
     # The scheduled run is for the main branch, so it only runs in the main repository.
     if: >
       github.event_name == 'pull_request' ||
-      (github.event_name == 'push' && (github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable')) ||
+      (github.event_name == 'push' && github.repository == 'systemd/systemd') ||
       (github.event_name == 'schedule' && github.repository == 'systemd/systemd')
     runs-on: ${{ matrix.runner || 'ubuntu-24.04' }}
     strategy:
@@ -273,12 +273,12 @@ jobs:
             "${MAX_LINES[@]}"
 
       - name: Fix journal ownership
-        if: failure() && (github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable')
+        if: failure() && github.repository == 'systemd/systemd'
         run: sudo chown -R "$(id -u):$(id -g)" build/test/journal build/meson-logs || true
 
       - name: Archive failed test journals
         uses: actions/upload-artifact@v7
-        if: failure() && (github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable')
+        if: failure() && github.repository == 'systemd/systemd'
         with:
           name: ci-mkosi-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.distro }}-${{ matrix.release }}-${{ matrix.runner || 'ubuntu-24.04' }}-failed-test-journals
           path: |

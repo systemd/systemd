@@ -504,10 +504,8 @@ VALGRIND:
         systemd-shutdown.
 
 STABLE BRANCHES AND BACKPORTS:
-        Stable branches with backported patches are available in the
-        systemd-stable repo at https://github.com/systemd/systemd-stable.
-
-        Stable branches are started for certain releases of systemd and named
-        after them, e.g. v238-stable. Stable branches are managed by
-        distribution maintainers on an as needed basis. See
+        Stable branches with backported patches are available in the main
+        repository at https://github.com/systemd/systemd. They are started for
+        certain releases of systemd and named after them, e.g. v238-stable, and
+        are maintained by distribution maintainers on an as needed basis. See
         https://systemd.io/BACKPORTS for some more information and examples.

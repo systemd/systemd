@@ -37,6 +37,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 # Steps to a Successful Stable Release
 
-1. Backport at least the commits from all PRs tagged with `needs-stable-backport` on Github with `git cherry-pick -x`. Any other commits that fix bugs, change documentation, tests, CI or mkosi can generally be backported as well. Since 256 the stable branches live [here](https://github.com/systemd/systemd/). Stable branches for older releases are available [here](https://github.com/systemd/systemd-stable/). Check each commit to see if it makes sense to backport and check the comments on the PR to see if the author indicated that only specific commits should be backported.
-2. Update the version number in `meson.version` (e.g. from `256.2` to `256.3`) (only for 256-stable or newer)
-3. Tag the release: `version="v$(cat meson.version)" && git tag -s "${version}" -m "systemd-stable ${version}"` (Fill in the version manually on releases older than 256)
+1. Backport at least the commits from all PRs tagged with `needs-stable-backport` on Github with `git cherry-pick -x`. Any other commits that fix bugs, change documentation, tests, CI or mkosi can generally be backported as well. Check each commit to see if it makes sense to backport and check the comments on the PR to see if the author indicated that only specific commits should be backported.
+2. Update the version number in `meson.version` (e.g. from `256.2` to `256.3`).
+3. Tag the release: `version="v$(cat meson.version)" && git tag -s "${version}" -m "systemd-stable ${version}"`

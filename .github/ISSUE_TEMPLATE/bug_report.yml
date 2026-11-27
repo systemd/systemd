@@ -16,8 +16,8 @@ body:
         If there have been multiple stable releases for that major version, please consider updating to a recent one before reporting an issue.
         When using a distro package, please make sure that the version reported is meaningful for upstream.
         If a distro build is used, please just paste the package version, e.g. `systemd-259.8-1.fc44.x86_64`.
-        See https://github.com/systemd/systemd-stable/tags for the list of most recent releases.
-        For older version please use distribution trackers (see https://systemd.io/CONTRIBUTING#filing-issues).
+        See https://github.com/systemd/systemd/tags for the list of most recent releases.
+        For older versions use distribution trackers instead (see https://systemd.io/CONTRIBUTING#filing-issues).
         A repository with packages built from latest main for the major distributions and architectures is available from our
         [OBS project for testing purposes.](https://software.opensuse.org//download.html?project=system%3Asystemd&package=systemd)
       placeholder: '261.x'

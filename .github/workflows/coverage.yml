@@ -27,8 +27,7 @@ jobs:
   coverage:
     runs-on: ubuntu-24.04
     if: >
-      github.event_name != 'pull_request_target' &&
-      (github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable')
+      github.event_name != 'pull_request_target' && github.repository == 'systemd/systemd'
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -137,12 +136,12 @@ jobs:
             --quiet
 
       - name: Fix journal ownership
-        if: failure() && (github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable')
+        if: failure() && github.repository == 'systemd/systemd'
         run: sudo chown -R "$(id -u):$(id -g)" build/test/journal build/meson-logs || true
 
       - name: Archive failed test journals
         uses: actions/upload-artifact@v7
-        if: failure() && (github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable')
+        if: failure() && github.repository == 'systemd/systemd'
         with:
           name: ci-coverage-${{ github.run_id }}-${{ github.run_attempt }}-arch-rolling-failed-test-journals
           path: |
@@ -165,6 +164,6 @@ jobs:
 
       - name: Coveralls
         uses: coverallsapp/github-action@8d6379e14d29928660c4ba802d8e85393440b329
-        if: github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable'
+        if: github.repository == 'systemd/systemd'
         with:
           file: build/test/coverage/everything.coverage-info
