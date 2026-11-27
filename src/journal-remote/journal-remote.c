@@ -195,7 +195,7 @@ static int get_source_for_fd(RemoteServer *s,
         return 0;
 }
 
-static int remove_source(RemoteServer *s, int fd) {
+static void remove_source(RemoteServer *s, int fd) {
         RemoteSource *source;
 
         assert(s);
@@ -209,7 +209,6 @@ static int remove_source(RemoteServer *s, int fd) {
                 s->active--;
         }
 
-        return 0;
 }
 
 int journal_remote_add_source(RemoteServer *s, int fd, char *_name, bool own_name) {
