@@ -324,7 +324,7 @@ int manager_process_device_triggered_by_seat(Manager *m, sd_device *dev) {
 }
 
 static int seat_trigger_devices(Seat *s) {
-        int r;
+        int r, ret = 0;
 
         assert(s);
         assert(s->manager);
@@ -353,8 +353,10 @@ static int seat_trigger_devices(Seat *s) {
         FOREACH_DEVICE(e, d) {
                 /* Verify that the tag is still in place. */
                 r = sd_device_has_current_tag(d, "uaccess");
-                if (r < 0)
-                        return r;
+                if (r < 0) {
+                        RET_GATHER(ret, log_device_debug_errno(d, r, "Failed to check 'uaccess' tag, ignoring: %m"));
+                        continue;
+                }
                 if (r == 0)
                         continue;
 
@@ -362,13 +364,17 @@ static int seat_trigger_devices(Seat *s) {
                 r = sd_device_get_devname(d, /* ret= */ NULL);
                 if (r == -ENOENT)
                         continue;
-                if (r < 0)
-                        return r;
+                if (r < 0) {
+                        RET_GATHER(ret, log_device_debug_errno(d, r, "Failed to get device node, ignoring: %m"));
+                        continue;
+                }
 
                 const char *id;
                 r = device_get_seat(d, &id);
-                if (r < 0)
-                        return r;
+                if (r < 0) {
+                        RET_GATHER(ret, log_device_debug_errno(d, r, "Failed to get seat of the device, ignoring: %m"));
+                        continue;
+                }
 
                 if (!streq(id, s->id))
                         continue;
@@ -376,19 +382,23 @@ static int seat_trigger_devices(Seat *s) {
                 sd_id128_t uuid;
                 r = device_trigger_with_timestamp(d, SD_DEVICE_CHANGE, args, &uuid);
                 if (r < 0) {
-                        log_device_debug_errno(d, r, "Failed to trigger 'change' event, ignoring: %m");
+                        RET_GATHER(ret, log_device_debug_errno(d, r, "Failed to trigger 'change' event, ignoring: %m"));
                         continue;
                 }
 
                 log_device_debug(d, "Triggered synthetic event (ACTION=change, UUID=%s).", SD_ID128_TO_UUID_STRING(uuid));
 
                 _cleanup_free_ sd_id128_t *copy = newdup(sd_id128_t, &uuid, 1);
-                if (!copy)
-                        return -ENOMEM;
+                if (!copy) {
+                        RET_GATHER(ret, log_oom_debug());
+                        continue;
+                }
 
                 r = set_ensure_consume(&s->uevents, &id128_hash_ops_free, TAKE_PTR(copy));
-                if (r < 0)
-                        return r;
+                if (r < 0) {
+                        RET_GATHER(ret, log_device_debug_errno(d, r, "Failed to remember the UUID of the triggered event, ignoring: %m"));
+                        continue;
+                }
         }
 
         if (!set_isempty(s->uevents)) {
@@ -409,7 +419,7 @@ static int seat_trigger_devices(Seat *s) {
                         log_warning_errno(r, "Failed to set uevents timeout, ignoring: %m");
         }
 
-        return 0;
+        return ret;
 }
 
 static int static_node_acl(Seat *s) {
@@ -489,7 +499,7 @@ static int static_node_acl(Seat *s) {
 #endif
 }
 
-int seat_set_active(Seat *s, Session *session) {
+void seat_set_active(Seat *s, Session *session) {
         Session *old_active;
         int r;
 
@@ -508,7 +518,7 @@ int seat_set_active(Seat *s, Session *session) {
                         log_debug("Active session remains unchanged, resuming session devices.");
                         session_device_resume_all(session);
                 }
-                return 0;
+                return;
         }
 
         old_active = s->active;
@@ -525,14 +535,13 @@ int seat_set_active(Seat *s, Session *session) {
 
         r = seat_trigger_devices(s);
         if (r < 0)
-                return r;
+                log_warning_errno(r, "Failed to trigger uevents for seat devices, ignoring: %m");
 
         r = static_node_acl(s);
         if (r < 0)
-                return r;
+                log_warning_errno(r, "Failed to update ACLs on static device nodes, ignoring: %m");
 
         seat_triggered_uevents_done(s);
-        return 0;
 }
 
 static Session* seat_get_position(Seat *s, unsigned pos) {
@@ -613,7 +622,6 @@ int seat_switch_to_previous(Seat *s) {
 
 int seat_active_vt_changed(Seat *s, unsigned vtnr) {
         Session *new_active = NULL;
-        int r;
 
         assert(s);
         assert(vtnr >= 1);
@@ -640,10 +648,10 @@ int seat_active_vt_changed(Seat *s, unsigned vtnr) {
                                 break;
                         }
 
-        r = seat_set_active(s, new_active);
+        seat_set_active(s, new_active);
         manager_spawn_autovt(s->manager, vtnr);
 
-        return r;
+        return 0;
 }
 
 int seat_read_active_vt(Seat *s) {
