@@ -11,6 +11,7 @@ _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #include "networkd-dhcp-common.h"
 #include "networkd-dns.h"
 #include "networkd-manager.h"
+#include "networkd-route.h"
 #include "networkd-route-util.h"
 %}
 struct ConfigPerfItem;
@@ -49,6 +50,11 @@ DHCPRelay.ServerAddress,                 config_parse_in_addr_non_null,         
 DHCPRelay.OverrideServerIdentifier,      config_parse_bool,                       0,                                                         offsetof(Manager, dhcp_relay_override_server_id)
 DHCPRelay.RemoteId,                      config_parse_dhcp_option,                /* check_length= */ true,                                  offsetof(Manager, dhcp_relay_remote_id)
 DHCPRelay.ExtraOption,                   config_parse_dhcp_option_tlv,            0,                                                         offsetof(Manager, dhcp_relay_extra_options)
+Route.Destination,                       config_parse_route_section,              ROUTE_BY_MANAGER | ROUTE_DESTINATION,                      0
+Route.Type,                              config_parse_route_section,              ROUTE_BY_MANAGER | ROUTE_TYPE,                             0
+Route.Priority,                          config_parse_route_section,              ROUTE_BY_MANAGER | ROUTE_PRIORITY,                         0
+Route.Table,                             config_parse_route_section,              ROUTE_BY_MANAGER | ROUTE_TABLE,                            0
+Route.Protocol,                          config_parse_route_section,              ROUTE_BY_MANAGER | ROUTE_PROTOCOL,                         0
 /* Deprecated */
 DHCP.DUIDType,                           config_parse_manager_duid_type,          0,                                                         0
 DHCP.DUIDRawData,                        config_parse_manager_duid_rawdata,       0,                                                         0

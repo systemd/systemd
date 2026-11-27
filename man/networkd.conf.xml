@@ -245,6 +245,89 @@
   </refsect1>
 
   <refsect1>
+    <title>[Route] Section Options</title>
+
+    <para>The [Route] section configures routes which are not bound to any network interface. Specify
+    multiple [Route] sections to configure multiple routes. Only <literal>blackhole</literal>,
+    <literal>prohibit</literal>, and <literal>unreachable</literal> routes are supported here, and only the
+    settings listed below. For other routes, see the [Route] section in
+    <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    These routes are configured when <filename>systemd-networkd</filename> starts, and are not removed when
+    interfaces are reconfigured or disappear. If multiple sections specify the same destination, table, and
+    priority, the one specified last is used.</para>
+
+    <para>Note that <command>networkctl reload</command> does not read this file again, hence
+    <filename>systemd-networkd</filename> needs to be restarted to apply changes. Routes whose settings are
+    removed from this file are not necessarily removed from the kernel by the restart. Also, if
+    <varname>ManageForeignRoutes=no</varname>, routes configured previously are not removed, and changes to
+    them may hence not take effect.</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Destination=</varname></term>
+        <listitem>
+          <para>Takes the destination prefix of the route, possibly followed by a slash and the prefix
+          length. If the prefix length is omitted, a full-length host route is assumed. The address family of
+          the prefix determines whether an IPv4 or IPv6 route is configured. This setting is
+          mandatory.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Type=</varname></term>
+        <listitem>
+          <para>Specifies the type of the route. Takes one of <literal>blackhole</literal>,
+          <literal>prohibit</literal>, or <literal>unreachable</literal>.</para>
+
+          <para>A <literal>blackhole</literal> route silently discards packets. A <literal>prohibit</literal>
+          route rejects packets as administratively prohibited, and an <literal>unreachable</literal> route
+          rejects them as unreachable, and the sender is notified with an ICMP error in both cases. This
+          setting is mandatory.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Priority=</varname></term>
+        <listitem>
+          <para>Specifies the priority of the route, also known as metric. Takes an unsigned integer.
+          Defaults to 0 for IPv4 routes and 1024 for IPv6 routes. For IPv6 routes, 0 also means 1024.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Table=</varname></term>
+        <listitem>
+          <para>The table identifier for the route. Takes one of the predefined table names
+          <literal>default</literal>, <literal>main</literal>, and <literal>local</literal>, or an arbitrary
+          unsigned integer in the range 1…4294967295. The table can also be set to a name defined with the
+          <varname>RouteTable=</varname> setting in the [Network] section, which in this case must appear
+          before the [Route] section, either in the same file or in a file read earlier. Defaults to
+          <literal>main</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Protocol=</varname></term>
+        <listitem>
+          <para>The protocol identifier for the route. Takes a number between 0 and 255 or the special values
+          <literal>kernel</literal>, <literal>boot</literal>, and <literal>static</literal>. Defaults to
+          <literal>static</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>[DHCPv4] Section Options</title>
 
     <para>This section configures the default configurations of DHCPv4 client. If the DHCPv4 client is
