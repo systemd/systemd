@@ -405,6 +405,12 @@
         <filename>sysupdate.d/*.conf</filename> files and resolving local transfer paths. Filesystem
         targets are installed beneath this root.</para>
 
+        <para>With <option>--root=</option> or <option>--image=</option>, only HTTP and HTTPS URLs may be
+        fetched for manifests and payloads. Manifest entries with no usable payload source are not offered
+        as updates. A transfer that specifies a local URL can still be inspected offline or disabled without
+        accessing the URL. Use a local file source to read from the target installation, or
+        <option>--transfer-source=</option> to supply a separate source directory.</para>
+
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 

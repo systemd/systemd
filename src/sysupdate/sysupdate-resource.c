@@ -476,6 +476,21 @@ static bool resource_manifest_has_inline_signatures(ManifestFormat style) {
         return style == MANIFEST_FORMAT_UAPI16;
 }
 
+bool resource_url_is_allowed(const Resource *rr, const char *url) {
+        assert(rr);
+        assert(url);
+
+        return !rr->root || http_url_is_valid(url);
+}
+
+static bool resource_payload_url_is_usable(const Resource *rr, const char *name, const char *url) {
+        if (resource_url_is_allowed(rr, url))
+                return true;
+
+        log_warning("Local URL '%s' for '%s' is not allowed with --root= or --image=, ignoring source.", url, name);
+        return false;
+}
+
 static int resource_manifest_url(Resource *rr, char **ret) {
         int r;
 
@@ -693,6 +708,8 @@ static int sha256sums_line(
         r = import_url_append_component(rr->path, fn, &path);
         if (r < 0)
                 return log_error_errno(r, "Failed to build instance URL: %m");
+        if (!resource_payload_url_is_usable(rr, fn, path))
+                return 0;
 
         Instance *instance;
         r = resource_add_instance(rr, path, &extracted_fields, &instance);
@@ -840,12 +857,13 @@ static int uapi16_object_resolve_sources(Resource *rr, Uapi16Object *o) {
                                 c->file = mfree(c->file);
                         }
 
-                } else if (c->url) {
-                        if (!http_url_is_valid(c->url) && !file_url_is_valid(c->url)) {
-                                log_warning("File '%s' refers to invalid URL '%s' in its contents, ignoring source.", o->name, c->url);
-                                usable = false;
-                        }
+                } else if (c->url && !http_url_is_valid(c->url) && !file_url_is_valid(c->url)) {
+                        log_warning("File '%s' refers to invalid URL '%s' in its contents, ignoring source.", o->name, c->url);
+                        usable = false;
                 }
+
+                if (usable && c->url && !resource_payload_url_is_usable(rr, o->name, c->url))
+                        usable = false;
 
                 if (usable) {
                         /* Header fields that relate to how we talk HTTP are managed by us (or curl), hence
@@ -1004,6 +1022,10 @@ static int uapi16_process_object(Uapi16Object *object, size_t index, void *userd
         if (r < 0)
                 return log_error_errno(r, "Failed to build instance URL: %m");
 
+        /* With explicit sources this path only identifies the instance; otherwise it is the payload URL. */
+        if (object->n_contents == 0 && !resource_payload_url_is_usable(rr, object->name, path))
+                return 0;
+
         Instance *instance;
         r = resource_add_instance(rr, path, &extracted_fields, &instance);
         if (r < 0)
@@ -1079,6 +1101,10 @@ static int resource_load_from_web(
         r = resource_manifest_url(rr, &manifest_url);
         if (r < 0)
                 return r;
+
+        if (!resource_url_is_allowed(rr, manifest_url))
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                       "Only HTTP(S) transfer URLs are allowed with --root= or --image=, refusing manifest '%s'.", manifest_url);
 
         WebCacheItem *ci = web_cache ? web_cache_get_item(*web_cache, manifest_url, verify) : NULL;
         if (ci) {

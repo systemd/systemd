@@ -1802,6 +1802,10 @@ static int transfer_acquire_source(
                 (s->original_size != UINT64_MAX && i->metadata.size != UINT64_MAX && s->original_size != i->metadata.size);
 
         if (s->url) {
+                if (!resource_url_is_allowed(i->resource, s->url))
+                        return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                               "Only HTTP(S) transfer URLs are allowed with --root= or --image=, refusing payload '%s'.", s->url);
+
                 from = s->url;
                 r = strv_extend_many(
                                 &cmdline,

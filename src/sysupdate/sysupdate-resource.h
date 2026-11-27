@@ -117,6 +117,7 @@ int resource_open_directory(const Resource *rr);
 int resource_open_parent(const Resource *rr, const char *path, bool mkdir_parents, char **ret_name);
 int resource_rmdir_parents(const Resource *rr, const char *path);
 int resource_open_instance(const Resource *rr, const char *path);
+bool resource_url_is_allowed(const Resource *rr, const char *url);
 
 DECLARE_STRING_TABLE_LOOKUP(resource_type, ResourceType);
 DECLARE_STRING_TABLE_LOOKUP(path_relative_to, PathRelativeTo);
