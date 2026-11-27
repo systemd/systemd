@@ -89,6 +89,7 @@ typedef struct Machine {
         bool allocate_unit;
 
         sd_bus_message *create_message;
+        sd_varlink *create_link;        /* io.systemd.Machine.Register() call waiting for the unit to start */
 
         int *netif;
         size_t n_netif;

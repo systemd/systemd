@@ -123,6 +123,24 @@ static int machine_cid(const char *name, sd_json_variant *variant, sd_json_dispa
         return 0;
 }
 
+int machine_send_create_varlink_reply(Machine *m, int error) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
+
+        assert(m);
+
+        link = TAKE_PTR(m->create_link);
+        if (!link)
+                return 0;
+
+        if (error < 0)
+                return sd_varlink_error_errno(link, error);
+
+        /* Update the machine state file before we notify the client about the result. */
+        machine_save(m);
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
 int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
         _cleanup_(machine_freep) Machine *machine = NULL;
@@ -223,6 +241,15 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
         r = machine_start(machine, /* properties= */ NULL, /* error= */ NULL);
         if (r < 0)
                 return r;
+
+        /* Like CreateMachine() on D-Bus, reply only once the unit we started for the machine is up, so that
+         * its processes are in the machine's control group by the time the caller learns that it is
+         * registered. */
+        if (machine->scope_job) {
+                machine->create_link = sd_varlink_ref(link);
+                TAKE_PTR(machine);
+                return 0;
+        }
 
         /* the manager will free this machine */
         TAKE_PTR(machine);
