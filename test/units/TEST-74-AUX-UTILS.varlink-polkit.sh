@@ -24,7 +24,7 @@ trap cleanup EXIT
 mkdir -p /etc/polkit-1/rules.d
 cat >/etc/polkit-1/rules.d/00-varlink-oneway-test.rules <<'RULE'
 polkit.addRule(function(action, subject) {
-    if (action.id == "org.freedesktop.hostname1.get-hardware-serial" && subject.user == "testuser") {
+    if (action.id == "org.freedesktop.hostname1.get-description" && subject.user == "testuser") {
         polkit.spawn(["/usr/bin/sleep", "3"]);
         return polkit.Result.YES;
     }
