@@ -975,8 +975,14 @@ static int fd_copy_regular(
 
         if (fchown(fdt,
                    uid_is_valid(override_uid) ? override_uid : st->st_uid,
-                   gid_is_valid(override_gid) ? override_gid : st->st_gid) < 0)
-                r = -errno;
+                   gid_is_valid(override_gid) ? override_gid : st->st_gid) < 0) {
+                   /* When running with --user as a non-root user without CAP_CHOWN, preserving foreign source ownership fails with EPERM
+                   * ignore EPERM when no explicit UID/GID override was requested so the file stays owned by the invoking user.*/
+                   if (errno == EPERM && !uid_is_valid(override_uid) && !gid_is_valid(override_gid))
+                        log_debug_errno(errno, "Failed to chown %s, ignoring: %m", to);
+                   else
+                        r = -errno;
+                   }
 
         if (fchmod(fdt, st->st_mode & 07777) < 0)
                 r = -errno;
