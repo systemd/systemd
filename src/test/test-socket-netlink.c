@@ -2,17 +2,21 @@
 
 #include <fcntl.h>
 #include <sys/eventfd.h>
+#include <sys/stat.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "missing-network.h"
+#include "path-util.h"
 #include "process-util.h"
+#include "rm-rf.h"
 #include "socket-netlink.h"
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 
 static void test_socket_address_parse_one(const char *in, int ret, int family, const char *expected) {
         SocketAddress a;
@@ -429,6 +433,31 @@ TEST(make_socket_fd_cloexec) {
         _cleanup_close_ int fd = ASSERT_OK(make_socket_fd(LOG_DEBUG, address, SOCK_STREAM, /* flags= */ 0));
         int fl = ASSERT_OK_ERRNO(fcntl(fd, F_GETFD));
         ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
+}
+
+TEST(make_socket_fd_long_path) {
+        /* make_socket_fd() must listen on a file system path that doesn't fit into sun_path. Create a
+         * directory whose path is longer than sun_path and call make_socket_fd() twice on a socket path in
+         * it. The second call must remove the socket inode of the first call. The socket inode must have mode
+         * 0644, and connect_unix_path() must be able to connect to it. */
+
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-socket-netlink-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxXXXXXX", &t));
+
+        _cleanup_free_ char *path = path_join(t, "socket");
+        ASSERT_NOT_NULL(path);
+        ASSERT_GE(strlen(path), SUN_PATH_LEN);
+
+        safe_close(ASSERT_OK(make_socket_fd(LOG_DEBUG, path, SOCK_STREAM, /* flags= */ 0)));
+        _cleanup_close_ int fd = ASSERT_OK(make_socket_fd(LOG_DEBUG, path, SOCK_STREAM, /* flags= */ 0));
+
+        struct stat st;
+        ASSERT_OK_ERRNO(stat(path, &st));
+        ASSERT_TRUE(S_ISSOCK(st.st_mode));
+        ASSERT_EQ(st.st_mode & 0777, 0644u);
+
+        _cleanup_close_ int cfd = ASSERT_OK_ERRNO(socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0));
+        ASSERT_OK(connect_unix_path(cfd, AT_FDCWD, path));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

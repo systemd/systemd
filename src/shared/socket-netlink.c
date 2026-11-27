@@ -4,22 +4,27 @@
 #include <linux/unix_diag.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "log.h"
+#include "mkdir.h"
 #include "namespace-util.h"
 #include "netlink-sock-diag.h"
 #include "netlink-util.h"
 #include "parse-util.h"
+#include "selinux-util.h"
 #include "socket-label.h"
 #include "socket-netlink.h"
 #include "socket-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "umask-util.h"
 
 int socket_address_parse(SocketAddress *a, const char *s) {
         uint16_t port;
@@ -177,11 +182,56 @@ bool socket_address_is_netlink(const SocketAddress *a, const char *s) {
         return socket_address_equal(a, &b);
 }
 
+static int make_socket_fd_long_path(int log_level, const char *path, int type, int flags) {
+        int r;
+
+        assert(path);
+
+        _cleanup_close_ int fd = socket(AF_UNIX, type | flags | SOCK_CLOEXEC, 0);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to create AF_UNIX socket: %m");
+
+        (void) mkdir_parents_label(path, 0755);
+
+        /* mac_selinux_bind() looks up the SELinux label of the socket inode by the path in sun_path.
+         * bind_unix_path() puts a /proc/self/fd/ path into sun_path. Hence we look up the label by the real
+         * path ourselves. */
+        r = mac_selinux_create_file_prepare(path, S_IFSOCK, /* label_context= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to prepare SELinux label for '%s': %m", path);
+
+        WITH_UMASK(~0644 & 0777) {
+                r = bind_unix_path(fd, AT_FDCWD, path);
+                if (r == -EADDRINUSE && unlink(path) >= 0)
+                        r = bind_unix_path(fd, AT_FDCWD, path);
+        }
+
+        mac_selinux_create_file_clear();
+
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind AF_UNIX socket to '%s': %m", path);
+
+        if (IN_SET(type, SOCK_STREAM, SOCK_SEQPACKET) && listen(fd, SOMAXCONN_DELUXE) < 0)
+                return log_error_errno(errno, "Failed to listen on '%s': %m", path);
+
+        /* touch() triggers an inotify event on the socket inode, so that a client that waits for the socket
+         * with inotify connects once the socket listens. */
+        (void) touch(path);
+
+        log_full(log_level, "Listening on %s", path);
+
+        return TAKE_FD(fd);
+}
+
 int make_socket_fd(int log_level, const char* address, int type, int flags) {
         SocketAddress a;
         int fd, r;
 
         r = socket_address_parse(&a, address);
+        /* socket_address_parse() fails with -ENAMETOOLONG for a file system path that doesn't fit into
+         * sun_path. SocketAddress can't store such a path, hence we bind it with bind_unix_path(). */
+        if (r == -ENAMETOOLONG)
+                return make_socket_fd_long_path(log_level, address, type, flags);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse socket address \"%s\": %m", address);
 
