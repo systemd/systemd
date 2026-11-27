@@ -12,6 +12,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "id128-util.h"
+#include "label-util.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -820,6 +821,58 @@ TEST(chaseat) {
 
         ASSERT_ERROR(chaseat(XAT_FDROOT, tfd, "i/../p", CHASE_MKDIR_0755|CHASE_NONEXISTENT, /* ret_path= */ NULL, /* ret_fd= */ NULL), ENOENT);
 
+        /* Test CHASE_MKDIR_0700 */
+
+        ASSERT_OK(chaseat(XAT_FDROOT, tfd, "m700/a/b", CHASE_MKDIR_0700|CHASE_MUST_BE_DIRECTORY, &result, &fd));
+        ASSERT_OK(fd_verify_directory(fd));
+        fd = safe_close(fd);
+        ASSERT_STREQ(result, "m700/a/b");
+        result = mfree(result);
+        FOREACH_STRING(d, "m700", "m700/a", "m700/a/b") {
+                ASSERT_OK_ERRNO(fstatat(tfd, d, &st, AT_SYMLINK_NOFOLLOW));
+                ASSERT_TRUE(S_ISDIR(st.st_mode));
+                ASSERT_EQ(st.st_mode & 07777, (mode_t) 0700);
+        }
+
+        /* Only the missing final component is created, below directories created earlier with 0755 */
+        ASSERT_OK(chaseat(XAT_FDROOT, tfd, "m/k/d/i/r2", CHASE_MKDIR_0700, /* ret_path= */ NULL, /* ret_fd= */ NULL));
+        ASSERT_OK_ERRNO(fstatat(tfd, "m/k/d/i/r2", &st, AT_SYMLINK_NOFOLLOW));
+        ASSERT_EQ(st.st_mode & 07777, (mode_t) 0700);
+
+        ASSERT_ERROR(chaseat(XAT_FDROOT, tfd, "m700/c", CHASE_MKDIR_0755|CHASE_MKDIR_0700, /* ret_path= */ NULL, /* ret_fd= */ NULL), EINVAL);
+        ASSERT_ERROR(RET_NERRNO(faccessat(tfd, "m700/c", F_OK, 0)), ENOENT);
+
+        /* Directories referenced by symlink destinations are never created, only those of the path
+         * itself, regardless whether the destination is relative or absolute */
+        ASSERT_OK_ERRNO(symlinkat("mtgt/sub", tfd, "msl"));
+        ASSERT_OK_ERRNO(symlinkat("/mtgt/sub", tfd, "mslabs"));
+        FOREACH_STRING(l, "msl/x", "mslabs/x", "msl//x") {
+                ASSERT_ERROR(chaseat(tfd, tfd, l, CHASE_MKDIR_0755, /* ret_path= */ NULL, /* ret_fd= */ NULL), ENOENT);
+                ASSERT_ERROR(RET_NERRNO(faccessat(tfd, "mtgt", F_OK, AT_SYMLINK_NOFOLLOW)), ENOENT);
+        }
+        ASSERT_OK_ERRNO(mkdirat(tfd, "mtgt", 0755));
+        ASSERT_ERROR(chaseat(tfd, tfd, "msl/x", CHASE_MKDIR_0755, /* ret_path= */ NULL, /* ret_fd= */ NULL), ENOENT);
+        ASSERT_ERROR(RET_NERRNO(faccessat(tfd, "mtgt/sub", F_OK, AT_SYMLINK_NOFOLLOW)), ENOENT);
+        /* A symlink as last component is not created through either, not even as parent */
+        ASSERT_ERROR(chaseat(tfd, tfd, "msl", CHASE_MKDIR_0755, /* ret_path= */ NULL, /* ret_fd= */ NULL), ENOENT);
+        ASSERT_ERROR(RET_NERRNO(faccessat(tfd, "mtgt/sub", F_OK, AT_SYMLINK_NOFOLLOW)), ENOENT);
+        /* CHASE_NONEXISTENT still works through such symlinks */
+        ASSERT_OK_ZERO(chaseat(tfd, tfd, "msl/x", CHASE_MKDIR_0755|CHASE_NONEXISTENT, &result, /* ret_fd= */ NULL));
+        ASSERT_STREQ(result, "mtgt/sub/x");
+        result = mfree(result);
+        /* Once the destination exists, the missing directories of the path itself are created below it */
+        ASSERT_OK_ERRNO(mkdirat(tfd, "mtgt/sub", 0755));
+        FOREACH_STRING(l, "msl/x/y", "mslabs/z/y") {
+                ASSERT_OK(chaseat(tfd, tfd, l, CHASE_MKDIR_0700|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, /* ret_fd= */ NULL));
+        }
+        FOREACH_STRING(d, "mtgt/sub/x", "mtgt/sub/x/y", "mtgt/sub/z", "mtgt/sub/z/y") {
+                ASSERT_OK_ERRNO(fstatat(tfd, d, &st, AT_SYMLINK_NOFOLLOW));
+                ASSERT_TRUE(S_ISDIR(st.st_mode));
+                ASSERT_EQ(st.st_mode & 07777, (mode_t) 0700);
+        }
+        ASSERT_OK_ERRNO(fstatat(tfd, "mtgt/sub", &st, AT_SYMLINK_NOFOLLOW));
+        ASSERT_EQ(st.st_mode & 07777, (mode_t) 0755);
+
         /* Test CHASE_MKDIR_0755|CHASE_PARENT — creates intermediate dirs but not the final component */
 
         ASSERT_OK(chaseat(XAT_FDROOT, tfd, "mkp/a/r/e/n/t/file", CHASE_MKDIR_0755|CHASE_PARENT, &result, &fd));
@@ -865,6 +918,24 @@ TEST(chaseat) {
         fd = ASSERT_OK(chase_and_openat(XAT_FDROOT, tfd, "o/p/e/n/d/i/r", CHASE_MKDIR_0755, O_DIRECTORY|O_CREAT|O_EXCL, /* ret_path= */ NULL));
         ASSERT_OK(fd_verify_directory(fd));
         fd = safe_close(fd);
+
+        /* With CHASE_MKDIR_0700 the final directory is created with 0700 too, but not regular files */
+        fd = ASSERT_OK(chase_and_openat(XAT_FDROOT, tfd, "o700/d/i/r", CHASE_MKDIR_0700, O_DIRECTORY|O_CREAT|O_EXCL, /* ret_path= */ NULL));
+        ASSERT_OK(fd_verify_directory(fd));
+        fd = safe_close(fd);
+        FOREACH_STRING(d, "o700", "o700/d", "o700/d/i", "o700/d/i/r") {
+                ASSERT_OK_ERRNO(fstatat(tfd, d, &st, AT_SYMLINK_NOFOLLOW));
+                ASSERT_TRUE(S_ISDIR(st.st_mode));
+                ASSERT_EQ(st.st_mode & 07777, (mode_t) 0700);
+        }
+
+        fd = ASSERT_OK(chase_and_openat(XAT_FDROOT, tfd, "o700/f/file", CHASE_MKDIR_0700, O_CREAT|O_EXCL|O_WRONLY, /* ret_path= */ NULL));
+        ASSERT_OK(fd_verify_regular(fd));
+        fd = safe_close(fd);
+        ASSERT_OK_ERRNO(fstatat(tfd, "o700/f", &st, AT_SYMLINK_NOFOLLOW));
+        ASSERT_EQ(st.st_mode & 07777, (mode_t) 0700);
+        ASSERT_OK_ERRNO(fstatat(tfd, "o700/f/file", &st, AT_SYMLINK_NOFOLLOW));
+        ASSERT_NE(st.st_mode & 07777, (mode_t) 0700);
 
         fd = ASSERT_OK(chase_and_openat(XAT_FDROOT, tfd, /* path= */ NULL, CHASE_PARENT|CHASE_EXTRACT_FILENAME_HARDER|CHASE_EMPTY_PATH, O_PATH|O_DIRECTORY, &result));
         ASSERT_STREQ(result, ".");
@@ -1495,6 +1566,75 @@ TEST(use_chase_as_mkdir_p) {
         ASSERT_OK(path_extract_directory(ff, &fff));
 
         ASSERT_OK(rm_rf(fff, REMOVE_PHYSICAL));
+}
+
+static char **labelled = NULL;
+static unsigned n_label_pre = 0;
+static int label_marker;
+#define LABEL_MARKER ((LabelContext*) &label_marker)
+
+static int test_label_pre(int dir_fd, const char *path, mode_t mode, LabelContext *label_context) {
+        ASSERT_PTR_EQ(label_context, LABEL_MARKER);
+        ASSERT_TRUE(S_ISDIR(mode));
+        n_label_pre++;
+        return 0;
+}
+
+static int test_label_post(int dir_fd, const char *path, bool created, LabelContext *label_context) {
+        _cleanup_free_ char *d = NULL;
+
+        ASSERT_PTR_EQ(label_context, LABEL_MARKER);
+
+        if (!created)
+                return 0;
+
+        ASSERT_OK(fd_get_path(dir_fd, &d));
+        ASSERT_OK(strv_consume(&labelled, ASSERT_PTR(path_join(d, path))));
+        return 0;
+}
+
+TEST(chase_mkdir_label) {
+        static const LabelOps test_label_ops = {
+                .pre = test_label_pre,
+                .post = test_label_post,
+        };
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+
+        ASSERT_OK(tfd = mkdtemp_open(/* template= */ NULL, /* flags= */ 0, &t));
+        ASSERT_OK_ERRNO(mkdirat(tfd, "exists", 0755));
+
+        label_ops_reset();
+        ASSERT_OK(label_ops_set(&test_label_ops));
+
+        /* Only directories that are created are labelled, the final one created by chase_and_openat()
+         * included, but not regular files */
+        fd = ASSERT_OK(chase_and_openat_full(tfd, tfd, "exists/a/b/c", CHASE_MKDIR_0700|CHASE_MKDIR_LABEL,
+                                             O_DIRECTORY|O_CREAT, LABEL_MARKER, /* ret_path= */ NULL));
+        fd = safe_close(fd);
+        fd = ASSERT_OK(chase_and_openat_full(tfd, tfd, "exists/a/d/file", CHASE_MKDIR_0755|CHASE_MKDIR_LABEL,
+                                             O_CREAT|O_WRONLY, LABEL_MARKER, /* ret_path= */ NULL));
+        fd = safe_close(fd);
+        ASSERT_OK(chaseat_full(tfd, tfd, "exists/e/f", CHASE_MKDIR_0755|CHASE_MKDIR_LABEL|CHASE_PARENT,
+                               LABEL_MARKER, /* ret_path= */ NULL, /* ret_fd= */ NULL));
+
+        _cleanup_strv_free_ char **expected = NULL;
+        FOREACH_STRING(d, "exists/a", "exists/a/b", "exists/a/b/c", "exists/a/d", "exists/e")
+                ASSERT_OK(strv_consume(&expected, ASSERT_PTR(path_join(t, d))));
+        ASSERT_TRUE(strv_equal(labelled, expected));
+        ASSERT_EQ(n_label_pre, strv_length(expected));
+
+        /* Without CHASE_MKDIR_LABEL nothing is labelled */
+        labelled = strv_free(labelled);
+        n_label_pre = 0;
+        ASSERT_OK(chaseat_full(tfd, tfd, "exists/g/h", CHASE_MKDIR_0755, LABEL_MARKER, /* ret_path= */ NULL, /* ret_fd= */ NULL));
+        ASSERT_NULL(labelled);
+        ASSERT_EQ(n_label_pre, 0U);
+
+        /* CHASE_MKDIR_LABEL only makes sense if we create directories */
+        ASSERT_ERROR(chaseat_full(tfd, tfd, "exists/i", CHASE_MKDIR_LABEL, LABEL_MARKER, /* ret_path= */ NULL, /* ret_fd= */ NULL), EINVAL);
+
+        label_ops_reset();
 }
 
 TEST(chase_mode) {

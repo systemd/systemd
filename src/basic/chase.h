@@ -24,22 +24,28 @@ typedef enum ChaseFlags {
                                              * CHASE_EXTRACT_FILENAME_HARDER, the filename is '.' in that case.
                                              * When this specified, chase() will succeed with 1 even if the
                                              * file points to the last path component does not exist. */
-        CHASE_MKDIR_0755         = 1 << 11, /* Create any missing directories in the given path. */
-        CHASE_EXTRACT_FILENAME   = 1 << 12, /* Extract a filename that passes filename_is_valid(), or fail. */
-        CHASE_MUST_BE_DIRECTORY  = 1 << 13, /* Fail if returned inode fd is not a dir */
-        CHASE_MUST_BE_REGULAR    = 1 << 14, /* Fail if returned inode fd is not a regular file */
-        CHASE_MUST_BE_SOCKET     = 1 << 15, /* Fail if returned inode fd is not a socket */
-        CHASE_MAX_MODE           = 1 << 16, /* Return -ENOLINK if a directory on the way, the starting one
+        CHASE_MKDIR_0755         = 1 << 11, /* Create any missing directories in the given path, with access mode 0755.
+                                             * Directories referenced by the destination of a symlink are never
+                                             * created, only those from the specified path itself. */
+        CHASE_MKDIR_0700         = 1 << 12, /* Like CHASE_MKDIR_0755, but with access mode 0700. */
+        CHASE_EXTRACT_FILENAME   = 1 << 13, /* Extract a filename that passes filename_is_valid(), or fail. */
+        CHASE_MUST_BE_DIRECTORY  = 1 << 14, /* Fail if returned inode fd is not a dir */
+        CHASE_MUST_BE_REGULAR    = 1 << 15, /* Fail if returned inode fd is not a regular file */
+        CHASE_MUST_BE_SOCKET     = 1 << 16, /* Fail if returned inode fd is not a socket */
+        CHASE_MAX_MODE           = 1 << 17, /* Return -ENOLINK if a directory on the way, the starting one
                                              * and the root included, has permission bits beyond 0775, or
                                              * the final regular file any bit beyond 0664, suid/sgid/sticky
                                              * included. Symlinks are never checked. */
-        CHASE_NO_SYNC            = 1 << 17, /* Don't synchronize attributes with the server on network file systems,
+        CHASE_NO_SYNC            = 1 << 18, /* Don't synchronize attributes with the server on network file systems,
                                              * so that we don't block if it is unreachable. Attributes may hence be
                                              * stale, which also applies to the st_uid and st_mode that CHASE_SAFE
                                              * and CHASE_MAX_MODE check. Doesn't apply to the final fstat*() of
                                              * chase_and_stat*(). Keep this in mind */
-        CHASE_EXTRACT_FILENAME_HARDER = CHASE_EXTRACT_FILENAME | (1 << 18), /* Return "." if there is no filename. */
-        CHASE_EMPTY_PATH         = 1 << 19, /* An empty path refers to the inode of dir_fd itself. */
+        CHASE_EXTRACT_FILENAME_HARDER = CHASE_EXTRACT_FILENAME | (1 << 19), /* Return "." if there is no filename. */
+        CHASE_EMPTY_PATH         = 1 << 20, /* An empty path refers to the inode of dir_fd itself. */
+        CHASE_MKDIR_LABEL        = 1 << 21, /* Label directories created via CHASE_MKDIR_0755/CHASE_MKDIR_0700
+                                             * via the label ops, using the label context passed to the
+                                             * _full() calls, if any. */
 } ChaseFlags;
 
 int statx_unsafe_transition(const struct statx *a, const struct statx *b);
@@ -57,7 +63,7 @@ int chase_split_prefix_filename(const char *path, const char *root, char **ret_d
 /* chase_xopenat() wraps xopenat_full() and translates CHASE_NOFOLLOW, CHASE_MUST_BE_*, and
  * CHASE_TRIGGER_AUTOFS into open and xopen flags. Callers must validate other chase flags while
  * resolving the path. */
-int chase_xopenat(int dir_fd, const char *path, ChaseFlags chase_flags, int open_flags, XOpenFlags xopen_flags);
+int chase_xopenat(int dir_fd, const char *path, ChaseFlags chase_flags, int open_flags, XOpenFlags xopen_flags, LabelContext *label_context);
 
 int chase_and_open(const char *path, const char *root, ChaseFlags chase_flags, int open_flags, char **ret_path);
 int chase_and_opendir(const char *path, const char *root, ChaseFlags chase_flags, char **ret_path, DIR **ret_dir);
@@ -68,9 +74,15 @@ int chase_and_unlink(const char *path, const char *root, ChaseFlags chase_flags,
 int chase_and_open_parent(const char *path, const char *root, ChaseFlags chase_flags, char **ret_filename);
 
 /* CHASE_EMPTY_PATH makes an empty path refer to dir_fd itself, including a file or symlink. */
-int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int *ret_fd);
+int chaseat_full(int root_fd, int dir_fd, const char *path, ChaseFlags flags, LabelContext *label_context, char **ret_path, int *ret_fd);
+static inline int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int *ret_fd) {
+        return chaseat_full(root_fd, dir_fd, path, flags, /* label_context= */ NULL, ret_path, ret_fd);
+}
 
-int chase_and_openat(int root_fd, int dir_fd, const char *path, ChaseFlags chase_flags, int open_flags, char **ret_path);
+int chase_and_openat_full(int root_fd, int dir_fd, const char *path, ChaseFlags chase_flags, int open_flags, LabelContext *label_context, char **ret_path);
+static inline int chase_and_openat(int root_fd, int dir_fd, const char *path, ChaseFlags chase_flags, int open_flags, char **ret_path) {
+        return chase_and_openat_full(root_fd, dir_fd, path, chase_flags, open_flags, /* label_context= */ NULL, ret_path);
+}
 int chase_and_opendirat(int root_fd, int dir_fd, const char *path, ChaseFlags chase_flags, char **ret_path, DIR **ret_dir);
 int chase_and_statat(int root_fd, int dir_fd, const char *path, ChaseFlags chase_flags, char **ret_path, struct stat *ret_stat);
 int chase_and_accessat(int root_fd, int dir_fd, const char *path, ChaseFlags chase_flags, int access_mode, char **ret_path);

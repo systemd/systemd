@@ -313,6 +313,28 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--root-ssh-key=<replaceable>KEY</replaceable></option></term>
+        <term><option>--root-ssh-key=@<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Installs SSH public keys for the system's root user. Takes either one or more lines
+        in the format of
+        <citerefentry project='man-pages'><refentrytitle>sshd</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
+        <filename>authorized_keys</filename> file, or, if prefixed with <literal>@</literal>, the path to a
+        file in that format. Empty lines are dropped, all other lines (including comments) are installed as
+        they are, but must be valid UTF-8 and must not contain control characters. May be specified multiple times, in which case
+        all specified keys are installed, in the order specified. If the empty string is specified, the list
+        of keys is reset, i.e. all keys specified earlier are dropped. The keys are written to
+        <filename>/root/.ssh/authorized_keys</filename>, creating <filename>/root/</filename> and
+        <filename>/root/.ssh/</filename> with access mode 0700 if they do not exist yet. If
+        <option>--addon=</option> is used, the keys are instead passed via the
+        <varname>ssh.authorized_keys.root</varname> system credential, see
+        <citerefentry><refentrytitle>systemd.system-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--kernel-command-line=<replaceable>CMDLINE</replaceable></option></term>
 
         <listitem><para>Sets the system's kernel command line. This controls the
