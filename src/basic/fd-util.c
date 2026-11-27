@@ -219,19 +219,21 @@ int fd_cloexec_many(const int fds[], size_t n_fds, bool cloexec) {
         return r;
 }
 
-static bool fd_in_set(int fd, const int fds[], size_t n_fds) {
-        assert(fd >= 0);
+ssize_t fd_array_find(const int *fds, size_t n_fds, int fd) {
         assert(fds || n_fds == 0);
 
-        FOREACH_ARRAY(i, fds, n_fds) {
-                if (*i < 0)
-                        continue;
+        /* Returns the index of the first entry equal to fd, or -1 if there is none */
+        for (size_t i = 0; i < n_fds; i++)
+                if (fds[i] == fd)
+                        return i;
 
-                if (*i == fd)
-                        return true;
-        }
+        return -1;
+}
 
-        return false;
+static bool fd_in_set(int fd, const int fds[], size_t n_fds) {
+        assert(fd >= 0);
+
+        return fd_array_find(fds, n_fds, fd) >= 0;
 }
 
 int get_max_fd(void) {

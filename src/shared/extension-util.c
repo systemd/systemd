@@ -210,21 +210,40 @@ int parse_env_extension_hierarchies(char ***ret_hierarchies, const char *hierarc
         return 0;
 }
 
-int extension_has_forbidden_content(const char *root) {
+int extension_has_forbidden_content_at(int rfd, const char *rfd_path) {
+        const char *p;
         int r;
+
+        assert(rfd >= 0);
 
         /* Insist that extension images do not overwrite the underlying OS release file (it's fine if
          * they place one in /etc/os-release, i.e. where things don't matter, as they aren't
-         * merged.) */
-        r = chase("/usr/lib/os-release", root, CHASE_PREFIX_ROOT, /* ret_path= */ NULL, /* ret_fd= */ NULL);
-        if (r > 0) {
+         * merged.) rfd refers to the directory rfd_path of the extension, e.g. "/usr" for an image that
+         * only carries a /usr partition. */
+
+        p = path_startswith("/usr/lib/os-release", empty_to_root(rfd_path));
+        if (!p)
+                return 0;
+
+        r = chaseat(rfd, rfd, p, /* flags= */ 0, /* ret_path= */ NULL, /* ret_fd= */ NULL);
+        if (r >= 0) {
                 log_debug("Extension contains '/usr/lib/os-release', which is not allowed, refusing.");
                 return 1;
         }
-        if (r < 0 && r != -ENOENT)
+        if (r != -ENOENT)
                 return log_debug_errno(r, "Failed to determine whether '/usr/lib/os-release' exists in the extension: %m");
 
         return 0;
+}
+
+int extension_has_forbidden_content(const char *root) {
+        _cleanup_close_ int rfd = -EBADF;
+
+        rfd = xopenat(AT_FDCWD, empty_to_root(root), O_PATH|O_DIRECTORY);
+        if (rfd < 0)
+                return log_debug_errno(rfd, "Failed to open extension tree '%s': %m", empty_to_root(root));
+
+        return extension_has_forbidden_content_at(rfd, "/");
 }
 
 int extension_overlay_block(const char *p, ImageClass image_class, dev_t *ret) {
