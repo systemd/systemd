@@ -41,6 +41,13 @@ if [[ ! -x /usr/lib/systemd/systemd-tpm2-swtpm ]] || ! command -v swtpm >/dev/nu
     exit 77
 fi
 
+# The initrd must stop swtpm without issuing TPM2_Shutdown() for the handoff to work.
+swtpm_capabilities="$(swtpm chardev --tpm2 --print-capabilities)"
+if ! grep -F '"flags-opt-disable-auto-shutdown"' <<<"$swtpm_capabilities" >/dev/null; then
+    echo "swtpm lacks disable-auto-shutdown support, skipping the test" | tee --append /skipped
+    exit 77
+fi
+
 assert_swtpm_up() {
     local n
 
@@ -59,10 +66,11 @@ assert_swtpm_up() {
     assert_eq "$(cat /run/systemd/swtpm/devno)" "$(cat /sys/devices/virtual/tpm/tpm0/dev)"
 
     # The device must have been allocated once (in the initrd), and been reused after the transition.
+    # Match the syslog identifier because journald can attribute initrd messages to init.scope.
     journalctl --sync
-    n="$(journalctl -q -b -u systemd-tpm2-swtpm.service -o cat --grep '^Allocated vTPM proxy device' | wc -l || :)"
+    n="$(journalctl -q -b -t systemd-tpm2-swtpm -o cat --grep '^Allocated vTPM proxy device' | wc -l || :)"
     assert_eq "$n" 1
-    n="$(journalctl -q -b -u systemd-tpm2-swtpm.service -o cat --grep '^Reusing vTPM proxy device from file descriptor store' | wc -l || :)"
+    n="$(journalctl -q -b -t systemd-tpm2-swtpm -o cat --grep '^Reusing vTPM proxy device from file descriptor store' | wc -l || :)"
     assert_ge "$n" 1
 
     # No firmware TPM here, so has-tpm2 reports "partial"; assert the software driver is present.
