@@ -257,7 +257,10 @@ int config_parse_dns(
                         continue;
                 }
 
-                if (IN_SET(dns->port, 53, 853))
+                /* Without a scheme the port applies to all transports, hence treat the default port of
+                 * either as none. With a scheme only systemd-resolved knows the transport, and with it the
+                 * default port. */
+                if (!dns->scheme && IN_SET(dns->port, 53, 853))
                         dns->port = 0;
 
                 if (!GREEDY_REALLOC(n->dns, n->n_dns + 1))

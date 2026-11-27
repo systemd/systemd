@@ -12,6 +12,11 @@ int bus_message_read_in_addr_auto(sd_bus_message *message, sd_bus_error *reterr_
 int bus_message_read_dns_servers(
                         sd_bus_message *message,
                         sd_bus_error *reterr_error,
+                        struct in_addr_full ***ret_dns,
+                        size_t *ret_n_dns);
+int bus_message_read_dns_servers_legacy(
+                        sd_bus_message *message,
+                        sd_bus_error *reterr_error,
                         bool extended,
                         struct in_addr_full ***ret_dns,
                         size_t *ret_n_dns);

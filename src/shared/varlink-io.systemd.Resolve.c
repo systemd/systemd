@@ -220,12 +220,15 @@ SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(addressString, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Address family of the server, one of AF_INET or AF_INET6."),
                 SD_VARLINK_DEFINE_FIELD(family, SD_VARLINK_INT, 0),
-                SD_VARLINK_FIELD_COMMENT("Port number of the server."),
+                SD_VARLINK_FIELD_COMMENT("Port number of the server. For a server configured with a scheme, the port of the transport the scheme selects."),
                 SD_VARLINK_DEFINE_FIELD(port, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("Interface index for which this server is configured."),
                 SD_VARLINK_DEFINE_FIELD(ifindex, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Server Name Indication (SNI) of the server."),
                 SD_VARLINK_DEFINE_FIELD(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                DNS_SERVER_URI_FIELDS,
+                SD_VARLINK_FIELD_COMMENT("The server as URI, for display. Only set if the server was configured with a scheme."),
+                SD_VARLINK_DEFINE_FIELD(uri, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Indicates if the DNS server is accessible or not."),
                 SD_VARLINK_DEFINE_FIELD(accessible, SD_VARLINK_BOOL, 0));
 

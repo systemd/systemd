@@ -5,9 +5,11 @@
 #include <string.h>
 #include <sys/stat.h>
 
+#include "sd-json.h"
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "env-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "log.h"
@@ -20,6 +22,8 @@
 #include "socket-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
+#include "web-util.h"
 
 int socket_address_parse(SocketAddress *a, const char *s) {
         uint16_t port;
@@ -358,6 +362,10 @@ struct in_addr_full* in_addr_full_free(struct in_addr_full *a) {
                 return NULL;
 
         free(a->server_name);
+        free(a->scheme);
+        free(a->path);
+        free(a->query);
+        strv_free(a->params);
         free(a->cached_server_string);
         return mfree(a);
 }
@@ -408,6 +416,13 @@ int in_addr_full_new_from_string(const char *s, struct in_addr_full **ret) {
 
         assert(s);
 
+        /* Accepts both the "address[:port][%ifname][#name]" form and the URI form, see
+         * in_addr_full_new_from_uri() */
+
+        r = in_addr_full_new_from_uri(s, ret);
+        if (r != -EPROTONOSUPPORT)
+                return r;
+
         r = in_addr_port_ifindex_name_from_string_auto(s, &family, &a, &port, &ifindex, &server_name);
         if (r < 0)
                 return r;
@@ -415,8 +430,161 @@ int in_addr_full_new_from_string(const char *s, struct in_addr_full **ret) {
         return in_addr_full_new(family, &a, port, ifindex, server_name, ret);
 }
 
+/* Like strstrafter(), but also terminates haystack where needle started. Returns NULL, leaving haystack
+ * untouched, if needle is not found. */
+static char* strstrafter_truncate(char *haystack, const char *needle) {
+        char *p = strstr(haystack, needle);
+        if (!p)
+                return NULL;
+
+        *p = '\0';
+        return p + strlen(needle);
+}
+
+int in_addr_full_new_from_uri(const char *s, struct in_addr_full **ret) {
+        _cleanup_(in_addr_full_freep) struct in_addr_full *a = NULL;
+        _cleanup_free_ char *buf = NULL;
+        char *authority, *path, *query, *fragment;
+        const char *ifname;
+        size_t n;
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        /* Parses RFC 3986 "scheme://authority[/path][?query][#key[=value]&...]". The authority is an address
+         * as accepted by in_addr_port_ifindex_name_from_string_auto(), without '%' and '#', with IPv6
+         * addresses optionally in brackets also when no port is given. The fragment holds client-side
+         * parameters: name= sets the server name, ifname= the interface, and all others are kept in
+         * ->params, for the caller to check against the scheme. A key without '=' reads as an empty value.
+         *
+         * Returns -EPROTONOSUPPORT if s is not in URI form, so that callers can fall back to
+         * in_addr_full_new_from_string(). */
+
+        buf = strdup(s);
+        if (!buf)
+                return -ENOMEM;
+
+        /* Cut from the right: only the fragment may contain '?', and only the fragment and query '/'. */
+        fragment = strstrafter_truncate(buf, "#");
+        query = strstrafter_truncate(buf, "?");
+        authority = strstrafter_truncate(buf, "://");
+        if (!authority)
+                return -EPROTONOSUPPORT;
+        path = strstrafter_truncate(authority, "/");
+
+        if (!url_scheme_is_valid(ascii_strlower(buf)))
+                return -EINVAL;
+
+        a = new0(struct in_addr_full, 1);
+        if (!a)
+                return -ENOMEM;
+
+        /* "[2001:db8::1]" without a port is valid in a URI, but not for the address parser. */
+        n = strlen(authority);
+        if (n > 2 && authority[0] == '[' && authority[n - 1] == ']') {
+                authority[n - 1] = '\0';
+                authority++;
+                a->family = AF_INET6;
+                r = in_addr_from_string(AF_INET6, authority, &a->address);
+        } else
+                r = in_addr_port_ifindex_name_from_string_auto(authority, &a->family, &a->address, &a->port,
+                                                                /* ret_ifindex= */ NULL, /* ret_server_name= */ NULL);
+        if (r < 0)
+                return r;
+
+        if (fragment) {
+                a->params = strv_split(fragment, "&");
+                if (!a->params)
+                        return -ENOMEM;
+
+                STRV_FOREACH(p, a->params)
+                        if (!strchr(*p, '=') && !strextend(p, "="))
+                                return -ENOMEM;
+
+                if (!strv_env_is_valid(a->params))
+                        return -EINVAL;
+        }
+
+        ifname = strv_env_get(a->params, "ifname");
+        if (ifname) {
+                if (!ifname_valid_full(ifname, IFNAME_VALID_ALTERNATIVE | IFNAME_VALID_NUMERIC))
+                        return -EINVAL;
+
+                a->ifindex = rtnl_resolve_interface(/* rtnl= */ NULL, ifname);
+                if (a->ifindex < 0)
+                        return a->ifindex;
+        }
+
+        if (strdup_to(&a->scheme, buf) < 0 ||
+            strdup_to(&a->path, empty_to_null(path)) < 0 ||
+            strdup_to(&a->query, query) < 0 ||
+            strdup_to(&a->server_name, empty_to_null(strv_env_get(a->params, "name"))) < 0)
+                return -ENOMEM;
+
+        strv_env_unset(a->params, "name");
+        strv_env_unset(a->params, "ifname");
+        if (strv_isempty(a->params))
+                a->params = strv_free(a->params);
+
+        *ret = TAKE_PTR(a);
+        return 0;
+}
+
+static int in_addr_full_to_uri(const struct in_addr_full *a, char **ret) {
+        _cleanup_free_ char *addr = NULL, *s = NULL;
+        bool first = true;
+        int r;
+
+        assert(a);
+        assert(a->scheme);
+        assert(ret);
+
+        r = in_addr_to_string(a->family, &a->address, &addr);
+        if (r < 0)
+                return r;
+
+        if (asprintf(&s, "%s://%s%s%s", a->scheme,
+                     a->family == AF_INET6 ? "[" : "", addr, a->family == AF_INET6 ? "]" : "") < 0)
+                return -ENOMEM;
+
+        if (a->port != 0 && strextendf(&s, ":%" PRIu16, a->port) < 0)
+                return -ENOMEM;
+
+        if (!strextend(&s, a->path ? "/" : "", strempty(a->path), a->query ? "?" : "", strempty(a->query)))
+                return -ENOMEM;
+
+        /* name= and ifname= first, then the other parameters in the order they were given. A parameter with
+         * an empty value is written as a bare key. */
+        if (a->server_name) {
+                if (!strextend(&s, "#name=", a->server_name))
+                        return -ENOMEM;
+                first = false;
+        }
+
+        if (a->ifindex > 0) {
+                if (strextendf(&s, "%sifname=%i", first ? "#" : "&", a->ifindex) < 0)
+                        return -ENOMEM;
+                first = false;
+        }
+
+        STRV_FOREACH(p, a->params) {
+                size_t k = strcspn(*p, "=");
+
+                if (strextendf(&s, "%s%.*s%s", first ? "#" : "&", (int) k, *p, isempty(*p + k + 1) ? "" : *p + k) < 0)
+                        return -ENOMEM;
+                first = false;
+        }
+
+        *ret = TAKE_PTR(s);
+        return 0;
+}
+
 const char* in_addr_full_to_string(struct in_addr_full *a) {
         assert(a);
+
+        if (!a->cached_server_string && a->scheme)
+                (void) in_addr_full_to_uri(a, &a->cached_server_string);
 
         if (!a->cached_server_string)
                 (void) in_addr_port_ifindex_name_to_string(
@@ -428,6 +596,36 @@ const char* in_addr_full_to_string(struct in_addr_full *a) {
                                 &a->cached_server_string);
 
         return a->cached_server_string;
+}
+
+int in_addr_full_params_to_json(const struct in_addr_full *a, sd_json_variant **ret) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        int r;
+
+        assert(a);
+        assert(ret);
+
+        /* Returns the fragment parameters of a URI as JSON object, or NULL if there are none. */
+
+        STRV_FOREACH(p, a->params) {
+                _cleanup_free_ char *key = NULL;
+                const char *e;
+
+                e = strchr(*p, '=');
+                if (!e)
+                        return -EINVAL;
+
+                key = strndup(*p, e - *p);
+                if (!key)
+                        return -ENOMEM;
+
+                r = sd_json_variant_set_field_string(&v, key, e + 1);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
 }
 
 int netns_get_nsid(int netnsfd, uint32_t *ret) {

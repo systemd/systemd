@@ -11,12 +11,7 @@
 #include "resolved-dns-transport-dns.h"
 #include "resolved-dns-transport-dot.h"
 #include "string-table.h"
-
-static const char* const dns_transport_kind_table[_DNS_TRANSPORT_KIND_MAX] = {
-        [DNS_TRANSPORT_DNS] = "dns",
-        [DNS_TRANSPORT_DOT] = "dot",
-};
-DEFINE_STRING_TABLE_LOOKUP(dns_transport_kind, DnsTransportKind);
+#include "string-util.h"
 
 const DnsTransportVTable * const dns_transport_vtable[_DNS_TRANSPORT_KIND_MAX] = {
         [DNS_TRANSPORT_DNS] = &dns_transport_dns_vtable,
@@ -24,6 +19,14 @@ const DnsTransportVTable * const dns_transport_vtable[_DNS_TRANSPORT_KIND_MAX] =
         [DNS_TRANSPORT_DOT] = &dns_transport_dot_vtable,
 #endif
 };
+
+DnsTransportKind dns_transport_kind_from_scheme(const char *scheme) {
+        for (DnsTransportKind k = 0; k < _DNS_TRANSPORT_KIND_MAX; k++)
+                if (dns_transport_vtable[k] && streq_ptr(dns_transport_vtable[k]->scheme, scheme))
+                        return k;
+
+        return _DNS_TRANSPORT_KIND_INVALID;
+}
 
 static const char* const dns_encryption_mode_table[_DNS_ENCRYPTION_MODE_MAX] = {
         [DNS_ENCRYPTION_NO]            = "no",
@@ -105,6 +108,35 @@ DnsTransportKind dns_transport_policy_next(DnsTransportPolicy p, DnsTransportKin
                 return _DNS_TRANSPORT_KIND_INVALID;
 
         return dns_transport_policy_best(p & (INDEX_TO_MASK(DnsTransportPolicy, kind) - 1));
+}
+
+DnsEncryptionMode dns_encryption_mode_from_transport_policy(DnsTransportPolicy p) {
+        bool encrypted = false, unencrypted = false;
+
+        /* The inverse of dns_transport_policy_init(): encryption is required if no unencrypted transport is
+         * permitted, and opportunistic if both kinds are. Transports this build doesn't support can't be
+         * used, and hence don't count. */
+
+        BIT_FOREACH(k, p) {
+                const DnsTransportVTable *vt;
+
+                if (k >= _DNS_TRANSPORT_KIND_MAX)
+                        break;
+
+                vt = dns_transport_vtable[k];
+                if (!vt)
+                        continue;
+
+                if (vt->encrypted)
+                        encrypted = true;
+                else
+                        unencrypted = true;
+        }
+
+        if (!encrypted)
+                return DNS_ENCRYPTION_NO;
+
+        return unencrypted ? DNS_ENCRYPTION_OPPORTUNISTIC : DNS_ENCRYPTION_REQUIRED;
 }
 
 int dns_server_feature_level_compare(DnsServerFeatureLevel a, DnsServerFeatureLevel b) {
@@ -235,12 +267,22 @@ DnsServerTransport* dns_server_transport_free(DnsServerTransport *tr) {
 }
 
 uint16_t dns_server_transport_port(const DnsServerTransport *tr) {
+        const DnsServer *s;
+        uint16_t port;
+
         assert(tr);
 
-        if (tr->server->port > 0)
-                return tr->server->port;
+        /* If the server was configured with a URI, its port belongs to the transport the scheme selected, and
+         * the downgrade port to the transport it may downgrade to. Otherwise the port applies to all
+         * transports. */
 
-        return DNS_TRANSPORT_VTABLE(tr)->default_port;
+        s = tr->server;
+        if (s->transport_policy != 0 && tr->kind != dns_transport_policy_best(s->transport_policy))
+                port = s->downgrade_port;
+        else
+                port = s->port;
+
+        return port > 0 ? port : DNS_TRANSPORT_VTABLE(tr)->default_port;
 }
 
 int dns_server_transport_stream_new(

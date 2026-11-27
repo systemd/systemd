@@ -164,7 +164,7 @@ static int bus_message_read_dns_one(
         return 1;
 }
 
-int bus_message_read_dns_servers(
+int bus_message_read_dns_servers_legacy(
                         sd_bus_message *message,
                         sd_bus_error *reterr_error,
                         bool extended,
@@ -217,6 +217,74 @@ clear:
         free(dns);
 
         return r;
+}
+
+int bus_message_read_dns_servers(
+                        sd_bus_message *message,
+                        sd_bus_error *reterr_error,
+                        struct in_addr_full ***ret_dns,
+                        size_t *ret_n_dns) {
+
+        struct in_addr_full **dns = NULL;
+        size_t n = 0;
+        int r;
+
+        assert(message);
+        assert(ret_dns);
+        assert(ret_n_dns);
+
+        /* Reads the DNS servers of a link as strings, in the "scheme://address[:port][#key=value&...]" form
+         * or the legacy "address[:port][#name]" one. Only the syntax is checked here, the schemes are left
+         * to the transports of systemd-resolved. The interface is given by the link, hence it may not be
+         * part of the strings. */
+
+        CLEANUP_ARRAY(dns, n, in_addr_full_free_array);
+
+        r = sd_bus_message_enter_container(message, 'a', "s");
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                _cleanup_(in_addr_full_freep) struct in_addr_full *a = NULL;
+                const char *s;
+
+                r = sd_bus_message_read(message, "s", &s);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                r = in_addr_full_new_from_string(s, &a);
+                if (r < 0)
+                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Invalid DNS server address: %s", s);
+
+                if (!dns_server_address_valid(a->family, &a->address))
+                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Invalid DNS server address: %s", s);
+
+                if (a->ifindex != 0)
+                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "DNS server address of a link may not specify an interface: %s", s);
+
+                /* Without a scheme the port applies to all transports, hence treat the default port of
+                 * either as none, as the legacy readers do. */
+                if (!a->scheme && IN_SET(a->port, 53, 853))
+                        a->port = 0;
+
+                if (!GREEDY_REALLOC(dns, n + 1))
+                        return -ENOMEM;
+
+                dns[n++] = TAKE_PTR(a);
+        }
+
+        r = sd_bus_message_exit_container(message);
+        if (r < 0)
+                return r;
+
+        *ret_dns = TAKE_PTR(dns);
+        *ret_n_dns = TAKE_GENERIC(n, size_t, 0);
+        return 0;
 }
 
 int bus_message_append_string_set(sd_bus_message *m, const Set *set) {

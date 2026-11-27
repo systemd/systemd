@@ -17,6 +17,7 @@
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
 #include "ip-util.h"
+#include "network-internal.h"
 #include "random-util.h"
 #include "set.h"
 #include "socket-util.h"
@@ -768,6 +769,73 @@ TEST(domains) {
                 3, 'c', 'o',
         };
         test_domains_fail(ELEMENTSOF(truncated), truncated);
+}
+
+static void assert_dot_resolver(const sd_dns_resolver *res, size_t n_addrs) {
+        ASSERT_STREQ(res->auth_name, "resolver.example.com");
+        ASSERT_EQ(res->family, AF_INET);
+        ASSERT_EQ(res->n_addrs, n_addrs);
+        ASSERT_EQ(be32toh(res->addrs[0].in.s_addr), 0xc0000201U);
+        if (n_addrs > 1)
+                ASSERT_EQ(be32toh(res->addrs[1].in.s_addr), 0xc0000202U);
+        ASSERT_EQ(res->transports, SD_DNS_ALPN_DOT);
+        ASSERT_EQ(res->port, 853U);
+}
+
+TEST(dnr_dot_strv) {
+        union in_addr_union addrs[] = {
+                { .in.s_addr = htobe32(0xc0000201) }, /* 192.0.2.1 */
+                { .in.s_addr = htobe32(0xc0000202) }, /* 192.0.2.2 */
+        };
+        sd_dns_resolver resolvers[] = {
+                {
+                        .priority = 1,
+                        .auth_name = (char*) "resolver.example.com",
+                        .family = AF_INET,
+                        .addrs = addrs,
+                        .n_addrs = ELEMENTSOF(addrs),
+                        .transports = SD_DNS_ALPN_DOT | SD_DNS_ALPN_HTTP_2_TLS,
+                        .port = 853,
+                },
+                {
+                        /* Not offering DoT, hence skipped */
+                        .priority = 2,
+                        .auth_name = (char*) "doh.example.com",
+                        .family = AF_INET,
+                        .addrs = addrs,
+                        .n_addrs = 1,
+                        .transports = SD_DNS_ALPN_HTTP_2_TLS,
+                        .port = 443,
+                },
+        };
+        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_free_ char *joined = NULL;
+
+        /* Designated resolvers are written as DNS-over-TLS-only URIs, verified against their name */
+        ASSERT_EQ(dns_resolvers_to_dot_strv(resolvers, ELEMENTSOF(resolvers), &names), 2);
+        ASSERT_STREQ(names[0], "dnss://192.0.2.1:853#name=resolver.example.com");
+        ASSERT_STREQ(names[1], "dnss://192.0.2.2:853#name=resolver.example.com");
+        ASSERT_NULL(names[2]);
+
+        /* They are read back as one resolver, as is the form without a scheme */
+        FOREACH_STRING(s,
+                       (joined = ASSERT_PTR(strv_join(names, " "))),
+                       "192.0.2.1:853#resolver.example.com 192.0.2.2:853#resolver.example.com") {
+                sd_dns_resolver *parsed = NULL;
+                size_t n = 0;
+                CLEANUP_ARRAY(parsed, n, dns_resolver_free_array);
+
+                n = ASSERT_OK(deserialize_dnr(&parsed, s));
+                ASSERT_EQ(n, 1U);
+                assert_dot_resolver(&parsed[0], 2);
+        }
+
+        /* Other schemes, and resolvers without a name, are refused */
+        sd_dns_resolver *parsed = NULL;
+        ASSERT_ERROR(deserialize_dnr(&parsed, "dns://192.0.2.1:853#name=resolver.example.com"), EINVAL);
+        ASSERT_ERROR(deserialize_dnr(&parsed, "dnss://192.0.2.1:853"), EINVAL);
+        ASSERT_ERROR(deserialize_dnr(&parsed, "dnss://192.0.2.1:853#name=resolver.example.com&downgrade"), EINVAL);
+        ASSERT_NULL(parsed);
 }
 
 TEST(dnr) {
