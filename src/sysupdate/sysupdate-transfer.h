@@ -44,6 +44,8 @@ typedef struct Transfer {
         char *temporary_partial_path;
         char *temporary_pending_path;
         char *final_path;
+        int install_parent_fd;
+        int staging_fd;
         int install_read_only;
 
         /* If we write to a partition in a partition table, the metrics of it */
@@ -68,7 +70,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Transfer*, transfer_free);
 int transfer_read_definition(Transfer *t, const char *path, const char **dirs, Hashmap *features);
 int transfer_from_json(Transfer *t, sd_json_variant *v, const char *origin, Hashmap *features);
 
-int transfer_resolve_paths(Transfer *t, const char *root, const char *node);
+int transfer_resolve_paths(Transfer *t);
 
 int transfer_vacuum(Transfer *t, uint64_t space, const char *extra_protected_version);
 
@@ -76,4 +78,4 @@ int transfer_compute_temporary_paths(Transfer *t, Instance *i, InstanceMetadata 
 int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, TransferProgress cb, void *userdata);
 int transfer_process_partial_and_pending_instance(Transfer *t, Instance *i);
 
-int transfer_install_instance(Transfer *t, Instance *i, const char *root);
+int transfer_install_instance(Transfer *t, Instance *i);

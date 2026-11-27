@@ -44,5 +44,6 @@ int read_partition_info(struct fdisk_context *c, struct fdisk_table *t, size_t i
 int gpt_partition_type_uuid_for_sysupdate_partial(sd_id128_t type, sd_id128_t *ret);
 int gpt_partition_type_uuid_for_sysupdate_pending(sd_id128_t type, sd_id128_t *ret);
 
-int find_suitable_partition(const char *device, uint64_t space, sd_id128_t *partition_type, PartitionInfo *ret);
-int patch_partition(const char *device, const PartitionInfo *info, PartitionChange change);
+int partition_open_table(const Resource *resource, bool read_only, struct fdisk_context **ret);
+int find_suitable_partition(const Resource *resource, uint64_t space, sd_id128_t *partition_type, PartitionInfo *ret);
+int patch_partition(const Resource *resource, const PartitionInfo *info, PartitionChange change);

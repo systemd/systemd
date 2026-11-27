@@ -102,9 +102,10 @@ static bool need_opath(InstallFileFlags flags) {
         return (flags & (INSTALL_FSYNC|INSTALL_FSYNC_FULL|INSTALL_SYNCFS|INSTALL_READ_ONLY)) != 0;
 }
 
-int install_file(int source_atfd, const char *source_name,
-                 int target_atfd, const char *target_name,
-                 InstallFileFlags flags) {
+int install_file_full(
+                int source_atfd, const char *source_name, int source_fd,
+                int target_atfd, const char *target_name,
+                InstallFileFlags flags) {
 
         _cleanup_close_ int rofd = -EBADF;
         int r;
@@ -131,11 +132,14 @@ int install_file(int source_atfd, const char *source_name,
 
                 /* Open an O_PATH fd for the source if we need to sync things or mark things read only. */
 
-                pfd = xopenat(source_atfd, source_name, O_PATH|O_NOFOLLOW);
-                if (pfd < 0)
-                        return pfd;
+                if (source_fd < 0) {
+                        pfd = xopenat(source_atfd, source_name, O_PATH|O_NOFOLLOW);
+                        if (pfd < 0)
+                                return pfd;
+                        source_fd = pfd;
+                }
 
-                if (fstat(pfd, &st) < 0)
+                if (fstat(source_fd, &st) < 0)
                         return -errno;
 
                 switch (st.st_mode & S_IFMT) {
@@ -143,7 +147,7 @@ int install_file(int source_atfd, const char *source_name,
                 case S_IFREG: {
                         _cleanup_close_ int regfd = -EBADF;
 
-                        regfd = fd_reopen(pfd, O_RDONLY);
+                        regfd = fd_reopen(source_fd, O_RDONLY);
                         if (regfd < 0) {
                                 if (!FLAGS_SET(flags, INSTALL_GRACEFUL))
                                         return log_debug_errno(regfd, "Failed to open referenced inode: %m");
@@ -176,7 +180,7 @@ int install_file(int source_atfd, const char *source_name,
                 case S_IFDIR: {
                         _cleanup_close_ int dfd = -EBADF;
 
-                        dfd = fd_reopen(pfd, O_RDONLY|O_DIRECTORY);
+                        dfd = fd_reopen(source_fd, O_RDONLY|O_DIRECTORY);
                         if (dfd < 0) {
                                 if (!FLAGS_SET(flags, INSTALL_GRACEFUL))
                                         return log_debug_errno(dfd, "Failed to open referenced inode: %m");
@@ -211,7 +215,7 @@ int install_file(int source_atfd, const char *source_name,
                          * disk */
 
                         if (target_name && (flags & (INSTALL_FSYNC_FULL|INSTALL_SYNCFS)) != 0) {
-                                r = fsync_directory_of_file(pfd);
+                                r = fsync_directory_of_file(source_fd);
                                 if (r < 0) {
                                         if (!FLAGS_SET(flags, INSTALL_GRACEFUL))
                                                 return log_debug_errno(r, "Failed to sync source inode: %m");
@@ -241,7 +245,7 @@ int install_file(int source_atfd, const char *source_name,
                                  * before the rename()? Mostly because if we have trouble opening the thing
                                  * we want to know before we start actually modifying the file system. */
 
-                                dfd = xopenat(target_atfd, target_name, O_RDONLY|O_DIRECTORY);
+                                dfd = xopenat(target_atfd, target_name, O_RDONLY|O_DIRECTORY|O_NOFOLLOW);
                                 if (dfd < 0 && dfd != -ENOTDIR)
                                         return dfd;
 
