@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <fcntl.h>
-
 #include "sd-event.h"
 
 #include "af-list.h"
@@ -11,7 +9,6 @@
 #include "fd-util.h"
 #include "hash-funcs.h"
 #include "hashmap.h"
-#include "journal-file-util.h"
 #include "journal-remote.h"
 #include "journal-remote-write.h"
 #include "log.h"
@@ -56,21 +53,7 @@ static int open_output(RemoteServer *s, Writer *w, const char *host) {
                 assert_not_reached();
         }
 
-        r = journal_file_open_reliably(
-                        filename,
-                        O_RDWR|O_CREAT,
-                        s->file_flags,
-                        0640,
-                        UINT64_MAX,
-                        &w->metrics,
-                        w->mmap,
-                        /* seqnum_id= */ NULL,
-                        &w->journal);
-        if (r < 0)
-                return log_error_errno(r, "Failed to open output journal %s: %m", filename);
-
-        log_debug("Opened output file %s", w->journal->path);
-        return 0;
+        return writer_open(w, filename);
 }
 
 /**********************************************************************
@@ -116,9 +99,14 @@ int journal_remote_get_writer(RemoteServer *s, const char *host, Writer **writer
         }
 
         w = hashmap_get(s->writers, key);
-        if (w)
+        if (w) {
                 writer_ref(w);
-        else {
+                if (!w->journal) {
+                        r = open_output(s, w, host);
+                        if (r < 0)
+                                return r;
+                }
+        } else {
                 r = writer_new(s, &w);
                 if (r < 0)
                         return r;
@@ -352,6 +340,7 @@ void journal_remote_server_destroy(RemoteServer *s) {
         writer_unref(s->_single_writer);
         hashmap_free(s->writers);
 
+        sd_event_source_unref(s->maintenance_event);
         sd_event_source_unref(s->listen_event);
         sd_event_unref(s->event);
 
