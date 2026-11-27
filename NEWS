@@ -365,6 +365,14 @@ CHANGES WITH 263 in spe:
           Since units might have relied on it nonetheless, this bugfix is
           listed here as an incompatible change.
 
+        * RestrictNamespaces= now blocks every method that causes the kernel
+          to create a mount namespace when "mnt" is not allowed. This includes
+          the creation of detached mounts with the fsmount() syscall. Services
+          that perform mount operations with the new mount API will need to
+          allow the creation of mount namespaces by adding
+          RestrictNamespaces=mnt to their unit file. systemd-importd.service is
+          one such service and has been updated accordingly.
+
         Changes in the system and service manager:
 
         * The [Unit] section gained Tags=, a space-separated list of labels
