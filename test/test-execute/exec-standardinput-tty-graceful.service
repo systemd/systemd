@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for StandardInput=tty-graceful with an explicit, nonexistent TTYPath=
+
+[Service]
+ExecStart=true
+Type=oneshot
+StandardInput=tty-graceful
+TTYPath=/dev/nonexistent-tty
