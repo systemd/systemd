@@ -9,6 +9,9 @@
 
 #define RULESET_DIRS ((const char* const*) CONF_PATHS_STRV("systemd/oomd/rules.d"))
 
+/* Limit rules per cgroup update to bound quadratic processing cost. */
+#define OOMD_MAX_OOM_RULES 1000
+
 /* Polling interval for monitoring stats */
 #define SWAP_INTERVAL_USEC 150000 /* 0.15 seconds */
 /* Pressure counters are lagging (~2 seconds) compared to swap so polling too frequently just wastes CPU */
