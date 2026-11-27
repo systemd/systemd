@@ -13,7 +13,8 @@ typedef enum ChaseFlags {
         CHASE_STEP               = 1 << 6,  /* Just execute a single step of the normalization */
         CHASE_NOFOLLOW           = 1 << 7,  /* Do not follow the path's right-most component. With ret_fd, when the path's
                                              * right-most component refers to symlink, return O_PATH fd of the symlink. */
-        CHASE_WARN               = 1 << 8,  /* Emit an appropriate warning when an error is encountered.
+        CHASE_WARN               = 1 << 8,  /* Emit an appropriate warning when an error is encountered or when
+                                             * negative group permissions are found on the way.
                                              * Note: this may do an NSS lookup, hence this flag cannot be used in PID 1. */
         CHASE_PROHIBIT_SYMLINKS  = 1 << 9,  /* Refuse all symlinks */
         CHASE_PARENT             = 1 << 10, /* Chase the parent directory of the given path. Note that the

@@ -167,4 +167,9 @@ static inline bool inode_type_can_hardlink(mode_t m) {
         return IN_SET(m & S_IFMT, S_IFSOCK, S_IFLNK, S_IFREG, S_IFBLK, S_IFCHR, S_IFIFO);
 }
 
+static inline bool mode_has_negative_permissions(mode_t m) {
+        /* The group class lacks a permission the other class has. */
+        return (m & S_IRWXO) & ~((m & S_IRWXG) >> 3);
+}
+
 int vfs_free_bytes(int fd, uint64_t *ret);
