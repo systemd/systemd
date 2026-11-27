@@ -5,9 +5,11 @@
 name: mkosi
 
 on:
+  schedule:
+    - cron: "30 2 * * *"
+
   push:
     branches:
-      - main
       - v[0-9]+-stable
     paths:
       - "**"
@@ -53,10 +55,12 @@ permissions:
 
 jobs:
   ci:
-    # Don't run on pushes to forks, only on pushes to the upstream repositories
+    # Don't run on pushes to forks, only on pushes to the upstream repositories.
+    # The scheduled run is for the main branch, so it only runs in the main repository.
     if: >
-      github.event_name != 'pull_request_target' &&
-      (github.event_name != 'push' || github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable')
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'push' && (github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable')) ||
+      (github.event_name == 'schedule' && github.repository == 'systemd/systemd')
     runs-on: ${{ matrix.runner || 'ubuntu-24.04' }}
     strategy:
       fail-fast: false
