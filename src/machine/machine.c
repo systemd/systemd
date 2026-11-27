@@ -7,6 +7,7 @@
 #include "sd-bus.h"
 #include "sd-event.h"
 #include "sd-messages.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "bus-error.h"
@@ -140,6 +141,7 @@ Machine* machine_free(Machine *m) {
         pidref_done(&m->supervisor);
 
         sd_bus_message_unref(m->create_message);
+        sd_varlink_unref(m->create_link);
 
         m->cgroup_empty_event_source = sd_event_source_disable_unref(m->cgroup_empty_event_source);
 

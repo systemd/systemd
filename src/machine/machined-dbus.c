@@ -24,6 +24,7 @@
 #include "io-util.h"
 #include "machine.h"
 #include "machine-dbus.h"
+#include "machine-varlink.h"
 #include "machined.h"
 #include "machined-dbus.h"
 #include "namespace-util.h"
@@ -1460,14 +1461,16 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
                 machine->scope_job = mfree(machine->scope_job);
 
                 if (machine->started) {
-                        if (streq(result, "done"))
+                        if (streq(result, "done")) {
                                 machine_send_create_reply(machine, /* error= */ NULL);
-                        else {
+                                machine_send_create_varlink_reply(machine, /* error= */ 0);
+                        } else {
                                 _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
 
                                 sd_bus_error_setf(&e, BUS_ERROR_JOB_FAILED, "Start job for unit %s failed with '%s'", unit, result);
 
                                 machine_send_create_reply(machine, &e);
+                                machine_send_create_varlink_reply(machine, sd_bus_error_get_errno(&e));
                         }
                 }
 
