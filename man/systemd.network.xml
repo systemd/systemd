@@ -621,7 +621,9 @@ Table=1234</programlisting></para>
           defines a per-interface setting for
           <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>'s
           global <varname>DNSOverTLS=</varname> option. Defaults to unset, and the global setting will
-          be used. This setting is read by
+          be used. Like the global option, it only applies to DNS servers given without a scheme, and
+          is deprecated in favour of the <literal>dnss://</literal> scheme, see <varname>DNS=</varname>.
+          This setting is read by
           <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
           </para>
 
@@ -780,15 +782,12 @@ DuplicateAddressDetection=none</programlisting></para>
       <varlistentry>
         <term><varname>DNS=</varname></term>
         <listitem>
-          <para>A DNS server address, which must be in the format described in
-          <citerefentry project='man-pages'><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-          This option may be specified more than once. Each address can optionally take a port number
-          separated with <literal>:</literal>, a network interface name or index separated with
-          <literal>%</literal>, and a Server Name Indication (SNI) separated with <literal>#</literal>.
-          When IPv6 address is specified with a port number, then the address must be in the square
-          brackets. That is, the acceptable full formats are
-          <literal>111.222.333.444:9953%ifname#example.com</literal> for IPv4 and
-          <literal>[1111:2222::3333]:9953%ifname#example.com</literal> for IPv6. If an empty string is
+          <para>A DNS server, e.g. <literal>dnss://111.222.333.444#name=example.com</literal> or
+          <literal>[1111:2222::3333]:9953%ifname#example.com</literal>, in the format described for
+          <varname>DNS=</varname> in
+          <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          This option may be specified more than once.
+          systemd-networkd only checks the syntax of URIs, and passes them on. If an empty string is
           assigned, then the all previous assignments are cleared. This setting is read by
           <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
           </para>
@@ -2789,7 +2788,10 @@ MultiPathRoute=2001:db8::1@eth0</programlisting>
         <term><varname>UseDNR=</varname></term>
         <listitem>
           <para>When true, designated resolvers advertised by the DHCP server will be used as encrypted
-          DNS servers. See <ulink url="https://datatracker.ietf.org/doc/html/rfc9463">RFC 9463</ulink>.</para>
+          DNS servers. See <ulink url="https://datatracker.ietf.org/doc/html/rfc9463">RFC 9463</ulink>.
+          Resolvers offering DNS over TLS are used with DNS over TLS only, and their certificate is verified
+          against the advertised authentication domain name, regardless of <varname>DNSOverTLS=</varname>.
+          Resolvers offering other encrypted transports only are ignored.</para>
 
           <para>Defaults to unset, and the value for <varname>UseDNS=</varname> will be used.</para>
 
@@ -3654,8 +3656,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>UseDNR=</varname></term>
         <listitem>
-          <para> When true, the DNR servers received in the Router Advertisement will be used. Defaults to
-            the value of <option>UseDNS=</option>.</para>
+          <para> When true, the DNR servers received in the Router Advertisement will be used, as with
+            <varname>UseDNR=</varname> in the [DHCPv4] section. Defaults to the value of
+            <option>UseDNS=</option>.</para>
 
           <xi:include href="version-info.xml" xpointer="v257"/>
         </listitem>
@@ -7130,6 +7133,20 @@ UseGateway=yes</programlisting>
       MCC <literal>25503</literal>, and sets up a default gateway with route metric of 30.
       </para>
     </example>
+  </refsect1>
+
+  <refsect1>
+    <title>History</title>
+
+    <variablelist>
+      <varlistentry>
+        <term>systemd 263</term>
+
+        <listitem><para><varname>DNSOverTLS=</varname> in the [Network] section is deprecated. The transport of
+        each DNS server may be selected with the <literal>dnss://</literal> scheme in <varname>DNS=</varname>
+        instead.</para></listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 
   <refsect1>

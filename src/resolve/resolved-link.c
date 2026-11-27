@@ -269,34 +269,32 @@ int link_process_rtnl(Link *l, sd_netlink_message *m) {
 }
 
 static int link_update_dns_server_one(Link *l, const char *str) {
-        _cleanup_free_ char *name = NULL;
-        int family, ifindex, r;
-        union in_addr_union a;
+        _cleanup_(in_addr_full_freep) struct in_addr_full *a = NULL;
+        DnsTransportPolicy transport_policy;
+        uint16_t downgrade_port;
         DnsServer *s;
-        uint16_t port;
+        int r;
 
         assert(l);
         assert(str);
 
-        r = in_addr_port_ifindex_name_from_string_auto(str, &family, &a, &port, &ifindex, &name);
+        r = dns_server_parse_string(str, &a, &transport_policy, &downgrade_port);
         if (r < 0)
                 return r;
 
-        if (ifindex != 0 && ifindex != l->ifindex)
+        if (a->ifindex != 0 && a->ifindex != l->ifindex)
                 return -EINVAL;
 
-        /* By default, the port number is determined with the transaction feature level.
-         * See dns_server_transport_port() and dns_server_port(). */
-        if (IN_SET(port, 53, 853))
-                port = 0;
-
-        s = dns_server_find(l->dns_servers, family, &a, port, /* ifindex= */ 0, name);
+        s = dns_server_find(l->dns_servers, a->family, &a->address, a->port, /* ifindex= */ 0, a->server_name,
+                            transport_policy, downgrade_port);
         if (s) {
                 dns_server_move_back_and_unmark(s);
                 return 0;
         }
 
-        return dns_server_new(l->manager, /* ret= */ NULL, DNS_SERVER_LINK, l, /* delegate= */ NULL, family, &a, port, /* ifindex= */ 0, name, RESOLVE_CONFIG_SOURCE_NETWORKD);
+        return dns_server_new(l->manager, /* ret= */ NULL, DNS_SERVER_LINK, l, /* delegate= */ NULL,
+                              a->family, &a->address, a->port, /* ifindex= */ 0, a->server_name,
+                              transport_policy, downgrade_port, RESOLVE_CONFIG_SOURCE_NETWORKD);
 }
 
 static int link_update_dns_servers(Link *l) {
@@ -1543,13 +1541,23 @@ int link_set_dns_servers(Link *l, struct in_addr_full **dns, size_t n_dns, Resol
         bool changed = false;
         FOREACH_ARRAY(i, dns, n_dns) {
                 struct in_addr_full *addr = *i;
+                DnsTransportPolicy transport_policy;
+                uint16_t downgrade_port;
+
+                r = dns_server_transport_from_address(addr, &transport_policy, &downgrade_port);
+                if (r < 0) {
+                        dns_server_unlink_all(l->dns_servers);
+                        return r;
+                }
 
                 DnsServer *s = dns_server_find(l->dns_servers,
                                                addr->family,
                                                &addr->address,
                                                addr->port,
                                                /* ifindex= */ 0,
-                                               addr->server_name);
+                                               addr->server_name,
+                                               transport_policy,
+                                               downgrade_port);
                 if (s)
                         dns_server_move_back_and_unmark(s);
                 else {
@@ -1563,6 +1571,8 @@ int link_set_dns_servers(Link *l, struct in_addr_full **dns, size_t n_dns, Resol
                                            addr->port,
                                            /* ifindex= */ 0,
                                            addr->server_name,
+                                           transport_policy,
+                                           downgrade_port,
                                            source);
                         if (r < 0) {
                                 dns_server_unlink_all(l->dns_servers);
@@ -1579,7 +1589,7 @@ int link_set_dns_servers(Link *l, struct in_addr_full **dns, size_t n_dns, Resol
 
                 (void) link_save_user(l);
                 (void) manager_write_resolv_conf(l->manager);
-                (void) manager_send_changed(l->manager, "DNS");
+                (void) manager_send_changed(l->manager, "DNS", "DNSURI");
                 (void) manager_send_dns_configuration_changed(l->manager, l, /* reset= */ true);
 
                 const char *source_str = source == RESOLVE_CONFIG_SOURCE_DBUS ? "Bus" : "Varlink";
@@ -1676,7 +1686,7 @@ void link_revert_settings(Link *l) {
 
         (void) link_save_user(l);
         (void) manager_write_resolv_conf(l->manager);
-        (void) manager_send_changed(l->manager, "DNS");
+        (void) manager_send_changed(l->manager, "DNS", "DNSURI");
         (void) manager_send_dns_configuration_changed(l->manager, l, /* reset= */ true);
 
         manager_llmnr_maybe_stop(l->manager);

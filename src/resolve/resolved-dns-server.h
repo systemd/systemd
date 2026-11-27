@@ -33,6 +33,11 @@ typedef struct DnsServer {
         uint16_t port;
         char *server_name;
 
+        /* The transports permitted for this server, if its setting selected them with a URI scheme, see
+         * dns_server_parse_string(). 0 otherwise, in which case the DNSOverTLS= setting decides. */
+        DnsTransportPolicy transport_policy;
+        uint16_t downgrade_port; /* Port of the transport transport_policy may downgrade to, 0 for its default */
+
         char *server_string;
         char *server_string_full;
 
@@ -79,6 +84,8 @@ int dns_server_new(
                 uint16_t port,
                 int ifindex,
                 const char *server_name,
+                DnsTransportPolicy transport_policy,
+                uint16_t downgrade_port,
                 ResolveConfigSource config_source);
 
 DECLARE_TRIVIAL_REF_UNREF_FUNC(DnsServer, dns_server);
@@ -102,6 +109,7 @@ int dns_server_adjust_opt(DnsServer *server, DnsPacket *packet, DnsServerFeature
 
 const char* dns_server_string(DnsServer *server);
 const char* dns_server_string_full(DnsServer *server);
+int dns_server_to_uri(DnsServer *s, bool with_ifindex, char **ret);
 int dns_server_ifindex(const DnsServer *s);
 uint16_t dns_server_port(const DnsServer *s);
 
@@ -109,7 +117,25 @@ bool dns_server_dnssec_supported(DnsServer *server);
 
 void dns_server_warn_downgrade(DnsServer *server);
 
-DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_union *in_addr, uint16_t port, int ifindex, const char *name);
+DnsServer *dns_server_find(
+                DnsServer *first,
+                int family,
+                const union in_addr_union *in_addr,
+                uint16_t port,
+                int ifindex,
+                const char *name,
+                DnsTransportPolicy transport_policy,
+                uint16_t downgrade_port);
+
+int dns_server_transport_from_address(
+                struct in_addr_full *a,
+                DnsTransportPolicy *ret_transport_policy,
+                uint16_t *ret_downgrade_port);
+int dns_server_parse_string(
+                const char *s,
+                struct in_addr_full **ret_address,
+                DnsTransportPolicy *ret_transport_policy,
+                uint16_t *ret_downgrade_port);
 
 void dns_server_unlink_all(DnsServer *first);
 void dns_server_unlink_on_reload(DnsServer *server);

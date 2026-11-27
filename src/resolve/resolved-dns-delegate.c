@@ -7,7 +7,6 @@
 #include "dns-domain.h"
 #include "extract-word.h"
 #include "hashmap.h"
-#include "in-addr-util.h"
 #include "log.h"
 #include "path-util.h"
 #include "resolved-dns-delegate.h"
@@ -252,11 +251,10 @@ int config_parse_delegate_dns_servers(
                 if (r == 0)
                         break;
 
-                _cleanup_free_ char *server_name = NULL;
-                union in_addr_union address;
-                int family, ifindex = 0;
-                uint16_t port;
-                r = in_addr_port_ifindex_name_from_string_auto(word, &family, &address, &port, &ifindex, &server_name);
+                _cleanup_(in_addr_full_freep) struct in_addr_full *a = NULL;
+                DnsTransportPolicy transport_policy;
+                uint16_t downgrade_port;
+                r = dns_server_parse_string(word, &a, &transport_policy, &downgrade_port);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to parse DNS server string '%s', ignoring.", word);
@@ -264,16 +262,12 @@ int config_parse_delegate_dns_servers(
                 }
 
                 /* Silently filter out 0.0.0.0, 127.0.0.53, 127.0.0.54 (our own stub DNS listener) */
-                if (!dns_server_address_valid(family, &address))
+                if (!dns_server_address_valid(a->family, &a->address))
                         continue;
 
-                /* By default, the port number is determined with the transaction feature level.
-                 * See dns_server_transport_port() and dns_server_port(). */
-                if (IN_SET(port, 53, 853))
-                        port = 0;
-
                 /* Filter out duplicates */
-                DnsServer *s = dns_server_find(d->dns_servers, family, &address, port, ifindex, server_name);
+                DnsServer *s = dns_server_find(d->dns_servers, a->family, &a->address, a->port, a->ifindex,
+                                               a->server_name, transport_policy, downgrade_port);
                 if (s) {
                         /* Drop the marker. This is used to find the servers that ceased to exist, see
                          * manager_mark_dns_servers() and manager_flush_marked_dns_servers(). */
@@ -287,11 +281,13 @@ int config_parse_delegate_dns_servers(
                                 DNS_SERVER_DELEGATE,
                                 /* link= */ NULL,
                                 d,
-                                family,
-                                &address,
-                                port,
-                                ifindex,
-                                server_name,
+                                a->family,
+                                &a->address,
+                                a->port,
+                                a->ifindex,
+                                a->server_name,
+                                transport_policy,
+                                downgrade_port,
                                 RESOLVE_CONFIG_SOURCE_FILE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add DNS server: %m");

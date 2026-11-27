@@ -106,21 +106,21 @@ int bus_link_method_set_ntp_servers(sd_bus_message *message, void *userdata, sd_
         return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
-static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, void *userdata, sd_bus_error *error, bool extended) {
-        struct in_addr_full **dns;
-        Link *l = ASSERT_PTR(userdata);
-        size_t n;
+static int link_bus_set_dns_servers(
+                sd_bus_message *message,
+                Link *l,
+                struct in_addr_full **dns,
+                size_t n,
+                sd_bus_error *error) {
+
         int r;
 
         assert(message);
+        assert(l);
 
-        r = verify_managed_link(l, error);
-        if (r < 0)
-                return r;
+        /* Takes ownership of dns. Called again by polkit, with the message read again. */
 
-        r = bus_message_read_dns_servers(message, error, extended, &dns, &n);
-        if (r < 0)
-                return r;
+        CLEANUP_ARRAY(dns, n, in_addr_full_free_array);
 
         r = bus_verify_polkit_async(
                         message,
@@ -129,34 +129,70 @@ static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, voi
                         &l->manager->polkit_registry,
                         error);
         if (r < 0)
-                goto finalize;
-        if (r == 0) {
-                r = 1; /* Polkit will call us back */
-                goto finalize;
-        }
+                return r;
+        if (r == 0)
+                return 1; /* Polkit will call us back */
 
-        link_set_dns(l, dns, n);
+        link_set_dns(l, TAKE_PTR(dns), TAKE_GENERIC(n, size_t, 0));
 
         r = link_save_and_clean_full(l, /* also_save_manager= */ true);
         if (r < 0)
                 return r;
 
         return sd_bus_reply_method_return(message, /* types= */ NULL);
-
-finalize:
-        for (size_t i = 0; i < n; i++)
-                in_addr_full_free(dns[i]);
-        free(dns);
-
-        return r;
 }
 
 int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return bus_link_method_set_dns_servers_internal(message, userdata, error, /* extended= */ false);
+        struct in_addr_full **dns = NULL;
+        Link *l = ASSERT_PTR(userdata);
+        size_t n = 0;
+        int r;
+
+        assert(message);
+
+        CLEANUP_ARRAY(dns, n, in_addr_full_free_array);
+
+        r = verify_managed_link(l, error);
+        if (r < 0)
+                return r;
+
+        /* Only the syntax is checked, the schemes are left to systemd-resolved. */
+        r = bus_message_read_dns_servers(message, error, &dns, &n);
+        if (r < 0)
+                return r;
+
+        return link_bus_set_dns_servers(message, l, TAKE_PTR(dns), TAKE_GENERIC(n, size_t, 0), error);
 }
 
-int bus_link_method_set_dns_servers_ex(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return bus_link_method_set_dns_servers_internal(message, userdata, error, /* extended= */ true);
+/* Legacy struct based DNS server methods (SetDNS, SetDNSEx), superseded by SetDNSURI. */
+
+static int bus_link_method_set_dns_servers_legacy_internal(sd_bus_message *message, void *userdata, sd_bus_error *error, bool extended) {
+        struct in_addr_full **dns = NULL;
+        Link *l = ASSERT_PTR(userdata);
+        size_t n = 0;
+        int r;
+
+        assert(message);
+
+        CLEANUP_ARRAY(dns, n, in_addr_full_free_array);
+
+        r = verify_managed_link(l, error);
+        if (r < 0)
+                return r;
+
+        r = bus_message_read_dns_servers_legacy(message, error, extended, &dns, &n);
+        if (r < 0)
+                return r;
+
+        return link_bus_set_dns_servers(message, l, TAKE_PTR(dns), TAKE_GENERIC(n, size_t, 0), error);
+}
+
+int bus_link_method_set_dns_servers_legacy(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_link_method_set_dns_servers_legacy_internal(message, userdata, error, /* extended= */ false);
+}
+
+int bus_link_method_set_dns_servers_legacy_ex(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_link_method_set_dns_servers_legacy_internal(message, userdata, error, /* extended= */ true);
 }
 
 int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -708,12 +744,17 @@ static const sd_bus_vtable link_vtable[] = {
         SD_BUS_METHOD_WITH_ARGS("SetDNS",
                                 SD_BUS_ARGS("a(iay)", addresses),
                                 SD_BUS_NO_RESULT,
-                                bus_link_method_set_dns_servers,
+                                bus_link_method_set_dns_servers_legacy,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("SetDNSEx",
                                 SD_BUS_ARGS("a(iayqs)", addresses),
                                 SD_BUS_NO_RESULT,
-                                bus_link_method_set_dns_servers_ex,
+                                bus_link_method_set_dns_servers_legacy_ex,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("SetDNSURI",
+                                SD_BUS_ARGS("as", servers),
+                                SD_BUS_NO_RESULT,
+                                bus_link_method_set_dns_servers,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("SetDomains",
                                 SD_BUS_ARGS("a(sb)", domains),

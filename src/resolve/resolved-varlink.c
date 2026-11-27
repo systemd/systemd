@@ -1552,15 +1552,15 @@ static int vl_method_link_set_dns(sd_varlink *link, sd_json_variant *parameters,
                 if (s->ifindex != 0 && s->ifindex != l->ifindex)
                         return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("servers"));
 
-                r = in_addr_full_new(
-                                s->family,
-                                &s->in_addr.address,
-                                s->port,
-                                s->ifindex,
-                                s->server_name,
-                                &dns_servers[n_dns_servers++]);
+                r = dns_server_to_in_addr_full(s, &dns_servers[n_dns_servers++]);
                 if (r < 0)
                         return r;
+
+                /* Refuse schemes of transports we don't support before asking polkit. */
+                DnsTransportPolicy transport_policy;
+                uint16_t downgrade_port;
+                if (dns_server_transport_from_address(dns_servers[n_dns_servers - 1], &transport_policy, &downgrade_port) < 0)
+                        return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("servers"));
         }
 
         r = verify_polkit_full(

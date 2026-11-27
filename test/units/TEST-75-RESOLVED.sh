@@ -1017,6 +1017,7 @@ testcase_10_resolvectl_json() {
         rm -f /run/test-monitor-client.pid /run/systemd/resolved.conf.d/{90-fallback,90-monitor}.conf
         systemctl reload systemd-resolved.service
         resolvectl revert dns0
+        ip link del uri0 2>/dev/null || :
     }
 
     trap cleanup RETURN ERR
@@ -1174,6 +1175,39 @@ testcase_10_resolvectl_json() {
 
     assert_eq "$(resolvectl --json=short dns dns0 | jq -rc '.[0].servers | .[0].addressString')" '1.2.3.4'
     assert_eq "$(jq -rc '.[0].servers | .[0].addressString' "$status_json")" '1.2.3.4'
+
+    # Servers given as URI keep their transports, servers without a scheme are listed as before.
+    if systemctl --version | grep -F -- "+OPENSSL" >/dev/null; then
+        resolvectl dns dns0 'dnss://1.2.3.4#name=dns.example.com&downgrade=5353' '5.6.7.8'
+        assert_in 'dnss://1.2.3.4#name=dns.example.com&downgrade=5353' "$(resolvectl dns dns0)"
+        assert_in '5.6.7.8' "$(resolvectl dns dns0)"
+        dns_json="$(resolvectl --json=short dns dns0)"
+        assert_eq "$(jq -rc '.[0].servers | .[0].scheme' <<<"$dns_json")" 'dnss'
+        assert_eq "$(jq -rc '.[0].servers | .[0].port' <<<"$dns_json")" '853'
+        assert_eq "$(jq -rc '.[0].servers | .[0].name' <<<"$dns_json")" 'dns.example.com'
+        assert_eq "$(jq -rc '.[0].servers | .[0].parameters.downgrade' <<<"$dns_json")" '5353'
+        assert_eq "$(jq -rc '.[0].servers | .[0].uri' <<<"$dns_json")" 'dnss://1.2.3.4#name=dns.example.com&downgrade=5353'
+        assert_eq "$(jq -rc '.[0].servers | .[0].addressString' <<<"$dns_json")" '1.2.3.4'
+        assert_eq "$(jq -rc '.[0].servers | .[1].scheme' <<<"$dns_json")" 'null'
+        assert_eq "$(jq -rc '.[0].servers | .[1].uri' <<<"$dns_json")" 'null'
+        assert_in 'dnss://1.2.3.4' "$(busctl get-property org.freedesktop.resolve1 /org/freedesktop/resolve1/link/_3"$(ip -o link show dns0 | cut -d: -f1)" org.freedesktop.resolve1.Link DNSURI)"
+
+        # The URI as a whole is accepted too, by networkd for the links it manages
+        varlinkctl call /run/systemd/netif/io.systemd.Network io.systemd.Resolve.Link.SetDNS \
+            "{\"ifindex\": $(ip -o link show dns0 | cut -d: -f1), \"servers\": [{\"uri\": \"dns://1.2.3.4:5353\"}]}"
+        assert_in 'dns://1.2.3.4:5353' "$(resolvectl dns dns0)"
+    fi
+    resolvectl dns dns0 '1.2.3.4'
+
+    # networkd leaves the schemes to resolved, so use a link networkd doesn't manage to reach resolved directly
+    ip link add uri0 type dummy
+    varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.Link.SetDNS \
+        "{\"ifindex\": $(ip -o link show uri0 | cut -d: -f1), \"servers\": [{\"uri\": \"dns://1.2.3.4:5353\"}]}"
+    assert_in 'dns://1.2.3.4:5353' "$(resolvectl dns uri0)"
+    # Schemes of transports resolved lacks are refused by resolved, not by resolvectl
+    (! resolvectl dns uri0 'dnz://1.2.3.4')
+    assert_in 'dns://1.2.3.4:5353' "$(resolvectl dns uri0)"
+    ip link del uri0
 
     assert_eq "$(resolvectl --json=short domain dns0 | jq -rc '.[0].searchDomains| .[0].name')" 'foo'
     assert_eq "$(jq -rc '.[0].searchDomains | .[0].name' "$status_json")" 'foo'
