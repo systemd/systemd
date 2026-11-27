@@ -881,7 +881,7 @@ int conf_file_read(
                 const char *fn,
                 parse_line_t parse_line,
                 void *userdata,
-                bool ignore_enoent,
+                ConfFileReadFlags flags,
                 bool *invalid_config) {
 
         _cleanup_fclose_ FILE *_f = NULL;
@@ -919,7 +919,7 @@ int conf_file_read(
                 }
         }
 
-        if (r == -ENOENT && ignore_enoent) {
+        if (r == -ENOENT && FLAGS_SET(flags, CONF_FILE_READ_IGNORE_ENOENT)) {
                 log_debug_errno(r, "Failed to open \"%s\", ignoring: %m", fn);
                 return 0; /* No error, but nothing happened. */
         }

@@ -5111,7 +5111,9 @@ static int read_config_file(
         assert(fn);
 
         r = conf_file_read(arg_root, (const char**) config_dirs, fn,
-                           parse_line, c, ignore_enoent, invalid_config);
+                           parse_line, c,
+                           ignore_enoent ? CONF_FILE_READ_IGNORE_ENOENT : 0,
+                           invalid_config);
         if (r <= 0)
                 return r;
 

@@ -323,7 +323,7 @@ static int parse_file(OrderedHashmap **sysctl_options, const char *path, bool ig
                         path,
                         parse_line,
                         sysctl_options,
-                        ignore_enoent,
+                        ignore_enoent ? CONF_FILE_READ_IGNORE_ENOENT : 0,
                         /* invalid_config= */ NULL);
 }
 
