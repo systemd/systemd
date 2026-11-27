@@ -267,7 +267,7 @@ static int nvme_subsystem_write_metadata(int subsystem_fd, sd_device *device) {
                  /* The default string stored in 'attr_firmware' is `uname -r` btw, but truncated to 8 chars. */
                 r = write_string_file_at(subsystem_fd, "attr_firmware", truncated, WRITE_STRING_FILE_DISABLE_BUFFER);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to set model of subsystem to '%s', ignoring: %m", truncated);
+                        log_warning_errno(r, "Failed to set firmware of subsystem to '%s', ignoring: %m", truncated);
         }
 
         w = secure_getenv("SYSTEMD_NVME_SERIAL");
