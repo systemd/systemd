@@ -269,6 +269,44 @@ def test_conditionalized_execute_bit():
     assert 'user:root:rwx' in c.stdout and 'group:root:r-x' in c.stdout
 
 
+def test_negative_permissions():
+    env = os.environ | {'SYSTEMD_LOG_TARGET': 'console'}
+    d = tempfile.TemporaryDirectory(prefix='test-negative.', dir=temp_dir.name)
+    parent = Path(d.name) / 'parent'
+    child = parent / 'child'
+
+    c = subprocess.run(
+        exe_with_args + ['--create', '-'],
+        input=f'd {parent} 0705 - - -\nd {child} 0755 - - -\n',
+        stderr=subprocess.PIPE,
+        text=True,
+        env=env,
+    )
+    assert c.returncode == 0, c
+    assert f"Mode 0705 of '{parent}' has negative group permissions" in c.stderr, c
+    assert 'Detected negative group permissions 0705 on' in c.stderr, c
+    assert parent.stat().st_mode & 0o7777 == 0o705
+    assert child.is_dir()
+
+    c = subprocess.run(exe_with_args + ['--version'], stdout=subprocess.PIPE, text=True)
+    if '+ACL' not in c.stdout:
+        return
+
+    temp = Path(d.name) / 'acl'
+    temp.touch()
+    temp.chmod(0o644)
+
+    c = subprocess.run(
+        exe_with_args + ['--create', '-'],
+        input=f'a {temp} - - - - g::---\n',
+        stderr=subprocess.PIPE,
+        text=True,
+        env=env,
+    )
+    assert c.returncode == 0, c
+    assert f"on '{temp}' has negative permissions" in c.stderr, c
+
+
 if __name__ == '__main__':
     test_invalids(user=False)
     test_invalids(user=True)
@@ -283,3 +321,5 @@ if __name__ == '__main__':
     test_base64()
 
     test_conditionalized_execute_bit()
+
+    test_negative_permissions()

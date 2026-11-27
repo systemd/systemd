@@ -243,6 +243,15 @@ static int log_unexpected_mode(int fd, mode_t mode, mode_t max, const char *path
                                  mode, max, strna(n), path);
 }
 
+static void log_negative_permissions(int fd, mode_t mode, const char *path) {
+        _cleanup_free_ char *n = NULL;
+
+        (void) fd_get_path(fd, &n);
+
+        log_warning("Detected negative group permissions %04o on '%s' during canonicalization of '%s', which are not supported.",
+                    mode & 07777, strna(n), path);
+}
+
 /* CHASE_MAX_MODE enforces that no directory on the way, the starting directory and the root included, may
  * exceed 0775. The s{u,g}id and sticky bits are ignored. Regular files may not exceed 0664 and the special
  * bits are included in this. Symlinks aren't checked as their mode is irrelevant. */
@@ -250,6 +259,11 @@ static int chase_verify_mode(int fd, const struct statx *stx, const char *path, 
         mode_t mode, max;
 
         assert(stx);
+
+        if (FLAGS_SET(flags, CHASE_WARN) &&
+            !S_ISLNK(stx->stx_mode) &&
+            mode_has_negative_permissions(stx->stx_mode))
+                log_negative_permissions(fd, stx->stx_mode, path);
 
         if (!FLAGS_SET(flags, CHASE_MAX_MODE))
                 return 0;

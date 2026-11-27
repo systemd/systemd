@@ -687,6 +687,80 @@ int fd_add_uid_acl_permission(
 
         return 0;
 }
+
+static int acl_entry_get_perms(acl_entry_t entry, unsigned *ret) {
+        static const acl_perm_t perms[] = { ACL_READ, ACL_WRITE, ACL_EXECUTE };
+        acl_permset_t permset;
+        unsigned m = 0;
+
+        assert(ret);
+
+        if (sym_acl_get_permset(entry, &permset) < 0)
+                return -errno;
+
+        FOREACH_ELEMENT(p, perms) {
+                int b = sym_acl_get_perm(permset, *p);
+                if (b < 0)
+                        return -errno;
+                if (b > 0)
+                        m |= *p;
+        }
+
+        *ret = m;
+        return 0;
+}
+
+int acl_has_negative_permissions(acl_t acl) {
+        unsigned mask = ACL_READ|ACL_WRITE|ACL_EXECUTE, other = 0;
+        acl_entry_t i;
+        int r;
+
+        assert(acl);
+
+        /* Whether a named user, the owning group or a named group gets less than other after the mask. */
+
+        for (r = sym_acl_get_entry(acl, ACL_FIRST_ENTRY, &i);
+             r > 0;
+             r = sym_acl_get_entry(acl, ACL_NEXT_ENTRY, &i)) {
+                acl_tag_t tag;
+
+                if (sym_acl_get_tag_type(i, &tag) < 0)
+                        return -errno;
+
+                if (!IN_SET(tag, ACL_MASK, ACL_OTHER))
+                        continue;
+
+                r = acl_entry_get_perms(i, tag == ACL_MASK ? &mask : &other);
+                if (r < 0)
+                        return r;
+        }
+        if (r < 0)
+                return -errno;
+
+        for (r = sym_acl_get_entry(acl, ACL_FIRST_ENTRY, &i);
+             r > 0;
+             r = sym_acl_get_entry(acl, ACL_NEXT_ENTRY, &i)) {
+                acl_tag_t tag;
+                unsigned m;
+
+                if (sym_acl_get_tag_type(i, &tag) < 0)
+                        return -errno;
+
+                if (!IN_SET(tag, ACL_USER, ACL_GROUP_OBJ, ACL_GROUP))
+                        continue;
+
+                r = acl_entry_get_perms(i, &m);
+                if (r < 0)
+                        return r;
+
+                if (other & ~(m & mask))
+                        return true;
+        }
+        if (r < 0)
+                return -errno;
+
+        return false;
+}
 #endif
 
 static int fd_acl_make_read_only_fallback(int fd) {
