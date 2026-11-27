@@ -681,6 +681,20 @@ add_project_link_arguments(
         cc.get_supported_link_arguments(possible_common_link_flags),
         language : 'c')
 
+if get_option('b_coverage') and host_machine.system() == 'linux'
+        # rustc drives the final link of Rust executables with -nodefaultlibs and does not
+        # pull in libgcov implicitly, while the C objects linked into a Rust binary (such as
+        # the cc-crate wrapper objects) reference the __gcov_* symbols with -fprofile-arcs.
+        # Meson does not forward Rust link arguments, and the -Clink-arg=-lgcov that rustc
+        # accepts always lands before the statically linked C archives, where plain ld
+        # archive semantics drop it — hence the --whole-archive bracket.
+        add_project_arguments(
+                '-Clink-arg=-Wl,--whole-archive',
+                '-Clink-arg=-lgcov',
+                '-Clink-arg=-Wl,--no-whole-archive',
+                language : 'rust')
+endif
+
 userspace_c_args += cc.get_supported_arguments(possible_cc_flags)
 userspace_c_ld_args += cc.get_supported_link_arguments(possible_link_flags)
 
