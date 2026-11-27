@@ -489,7 +489,7 @@ static int static_node_acl(Seat *s) {
 #endif
 }
 
-int seat_set_active(Seat *s, Session *session) {
+void seat_set_active(Seat *s, Session *session) {
         Session *old_active;
         int r;
 
@@ -508,7 +508,7 @@ int seat_set_active(Seat *s, Session *session) {
                         log_debug("Active session remains unchanged, resuming session devices.");
                         session_device_resume_all(session);
                 }
-                return 0;
+                return;
         }
 
         old_active = s->active;
@@ -525,14 +525,13 @@ int seat_set_active(Seat *s, Session *session) {
 
         r = seat_trigger_devices(s);
         if (r < 0)
-                return r;
+                log_warning_errno(r, "Failed to trigger uevents for seat devices, ignoring: %m");
 
         r = static_node_acl(s);
         if (r < 0)
-                return r;
+                log_warning_errno(r, "Failed to update ACLs on static device nodes, ignoring: %m");
 
         seat_triggered_uevents_done(s);
-        return 0;
 }
 
 static Session* seat_get_position(Seat *s, unsigned pos) {
@@ -613,7 +612,6 @@ int seat_switch_to_previous(Seat *s) {
 
 int seat_active_vt_changed(Seat *s, unsigned vtnr) {
         Session *new_active = NULL;
-        int r;
 
         assert(s);
         assert(vtnr >= 1);
@@ -640,10 +638,10 @@ int seat_active_vt_changed(Seat *s, unsigned vtnr) {
                                 break;
                         }
 
-        r = seat_set_active(s, new_active);
+        seat_set_active(s, new_active);
         manager_spawn_autovt(s->manager, vtnr);
 
-        return r;
+        return 0;
 }
 
 int seat_read_active_vt(Seat *s) {
