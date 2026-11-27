@@ -1003,6 +1003,7 @@ static int session_stop_scope(Session *s, bool force) {
 }
 
 int session_stop(Session *s, bool force) {
+        Session *old_display;
         int r;
 
         assert(s);
@@ -1020,6 +1021,8 @@ int session_stop(Session *s, bool force) {
         if (s->stopping)
                 return 0;
 
+        old_display = s->user->display;
+
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
 
         if (s->seat)
@@ -1034,6 +1037,9 @@ int session_stop(Session *s, bool force) {
 
         (void) session_save(s);
         (void) user_save(s->user);
+
+        if (old_display != s->user->display)
+                (void) user_send_changed(s->user, "Display");
 
         (void) trigger_xaccess(s->manager, s->extra_device_access);
 

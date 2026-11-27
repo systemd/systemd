@@ -956,6 +956,9 @@ void user_elect_display(User *u) {
          * stable, but we "upgrade" to better choices. */
         log_debug("Electing new display for user %s", u->user_record->user_name);
 
+        if (u->display && !elect_display_filter(u->display))
+                u->display = NULL;
+
         LIST_FOREACH(sessions_by_user, s, u->sessions) {
                 if (!elect_display_filter(s)) {
                         log_debug("Ignoring session %s", s->id);
