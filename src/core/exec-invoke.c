@@ -42,6 +42,7 @@
 #include "env-util.h"
 #include "escape.h"
 #include "exec-credential.h"
+#include "exec-directory.h"
 #include "exec-invoke.h"
 #include "execute.h"
 #include "exit-status.h"
@@ -3239,29 +3240,50 @@ static int setup_private_pids(const ExecContext *c, ExecParameters *p, int *ret_
         return r;
 }
 
-static int create_many_symlinks(const char *root, const char *source, char **symlinks) {
-        _cleanup_free_ char *src_abs = NULL;
+static int create_exec_symlink(
+                const ExecParameters *params,
+                ExecDirectoryType type,
+                const char *root,
+                const char *src,
+                const char *dst) {
+
+        _cleanup_free_ char *src_abs = NULL, *dst_abs = NULL;
         int r;
 
-        assert(root);
-        assert(source);
-
-        src_abs = path_join(root, source);
-        if (!src_abs)
+        src_abs = path_join(root, src);
+        dst_abs = path_join(root, dst);
+        if (!src_abs || !dst_abs)
                 return -ENOMEM;
 
-        STRV_FOREACH(dst, symlinks) {
-                _cleanup_free_ char *dst_abs = NULL;
+        r = mkdir_parents_label(dst_abs, 0755);
+        if (r < 0)
+                return r;
+        r = symlink_idempotent(src_abs, dst_abs, /* make_relative= */ true);
+        if (r < 0 || type < 0)
+                return r;
 
-                dst_abs = path_join(root, *dst);
-                if (!dst_abs)
+        return exec_report_directory(params, type, dst, dst_abs);
+}
+
+static int create_exec_directory_aliases(
+                const ExecParameters *params,
+                ExecDirectoryType type,
+                const char *root,
+                const ExecDirectoryItem *item) {
+
+        if (strv_isempty(item->symlinks))
+                return 0;
+
+        _cleanup_free_ char *src = path_join(params->prefix[type], item->path);
+        if (!src)
+                return -ENOMEM;
+
+        STRV_FOREACH(s, item->symlinks) {
+                _cleanup_free_ char *dst = path_join(params->prefix[type], *s);
+                if (!dst)
                         return -ENOMEM;
 
-                r = mkdir_parents_label(dst_abs, 0755);
-                if (r < 0)
-                        return r;
-
-                r = symlink_idempotent(src_abs, dst_abs, /* make_relative= */ true);
+                int r = create_exec_symlink(params, type, root, src, dst);
                 if (r < 0)
                         return r;
         }
@@ -3571,7 +3593,7 @@ static int setup_exec_directory(
                                         /* It does exist! This hence looks like an update. Symlink the
                                          * configuration directory into the state directory. */
 
-                                        r = symlink_idempotent(q, p, /* make_relative= */ true);
+                                        r = create_exec_symlink(params, type, /* root= */ NULL, q, p);
                                         if (r < 0)
                                                 goto fail;
 
@@ -3653,6 +3675,10 @@ static int setup_exec_directory(
                                         goto fail;
                         }
 
+                        r = exec_report_directory(params, type, pp, /* symlink_path= */ NULL);
+                        if (r < 0)
+                                goto fail;
+
                         if (!FLAGS_SET(i->flags, EXEC_DIRECTORY_ONLY_CREATE)) {
                                 /* And link it up from the original place.
                                  * Notes
@@ -3667,7 +3693,7 @@ static int setup_exec_directory(
                                  *    and, /var/lib/foo is a symlink to /var/lib/private/foo. So, not only
                                  *    we do not need to create the symlink, but we cannot create the symlink.
                                  *    See issue #24783. */
-                                r = symlink_idempotent(pp, p, /* make_relative= */ true);
+                                r = create_exec_symlink(params, type, /* root= */ NULL, pp, p);
                                 if (r < 0)
                                         goto fail;
                         }
@@ -3743,9 +3769,18 @@ static int setup_exec_directory(
                                                             exec_directory_type_to_string(type), i->path,
                                                             st.st_mode & 07777, exec_directory_type_to_string(type), context->directories[type].mode & 07777);
 
+                                        if (S_ISDIR(st.st_mode)) {
+                                                r = exec_report_directory(params, type, p, /* symlink_path= */ NULL);
+                                                if (r < 0)
+                                                        goto fail;
+                                        }
                                         continue;
                                 }
                         }
+
+                        r = exec_report_directory(params, type, p, /* symlink_path= */ NULL);
+                        if (r < 0)
+                                goto fail;
                 }
 
                 /* Lock down the access mode (we use chmod_and_chown() to make this idempotent. We don't
@@ -3817,7 +3852,7 @@ static int setup_exec_directory(
          * they are set up later, to allow configuring empty var/run/etc. */
         if (!needs_mount_namespace)
                 FOREACH_ARRAY(i, context->directories[type].items, context->directories[type].n_items) {
-                        r = create_many_symlinks(params->prefix[type], i->path, i->symlinks);
+                        r = create_exec_directory_aliases(params, type, /* root= */ NULL, i);
                         if (r < 0)
                                 goto fail;
                 }
@@ -3984,55 +4019,39 @@ static int compile_bind_mounts(
         return (int) n;
 }
 
-/* ret_symlinks will contain a list of pairs src:dest that describes
- * the symlinks to create later on. For example, the symlinks needed
- * to safely give private directories to DynamicUser=1 users. */
-static int compile_symlinks(
-                const ExecContext *context,
-                const ExecParameters *params,
-                PinnedResource *rootfs,
-                bool setup_os_release_symlink,
-                char ***ret_symlinks) {
+typedef struct ExecSymlinkContext {
+        const ExecContext *context;
+        const ExecParameters *params;
+        PinnedResource *rootfs;
+        bool setup_os_release_symlink;
+} ExecSymlinkContext;
 
-        _cleanup_strv_free_ char **symlinks = NULL;
+static int create_namespace_symlinks(const char *root, void *userdata) {
+        ExecSymlinkContext *c = ASSERT_PTR(userdata);
         int r;
 
-        assert(context);
-        assert(params);
-        assert(rootfs);
-        assert(ret_symlinks);
-
         for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++)
-                FOREACH_ARRAY(i, context->directories[dt].items, context->directories[dt].n_items) {
+                FOREACH_ARRAY(i, c->context->directories[dt].items, c->context->directories[dt].n_items) {
                         _cleanup_free_ char *private_path = NULL, *path = NULL;
 
-                        STRV_FOREACH(symlink, i->symlinks) {
-                                _cleanup_free_ char *src_abs = NULL, *dst_abs = NULL;
+                        r = create_exec_directory_aliases(c->params, dt, root, i);
+                        if (r < 0)
+                                return r;
 
-                                src_abs = path_join(params->prefix[dt], i->path);
-                                dst_abs = path_join(params->prefix[dt], *symlink);
-                                if (!src_abs || !dst_abs)
-                                        return -ENOMEM;
-
-                                r = strv_consume_pair(&symlinks, TAKE_PTR(src_abs), TAKE_PTR(dst_abs));
-                                if (r < 0)
-                                        return r;
-                        }
-
-                        if (!exec_directory_is_private(context, dt) ||
-                            !pinned_resource_is_host_root(rootfs) ||
+                        if (!exec_directory_is_private(c->context, dt) ||
+                            !pinned_resource_is_host_root(c->rootfs) ||
                             FLAGS_SET(i->flags, EXEC_DIRECTORY_ONLY_CREATE))
                                 continue;
 
-                        private_path = path_join(params->prefix[dt], "private", i->path);
+                        private_path = path_join(c->params->prefix[dt], "private", i->path);
                         if (!private_path)
                                 return -ENOMEM;
 
-                        path = path_join(params->prefix[dt], i->path);
+                        path = path_join(c->params->prefix[dt], i->path);
                         if (!path)
                                 return -ENOMEM;
 
-                        r = strv_consume_pair(&symlinks, TAKE_PTR(private_path), TAKE_PTR(path));
+                        r = create_exec_symlink(c->params, dt, root, private_path, path);
                         if (r < 0)
                                 return r;
                 }
@@ -4041,16 +4060,9 @@ static int compile_symlinks(
          * and readers will never get a half-written version. Note that, while the paths specified here are
          * absolute, when they are processed in namespace.c they will be made relative automatically, i.e.:
          * 'os-release -> .os-release-stage/os-release' is what will be created. */
-        if (setup_os_release_symlink) {
-                r = strv_extend_many(
-                                &symlinks,
-                                "/run/host/.os-release-stage/os-release",
-                                "/run/host/os-release");
-                if (r < 0)
-                        return r;
-        }
-
-        *ret_symlinks = TAKE_PTR(symlinks);
+        if (c->setup_os_release_symlink)
+                return create_exec_symlink(c->params, _EXEC_DIRECTORY_TYPE_INVALID, root,
+                                           "/run/host/.os-release-stage/os-release", "/run/host/os-release");
 
         return 0;
 }
@@ -4611,7 +4623,7 @@ static int apply_mount_namespace(
                 char **reterr_path) {
 
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
-        _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL;
+        _cleanup_strv_free_ char **empty_directories = NULL;
         _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL,
                 *private_namespace_dir = NULL, *host_os_release_stage = NULL;
         const char *tmp_dir = NULL, *var_tmp_dir = NULL;
@@ -4665,9 +4677,6 @@ static int apply_mount_namespace(
 
         /* Symlinks (exec dirs, os-release) are set up after other mounts, before they are made read-only. */
         setup_os_release_symlink = needs_sandboxing && exec_context_get_effective_mount_apivfs(context) && pinned_resource_is_set(rootfs);
-        r = compile_symlinks(context, params, rootfs, setup_os_release_symlink, &symlinks);
-        if (r < 0)
-                return r;
 
         if (context->mount_propagation_flag == MS_SHARED)
                 log_debug("shared mount propagation hidden by other fs namespacing unit settings: ignoring");
@@ -4733,7 +4742,13 @@ static int apply_mount_namespace(
                 .n_access_mounts = n_access_mounts,
 
                 .empty_directories = empty_directories,
-                .symlinks = symlinks,
+                .make_symlinks = create_namespace_symlinks,
+                .symlink_userdata = &(ExecSymlinkContext) {
+                        .context = context,
+                        .params = params,
+                        .rootfs = rootfs,
+                        .setup_os_release_symlink = setup_os_release_symlink,
+                },
 
                 .bind_mounts = bind_mounts,
                 .n_bind_mounts = n_bind_mounts,
@@ -5052,6 +5067,7 @@ static int close_remaining_fds(
                 FD_PAIR_CONDITION(runtime->dynamic_creds && runtime->dynamic_creds->group,
                                   runtime->dynamic_creds->group->storage_socket),
                 params->user_lookup_fd,
+                params->directory_report_fd,
                 params->pidref_transport_fd,
         };
 
@@ -7037,6 +7053,7 @@ int exec_invoke(
                 return r;
 
         /* We are done now with the nsresourced/mountfsd shenanigans, let's close the connections */
+        params->directory_report_fd = safe_close(params->directory_report_fd);
         nsresource_link = sd_varlink_unref(nsresource_link);
         mountfsd_link = sd_varlink_unref(mountfsd_link);
         /* With PrivatePIDs=, this releases the parent process that set up the connections */

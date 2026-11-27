@@ -174,7 +174,8 @@ typedef struct NamespaceParameters {
         size_t n_access_mounts;
 
         char **empty_directories;
-        char **symlinks;
+        int (*make_symlinks)(const char *root, void *userdata);
+        void *symlink_userdata;
 
         const BindMount *bind_mounts;
         size_t n_bind_mounts;
