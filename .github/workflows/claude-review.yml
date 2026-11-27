@@ -1610,7 +1610,11 @@ jobs:
                 console.log("Not changing labels: the PR was closed or updated during review.");
                 return;
               }
-              if (pr.draft || pr.labels.some((l) => l.name.startsWith("good-to-merge/")) ||
+              /* The labeler sets please-review on a PR that was good-to-merge/with-minor-suggestions
+               * when it is updated, putting it back on the review queue. Handle those too here. */
+              if (pr.draft ||
+                  pr.labels.some((l) => l.name.startsWith("good-to-merge/") &&
+                                        l.name !== "good-to-merge/with-minor-suggestions") ||
                   !pr.labels.some((l) => l.name === "please-review")) {
                 console.log("Not changing labels: the PR is not awaiting review.");
                 return;

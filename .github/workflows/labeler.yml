@@ -207,7 +207,16 @@ jobs:
                 }
               }
             `, { id: context.payload.pull_request.node_id });
-          } else if (!Array.from(good_to_merge).some(l => labels.has(l)) && !labels.has("please-review")) {
+          } else if (labels.has("please-review")) {
+            /* Nothing to do. */
+          } else if (!Array.from(good_to_merge).some(l => l != "good-to-merge/with-minor-suggestions" &&
+                                                          labels.has(l))) {
+
+            /* A pull request that was good-to-merge/with-minor-suggestions presumably
+             * had those suggestions addressed when it was pushed to, reopened, or marked
+             * ready, so ask for another look. This helps contributors who don't have enough
+             * privileges to set labels themselves. Other good-to-merge labels keep it off
+             * the review queue. */
             await github.rest.issues.addLabels({
               issue_number: context.issue.number,
               owner: context.repo.owner,
