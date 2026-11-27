@@ -56,13 +56,67 @@
 
       <varlistentry>
         <term><varname>DNS=</varname></term>
-        <listitem><para>A space-separated list of IPv4 and IPv6 addresses to use as system DNS servers. Each address can
-        optionally take a port number separated with <literal>:</literal>, a network interface name or index separated with
-        <literal>%</literal>, and a Server Name Indication (SNI) separated with <literal>#</literal>. When IPv6 address is
-        specified with a port number, then the address must be in the square brackets. That is, the acceptable full formats
-        are <literal>111.222.333.444:9953%ifname#example.com</literal> for IPv4 and
-        <literal>[1111:2222::3333]:9953%ifname#example.com</literal> for IPv6. DNS requests are sent to one of the listed
-        DNS servers in parallel to suitable per-link DNS servers acquired from
+        <listitem><para>A space-separated list of DNS servers to use as system DNS servers, each given as URI in the
+        format
+        <literal><replaceable>scheme</replaceable>://<replaceable>address</replaceable>[:<replaceable>port</replaceable>][#<replaceable>parameter</replaceable>[&amp;<replaceable>parameter</replaceable>…]]</literal>,
+        where <replaceable>address</replaceable> is an IPv4 or IPv6 address in the format described in
+        <citerefentry project='man-pages'><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+        with IPv6 addresses enclosed in square brackets.</para>
+
+        <variablelist>
+          <varlistentry>
+            <term><literal>dns://</literal></term>
+            <listitem><para>Classic DNS over UDP and TCP, on port 53 unless a port is given.</para></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><literal>dnss://</literal></term>
+            <listitem><para><ulink url="https://tools.ietf.org/html/rfc7858">DNS-over-TLS</ulink>, on port 853
+            unless a port is given. The certificate of the server is verified, against the server name if one is
+            given, and against its address otherwise. If the server does not support DNS-over-TLS, all requests to
+            it fail. Only available if systemd-resolved was built with DNS-over-TLS support.</para></listitem>
+          </varlistentry>
+        </variablelist>
+
+        <para>The parameters following <literal>#</literal> are separated by <literal>&amp;</literal>:</para>
+
+        <variablelist>
+          <varlistentry>
+            <term><literal>name=<replaceable>name</replaceable></literal></term>
+            <listitem><para>The server name, used for Server Name Indication (SNI) and to verify the certificate
+            of the server.</para></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><literal>ifname=<replaceable>interface</replaceable></literal></term>
+            <listitem><para>A network interface name or index to reach the server through.</para></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><literal>downgrade</literal></term>
+            <term><literal>downgrade=<replaceable>port</replaceable></literal></term>
+            <listitem><para>Only for <literal>dnss://</literal>. Permits falling back to classic DNS if the server
+            does not support DNS-over-TLS, on the given port, or on port 53 if none is given. This is the per-server
+            equivalent of <varname>DNSOverTLS=opportunistic</varname>, with the same caveats: the certificate of the
+            server is not verified, and the fallback is vulnerable to downgrade attacks.</para></listitem>
+          </varlistentry>
+        </variablelist>
+
+        <para>The scheme may also be omitted, in which case the transport is selected by
+        <varname>DNSOverTLS=</varname>. The address may then be followed by a port separated with
+        <literal>:</literal>, a network interface name or index separated with <literal>%</literal>, and a server
+        name separated with <literal>#</literal>, with an IPv6 address enclosed in square brackets if a port is
+        given, i.e. <literal>111.222.333.444:9953%ifname#example.com</literal> for IPv4 and
+        <literal>[1111:2222::3333]:9953%ifname#example.com</literal> for IPv6.</para>
+
+        <para>For example, <literal>dnss://[2001:db8::53]#name=dns.example.com</literal> uses DNS-over-TLS only,
+        verifying the certificate against <literal>dns.example.com</literal>, and
+        <literal>dnss://192.0.2.53:8853#downgrade=5353</literal> uses DNS-over-TLS on port 8853, falling back to
+        classic DNS on port 5353. The same address may be given with different schemes or parameters, which are
+        then distinct servers.</para>
+
+        <para>DNS requests are sent to one of the listed DNS servers in parallel to suitable per-link DNS servers
+        acquired from
         <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> or
         set at runtime by external applications.  For compatibility reasons, if this setting is not specified, the DNS
         servers listed in <filename>/etc/resolv.conf</filename> are used instead, if that file exists and any servers
@@ -73,8 +127,8 @@
 
       <varlistentry>
         <term><varname>FallbackDNS=</varname></term>
-        <listitem><para>A space-separated list of IPv4 and IPv6 addresses to use as the fallback DNS servers. Please see
-        <varname>DNS=</varname> for acceptable format of addresses. Any per-link DNS servers obtained from
+        <listitem><para>A space-separated list of DNS servers to use as the fallback DNS servers. Please see
+        <varname>DNS=</varname> for their format. Any per-link DNS servers obtained from
         <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         take precedence over this setting, as do any servers set via <varname>DNS=</varname> above or
         <filename>/etc/resolv.conf</filename>. This setting is hence only used if no other DNS server information is
@@ -267,6 +321,11 @@
         <varname>DNSOverTLS=</varname> setting is in effect. For per-link DNS servers the per-link setting is in effect, unless
         it is unset in which case the global setting is used instead.</para>
 
+        <para>This setting only applies to DNS servers given without a scheme. It is deprecated: the
+        transport of each server may be selected with the <literal>dnss://</literal> scheme instead, and
+        <literal>downgrade</literal> takes the place of <literal>opportunistic</literal>, see
+        <varname>DNS=</varname> above.</para>
+
         <para>Defaults to <literal>&DEFAULT_DNS_OVER_TLS_MODE;</literal>.</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/>
@@ -450,6 +509,21 @@ DNSStubListenerExtra=udp:[2001:db8:0:f102::13]:9953</programlisting>
 
         <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>History</title>
+
+    <variablelist>
+      <varlistentry>
+        <term>systemd 263</term>
+
+        <listitem><para><varname>DNSOverTLS=</varname> is deprecated. The transport of each DNS server may be
+        selected with the <literal>dnss://</literal> scheme in <varname>DNS=</varname> and
+        <varname>FallbackDNS=</varname> instead, with the <literal>downgrade</literal> parameter in place of
+        <literal>opportunistic</literal>.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
