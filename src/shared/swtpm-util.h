@@ -14,3 +14,4 @@
 #define SWTPM_DEVNO_PATH "/run/systemd/swtpm/" SWTPM_DEVNO_FILENAME
 
 int manufacture_swtpm(const char *state_dir, const char *secret);
+int swtpm_has_feature(const char *swtpm, const char *feature);
