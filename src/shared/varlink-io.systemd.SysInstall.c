@@ -93,7 +93,9 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("Additional free space needed for the installation."),
                 SD_VARLINK_DEFINE_OUTPUT(needFreeBytes, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Current allocated size of this block device."),
-                SD_VARLINK_DEFINE_OUTPUT(currentSizeBytes, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_OUTPUT(currentSizeBytes, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Number of partitions on the device's existing partition table; 0 for an empty table or no table. Only set if determined, and 0 only if the device is provably empty: either a GPT partition table without entries, or no partition table and no other signature libblkid recognizes (file system, LUKS, LVM, RAID member, swap, …) anywhere on the device. Omitted for a device without a partition table that carries such a signature, so that it is not mistaken for an empty one."),
+                SD_VARLINK_DEFINE_OUTPUT(partitionCount, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_SysInstall,

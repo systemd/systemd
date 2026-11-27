@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
 #include <locale.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -10,6 +11,7 @@
 
 #include "alloc-util.h"
 #include "ansi-color.h"
+#include "blkid-util.h"
 #include "blockdev-list.h"
 #include "build.h"
 #include "build-path.h"
@@ -21,6 +23,7 @@
 #include "efi-loader.h"
 #include "efivars.h"
 #include "env-file.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "find-esp.h"
@@ -1770,6 +1773,77 @@ static void devices_response_done(DevicesResponse *p) {
         p->symlinks = strv_free(p->symlinks);
 }
 
+/* Returns > 0 if libblkid finds no signature on the whole device, other than a GPT partition table without
+ * any entries, 0 if it finds one (or more), and < 0 on error. */
+static int probe_device_empty(const char *node) {
+#if HAVE_BLKID
+        int r;
+
+        assert(node);
+
+        r = dlopen_libblkid(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        _cleanup_close_ int fd = open(node, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (fd < 0)
+                return log_debug_errno(errno, "Failed to open '%s': %m", node);
+
+        _cleanup_(blkid_free_probep) blkid_probe b = sym_blkid_new_probe();
+        if (!b)
+                return log_oom_debug();
+
+        errno = 0;
+        r = sym_blkid_probe_set_device(b, fd, /* off= */ 0, /* size= */ 0);
+        if (r != 0)
+                return log_debug_errno(errno_or_else(ENOMEM), "Failed to set up block device prober for '%s': %m", node);
+
+        (void) sym_blkid_probe_enable_superblocks(b, 1);
+        (void) sym_blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE|BLKID_SUBLKS_USAGE);
+        (void) sym_blkid_probe_enable_partitions(b, 1);
+
+        errno = 0;
+        r = sym_blkid_do_safeprobe(b);
+        if (r == _BLKID_SAFEPROBE_ERROR)
+                return log_debug_errno(errno_or_else(EIO), "Failed to probe '%s': %m", node);
+        if (r == _BLKID_SAFEPROBE_NOT_FOUND)
+                return true;
+        if (r == _BLKID_SAFEPROBE_AMBIGUOUS) {
+                log_debug("Found ambiguous signatures on '%s'.", node);
+                return false;
+        }
+
+        assert(r == _BLKID_SAFEPROBE_FOUND);
+
+        const char *v = NULL;
+        if (sym_blkid_probe_lookup_value(b, "TYPE", &v, /* len= */ NULL) == 0) {
+                log_debug("Found '%s' signature on '%s'.", strna(v), node);
+                return false;
+        }
+
+        v = NULL;
+        (void) sym_blkid_probe_lookup_value(b, "PTTYPE", &v, /* len= */ NULL);
+        if (!streq_ptr(v, "gpt")) {
+                log_debug("Found '%s' partition table on '%s'.", strna(v), node);
+                return false;
+        }
+
+        errno = 0;
+        blkid_partlist pl = sym_blkid_probe_get_partitions(b);
+        if (!pl)
+                return log_debug_errno(errno_or_else(EIO), "Failed to read partition table of '%s': %m", node);
+
+        errno = 0;
+        int n = sym_blkid_partlist_numof_partitions(pl);
+        if (n < 0)
+                return log_debug_errno(errno_or_else(EIO), "Failed to count partitions of '%s': %m", node);
+
+        return n == 0;
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
 static int fetch_candidate_devices_reply(
                 sd_varlink *repart_link,
                 sd_json_variant *reply,
@@ -1824,7 +1898,8 @@ static int fetch_candidate_devices_reply(
                 }
         }
 
-        uint64_t min_size = UINT64_MAX, current_size = UINT64_MAX, need_free = UINT64_MAX;
+        uint64_t min_size = UINT64_MAX, current_size = UINT64_MAX, need_free = UINT64_MAX,
+                n_partitions = UINT64_MAX;
         r = invoke_repart(
                         &context->dry_run_repart_link,
                         p.node,
@@ -1834,7 +1909,7 @@ static int fetch_candidate_devices_reply(
                         &min_size,
                         &current_size,
                         &need_free,
-                        /* n_partitions= */ NULL);
+                        &n_partitions);
 
         DeviceFit fit;
         if (r < 0) {
@@ -1849,6 +1924,20 @@ static int fetch_candidate_devices_reply(
         } else
                 fit = DEVICE_FIT_ENOUGH_FREE_SPACE;
 
+        /* repart reports no partitions both for a GPT without entries and for a disk without any partition
+         * table, even if the latter carries a file system, LUKS volume, LVM PV, … on the whole device. Only
+         * pass on a partition count of 0 if the disk is provably empty, so that frontends don't present a
+         * disk with data on it as empty. */
+        if (n_partitions == 0) {
+                int k = probe_device_empty(p.node);
+                if (k < 0)
+                        log_debug_errno(k, "Failed to check '%s' for signatures, not reporting its partition count: %m", p.node);
+                else if (k == 0)
+                        log_debug("'%s' is not empty, not reporting its partition count.", p.node);
+                if (k <= 0)
+                        n_partitions = UINT64_MAX;
+        }
+
         r = sd_json_buildo(&v,
                         SD_JSON_BUILD_PAIR_STRING("node", p.node),
                         JSON_BUILD_PAIR_STRV_NON_EMPTY("symlinks", p.symlinks),
@@ -1861,6 +1950,7 @@ static int fetch_candidate_devices_reply(
                         JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("currentSizeBytes", current_size, UINT64_MAX),
                         JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("needFreeBytes", need_free, UINT64_MAX),
                         JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("minimalSizeBytes", min_size, UINT64_MAX),
+                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("partitionCount", n_partitions, UINT64_MAX),
                         SD_JSON_BUILD_PAIR_CONDITION(context->subscribe, "action", JSON_BUILD_CONST_STRING("add")));
         if (r < 0)
                 return r;
