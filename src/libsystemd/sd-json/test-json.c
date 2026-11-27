@@ -28,6 +28,8 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
+#include "time-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 
@@ -491,6 +493,77 @@ TEST(json_buildo) {
                                                 SD_JSON_BUILD_PAIR("foo", SD_JSON_BUILD_INTEGER(4711)))));
 
         ASSERT_TRUE(sd_json_variant_equal(a, b));
+}
+
+static int build_filtered_fail(sd_json_variant **ret, const char *name, void *userdata) {
+        return -EBADMSG; /* never called for a pair that's filtered out */
+}
+
+static dual_timestamp build_filtered_timestamp = { .realtime = 1000, .monotonic = 2000 };
+
+static int build_filtered_build(sd_json_variant **ret, const char *name, void *userdata) {
+        return json_buildo_filtered(
+                        ret,
+                        userdata,
+                        SD_JSON_BUILD_PAIR_STRING("a", "x"),
+                        SD_JSON_BUILD_PAIR_INTEGER("b", 4711),
+                        SD_JSON_BUILD_PAIR_CONDITION(true, "c", SD_JSON_BUILD_STRING("y")),
+                        SD_JSON_BUILD_PAIR_CONDITION(false, "d", SD_JSON_BUILD_STRING("z")),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("e", "w"),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("f", build_filtered_fail, NULL),
+                        SD_JSON_BUILD_PAIR("g", SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_STRING("a", "v"))),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("h", true),
+                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("i", 7),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("j", STRV_MAKE("p", "q")),
+                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("k", &build_filtered_timestamp),
+                        JSON_BUILD_PAIR_TRISTATE_NON_NULL("l", true));
+}
+
+TEST(json_buildo_filtered) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *w = NULL;
+
+        /* Only the top-level pairs named in the filter, in any order, are built; nested objects aren't
+         * filtered. */
+        ASSERT_OK(build_filtered_build(&v, /* name= */ NULL, STRV_MAKE("h", "c", "d", "g", "nonexistent")));
+        ASSERT_OK(sd_json_buildo(&w,
+                                 SD_JSON_BUILD_PAIR_STRING("c", "y"),
+                                 SD_JSON_BUILD_PAIR("g", SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_STRING("a", "v"))),
+                                 SD_JSON_BUILD_PAIR_BOOLEAN("h", true)));
+        ASSERT_TRUE(sd_json_variant_equal(v, w));
+        v = sd_json_variant_unref(v);
+        w = sd_json_variant_unref(w);
+
+        ASSERT_OK(build_filtered_build(&v, /* name= */ NULL, STRV_MAKE("a", "b", "e")));
+        ASSERT_OK(sd_json_buildo(&w,
+                                 SD_JSON_BUILD_PAIR_STRING("a", "x"),
+                                 SD_JSON_BUILD_PAIR_INTEGER("b", 4711),
+                                 SD_JSON_BUILD_PAIR_STRING("e", "w")));
+        ASSERT_TRUE(sd_json_variant_equal(v, w));
+        v = sd_json_variant_unref(v);
+        w = sd_json_variant_unref(w);
+
+        ASSERT_OK(build_filtered_build(&v, /* name= */ NULL, STRV_MAKE("i", "k")));
+        ASSERT_OK(sd_json_buildo(&w,
+                                 JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("i", 7),
+                                 JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("k", &build_filtered_timestamp)));
+        ASSERT_TRUE(sd_json_variant_equal(v, w));
+        v = sd_json_variant_unref(v);
+        w = sd_json_variant_unref(w);
+
+        ASSERT_OK(build_filtered_build(&v, /* name= */ NULL, STRV_MAKE("j", "l")));
+        ASSERT_OK(sd_json_buildo(&w,
+                                 JSON_BUILD_PAIR_STRV_NON_EMPTY("j", STRV_MAKE("p", "q")),
+                                 JSON_BUILD_PAIR_TRISTATE_NON_NULL("l", true)));
+        ASSERT_TRUE(sd_json_variant_equal(v, w));
+        v = sd_json_variant_unref(v);
+
+        /* An empty filter leaves out everything */
+        ASSERT_OK(build_filtered_build(&v, /* name= */ NULL, STRV_EMPTY));
+        ASSERT_TRUE(sd_json_variant_is_blank_object(v));
+        v = sd_json_variant_unref(v);
+
+        /* No filter means everything, including the callback */
+        ASSERT_ERROR(build_filtered_build(&v, /* name= */ NULL, /* userdata= */ NULL), EBADMSG);
 }
 
 TEST(json_parse_file_empty) {

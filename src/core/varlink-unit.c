@@ -29,6 +29,8 @@
 #include "varlink-cgroup.h"
 #include "varlink-common.h"
 #include "varlink-execute.h"
+#include "varlink-idl-util.h"
+#include "varlink-io.systemd.Unit.h"
 #include "varlink-job.h"
 #include "varlink-kill.h"
 #include "varlink-mount.h"
@@ -123,8 +125,39 @@ static int unit_conditions_build_json(sd_json_variant **ret, const char *name, v
         return 0;
 }
 
-static int unit_context_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+#define LIST_UNITS_FIELDS_MAX 256U
+
+/* List()'s 'fields', split up: whether context and runtime are returned, and which of their fields (NULL
+ * meaning all of them). */
+typedef struct UnitFields {
+        bool context, runtime;
+        char **context_fields, **runtime_fields;
+} UnitFields;
+
+static void unit_fields_done(UnitFields *f) {
+        assert(f);
+
+        f->context_fields = strv_free(f->context_fields);
+        f->runtime_fields = strv_free(f->runtime_fields);
+}
+
+static int unit_file_preset_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         Unit *u = ASSERT_PTR(userdata);
+        const char *s;
+
+        assert(ret);
+
+        s = preset_action_past_tense_to_string(unit_get_unit_file_preset(u));
+        if (isempty(s)) {
+                *ret = NULL;
+                return 0;
+        }
+
+        return sd_json_variant_new_string(ret, s);
+}
+
+static int unit_context_build_json_full(sd_json_variant **ret, Unit *u, char * const *filter) {
+        assert(u);
 
         /* The main principle behind context/runtime split is the following:
          * If it make sense to place a property into a config/unit file it belongs to Context.
@@ -142,8 +175,9 @@ static int unit_context_build_json(sd_json_variant **ret, const char *name, void
                 [UNIT_TIMER]     = timer_context_build_json,
         };
 
-        return sd_json_buildo(
+        return json_buildo_filtered(
                         ASSERT_PTR(ret),
+                        filter,
                         SD_JSON_BUILD_PAIR_STRING("Type", unit_type_to_string(u->type)),
                         SD_JSON_BUILD_PAIR_STRING("ID", u->id),
                         SD_JSON_BUILD_PAIR_CONDITION(!set_isempty(u->aliases), "Names", JSON_BUILD_STRING_SET(u->aliases)),
@@ -214,7 +248,7 @@ static int unit_context_build_json(sd_json_variant **ret, const char *name, void
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("FragmentPath", u->fragment_path),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("SourcePath", u->source_path),
                         JSON_BUILD_PAIR_STRV_NON_EMPTY("DropInPaths", u->dropin_paths),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("UnitFilePreset", preset_action_past_tense_to_string(unit_get_unit_file_preset(u))),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("UnitFilePreset", unit_file_preset_build_json, u),
                         SD_JSON_BUILD_PAIR_BOOLEAN("Transient", u->transient),
                         SD_JSON_BUILD_PAIR_BOOLEAN("Perpetual", u->perpetual),
                         SD_JSON_BUILD_PAIR_BOOLEAN("DebugInvocation", u->debug_invocation),
@@ -223,6 +257,10 @@ static int unit_context_build_json(sd_json_variant **ret, const char *name, void
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("Exec", unit_exec_context_build_json, u),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("Kill", unit_kill_context_build_json, unit_get_kill_context(u)),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL(unit_type_to_capitalized_string(u->type), unit_type_callbacks[u->type], u));
+}
+
+static int unit_context_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        return unit_context_build_json_full(ret, ASSERT_PTR(userdata), /* filter= */ NULL);
 }
 
 static int can_clean_build_json(sd_json_variant **ret, const char *name, void *userdata) {
@@ -298,8 +336,41 @@ static int activation_details_build_json(sd_json_variant **ret, const char *name
         return 0;
 }
 
-static int unit_runtime_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+static int unit_file_state_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         Unit *u = ASSERT_PTR(userdata);
+        const char *s;
+
+        assert(ret);
+
+        s = unit_file_state_to_string(unit_get_unit_file_state(u));
+        if (isempty(s)) {
+                *ret = NULL;
+                return 0;
+        }
+
+        return sd_json_variant_new_string(ret, s);
+}
+
+static int can_live_mount_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        Unit *u = ASSERT_PTR(userdata);
+
+        assert(ret);
+
+        return sd_json_variant_new_boolean(ret, unit_can_live_mount(u, /* reterr_error= */ NULL) >= 0);
+}
+
+static int need_daemon_reload_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        Unit *u = ASSERT_PTR(userdata);
+
+        assert(ret);
+
+        /* Looks for drop-ins on disk */
+        return sd_json_variant_new_boolean(ret, unit_need_daemon_reload(u));
+}
+
+static int unit_runtime_build_json_full(sd_json_variant **ret, Unit *u, char * const *filter) {
+        assert(u);
+
         Unit *f = unit_following(u);
 
         /* TODO missing callbacks */
@@ -314,14 +385,15 @@ static int unit_runtime_build_json(sd_json_variant **ret, const char *name, void
                 [UNIT_TIMER]     = timer_runtime_build_json,
         };
 
-        return sd_json_buildo(
+        return json_buildo_filtered(
                         ASSERT_PTR(ret),
+                        filter,
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("Following", f ? f->id : NULL),
                         SD_JSON_BUILD_PAIR_STRING("LoadState", unit_load_state_to_string(u->load_state)),
                         SD_JSON_BUILD_PAIR_STRING("ActiveState", unit_active_state_to_string(unit_active_state(u))),
                         SD_JSON_BUILD_PAIR_STRING("FreezerState", freezer_state_to_string(u->freezer_state)),
                         SD_JSON_BUILD_PAIR_STRING("SubState", unit_sub_state_to_string(u)),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("UnitFileState", unit_file_state_to_string(unit_get_unit_file_state(u))),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("UnitFileState", unit_file_state_build_json, u),
                         JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("StateChangeTimestamp", &u->state_change_timestamp),
                         JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("ActiveEnterTimestamp", &u->active_enter_timestamp),
                         JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("ActiveExitTimestamp", &u->active_exit_timestamp),
@@ -333,9 +405,9 @@ static int unit_runtime_build_json(sd_json_variant **ret, const char *name, void
                         SD_JSON_BUILD_PAIR_BOOLEAN("CanIsolate", unit_can_isolate_refuse_manual(u)),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("CanClean", can_clean_build_json, u),
                         SD_JSON_BUILD_PAIR_BOOLEAN("CanFreeze", unit_can_freeze(u)),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("CanLiveMount", unit_can_live_mount(u, /* reterr_error= */ NULL) >= 0),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("CanLiveMount", can_live_mount_build_json, u),
                         JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("JobId", u->job ? u->job->id : 0),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("NeedDaemonReload", unit_need_daemon_reload(u)),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("NeedDaemonReload", need_daemon_reload_build_json, u),
                         SD_JSON_BUILD_PAIR_BOOLEAN("ConditionResult", u->condition_result),
                         SD_JSON_BUILD_PAIR_BOOLEAN("AssertResult", u->assert_result),
                         JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("ConditionTimestamp", &u->condition_timestamp),
@@ -347,16 +419,109 @@ static int unit_runtime_build_json(sd_json_variant **ret, const char *name, void
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL(unit_type_to_capitalized_string(u->type), unit_type_callbacks[u->type], u));
 }
 
-static int list_unit_one(sd_varlink *link, Unit *unit) {
-        assert(link);
-        assert(unit);
-
-        return sd_varlink_replybo(link,
-                        SD_JSON_BUILD_PAIR_CALLBACK("context", unit_context_build_json, unit),
-                        SD_JSON_BUILD_PAIR_CALLBACK("runtime", unit_runtime_build_json, unit));
+static int unit_runtime_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        return unit_runtime_build_json_full(ret, ASSERT_PTR(userdata), /* filter= */ NULL);
 }
 
-static int list_unit_one_with_selinux_access_check(sd_varlink *link, Unit *unit) {
+static int unit_fields_parse(char * const *fields, UnitFields *ret) {
+        _cleanup_(unit_fields_done) UnitFields f = {};
+        bool all_context = false, all_runtime = false;
+        const sd_varlink_symbol *context_type, *runtime_type;
+        int r;
+
+        assert(ret);
+
+        /* Checks that each of List()'s 'fields' is "context" or "runtime", or one of their fields, using
+         * the interface definition. Not anything below that: those would be returned without the other
+         * fields of their type, including required ones. Returns -EINVAL if one isn't, or if there are too
+         * many. */
+
+        if (strv_isempty(fields)) {
+                *ret = (UnitFields) { .context = true, .runtime = true };
+                return 0;
+        }
+
+        if (strv_length(fields) > LIST_UNITS_FIELDS_MAX)
+                return -EINVAL;
+
+        context_type = varlink_idl_find_symbol(&vl_interface_io_systemd_Unit, SD_VARLINK_STRUCT_TYPE, "UnitContext");
+        runtime_type = varlink_idl_find_symbol(&vl_interface_io_systemd_Unit, SD_VARLINK_STRUCT_TYPE, "UnitRuntime");
+        assert(context_type);
+        assert(runtime_type);
+
+        STRV_FOREACH(i, fields) {
+                const sd_varlink_symbol *type;
+                bool *want, *all;
+                char ***names;
+                const char *name;
+
+                if ((name = startswith(*i, "context"))) {
+                        type = context_type;
+                        want = &f.context;
+                        all = &all_context;
+                        names = &f.context_fields;
+                } else if ((name = startswith(*i, "runtime"))) {
+                        type = runtime_type;
+                        want = &f.runtime;
+                        all = &all_runtime;
+                        names = &f.runtime_fields;
+                } else
+                        return -EINVAL;
+
+                if (isempty(name)) {
+                        *want = *all = true;
+                        continue;
+                }
+
+                name = startswith(name, ".");
+                if (!name || !varlink_idl_find_field(type, name)) /* also refuses "" and dots */
+                        return -EINVAL;
+
+                *want = true;
+                if (!strv_contains(*names, name)) {
+                        r = strv_extend(names, name);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        if (all_context)
+                f.context_fields = strv_free(f.context_fields);
+        if (all_runtime)
+                f.runtime_fields = strv_free(f.runtime_fields);
+
+        *ret = TAKE_STRUCT(f);
+        return 0;
+}
+
+static int list_unit_one(sd_varlink *link, Unit *unit, const UnitFields *fields) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *context = NULL, *runtime = NULL;
+        int r;
+
+        assert(link);
+        assert(unit);
+        assert(fields);
+
+        if (fields->context) {
+                r = unit_context_build_json_full(&context, unit, fields->context_fields);
+                if (r < 0)
+                        return r;
+        }
+
+        if (fields->runtime) {
+                r = unit_runtime_build_json_full(&runtime, unit, fields->runtime_fields);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Leave out context or runtime if none of the fields asked for in it are set. */
+        return sd_varlink_replybo(
+                        link,
+                        JSON_BUILD_PAIR_VARIANT_NON_EMPTY("context", context),
+                        JSON_BUILD_PAIR_VARIANT_NON_EMPTY("runtime", runtime));
+}
+
+static int list_unit_one_with_selinux_access_check(sd_varlink *link, Unit *unit, const UnitFields *fields) {
         int r;
 
         assert(link);
@@ -368,7 +533,7 @@ static int list_unit_one_with_selinux_access_check(sd_varlink *link, Unit *unit)
                  * it means that SELinux enforce is on. It also does all the logging(). */
                 return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, /* parameters= */ NULL);
 
-        return list_unit_one(link, unit);
+        return list_unit_one(link, unit, fields);
 }
 
 static int lookup_unit_by_pidref(sd_varlink *link, Manager *manager, PidRef *pidref, Unit **ret_unit) {
@@ -440,6 +605,17 @@ typedef struct UnitLookupParameters {
 static void unit_lookup_parameters_done(UnitLookupParameters *p) {
         assert(p);
         pidref_done(&p->pidref);
+}
+
+typedef struct ListUnitsParameters {
+        UnitLookupParameters lookup;
+        char **fields;
+} ListUnitsParameters;
+
+static void list_units_parameters_done(ListUnitsParameters *p) {
+        assert(p);
+        unit_lookup_parameters_done(&p->lookup);
+        strv_free(p->fields);
 }
 
 static int varlink_error_conflict_lookup_parameters(sd_varlink *v, const UnitLookupParameters *p) {
@@ -518,17 +694,19 @@ static int lookup_unit_by_parameters(
 
 int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "name",         SD_JSON_VARIANT_STRING,        json_dispatch_const_unit_name, offsetof(UnitLookupParameters, name),          0 /* allows UNIT_NAME_PLAIN | UNIT_NAME_INSTANCE */ },
-                { "pid",          _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_pidref,          offsetof(UnitLookupParameters, pidref),        SD_JSON_RELAX /* allows PID_AUTOMATIC */            },
-                { "cgroup",       SD_JSON_VARIANT_STRING,        json_dispatch_const_path,      offsetof(UnitLookupParameters, cgroup),        SD_JSON_STRICT /* require normalized path */        },
-                { "invocationID", SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,        offsetof(UnitLookupParameters, invocation_id), 0                                                   },
+                { "name",         SD_JSON_VARIANT_STRING,        json_dispatch_const_unit_name, offsetof(ListUnitsParameters, lookup.name),          0 /* allows UNIT_NAME_PLAIN | UNIT_NAME_INSTANCE */ },
+                { "pid",          _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_pidref,          offsetof(ListUnitsParameters, lookup.pidref),        SD_JSON_RELAX /* allows PID_AUTOMATIC */            },
+                { "cgroup",       SD_JSON_VARIANT_STRING,        json_dispatch_const_path,      offsetof(ListUnitsParameters, lookup.cgroup),        SD_JSON_STRICT /* require normalized path */        },
+                { "invocationID", SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,        offsetof(ListUnitsParameters, lookup.invocation_id), 0                                                   },
+                { "fields",       SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,         offsetof(ListUnitsParameters, fields),               SD_JSON_NULLABLE                                    },
                 {}
         };
 
         Manager *manager = ASSERT_PTR(userdata);
-         _cleanup_(unit_lookup_parameters_done) UnitLookupParameters p = {
-                 .pidref = PIDREF_NULL,
+        _cleanup_(list_units_parameters_done) ListUnitsParameters p = {
+                .lookup.pidref = PIDREF_NULL,
         };
+        _cleanup_(unit_fields_done) UnitFields fields = {};
         Unit *unit;
         const char *k;
         int r;
@@ -540,11 +718,17 @@ int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varli
         if (r != 0)
                 return r;
 
-        r = lookup_unit_by_parameters(link, manager, &p, &unit);
+        r = unit_fields_parse(p.fields, &fields);
+        if (r == -EINVAL)
+                return sd_varlink_error_invalid_parameter_name(link, "fields");
+        if (r < 0)
+                return r;
+
+        r = lookup_unit_by_parameters(link, manager, &p.lookup, &unit);
         if (r < 0)
                 return r;
         if (r > 0)
-                return list_unit_one_with_selinux_access_check(link, unit);
+                return list_unit_one_with_selinux_access_check(link, unit, &fields);
 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, /* parameters= */ NULL);
@@ -562,7 +746,7 @@ int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varli
                 if (r < 0)
                         continue; /* silently skip units the caller is not allowed to see */
 
-                r = list_unit_one(link, unit);
+                r = list_unit_one(link, unit, &fields);
                 if (r < 0)
                         return r;
         }
