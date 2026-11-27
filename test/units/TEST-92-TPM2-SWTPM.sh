@@ -41,13 +41,6 @@ if [[ ! -x /usr/lib/systemd/systemd-tpm2-swtpm ]] || ! command -v swtpm >/dev/nu
     exit 77
 fi
 
-# The initrd must stop swtpm without issuing TPM2_Shutdown() for the handoff to work.
-swtpm_capabilities="$(swtpm chardev --tpm2 --print-capabilities)"
-if ! grep -F '"flags-opt-disable-auto-shutdown"' <<<"$swtpm_capabilities" >/dev/null; then
-    echo "swtpm lacks disable-auto-shutdown support, skipping the test" | tee --append /skipped
-    exit 77
-fi
-
 assert_swtpm_up() {
     local n
 
