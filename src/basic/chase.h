@@ -24,7 +24,9 @@ typedef enum ChaseFlags {
                                              * CHASE_EXTRACT_FILENAME_HARDER, the filename is '.' in that case.
                                              * When this specified, chase() will succeed with 1 even if the
                                              * file points to the last path component does not exist. */
-        CHASE_MKDIR_0755         = 1 << 11, /* Create any missing directories in the given path, with access mode 0755. */
+        CHASE_MKDIR_0755         = 1 << 11, /* Create any missing directories in the given path, with access mode 0755.
+                                             * Directories referenced by the destination of a symlink are never
+                                             * created, only those from the specified path itself. */
         CHASE_MKDIR_0700         = 1 << 12, /* Like CHASE_MKDIR_0755, but with access mode 0700. */
         CHASE_EXTRACT_FILENAME   = 1 << 13, /* Extract a filename that passes filename_is_valid(), or fail. */
         CHASE_MUST_BE_DIRECTORY  = 1 << 14, /* Fail if returned inode fd is not a dir */

@@ -570,6 +570,12 @@ int chaseat_full(
 
         const char *todo = buffer;
         bool exists = true;
+
+        /* The length of the tail of 'todo' that stems from the caller's path rather than from the
+         * destination of a symlink we followed. Only components in that tail are created by
+         * CHASE_MKDIR_0755/CHASE_MKDIR_0700, so that we never create directories in locations a symlink
+         * points us to. */
+        size_t caller_todo_len = strlen(buffer);
         for (unsigned n_steps = 0;; n_steps++) {
                 _cleanup_free_ char *first = NULL;
                 _cleanup_close_ int child = -EBADF;
@@ -590,6 +596,8 @@ int chaseat_full(
                 first = strndup(e, r);
                 if (!first)
                         return -ENOMEM;
+
+                bool from_caller = strlen(e) <= caller_todo_len;
 
                 /* Two dots? Then chop off the last bit of what we already found out. */
                 if (streq(first, "..")) {
@@ -754,7 +762,7 @@ int chaseat_full(
                                 return r;
 
                         mode_t mkdir_mode = chase_mkdir_flags_to_mode(flags);
-                        if (mkdir_mode != 0 && (!isempty(todo) || !(flags & (CHASE_PARENT|CHASE_NONEXISTENT)))) {
+                        if (mkdir_mode != 0 && from_caller && (!isempty(todo) || !(flags & (CHASE_PARENT|CHASE_NONEXISTENT)))) {
                                 child = xopenat_full_label(
                                                 fd,
                                                 first,
@@ -842,7 +850,10 @@ int chaseat_full(
                         }
 
                         /* Prefix what's left to do with what we just read, and start the loop again, but
-                         * remain in the current directory. */
+                         * remain in the current directory. What's left of the caller's path remains at the
+                         * end of the new buffer, minus any leading slashes path_extend() might merge. */
+                        caller_todo_len = MIN(caller_todo_len, strlen(todo + strspn(todo, "/")));
+
                         if (!path_extend(&destination, todo))
                                 return -ENOMEM;
 

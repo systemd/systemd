@@ -842,6 +842,37 @@ TEST(chaseat) {
         ASSERT_ERROR(chaseat(XAT_FDROOT, tfd, "m700/c", CHASE_MKDIR_0755|CHASE_MKDIR_0700, /* ret_path= */ NULL, /* ret_fd= */ NULL), EINVAL);
         ASSERT_ERROR(RET_NERRNO(faccessat(tfd, "m700/c", F_OK, 0)), ENOENT);
 
+        /* Directories referenced by symlink destinations are never created, only those of the path
+         * itself, regardless whether the destination is relative or absolute */
+        ASSERT_OK_ERRNO(symlinkat("mtgt/sub", tfd, "msl"));
+        ASSERT_OK_ERRNO(symlinkat("/mtgt/sub", tfd, "mslabs"));
+        FOREACH_STRING(l, "msl/x", "mslabs/x", "msl//x") {
+                ASSERT_ERROR(chaseat(tfd, tfd, l, CHASE_MKDIR_0755, /* ret_path= */ NULL, /* ret_fd= */ NULL), ENOENT);
+                ASSERT_ERROR(RET_NERRNO(faccessat(tfd, "mtgt", F_OK, AT_SYMLINK_NOFOLLOW)), ENOENT);
+        }
+        ASSERT_OK_ERRNO(mkdirat(tfd, "mtgt", 0755));
+        ASSERT_ERROR(chaseat(tfd, tfd, "msl/x", CHASE_MKDIR_0755, /* ret_path= */ NULL, /* ret_fd= */ NULL), ENOENT);
+        ASSERT_ERROR(RET_NERRNO(faccessat(tfd, "mtgt/sub", F_OK, AT_SYMLINK_NOFOLLOW)), ENOENT);
+        /* A symlink as last component is not created through either, not even as parent */
+        ASSERT_ERROR(chaseat(tfd, tfd, "msl", CHASE_MKDIR_0755, /* ret_path= */ NULL, /* ret_fd= */ NULL), ENOENT);
+        ASSERT_ERROR(RET_NERRNO(faccessat(tfd, "mtgt/sub", F_OK, AT_SYMLINK_NOFOLLOW)), ENOENT);
+        /* CHASE_NONEXISTENT still works through such symlinks */
+        ASSERT_OK_ZERO(chaseat(tfd, tfd, "msl/x", CHASE_MKDIR_0755|CHASE_NONEXISTENT, &result, /* ret_fd= */ NULL));
+        ASSERT_STREQ(result, "mtgt/sub/x");
+        result = mfree(result);
+        /* Once the destination exists, the missing directories of the path itself are created below it */
+        ASSERT_OK_ERRNO(mkdirat(tfd, "mtgt/sub", 0755));
+        FOREACH_STRING(l, "msl/x/y", "mslabs/z/y") {
+                ASSERT_OK(chaseat(tfd, tfd, l, CHASE_MKDIR_0700|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, /* ret_fd= */ NULL));
+        }
+        FOREACH_STRING(d, "mtgt/sub/x", "mtgt/sub/x/y", "mtgt/sub/z", "mtgt/sub/z/y") {
+                ASSERT_OK_ERRNO(fstatat(tfd, d, &st, AT_SYMLINK_NOFOLLOW));
+                ASSERT_TRUE(S_ISDIR(st.st_mode));
+                ASSERT_EQ(st.st_mode & 07777, (mode_t) 0700);
+        }
+        ASSERT_OK_ERRNO(fstatat(tfd, "mtgt/sub", &st, AT_SYMLINK_NOFOLLOW));
+        ASSERT_EQ(st.st_mode & 07777, (mode_t) 0755);
+
         /* Test CHASE_MKDIR_0755|CHASE_PARENT — creates intermediate dirs but not the final component */
 
         ASSERT_OK(chaseat(XAT_FDROOT, tfd, "mkp/a/r/e/n/t/file", CHASE_MKDIR_0755|CHASE_PARENT, &result, &fd));
