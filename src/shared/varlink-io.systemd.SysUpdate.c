@@ -100,7 +100,7 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(target, TargetIdentifier, 0),
                 VARLINK_DEFINE_POLKIT_INPUT,
                 SD_VARLINK_FIELD_COMMENT("The version string for the new version which is available."),
-                SD_VARLINK_DEFINE_OUTPUT(available, SD_VARLINK_STRING, 0));
+                SD_VARLINK_DEFINE_OUTPUT(available, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
                 ListTargets,
