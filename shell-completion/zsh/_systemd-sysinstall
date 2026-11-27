@@ -26,6 +26,8 @@ _arguments \
     '--copy-timezone=[Copy current timezone to target system]:boolean:(yes no)' \
     '--definitions=[Find partition definitions in directory]:directory:_directories' \
     '--kernel=[Kernel image to install]:kernel image:_files' \
+    '--install-kernel=[Install the kernel image on the target]:boolean:(yes no)' \
+    '--install-boot-loader=[Install the boot loader on the target]:boolean:(yes no)' \
     '--set-credential=[Install a credential with a literal value]: : _message "ID:VALUE"' \
     '--load-credential=[Load credential from a file or AF_UNIX socket]: : _message "ID:PATH"' \
     '*::block device:_systemd-sysinstall_devices'

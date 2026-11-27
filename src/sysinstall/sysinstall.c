@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
 #include <locale.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -10,6 +11,7 @@
 
 #include "alloc-util.h"
 #include "ansi-color.h"
+#include "blkid-util.h"
 #include "blockdev-list.h"
 #include "build.h"
 #include "build-path.h"
@@ -21,6 +23,7 @@
 #include "efi-loader.h"
 #include "efivars.h"
 #include "env-file.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "find-esp.h"
@@ -62,6 +65,8 @@ static char **arg_definitions = NULL;
 static char *arg_kernel_image = NULL;
 static bool arg_reboot = false;
 static int arg_touch_variables = -1;  /* tri-state */
+static bool arg_install_kernel = true;
+static bool arg_install_boot_loader = true;
 static MachineCredentialContext arg_credentials = {};
 static bool arg_copy_locale = true;
 static bool arg_copy_keymap = true;
@@ -144,6 +149,8 @@ typedef struct SysInstallContext {
         char *kernel_filename;
         int kernel_fd;
         bool touch_variables;
+        bool install_kernel;
+        bool install_boot_loader;
 
         sd_varlink *repart_link;
 
@@ -245,6 +252,18 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("kernel", "IMAGE", "Explicitly pick kernel image to install"):
                         r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_kernel_image);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("install-kernel", "BOOL", "Whether to install the kernel image on the target"):
+                        r = parse_boolean_argument("--install-kernel=", opts.arg, &arg_install_kernel);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("install-boot-loader", "BOOL", "Whether to install the boot loader on the target"):
+                        r = parse_boolean_argument("--install-boot-loader=", opts.arg, &arg_install_boot_loader);
                         if (r < 0)
                                 return r;
                         break;
@@ -881,6 +900,12 @@ static int prompt_touch_variables(void) {
         if (arg_touch_variables >= 0)
                 return 0;
 
+        /* Without a boot loader installed by us there is nothing to register in the firmware */
+        if (!arg_install_boot_loader) {
+                arg_touch_variables = false;
+                return 0;
+        }
+
         putchar('\n');
 
         char **l = STRV_MAKE("yes", "no");
@@ -1027,7 +1052,11 @@ static int sysinstall_context_show_summary(SysInstallContext *context) {
                         TABLE_BOOLEAN, context->erase,
                         TABLE_SET_COLOR, context->erase ? ansi_highlight_red() : NULL,
                         TABLE_FIELD, "Register in Firmware",
-                        TABLE_BOOLEAN, context->touch_variables);
+                        TABLE_BOOLEAN, context->touch_variables,
+                        TABLE_FIELD, "Install Kernel",
+                        TABLE_BOOLEAN, context->install_kernel,
+                        TABLE_FIELD, "Install Boot Loader",
+                        TABLE_BOOLEAN, context->install_boot_loader);
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -1562,6 +1591,12 @@ static int sysinstall_context_settle_kernel_image(SysInstallContext *context,
         assert(context->kernel_fd < 0);
         assert(!context->kernel_filename);
 
+        /* If we shall not install a kernel there's no need to find one. This is useful for images that
+         * carry their own boot chain on the partitions copied by systemd-repart, and on systems that
+         * were not booted via systemd-stub, where we cannot determine the current kernel. */
+        if (!context->install_kernel)
+                return 0;
+
         if (kernel_image) {
                 r = path_extract_filename(kernel_image, &kernel_filename);
                 if (r < 0)
@@ -1591,13 +1626,18 @@ static int sysinstall_context_run(SysInstallContext *context) {
 
         assert(context);
 
-        (void) sysinstall_context_notify(context, PROGRESS_ENCRYPT_CREDENTIALS, /* object= */ NULL, UINT_MAX);
-
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *creds_link = NULL;
         _cleanup_strv_free_ char **encrypted_credentials = NULL;
-        r = encrypt_credentials(&creds_link, &context->credentials, &encrypted_credentials);
-        if (r < 0)
-                return r;
+        if (context->install_kernel) {
+                (void) sysinstall_context_notify(context, PROGRESS_ENCRYPT_CREDENTIALS, /* object= */ NULL, UINT_MAX);
+
+                r = encrypt_credentials(&creds_link, &context->credentials, &encrypted_credentials);
+                if (r < 0)
+                        return r;
+        } else if (context->credentials.n_credentials > 0)
+                /* Credentials are installed next to the kernel image, hence without one we cannot pass them on */
+                log_notice("Not installing a kernel image, hence not installing %zu credentials either.",
+                           context->credentials.n_credentials);
 
         (void) sysinstall_context_notify(context, PROGRESS_INSTALL_PARTITIONS, /* object= */ NULL, UINT_MAX);
 
@@ -1606,6 +1646,12 @@ static int sysinstall_context_run(SysInstallContext *context) {
         r = sysinstall_context_invoke_repart_run(context);
         if (r < 0)
                 return r;
+
+        if (!context->install_kernel && !context->install_boot_loader) {
+                /* Nothing to do on the new file systems, the copied partitions are complete already */
+                sync();
+                return 0;
+        }
 
         (void) sysinstall_context_notify(context, PROGRESS_MOUNT_PARTITIONS, /* object= */ NULL, UINT_MAX);
 
@@ -1632,18 +1678,22 @@ static int sysinstall_context_run(SysInstallContext *context) {
         if (r < 0)
                 return log_error_errno(r, "Failed to mount new image: %m");
 
-        (void) sysinstall_context_notify(context, PROGRESS_INSTALL_KERNEL, /* object= */ NULL, UINT_MAX);
-
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *bootctl_link = NULL;
-        r = invoke_bootctl_link(&bootctl_link, root_dir, root_fd, context->kernel_filename, context->kernel_fd, encrypted_credentials);
-        if (r < 0)
-                return r;
+        if (context->install_kernel) {
+                (void) sysinstall_context_notify(context, PROGRESS_INSTALL_KERNEL, /* object= */ NULL, UINT_MAX);
 
-        (void) sysinstall_context_notify(context, PROGRESS_INSTALL_BOOTLOADER, /* object= */ NULL, UINT_MAX);
+                r = invoke_bootctl_link(&bootctl_link, root_dir, root_fd, context->kernel_filename, context->kernel_fd, encrypted_credentials);
+                if (r < 0)
+                        return r;
+        }
 
-        r = invoke_bootctl_install(&bootctl_link, context->touch_variables, root_dir, root_fd);
-        if (r < 0)
-                return r;
+        if (context->install_boot_loader) {
+                (void) sysinstall_context_notify(context, PROGRESS_INSTALL_BOOTLOADER, /* object= */ NULL, UINT_MAX);
+
+                r = invoke_bootctl_install(&bootctl_link, context->touch_variables, root_dir, root_fd);
+                if (r < 0)
+                        return r;
+        }
 
         (void) sysinstall_context_notify(context, PROGRESS_UNMOUNT_PARTITIONS, /* object= */ NULL, UINT_MAX);
 
@@ -1723,6 +1773,77 @@ static void devices_response_done(DevicesResponse *p) {
         p->symlinks = strv_free(p->symlinks);
 }
 
+/* Returns > 0 if libblkid finds no signature on the whole device, other than a GPT partition table without
+ * any entries, 0 if it finds one (or more), and < 0 on error. */
+static int probe_device_empty(const char *node) {
+#if HAVE_BLKID
+        int r;
+
+        assert(node);
+
+        r = dlopen_libblkid(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        _cleanup_close_ int fd = open(node, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (fd < 0)
+                return log_debug_errno(errno, "Failed to open '%s': %m", node);
+
+        _cleanup_(blkid_free_probep) blkid_probe b = sym_blkid_new_probe();
+        if (!b)
+                return log_oom_debug();
+
+        errno = 0;
+        r = sym_blkid_probe_set_device(b, fd, /* off= */ 0, /* size= */ 0);
+        if (r != 0)
+                return log_debug_errno(errno_or_else(ENOMEM), "Failed to set up block device prober for '%s': %m", node);
+
+        (void) sym_blkid_probe_enable_superblocks(b, 1);
+        (void) sym_blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE|BLKID_SUBLKS_USAGE);
+        (void) sym_blkid_probe_enable_partitions(b, 1);
+
+        errno = 0;
+        r = sym_blkid_do_safeprobe(b);
+        if (r == _BLKID_SAFEPROBE_ERROR)
+                return log_debug_errno(errno_or_else(EIO), "Failed to probe '%s': %m", node);
+        if (r == _BLKID_SAFEPROBE_NOT_FOUND)
+                return true;
+        if (r == _BLKID_SAFEPROBE_AMBIGUOUS) {
+                log_debug("Found ambiguous signatures on '%s'.", node);
+                return false;
+        }
+
+        assert(r == _BLKID_SAFEPROBE_FOUND);
+
+        const char *v = NULL;
+        if (sym_blkid_probe_lookup_value(b, "TYPE", &v, /* len= */ NULL) == 0) {
+                log_debug("Found '%s' signature on '%s'.", strna(v), node);
+                return false;
+        }
+
+        v = NULL;
+        (void) sym_blkid_probe_lookup_value(b, "PTTYPE", &v, /* len= */ NULL);
+        if (!streq_ptr(v, "gpt")) {
+                log_debug("Found '%s' partition table on '%s'.", strna(v), node);
+                return false;
+        }
+
+        errno = 0;
+        blkid_partlist pl = sym_blkid_probe_get_partitions(b);
+        if (!pl)
+                return log_debug_errno(errno_or_else(EIO), "Failed to read partition table of '%s': %m", node);
+
+        errno = 0;
+        int n = sym_blkid_partlist_numof_partitions(pl);
+        if (n < 0)
+                return log_debug_errno(errno_or_else(EIO), "Failed to count partitions of '%s': %m", node);
+
+        return n == 0;
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
 static int fetch_candidate_devices_reply(
                 sd_varlink *repart_link,
                 sd_json_variant *reply,
@@ -1777,7 +1898,8 @@ static int fetch_candidate_devices_reply(
                 }
         }
 
-        uint64_t min_size = UINT64_MAX, current_size = UINT64_MAX, need_free = UINT64_MAX;
+        uint64_t min_size = UINT64_MAX, current_size = UINT64_MAX, need_free = UINT64_MAX,
+                n_partitions = UINT64_MAX;
         r = invoke_repart(
                         &context->dry_run_repart_link,
                         p.node,
@@ -1787,7 +1909,7 @@ static int fetch_candidate_devices_reply(
                         &min_size,
                         &current_size,
                         &need_free,
-                        /* n_partitions= */ NULL);
+                        &n_partitions);
 
         DeviceFit fit;
         if (r < 0) {
@@ -1802,6 +1924,20 @@ static int fetch_candidate_devices_reply(
         } else
                 fit = DEVICE_FIT_ENOUGH_FREE_SPACE;
 
+        /* repart reports no partitions both for a GPT without entries and for a disk without any partition
+         * table, even if the latter carries a file system, LUKS volume, LVM PV, … on the whole device. Only
+         * pass on a partition count of 0 if the disk is provably empty, so that frontends don't present a
+         * disk with data on it as empty. */
+        if (n_partitions == 0) {
+                int k = probe_device_empty(p.node);
+                if (k < 0)
+                        log_debug_errno(k, "Failed to check '%s' for signatures, not reporting its partition count: %m", p.node);
+                else if (k == 0)
+                        log_debug("'%s' is not empty, not reporting its partition count.", p.node);
+                if (k <= 0)
+                        n_partitions = UINT64_MAX;
+        }
+
         r = sd_json_buildo(&v,
                         SD_JSON_BUILD_PAIR_STRING("node", p.node),
                         JSON_BUILD_PAIR_STRV_NON_EMPTY("symlinks", p.symlinks),
@@ -1814,6 +1950,7 @@ static int fetch_candidate_devices_reply(
                         JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("currentSizeBytes", current_size, UINT64_MAX),
                         JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("needFreeBytes", need_free, UINT64_MAX),
                         JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("minimalSizeBytes", min_size, UINT64_MAX),
+                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("partitionCount", n_partitions, UINT64_MAX),
                         SD_JSON_BUILD_PAIR_CONDITION(context->subscribe, "action", JSON_BUILD_CONST_STRING("add")));
         if (r < 0)
                 return r;
@@ -1936,6 +2073,8 @@ typedef struct RunParameters {
         bool copy_locale;
         bool copy_keymap;
         bool copy_timezone;
+        int install_kernel;
+        int install_boot_loader;
         sd_json_variant *credentials;
 } RunParameters;
 
@@ -2003,6 +2142,8 @@ static int vl_method_run(
                 { "copyKeymap",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(RunParameters, copy_keymap),   SD_JSON_NULLABLE                   },
                 { "copyTimezone",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(RunParameters, copy_timezone), SD_JSON_NULLABLE                   },
                 { "credentials",     SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_variant, offsetof(RunParameters, credentials),   SD_JSON_NULLABLE                   },
+                { "installKernel",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, offsetof(RunParameters, install_kernel),      SD_JSON_NULLABLE },
+                { "installBootLoader", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, offsetof(RunParameters, install_boot_loader), SD_JSON_NULLABLE },
                 {}
         };
 
@@ -2022,7 +2163,10 @@ static int vl_method_run(
         if (r <= 0)
                 return r;
 
-        _cleanup_(run_parameters_done) RunParameters p = {};
+        _cleanup_(run_parameters_done) RunParameters p = {
+                .install_kernel = -1,
+                .install_boot_loader = -1,
+        };
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
@@ -2033,6 +2177,10 @@ static int vl_method_run(
                 .copy_timezone = p.copy_timezone,
                 .erase = p.erase,
                 .touch_variables = p.variables,
+                /* If not specified by the caller, use what we have been invoked with, which allows the
+                 * OS to change the defaults via the service's command line */
+                .install_kernel = p.install_kernel >= 0 ? p.install_kernel : arg_install_kernel,
+                .install_boot_loader = p.install_boot_loader >= 0 ? p.install_boot_loader : arg_install_boot_loader,
                 .node = TAKE_PTR(p.node),
                 .kernel_fd = -EBADF,
         };
@@ -2129,6 +2277,8 @@ static int run(int argc, char *argv[]) {
                 .copy_keymap = arg_copy_keymap,
                 .copy_timezone = arg_copy_timezone,
                 .credentials = TAKE_STRUCT(arg_credentials),
+                .install_kernel = arg_install_kernel,
+                .install_boot_loader = arg_install_boot_loader,
                 .kernel_fd = -EBADF,
         };
 

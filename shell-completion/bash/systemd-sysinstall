@@ -47,6 +47,8 @@ _systemd_sysinstall() {
                --copy-timezone
                --definitions
                --kernel
+               --install-kernel
+               --install-boot-loader
                --set-credential
                --load-credential'
     )
@@ -55,7 +57,7 @@ _systemd_sysinstall() {
 
     if __contains_word "$prev" ${OPTS[ARG]}; then
         case $prev in
-            --welcome|--chrome|--confirm|--summary|--reboot|--mute-console|--copy-locale|--copy-keymap|--copy-timezone)
+            --welcome|--chrome|--confirm|--summary|--reboot|--mute-console|--copy-locale|--copy-keymap|--copy-timezone|--install-kernel|--install-boot-loader)
                 comps='yes no'
                 ;;
             --erase|--variables)
