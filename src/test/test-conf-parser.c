@@ -2,12 +2,15 @@
 
 #include <unistd.h>
 
+#include "conf-files.h"
 #include "conf-parser.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "hashmap.h"
 #include "log.h"
 #include "mkdir.h"
 #include "rm-rf.h"
+#include "string-util.h"
 #include "strv.h"
 #include "tests.h"
 #include "time-util.h"
@@ -522,6 +525,148 @@ TEST(config_parse_standard_file_with_dropins_full) {
         ASSERT_STREQ(D, "ddd");
         ASSERT_STREQ(E, "eee");
         ASSERT_STREQ(F, NULL);
+
+        A = mfree(A);
+        B = mfree(B);
+        C = mfree(C);
+        D = mfree(D);
+        E = mfree(E);
+        dropins = strv_free(dropins);
+
+        /* Make sure that symlinks to /dev/null mask the main config file and a drop-in, even though
+         * <root>/dev/null does not exist */
+        ASSERT_OK_ZERO_ERRNO(symlinkat("/dev/null", rfd, "etc/kernel/install.conf"));
+        ASSERT_OK_ZERO_ERRNO(symlinkat("/dev/null", rfd, "etc/kernel/install.conf.d/drop1.conf"));
+
+        r = config_parse_standard_file_with_dropins_full(
+                        root,
+                        /* root_fd= */ -EBADF,
+                        "kernel/install.conf",
+                        /* sections= */ NULL,
+                        config_item_table_lookup, items,
+                        CONFIG_PARSE_WARN,
+                        /* userdata= */ NULL,
+                        /* ret_stats_by_path= */ NULL,
+                        /* ret_dropin_files= */ &dropins);
+        ASSERT_OK(r);
+        ASSERT_STREQ(A, NULL);
+        ASSERT_STREQ(B, NULL);
+        ASSERT_STREQ(C, "c1");
+        ASSERT_STREQ(D, "ddd");
+        ASSERT_STREQ(E, "eee");
+        ASSERT_STREQ(F, NULL);
+
+        ASSERT_EQ(strv_length(dropins), 3U);
+}
+
+TEST(config_parse_many_masked_dropin) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF;
+        int r;
+
+        /* No root directory here, so that the symlink points to the real /dev/null */
+        ASSERT_OK(tfd = mkdtemp_open("/tmp/test-config-parse-XXXXXX", /* flags= */ 0, &t));
+        ASSERT_OK_POSITIVE(mkdir_p_root(t, "/etc/main.conf.d", UID_INVALID, GID_INVALID, 0755));
+        ASSERT_OK_POSITIVE(mkdir_p_root(t, "/usr/main.conf.d", UID_INVALID, GID_INVALID, 0755));
+
+        ASSERT_OK_ZERO(write_string_file_at(tfd, "usr/main.conf",
+                                            "Main=main", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK_ZERO_ERRNO(symlinkat("/dev/null", tfd, "etc/main.conf.d/10-masked.conf"));
+        ASSERT_OK_ZERO(write_string_file_at(tfd, "usr/main.conf.d/10-masked.conf",   /* this one is masked */
+                                            "Masked=masked", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK_ZERO(write_string_file_at(tfd, "usr/main.conf.d/20-vendor.conf",
+                                            "Vendor=vendor", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK_ZERO(write_string_file_at(tfd, "etc/main.conf.d/30-local.conf",
+                                            "Local=local", WRITE_STRING_FILE_CREATE));
+
+        const char *etc = strjoina(t, "/etc"), *usr = strjoina(t, "/usr");
+        const char* const *dirs = STRV_MAKE_CONST(etc, usr);
+
+        _cleanup_free_ char *main_setting = NULL, *masked = NULL, *vendor = NULL, *local = NULL;
+        _cleanup_hashmap_free_ Hashmap *stats = NULL, *stats_listed = NULL;
+        _cleanup_strv_free_ char **files = NULL, **dropins = NULL;
+
+        const ConfigTableItem items[] = {
+                { NULL, "Main",   config_parse_string, 0, &main_setting },
+                { NULL, "Masked", config_parse_string, 0, &masked       },
+                { NULL, "Vendor", config_parse_string, 0, &vendor       },
+                { NULL, "Local",  config_parse_string, 0, &local        },
+                {}
+        };
+
+        /* Take the main config file from a listing, like udev does for .link files */
+        ASSERT_OK(conf_files_list_strv(&files, ".conf", /* root= */ NULL, /* flags= */ 0, dirs));
+        ASSERT_EQ(strv_length(files), 1U);
+
+        r = config_parse_many_full(
+                        (const char* const*) files,
+                        dirs,
+                        "main.conf.d",
+                        /* root= */ NULL,
+                        /* root_fd= */ XAT_FDROOT,
+                        /* sections= */ NULL,
+                        config_item_table_lookup, items,
+                        CONFIG_PARSE_WARN,
+                        /* userdata= */ NULL,
+                        &stats,
+                        &dropins);
+        ASSERT_OK(r);
+        ASSERT_STREQ(main_setting, "main");
+        ASSERT_STREQ(masked, NULL);
+        ASSERT_STREQ(vendor, "vendor");
+        ASSERT_STREQ(local, "local");
+
+        ASSERT_EQ(strv_length(dropins), 2U);
+        ASSERT_EQ(hashmap_size(stats), 3U);
+
+        /* udev reloads the .link files if the stats differ from the ones of a new listing */
+        r = config_get_stats_by_path(".conf", /* root= */ NULL, /* flags= */ 0, dirs,
+                                     /* check_dropins= */ true, &stats_listed);
+        ASSERT_OK(r);
+        ASSERT_TRUE(stats_by_path_equal(stats, stats_listed));
+}
+
+TEST(config_parse_many_masked_main) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF;
+        int r;
+
+        ASSERT_OK(tfd = mkdtemp_open("/tmp/test-config-parse-XXXXXX", /* flags= */ 0, &t));
+        ASSERT_OK_POSITIVE(mkdir_p_root(t, "/etc", UID_INVALID, GID_INVALID, 0755));
+        ASSERT_OK_POSITIVE(mkdir_p_root(t, "/usr/main.conf.d", UID_INVALID, GID_INVALID, 0755));
+
+        ASSERT_OK_ZERO_ERRNO(symlinkat("/dev/null", tfd, "etc/main.conf"));
+        ASSERT_OK_ZERO(write_string_file_at(tfd, "usr/main.conf",                    /* this one is masked */
+                                            "Main=main", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK_ZERO(write_string_file_at(tfd, "usr/main.conf.d/50-dropin.conf",   /* still read */
+                                            "Dropin=dropin", WRITE_STRING_FILE_CREATE));
+
+        const char *etc = strjoina(t, "/etc"), *usr = strjoina(t, "/usr");
+        const char *main_etc = strjoina(etc, "/main.conf"), *main_usr = strjoina(usr, "/main.conf");
+
+        _cleanup_free_ char *main_setting = NULL, *dropin = NULL;
+
+        const ConfigTableItem items[] = {
+                { NULL, "Main",   config_parse_string, 0, &main_setting },
+                { NULL, "Dropin", config_parse_string, 0, &dropin       },
+                {}
+        };
+
+        r = config_parse_many_full(
+                        STRV_MAKE_CONST(main_etc, main_usr),
+                        STRV_MAKE_CONST(etc, usr),
+                        "main.conf.d",
+                        /* root= */ NULL,
+                        /* root_fd= */ XAT_FDROOT,
+                        /* sections= */ NULL,
+                        config_item_table_lookup, items,
+                        CONFIG_PARSE_WARN,
+                        /* userdata= */ NULL,
+                        /* ret_stats_by_path= */ NULL,
+                        /* ret_dropin_files= */ NULL);
+        ASSERT_OK(r);
+        ASSERT_STREQ(main_setting, NULL);
+        ASSERT_STREQ(dropin, "dropin");
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
