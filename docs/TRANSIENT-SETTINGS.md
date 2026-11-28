@@ -550,6 +550,7 @@ Most socket unit settings are available to transient units.
 ✓ ListenMessageQueue=
 ✓ ListenFIFO=
 ✓ ListenUSBFunction=
+✓ PropagateSlice=
   Service=
 ```
 

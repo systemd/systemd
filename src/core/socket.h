@@ -172,6 +172,8 @@ typedef struct Socket {
 
         bool selinux_context_from_net;
 
+        bool propagate_slice;
+
         char *user, *group;
 
         char *fdname;

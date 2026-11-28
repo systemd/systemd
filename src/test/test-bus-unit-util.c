@@ -1008,6 +1008,7 @@ TEST(socket_properties) {
                         "ReusePort=true",
                         "RemoveOnStop=true",
                         "SELinuxContextFromNet=true",
+                        "PropagateSlice=true",
 
                         /* Integer properties */
                         "Priority=6",
