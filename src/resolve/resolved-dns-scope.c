@@ -1217,6 +1217,12 @@ DnsTransaction *dns_scope_find_transaction(
                     !(t->query_flags & SD_RESOLVED_NO_CACHE))
                         continue;
 
+                /* Continuous mDNS queries list cached records as known answers, which a regular query
+                 * joining them cannot rely on, as it skips its own cache lookup. */
+                if (!(query_flags & SD_RESOLVED_QUERY_CONTINUOUS) &&
+                    (t->query_flags & SD_RESOLVED_QUERY_CONTINUOUS))
+                        continue;
+
                 /* If we are asked to clamp ttls and the existing transaction doesn't do it, we can't
                  * reuse */
                 if ((query_flags & SD_RESOLVED_CLAMP_TTL) &&

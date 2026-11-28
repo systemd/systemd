@@ -19,6 +19,7 @@
 #include "resolved-link.h"
 #include "resolved-llmnr.h"
 #include "resolved-manager.h"
+#include "resolved-mdns.h"
 #include "tests.h"
 
 typedef struct ScopeEnv {
@@ -44,7 +45,7 @@ ssize_t __wrap_sendmsg(int fd, const struct msghdr *message, int flags) {
 
         ASSERT_NOT_NULL(destination);
         ASSERT_EQ(destination->sin_family, AF_INET);
-        ASSERT_EQ(be16toh(destination->sin_port), LLMNR_PORT);
+        ASSERT_TRUE(IN_SET(be16toh(destination->sin_port), LLMNR_PORT, MDNS_PORT));
         ASSERT_EQ(message->msg_iovlen, (typeof(message->msg_iovlen)) 1);
 
         /* Preserve the datagram bytes, but deliver them only to the local socketpair. */
@@ -302,6 +303,55 @@ TEST(dns_scope_check_conflicts_mdns_own_record) {
         ASSERT_TRUE(t->probing);
         ASSERT_TRUE(ordered_hashmap_isempty(env.scope.conflict_queue));
         ASSERT_NULL(env.scope.conflict_event_source);
+}
+
+/* Sends a query for a shared record that is cached, and returns the number of known answers listed. */
+static uint16_t mdns_query_known_answers(uint64_t query_flags) {
+        _cleanup_(scope_env_teardown) ScopeEnv env = {};
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *ptr = NULL;
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_(dns_packet_unrefp) DnsPacket *sent = NULL;
+        union in_addr_union owner = { .in.s_addr = htobe32(0xc0000201) };
+        DnsTransaction *t;
+
+        scope_env_setup(&env, DNS_PROTOCOL_MDNS);
+
+        ptr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR, "_http._tcp.local");
+        ASSERT_NOT_NULL(ptr);
+        ptr->ttl = 120;
+        ptr->ptr.name = strdup("Service._http._tcp.local");
+        ASSERT_NOT_NULL(ptr->ptr.name);
+
+        ASSERT_OK(dns_answer_add_extend(&answer, ptr, /* ifindex= */ 0,
+                                        DNS_ANSWER_CACHEABLE|DNS_ANSWER_SHARED_OWNER, /* rrsig= */ NULL));
+        ASSERT_OK(dns_cache_put(&env.scope.cache, DNS_CACHE_MODE_YES, DNS_PROTOCOL_MDNS, ptr->key,
+                                DNS_RCODE_SUCCESS, answer, /* full_packet= */ NULL, /* query_flags= */ 0,
+                                DNSSEC_UNSIGNED, /* nsec_ttl= */ UINT32_MAX, AF_INET, &owner,
+                                /* stale_retention_usec= */ 0));
+
+        ASSERT_OK(dns_transaction_new(&t, &env.scope, ptr->key, /* bypass= */ NULL, query_flags));
+
+        /* The first call schedules the initial jitter, which is zero for regular mDNS queries. */
+        ASSERT_OK_POSITIVE(dns_transaction_go(t));
+        ASSERT_OK_POSITIVE(dns_transaction_go(t));
+
+        ASSERT_OK(dns_packet_new(&sent, DNS_PROTOCOL_MDNS, DNS_PACKET_SIZE_MAX, DNS_PACKET_SIZE_MAX));
+        ssize_t n = ASSERT_OK_ERRNO(recv(env.sockets[1], DNS_PACKET_DATA(sent), sent->allocated, MSG_DONTWAIT));
+        ASSERT_GE(n, (ssize_t) DNS_PACKET_HEADER_SIZE);
+        sent->size = (size_t) n;
+        assert_no_packet(&env);
+
+        ASSERT_EQ(DNS_PACKET_QR(sent), 0);
+        ASSERT_EQ(DNS_PACKET_QDCOUNT(sent), 1);
+        return DNS_PACKET_ANCOUNT(sent);
+}
+
+TEST(mdns_known_answers_cache_bypass) {
+        /* Responders do not repeat known answers, so a query that bypasses the cache must not list any. */
+        ASSERT_EQ(mdns_query_known_answers(SD_RESOLVED_MDNS|SD_RESOLVED_NO_CACHE), 0);
+
+        /* A service browser reports cached services itself, hence its queries list them. */
+        ASSERT_EQ(mdns_query_known_answers(SD_RESOLVED_MDNS|SD_RESOLVED_NO_CACHE|SD_RESOLVED_QUERY_CONTINUOUS), 1);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
