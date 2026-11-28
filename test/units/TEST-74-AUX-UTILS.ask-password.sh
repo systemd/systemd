@@ -13,6 +13,7 @@ at_exit() {
     set +e
     systemctl stop waldo-ask-pw-agent.service
     systemctl stop test-askpw.service
+    systemctl stop test-askpw-file.service
     [[ -n "$KEY" ]] && keyctl unlink "$KEY" @u
     rm -rf "$SOCKET_DIR"
 }
@@ -48,3 +49,24 @@ assert_eq "${#replies[@]}" "2"
 assert_in "hunter2" "${replies[0]}"
 assert_not_in "hunter2" "${replies[1]}"
 assert_in "NoPasswordAvailable" "${replies[1]}"
+
+# A request that names a keyring has already been checked against that keyring, so agents must not answer
+# it from their own cache, which isn't keyed by purpose (plymouth would hand a TPM2 PIN to a passphrase
+# prompt). Without a keyring the agent's cache is the only one, so it remains allowed.
+systemctl stop waldo-ask-pw-agent.service
+
+check_ask_file_accept_cached() {
+    local expected="${1:?}" pid
+    shift
+
+    systemd-run --unit=test-askpw-file.service --service-type=exec --collect \
+        systemd-ask-password --no-tty --timeout=60 "$@" "Cache check"
+    pid="$(systemctl show -P MainPID test-askpw-file.service)"
+    timeout 30 bash -c "until grep -l '^PID=$pid\$' /run/systemd/ask-password/ask.* >/dev/null 2>&1; do sleep .1; done"
+    grep "^AcceptCached=$expected\$" "$(grep -l "^PID=$pid\$" /run/systemd/ask-password/ask.*)"
+    systemctl stop test-askpw-file.service
+}
+
+check_ask_file_accept_cached 0 --accept-cached --keyname=test-askpw-missing
+check_ask_file_accept_cached 1 --accept-cached
+check_ask_file_accept_cached 0
