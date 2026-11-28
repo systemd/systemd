@@ -16,6 +16,7 @@
 #include "manager.h"
 #include "selinux-access.h"
 #include "strv.h"
+#include "varlink-unit.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_type, job_type, JobType);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_state, job_state, JobState);
@@ -273,6 +274,10 @@ void bus_job_send_pending_change_signal(Job *j, bool including_new) {
                 return;
 
         bus_job_send_change_signal(j);
+
+        /* The call above takes the job out of the queue that manager_dispatch_dbus_queue() processes, hence
+         * send the Varlink notifications here, as that function does. */
+        varlink_job_send_change_signal(j);
 }
 
 static int send_removed_signal(sd_bus *bus, void *userdata) {
