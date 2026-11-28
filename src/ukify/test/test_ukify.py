@@ -222,12 +222,14 @@ def test_apply_config(tmp_path):
     assert ns.sb_cert == 'some/path6'
     assert ns.sign_kernel is False
 
-    assert ns._groups == ['NAME']
-    assert ns.pcr_private_keys == ['some/path7']
-    assert ns.pcr_public_keys == ['some/path8']
-    assert ns.phase_path_groups == [
-        ['enter-initrd', 'enter-initrd:leave-initrd:sysinit:ready:shutdown:final']
-    ]
+    assert ns._pcr_groups == {
+        'NAME': ukify.PcrSignatureGroup(
+            name='NAME',
+            private_key='some/path7',
+            public_key='some/path8',
+            phases=['enter-initrd', 'enter-initrd:leave-initrd:sysinit:ready:shutdown:final'],
+        )
+    }
 
     ukify.finalize_options(ns)
 
@@ -249,12 +251,127 @@ def test_apply_config(tmp_path):
     assert ns.sb_cert == pathlib.Path('some/path6')
     assert ns.sign_kernel is False
 
-    assert ns._groups == ['NAME']
-    assert ns.pcr_private_keys == ['some/path7']
-    assert ns.pcr_public_keys == ['some/path8']
-    assert ns.phase_path_groups == [
-        ['enter-initrd', 'enter-initrd:leave-initrd:sysinit:ready:shutdown:final']
+    assert ns.pcr_groups == [
+        ukify.PcrSignatureGroup(
+            name='NAME',
+            private_key='some/path7',
+            public_key='some/path8',
+            phases=['enter-initrd', 'enter-initrd:leave-initrd:sysinit:ready:shutdown:final'],
+        )
     ]
+
+
+def test_apply_config_pcr_signature_group_alignment(tmp_path):
+    config = tmp_path / 'config.conf'
+
+    def parse_config(contents):
+        config.write_text(textwrap.dedent(contents))
+        ns = ukify.create_parser().parse_args(['build', '--linux=LINUX'])
+        ukify.apply_config(ns, config)
+        ukify.finalize_options(ns)
+        return ns
+
+    # Optional settings that a section omits must not affect the other sections, no matter in which order the
+    # sections appear.
+    ns = parse_config(
+        '''\
+        [PCRSignature:initrd]
+        PCRPrivateKey = key-initrd
+        PCRPublicKey = pub-initrd
+        Phases = enter-initrd
+
+        [PCRSignature:system]
+        PCRPrivateKey = key-system
+        '''
+    )
+    assert ns.pcr_groups == [
+        ukify.PcrSignatureGroup(
+            name='initrd',
+            private_key='key-initrd',
+            public_key='pub-initrd',
+            phases=['enter-initrd'],
+        ),
+        ukify.PcrSignatureGroup(name='system', private_key='key-system'),
+    ]
+
+    # The same config with the sections in the opposite order must result in the same pairings.
+    ns = parse_config(
+        '''\
+        [PCRSignature:system]
+        PCRPrivateKey = key-system
+
+        [PCRSignature:initrd]
+        PCRPrivateKey = key-initrd
+        PCRPublicKey = pub-initrd
+        Phases = enter-initrd
+        '''
+    )
+    assert ns.pcr_groups == [
+        ukify.PcrSignatureGroup(name='system', private_key='key-system'),
+        ukify.PcrSignatureGroup(
+            name='initrd',
+            private_key='key-initrd',
+            public_key='pub-initrd',
+            phases=['enter-initrd'],
+        ),
+    ]
+
+
+def test_parse_args_pcr_signature_group_cli_config(tmp_path):
+    config = tmp_path / 'config.conf'
+    config.write_text(
+        textwrap.dedent(
+            '''\
+        [PCRSignature:NAME]
+        PCRPrivateKey = some/path7
+        PCRPublicKey = some/path8
+        Phases = enter-initrd
+        '''
+        )
+    )
+
+    # The command line options are paired up positionally into groups of their own, and the config file
+    # sections are appended after them.
+    opts = ukify.parse_args(
+        [
+            'build',
+            '--linux=LINUX',
+            '--pcr-private-key=PKEY1',
+            '--pcr-public-key=PKEY2',
+            f'--config={config}',
+        ]
+    )
+
+    assert opts.pcr_groups == [
+        ukify.PcrSignatureGroup(private_key='PKEY1', public_key='PKEY2'),
+        ukify.PcrSignatureGroup(
+            name='NAME',
+            private_key='some/path7',
+            public_key='some/path8',
+            phases=['enter-initrd'],
+        ),
+    ]
+
+
+def test_parse_args_pcr_signature_group_missing_private_key(tmp_path):
+    config = tmp_path / 'config.conf'
+    config.write_text(
+        textwrap.dedent(
+            '''\
+        [PCRSignature:oops]
+        Phases = enter-initrd
+
+        [PCRSignature:good]
+        PCRPrivateKey = key
+        '''
+        )
+    )
+
+    with pytest.raises(
+        ValueError,
+        match='Phases= and PolicyRef= require PCRPrivateKey=',
+    ):
+        ukify.parse_args(['build', '--linux=LINUX', f'--config={config}'])
 
 
 def test_parse_args_minimal():
@@ -550,8 +667,15 @@ def test_config_priority(tmp_path):
     assert opts.pcrpkey == pathlib.Path('PATH')
     assert opts.uname == '1.2.3'
     assert opts.stub == pathlib.Path('STUBPATH')
-    assert opts.pcr_private_keys == ['PKEY1', 'some/path7']
-    assert opts.pcr_public_keys == ['PKEY2', 'some/path8']
+    assert opts.pcr_groups == [
+        ukify.PcrSignatureGroup(private_key='PKEY1', public_key='PKEY2'),
+        ukify.PcrSignatureGroup(
+            name='NAME',
+            private_key='some/path7',
+            public_key='some/path8',
+            phases=['enter-initrd:leave-initrd:sysinit:ready:shutdown:final'],
+        ),
+    ]
     assert opts.pcr_banks == ['SHA1', 'SHA256']
     assert opts.signing_engine == 'ENGINE'
     assert opts.signtool == 'sbsign'  # from args
