@@ -2254,7 +2254,12 @@ static int copy_files(Context *c, Item *i) {
                          dfd, bn,
                          i->uid_set ? i->uid : UID_INVALID,
                          i->gid_set ? i->gid : GID_INVALID,
-                         ((i->append_or_force) ? COPY_MERGE : COPY_MERGE_EMPTY) | COPY_MAC_CREATE | COPY_HARDLINKS,
+                         ((i->append_or_force) ? COPY_MERGE : COPY_MERGE_EMPTY) |
+                         COPY_MAC_CREATE |
+                         COPY_HARDLINKS |
+                         /* If being run with --user as an unprivileged process COPY_UNPRIVILEGED is set and skips inhereting the source ownership
+                         * Thereby it also skips applying explicitly set uid or gid values in the rule */
+                         (have_effective_cap(CAP_CHOWN) <= 0 ? COPY_UNPRIVILEGED : 0),
                          /* denylist= */ NULL, /* subvolumes= */ NULL);
 
         fd = xopenat(dfd, bn, O_NOFOLLOW|O_PATH);
