@@ -190,6 +190,8 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(entryVersion, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The commit number for the newly created boot menu entry"),
                 SD_VARLINK_DEFINE_INPUT(entryCommit, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If true, create new boot menu entries even if identical ones exist already. Defaults to false."),
+                SD_VARLINK_DEFINE_INPUT(force, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Target filename for the kernel image (UKI) in the $BOOT partition"),
                 SD_VARLINK_DEFINE_INPUT(kernelFilename, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("Index into array of file descriptors passed along with this message, pointing to file descriptor to the kernel image to copy"),
@@ -200,8 +202,10 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(triesLeft, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("How much space to always keep free on ESP/XBOOTLDR. Defaults to 1 MiB"),
                 SD_VARLINK_DEFINE_INPUT(keepFree, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The IDs of the created boot loader entries."),
-                SD_VARLINK_DEFINE_OUTPUT(ids, SD_VARLINK_STRING, SD_VARLINK_ARRAY));
+                SD_VARLINK_FIELD_COMMENT("The IDs of the created boot loader entries. If identical entries existed already and no new ones were created, the IDs of the existing ones."),
+                SD_VARLINK_DEFINE_OUTPUT(ids, SD_VARLINK_STRING, SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("True if the boot loader entries listed in ids were created by this call. False if identical entries existed already, or if there was nothing to link."),
+                SD_VARLINK_DEFINE_OUTPUT(created, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
                 LinkAuto,
@@ -221,12 +225,16 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(entryVersion, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The commit number for the newly created boot menu entry"),
                 SD_VARLINK_DEFINE_INPUT(entryCommit, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If true, create new boot menu entries even if identical ones exist already. Defaults to false."),
+                SD_VARLINK_DEFINE_INPUT(force, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("What to set the triesLeft counter of the boot menu entry to initially."),
                 SD_VARLINK_DEFINE_INPUT(triesLeft, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("How much space to always keep free on ESP/XBOOTLDR. Defaults to 1 MiB"),
                 SD_VARLINK_DEFINE_INPUT(keepFree, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The IDs of the created boot loader entries."),
-                SD_VARLINK_DEFINE_OUTPUT(ids, SD_VARLINK_STRING, SD_VARLINK_ARRAY));
+                SD_VARLINK_FIELD_COMMENT("The IDs of the created boot loader entries. If identical entries existed already and no new ones were created, the IDs of the existing ones."),
+                SD_VARLINK_DEFINE_OUTPUT(ids, SD_VARLINK_STRING, SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("True if the boot loader entries listed in ids were created by this call. False if identical entries existed already, or if there was nothing to link."),
+                SD_VARLINK_DEFINE_OUTPUT(created, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_ERROR(
                 RebootToFirmwareNotSupported);

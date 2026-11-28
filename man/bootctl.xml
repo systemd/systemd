@@ -133,6 +133,17 @@
         (system extension images, configuration extension images, credential files, addons) to pass to the
         UKI at boot may be specified with <option>--extra=</option>.</para>
 
+        <para>If boot loader entries for the selected entry token exist already that refer to the same UKI
+        and the same sidecar resources, with the same title and version, no new entries are created and the
+        command succeeds. The UKI and the sidecar resources are identified by their file names; their
+        contents are not compared. This also applies if the existing entries are not the ones with the
+        highest commit number, for example after an older version was linked again. Use
+        <option>--force</option> to create new entries anyway, which then have the highest commit number. The
+        tries counters of existing entries are not compared: an entry that the boot loader marked as bad is
+        considered the same, and <option>--tries-left=</option> has no effect if no new entries are
+        created. If <option>--entry-commit=</option> is specified, only the existing entries with that commit
+        number are compared.</para>
+
         <para>If the ESP/XBOOTLDR do not have enough free space for the new boot loader entry and its
         referenced resources the oldest existing boot loader entry matching the selected entry token is
         removed (along with any resources referenced by it that are no longer referenced by any other
@@ -696,6 +707,17 @@
         extras are cleared.</para>
 
         <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--force</option></term>
+
+        <listitem><para>When used with <command>link</command> or <command>link-auto</command>, creates new
+        boot loader entries even if entries for the same UKI and the same sidecar resources exist
+        already. If <option>--entry-commit=</option> specifies a commit number that exists already, the
+        command fails.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
 
       <varlistentry>
