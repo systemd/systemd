@@ -2083,7 +2083,7 @@ static int read_config_file(Context *c, const char *fn, bool ignore_enoent) {
                         ASSERT_PTR(fn),
                         parse_line,
                         ASSERT_PTR(c),
-                        ignore_enoent,
+                        ignore_enoent ? CONF_FILE_READ_IGNORE_ENOENT : 0,
                         /* invalid_config= */ NULL);
 }
 

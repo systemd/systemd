@@ -68,11 +68,16 @@ typedef int parse_line_t(
                 bool *invalid_config,
                 void *userdata);
 
+typedef enum ConfFileReadFlags {
+        CONF_FILE_READ_IGNORE_ENOENT      = 1 << 0, /* Do not fail if the file does not exist. */
+        CONF_FILE_READ_SEMICOLON_COMMENTS = 1 << 1, /* Also support ';' as comment marker. */
+} ConfFileReadFlags;
+
 int conf_file_read(
                 const char *root,
                 const char **config_dirs,
                 const char *fn,
                 parse_line_t parse_line,
                 void *userdata,
-                bool ignore_enoent,
+                ConfFileReadFlags flags,
                 bool *invalid_config);
