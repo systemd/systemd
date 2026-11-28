@@ -140,6 +140,9 @@ executables += [
                 'sources' : files('test-resolved-packet.c'),
         },
         resolve_test_template + {
+                'sources' : files('test-resolved-mdns.c'),
+        },
+        resolve_test_template + {
                 'sources' : files('test-dnssec.c'),
                 'conditions' : ['HAVE_OPENSSL'],
         },

@@ -702,12 +702,28 @@ static void mdns_browse_service_query_complete(DnsQuery *q) {
         assert(query);
         assert(query->manager);
 
-        if (query->state != DNS_TRANSACTION_SUCCESS)
+        if (!IN_SET(query->state, DNS_TRANSACTION_SUCCESS, DNS_TRANSACTION_ATTEMPTS_MAX_REACHED))
                 return;
 
         sb = dns_service_browser_ref(query->service_browser_request);
         if (!sb)
                 return;
+
+        /* Continuous queries list the records we already have as Known-Answers, and responders don't repeat
+         * them (RFC 6762, Section 7.1). No reply hence means "nothing new", not failure: what's in our cache
+         * is still current. This query may also have been merged into an in-flight transaction that
+         * bypasses the cache, so report the cached services for both families now. */
+        if (query->state == DNS_TRANSACTION_ATTEMPTS_MAX_REACHED) {
+                int family;
+
+                FOREACH_ARGUMENT(family, AF_INET, AF_INET6) {
+                        r = mdns_browser_revisit_cache(sb, family);
+                        if (r < 0)
+                                return (void) log_error_errno(
+                                                r, "Failed to revisit cache for service browser: %m");
+                }
+                return;
+        }
 
         r = mdns_browser_revisit_cache(sb, query->answer_family);
         if (r < 0)

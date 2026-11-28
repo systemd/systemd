@@ -53,6 +53,10 @@ typedef struct DnsScope {
 
         sd_event_source *mdns_goodbye_event_source;
 
+        /* Replies to mDNS queries with the TC bit set, waiting for further Known-Answer packets */
+        LIST_HEAD(MdnsPendingReply, mdns_pending_replies);
+        unsigned n_mdns_pending_replies;
+
         RateLimit ratelimit;
 
         usec_t resend_timeout;

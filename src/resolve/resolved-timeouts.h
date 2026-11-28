@@ -10,6 +10,10 @@
 /* mDNS probing interval, see RFC 6762 Section 8.1 */
 #define MDNS_PROBING_INTERVAL_USEC (250 * USEC_PER_MSEC)
 
+/* mDNS reply delay for queries with the TC bit set, see RFC 6762 Section 7.2 */
+#define MDNS_TC_DELAY_MIN_USEC (400 * USEC_PER_MSEC)
+#define MDNS_TC_DELAY_MAX_USEC (500 * USEC_PER_MSEC)
+
 /* Maximum attempts to send DNS requests, across all DNS servers */
 #define DNS_TRANSACTION_ATTEMPTS_MAX 24
 
