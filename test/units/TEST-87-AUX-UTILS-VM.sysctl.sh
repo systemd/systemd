@@ -16,8 +16,19 @@ echo "-foo.foo=42" >/tmp/foo.conf
 assert_rc 0 /usr/lib/systemd/systemd-sysctl /tmp/foo.conf
 assert_rc 0 /usr/lib/systemd/systemd-sysctl --strict /tmp/foo.conf
 
+# ';' is also a comment marker. See sysctl.d(5).
+cat >/tmp/foo.conf <<EOF
+# comment
+; comment
+;foo.bar=42
+-foo.bar=42
+; not an assignment
+EOF
+assert_rc 0 /usr/lib/systemd/systemd-sysctl --strict /tmp/foo.conf
+
 assert_rc 1 /usr/lib/systemd/systemd-sysctl --inline
 assert_rc 0 /usr/lib/systemd/systemd-sysctl --inline "   foo.bar=42" "#comment" "   "
+assert_rc 0 /usr/lib/systemd/systemd-sysctl --inline "   foo.bar=42" ";comment" "   "
 assert_rc 1 /usr/lib/systemd/systemd-sysctl --inline --strict "foo.bar=42"
 assert_rc 0 /usr/lib/systemd/systemd-sysctl --inline -- "-foo.bar=42"
 assert_rc 0 /usr/lib/systemd/systemd-sysctl --inline --strict -- "-foo.bar=42"
@@ -33,6 +44,14 @@ EOF
 -foo.bar=42
 EOF
 /usr/lib/systemd/systemd-sysctl --strict - <<EOF
+-foo.bar=42
+EOF
+/usr/lib/systemd/systemd-sysctl - <<EOF
+; comment
+-foo.bar=42
+EOF
+/usr/lib/systemd/systemd-sysctl --strict - <<EOF
+; comment
 -foo.bar=42
 EOF
 
@@ -113,6 +132,9 @@ assert_eq "$(cat /proc/sys/net/ipv4/conf/hoge/disable_policy)" "0"
 # Do not create an empty conf file.
 /usr/lib/systemd/systemd-sysctl \
     --prefix=/net/ipv4/conf/hoge --save=foo --inline "# comment only"
+[[ ! -e /run/sysctl.d/foo.conf ]]
+/usr/lib/systemd/systemd-sysctl \
+    --prefix=/net/ipv4/conf/hoge --save=foo --inline "; comment only"
 [[ ! -e /run/sysctl.d/foo.conf ]]
 
 echo 0 >/proc/sys/net/ipv4/conf/hoge/drop_gratuitous_arp
