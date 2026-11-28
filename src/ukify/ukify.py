@@ -2936,11 +2936,14 @@ def finalize_options(opts: argparse.Namespace) -> None:
             )
         opts.signtool = 'pesign'
 
-    if opts.signing_provider and opts.signtool != 'systemd-sbsign':
-        raise ValueError('--signing-provider= can only be used with --signtool=systemd-sbsign')
+    if opts.signtool != 'systemd-sbsign' and not n_pcr_priv and opts.signing_provider:
+        print(f'--signing-provider={opts.signing_provider} provided, but no relevant parameters that use it exists, ignoring', file=sys.stderr)
 
-    if opts.certificate_provider and opts.signtool != 'systemd-sbsign':
-        raise ValueError('--certificate-provider= can only be used with --signtool=systemd-sbsign')
+    if opts.signtool not in ('sbsign', 'systemd-sbsign') and not n_pcr_priv and opts.signing_engine:
+        print(f'--signing-engine={opts.signing_engine} provided, but no relevant parameters that use it exists, ignoring', file=sys.stderr)
+
+    if opts.signtool != 'systemd-sbsign' and not n_pcr_cert and not n_pcr_pub and opts.certificate_provider:
+        print(f'--certificate-provider={opts.signing_provider} provided, but no relevant parameters that use it exists, ignoring', file=sys.stderr)
 
     if opts.sign_kernel and not opts.sb_key and not opts.sb_cert_name:
         raise ValueError(
