@@ -815,9 +815,8 @@ static int link_save(Link *link) {
                         if (link_get_bearer(link, &b) >= 0)
                                 link_save_dns(link, f, b->dns, b->n_dns, &space);
 
-                        /* DNR resolvers are not required to provide Do53 service, however resolved doesn't
-                         * know how to handle such a server so for now Do53 service is required, and
-                         * assumed. */
+                        /* DNR resolvers are not required to provide Do53 service, hence they are written in
+                         * URI form, selecting DNS over TLS only. See dns_resolvers_to_dot_addrs(). */
                         serialize_resolvers(f, /* lvalue= */ NULL, &space,
                                             link->dhcp_lease,
                                             link_get_use_dnr(link, NETWORK_CONFIG_SOURCE_DHCP4),

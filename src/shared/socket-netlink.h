@@ -33,6 +33,11 @@ struct in_addr_full {
         uint16_t port;
         int ifindex;
         char *server_name;
+        /* Only set for addresses given in URI form, see in_addr_full_new_from_uri(). */
+        char *scheme;           /* Lower case, without "://" */
+        char *path;             /* Without the leading "/" */
+        char *query;            /* Without the leading "?" */
+        char **params;          /* Fragment parameters other than name= and ifname=, as "key=value" */
         char *cached_server_string; /* Should not be handled directly, but through in_addr_full_to_string(). */
 };
 
@@ -41,7 +46,9 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(struct in_addr_full*, in_addr_full_free);
 void in_addr_full_free_array(struct in_addr_full **array, size_t n);
 int in_addr_full_new(int family, const union in_addr_union *a, uint16_t port, int ifindex, const char *server_name, struct in_addr_full **ret);
 int in_addr_full_new_from_string(const char *s, struct in_addr_full **ret);
+int in_addr_full_new_from_uri(const char *s, struct in_addr_full **ret);
 const char* in_addr_full_to_string(struct in_addr_full *a);
+int in_addr_full_params_to_json(const struct in_addr_full *a, sd_json_variant **ret);
 
 int netns_get_nsid(int netnsfd, uint32_t *ret);
 

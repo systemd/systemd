@@ -42,6 +42,15 @@ bool file_url_is_valid(const char *url) {
         return ascii_is_valid(p);
 }
 
+bool url_scheme_is_valid(const char *scheme) {
+        /* RFC 3986 section 3.1: scheme = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." ). Schemes are case
+         * insensitive, and their canonical form is lower case, which is the only form accepted here.
+         * Callers that accept other cases should lowercase first. */
+        return !isempty(scheme) &&
+                strchr(LOWERCASE_LETTERS, scheme[0]) &&
+                in_charset(scheme, LOWERCASE_LETTERS DIGITS "+.-");
+}
+
 int provider_url_parse(const char *url, char **ret_socket, char **ret_resource) {
         const char *p, *e;
         int r;

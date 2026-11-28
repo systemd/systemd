@@ -128,6 +128,9 @@ static int dns_transport_dot_open_stream(DnsServerTransport *tr, DnsTransaction 
 
 const DnsTransportVTable dns_transport_dot_vtable = {
         .object_size = sizeof(DnsTransportDot),
+        .scheme = "dnss",
+        .encrypted = true,
+        .downgrade = DNS_TRANSPORT_DNS,
         .default_port = 853,
         .edns_min = DNS_SERVER_EDNS_LEVEL_EDNS0, /* Our DNS-over-TLS implementation always requires EDNS0 */
         .done = dns_transport_dot_done,

@@ -117,7 +117,7 @@ static int map_dns(
         if (r < 0)
                 return r;
 
-        _cleanup_free_ struct in_addr_full *a = NULL;
+        _cleanup_(in_addr_full_freep) struct in_addr_full *a = NULL;
         r = in_addr_full_new_from_string(s, &a);
         if (r < 0)
                 return r;

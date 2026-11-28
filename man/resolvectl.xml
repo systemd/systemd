@@ -204,13 +204,12 @@
           <para>Get/set per-interface DNS configuration. These commands may be used to configure various DNS
           settings for network interfaces. These commands may be used to inform
           <command>systemd-resolved</command> or <command>systemd-networkd</command> about per-interface DNS
-          configuration determined through external means. The <command>dns</command> command expects IPv4 or
-          IPv6 address specifications of DNS servers to use. Each address can optionally take a port number
-          separated with <literal>:</literal>, a network interface name or index separated with
-          <literal>%</literal>, and a Server Name Indication (SNI) separated with <literal>#</literal>. When
-          IPv6 address is specified with a port number, then the address must be in the square brackets. That
-          is, the acceptable full formats are <literal>111.222.333.444:9953%ifname#example.com</literal> for
-          IPv4 and <literal>[1111:2222::3333]:9953%ifname#example.com</literal> for IPv6. The
+          configuration determined through external means. The <command>dns</command> command expects DNS
+          servers, e.g. <literal>dnss://111.222.333.444#name=example.com</literal> or
+          <literal>[1111:2222::3333]:9953%ifname#example.com</literal>, in the format described for
+          <varname>DNS=</varname> in
+          <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          The
           <command>domain</command> command expects valid DNS domains, possibly prefixed with
           <literal>~</literal>, and configures a per-interface search or route-only domain. The
           <command>default-route</command> command expects a boolean parameter, and configures whether the

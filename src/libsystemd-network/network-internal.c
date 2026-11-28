@@ -9,6 +9,7 @@
 #include "extract-word.h"
 #include "in-addr-util.h"
 #include "network-internal.h"
+#include "socket-netlink.h"
 #include "string-util.h"
 #include "strv.h"
 
@@ -158,7 +159,8 @@ static int coalesce_dnr(sd_dns_resolver *dnr, size_t n_dnr, int family, const ch
         return false;
 }
 
-/* Deserialized resolvers are assumed to offer DoT service. */
+/* Deserialized resolvers are assumed to offer DoT service. Accepts both the "dnss://address[:port]#name=…" form
+ * serialize_dnr() writes, and the "address[:port]#name" form it wrote before. */
 int deserialize_dnr(sd_dns_resolver **ret, const char *string) {
         int r;
 
@@ -179,14 +181,22 @@ int deserialize_dnr(sd_dns_resolver **ret, const char *string) {
                 if (r == 0)
                         break;
 
-                uint16_t port;
-                int family;
-                _cleanup_free_ union in_addr_union *addr = new(union in_addr_union, 1);
-                _cleanup_free_ char *auth_name = NULL;
-
-                r = in_addr_port_ifindex_name_from_string_auto(word, &family, addr, &port, /* ret_ifindex= */ NULL, &auth_name);
+                _cleanup_(in_addr_full_freep) struct in_addr_full *a = NULL;
+                r = in_addr_full_new_from_string(word, &a);
                 if (r < 0)
                         return r;
+
+                if ((a->scheme && !streq(a->scheme, "dnss")) || a->path || a->query || a->params ||
+                    a->ifindex != 0 || !a->server_name)
+                        return -EINVAL;
+
+                _cleanup_free_ union in_addr_union *addr = newdup(union in_addr_union, &a->address, 1);
+                if (!addr)
+                        return -ENOMEM;
+
+                _cleanup_free_ char *auth_name = TAKE_PTR(a->server_name);
+                uint16_t port = a->port;
+                int family = a->family;
 
                 r = coalesce_dnr(dnr, n, family, auth_name, addr);
                 if (r < 0)
