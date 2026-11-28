@@ -1793,6 +1793,14 @@ static int bus_method_set_link_default_route(sd_bus_message *message, void *user
         return call_link_method(userdata, message, bus_link_method_set_default_route, error);
 }
 
+static int bus_method_set_link_dns_priority(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return call_link_method(userdata, message, bus_link_method_set_dns_priority, error);
+}
+
+static int bus_method_set_link_dns_fallthrough(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return call_link_method(userdata, message, bus_link_method_set_dns_fallthrough, error);
+}
+
 static int bus_method_set_link_llmnr(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return call_link_method(userdata, message, bus_link_method_set_llmnr, error);
 }
@@ -2182,6 +2190,8 @@ static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_PROPERTY("LLMNR", "s", bus_property_get_resolve_support, offsetof(Manager, llmnr_support), 0),
         SD_BUS_PROPERTY("MulticastDNS", "s", bus_property_get_resolve_support, offsetof(Manager, mdns_support), 0),
         SD_BUS_PROPERTY("DNSOverTLS", "s", bus_property_get_dns_over_tls_mode, 0, 0),
+        SD_BUS_PROPERTY("DNSPriority", "i", bus_property_get_int, offsetof(Manager, priority), 0),
+        SD_BUS_PROPERTY("DNSFallthrough", "b", bus_property_get_bool, offsetof(Manager, fallthrough), 0),
         SD_BUS_PROPERTY("DNS", "a(iiay)", bus_property_get_dns_servers, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("DNSEx", "a(iiayqs)", bus_property_get_dns_servers_ex, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("FallbackDNS", "a(iiay)", bus_property_get_fallback_dns_servers, offsetof(Manager, fallback_dns_servers), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -2252,6 +2262,16 @@ static const sd_bus_vtable resolve_vtable[] = {
                                 SD_BUS_ARGS("i", ifindex, "b", enable),
                                 SD_BUS_NO_RESULT,
                                 bus_method_set_link_default_route,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("SetLinkDNSPriority",
+                                SD_BUS_ARGS("i", ifindex, "i", priority),
+                                SD_BUS_NO_RESULT,
+                                bus_method_set_link_dns_priority,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("SetLinkDNSFallthrough",
+                                SD_BUS_ARGS("i", ifindex, "b", enable),
+                                SD_BUS_NO_RESULT,
+                                bus_method_set_link_dns_fallthrough,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("SetLinkLLMNR",
                                 SD_BUS_ARGS("i", ifindex, "s", mode),

@@ -92,6 +92,10 @@ node /org/freedesktop/resolve1 {
                      in  a(sb) domains);
       SetLinkDefaultRoute(in  i ifindex,
                           in  b enable);
+      SetLinkDNSPriority(in  i ifindex,
+                         in  i priority);
+      SetLinkDNSFallthrough(in  i ifindex,
+                            in  b enable);
       SetLinkLLMNR(in  i ifindex,
                    in  s mode);
       SetLinkMulticastDNS(in  i ifindex,
@@ -126,6 +130,10 @@ node /org/freedesktop/resolve1 {
       readonly s MulticastDNS = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s DNSOverTLS = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly i DNSPriority = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly b DNSFallthrough = ...;
       readonly a(iiay) DNS = [...];
       readonly a(iiayqs) DNSEx = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -183,6 +191,10 @@ node /org/freedesktop/resolve1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="SetLinkDefaultRoute()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="SetLinkDNSPriority()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetLinkDNSFallthrough()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="SetLinkLLMNR()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="SetLinkMulticastDNS()"/>
@@ -216,6 +228,10 @@ node /org/freedesktop/resolve1 {
     <variablelist class="dbus-property" generated="True" extra-ref="MulticastDNS"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DNSOverTLS"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DNSPriority"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DNSFallthrough"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DNS"/>
 
@@ -375,6 +391,14 @@ node /org/freedesktop/resolve1 {
 
       <para><function>SetLinkDefaultRoute()</function> specifies whether the link shall be used as the
       default route for name queries. See the description of name routing in
+      <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      for details.</para>
+
+      <para><function>SetLinkDNSPriority()</function> sets the priority of the link among the links, DNS
+      delegates, and the global configuration that match a name equally well. Lower values are asked first.
+      Pass -1 to reset it. <function>SetLinkDNSFallthrough()</function> specifies whether a lookup that failed
+      on the link, and on all others that match it equally well, may continue with those that match it less
+      well. See the "Priority and Fall-Through" section in
       <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
       for details.</para>
 
@@ -698,6 +722,8 @@ node /org/freedesktop/resolve1/link/_1 {
       SetDNSEx(in  a(iayqs) addresses);
       SetDomains(in  a(sb) domains);
       SetDefaultRoute(in  b enable);
+      SetDNSPriority(in  i priority);
+      SetDNSFallthrough(in  b enable);
       SetLLMNR(in  s mode);
       SetMulticastDNS(in  s mode);
       SetDNSOverTLS(in  s mode);
@@ -719,6 +745,10 @@ node /org/freedesktop/resolve1/link/_1 {
       readonly a(sb) Domains = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b DefaultRoute = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly i DNSPriority = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly b DNSFallthrough = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s LLMNR = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -752,6 +782,10 @@ node /org/freedesktop/resolve1/link/_1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="SetDefaultRoute()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="SetDNSPriority()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetDNSFallthrough()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="SetLLMNR()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="SetMulticastDNS()"/>
@@ -777,6 +811,10 @@ node /org/freedesktop/resolve1/link/_1 {
     <variablelist class="dbus-property" generated="True" extra-ref="Domains"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultRoute"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DNSPriority"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DNSFallthrough"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LLMNR"/>
 
@@ -806,7 +844,8 @@ node /org/freedesktop/resolve1/link/_1 {
       benefit of reducing roundtrips, as it is not necessary to first request the Link object path via
       <function>GetLink()</function> before invoking the methods. The same relationship holds for
       <function>SetDNSEx()</function>, <function>SetDomains()</function>,
-      <function>SetDefaultRoute()</function>, <function>SetLLMNR()</function>,
+      <function>SetDefaultRoute()</function>, <function>SetDNSPriority()</function>,
+      <function>SetDNSFallthrough()</function>, <function>SetLLMNR()</function>,
       <function>SetMulticastDNS()</function>, <function>SetDNSOverTLS()</function>,
       <function>SetDNSSEC()</function>, <function>SetDNSSECNegativeTrustAnchors()</function>, and
       <function>Revert()</function>. For further details on these methods see the
@@ -834,6 +873,10 @@ node /org/freedesktop/resolve1/link/_1 {
 
       <para><varname>DefaultRoute</varname> exposes a boolean field that indicates whether the interface will
       be used as default route for name queries. See <function>SetLinkDefaultRoute()</function> above.</para>
+
+      <para><varname>DNSPriority</varname> and <varname>DNSFallthrough</varname> expose the interface's DNS
+      priority (-1 if unset) and fall-through flag. See <function>SetLinkDNSPriority()</function> and
+      <function>SetLinkDNSFallthrough()</function> above.</para>
 
       <para>The other properties reflect the state of the various configuration settings for the link which
       may be set with the various methods calls such as <function>SetDNS()</function> or
@@ -974,6 +1017,13 @@ $ gdbus introspect --system \
       <title>The Manager Object</title>
 
       <para><function>GetDelegate()</function> and <function>ListDelegates()</function> were added in version 258.</para>
+      <para><function>SetLinkDNSPriority()</function>, <function>SetLinkDNSFallthrough()</function>,
+      <varname>DNSPriority</varname>, and <varname>DNSFallthrough</varname> were added in version 263.</para>
+    </refsect2>
+    <refsect2>
+      <title>Link Object</title>
+      <para><function>SetDNSPriority()</function>, <function>SetDNSFallthrough()</function>,
+      <varname>DNSPriority</varname>, and <varname>DNSFallthrough</varname> were added in version 263.</para>
     </refsect2>
   </refsect1>
 

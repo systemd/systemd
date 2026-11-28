@@ -1729,6 +1729,97 @@ static int vl_method_link_set_dns_default_route(sd_varlink *link, sd_json_varian
         return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
+static int vl_method_link_set_dns_priority(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        struct {
+                int priority;
+                int ifindex;
+        } p = {
+                .priority = DNS_PRIORITY_UNSET,
+        };
+        static const sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                { "ifindex",  _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex, voffsetof(p, ifindex),  SD_JSON_MANDATORY|SD_JSON_RELAX },
+                { "priority", _SD_JSON_VARIANT_TYPE_INVALID, dispatch_dns_priority, voffsetof(p, priority), 0                               },
+                {},
+        };
+        int r;
+
+        assert(link);
+
+        r = sd_json_dispatch(parameters, dispatch_table, SD_JSON_LOG, &p);
+        if (r < 0)
+                return r;
+
+        Link *l = NULL;
+        r = vl_get_link(link, p.ifindex, &l);
+        if (r < 0)
+                return r;
+
+        r = verify_polkit_full(
+                        link,
+                        parameters,
+                        "org.freedesktop.resolve1.set-default-route",
+                        SD_JSON_ALLOW_EXTENSIONS,
+                        (const char**) STRV_MAKE("interface", l->ifname));
+        if (r <= 0)
+                return r;
+
+        if (l->priority != p.priority) {
+                link_set_priority(l, p.priority);
+                (void) link_save_user(l);
+
+                if (p.priority == DNS_PRIORITY_UNSET)
+                        log_link_info(l, "Varlink client reset DNS priority.");
+                else
+                        log_link_info(l, "Varlink client set DNS priority: %i", p.priority);
+        }
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
+static int vl_method_link_set_dns_fallthrough(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        struct {
+                bool fallthrough;
+                int ifindex;
+        } p = {};
+        static const sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                { "ifindex",     _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,    voffsetof(p, ifindex),     SD_JSON_MANDATORY|SD_JSON_RELAX },
+                { "fallthrough", SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool, voffsetof(p, fallthrough), SD_JSON_MANDATORY               },
+                {},
+        };
+        int r;
+
+        assert(link);
+
+        r = sd_json_dispatch(parameters, dispatch_table, SD_JSON_LOG, &p);
+        if (r < 0)
+                return r;
+
+        Link *l = NULL;
+        r = vl_get_link(link, p.ifindex, &l);
+        if (r < 0)
+                return r;
+
+        r = verify_polkit_full(
+                        link,
+                        parameters,
+                        "org.freedesktop.resolve1.set-default-route",
+                        SD_JSON_ALLOW_EXTENSIONS,
+                        (const char**) STRV_MAKE("interface", l->ifname));
+        if (r <= 0)
+                return r;
+
+        if (l->fallthrough != p.fallthrough) {
+                link_set_fallthrough(l, p.fallthrough);
+                (void) link_save_user(l);
+
+                log_link_info(l, "Varlink client set DNS fall-through: %s", yes_no(p.fallthrough));
+        }
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
 static int vl_method_link_set_llmnr(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         struct {
                 ResolveSupport mode;
@@ -2058,6 +2149,8 @@ static int varlink_main_server_init(Manager *m) {
                         "io.systemd.Resolve.Link.SetDomains",                    vl_method_link_set_domains,
                         "io.systemd.Resolve.Link.SetDNSSECNegativeTrustAnchors", vl_method_link_set_dnssec_negative_trust_anchors,
                         "io.systemd.Resolve.Link.SetDNSDefaultRoute",            vl_method_link_set_dns_default_route,
+                        "io.systemd.Resolve.Link.SetDNSPriority",                vl_method_link_set_dns_priority,
+                        "io.systemd.Resolve.Link.SetDNSFallthrough",             vl_method_link_set_dns_fallthrough,
                         "io.systemd.Resolve.Link.SetLLMNR",                      vl_method_link_set_llmnr,
                         "io.systemd.Resolve.Link.SetMulticastDNS",               vl_method_link_set_mdns,
                         "io.systemd.Resolve.Link.SetDNSOverTLS",                 vl_method_link_set_dns_over_tls,
