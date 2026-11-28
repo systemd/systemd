@@ -277,6 +277,82 @@ int bus_link_method_set_default_route(sd_bus_message *message, void *userdata, s
         return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
+int bus_link_method_set_dns_priority(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Link *l = ASSERT_PTR(userdata);
+        int32_t priority;
+        int r;
+
+        assert(message);
+
+        r = verify_managed_link(l, error);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read(message, "i", &priority);
+        if (r < 0)
+                return r;
+
+        if (priority != DNS_PRIORITY_UNSET && !dns_priority_is_valid(priority))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid DNS priority %" PRIi32 ".", priority);
+
+        r = bus_verify_polkit_async(
+                        message,
+                        "org.freedesktop.network1.set-default-route",
+                        (const char**) STRV_MAKE("interface", l->ifname),
+                        &l->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Polkit will call us back */
+
+        if (l->dns_priority != priority) {
+                l->dns_priority = priority;
+
+                r = link_save_and_clean_full(l, /* also_save_manager= */ true);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
+}
+
+int bus_link_method_set_dns_fallthrough(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Link *l = ASSERT_PTR(userdata);
+        int r, b;
+
+        assert(message);
+
+        r = verify_managed_link(l, error);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read(message, "b", &b);
+        if (r < 0)
+                return r;
+
+        r = bus_verify_polkit_async(
+                        message,
+                        "org.freedesktop.network1.set-default-route",
+                        (const char**) STRV_MAKE("interface", l->ifname),
+                        &l->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Polkit will call us back */
+
+        if (l->dns_fallthrough != b) {
+                l->dns_fallthrough = b;
+
+                r = link_save_and_clean_full(l, /* also_save_manager= */ true);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
+}
+
 int bus_link_method_set_llmnr(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Link *l = ASSERT_PTR(userdata);
         ResolveSupport mode;
@@ -724,6 +800,16 @@ static const sd_bus_vtable link_vtable[] = {
                                 SD_BUS_ARGS("b", enable),
                                 SD_BUS_NO_RESULT,
                                 bus_link_method_set_default_route,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("SetDNSPriority",
+                                SD_BUS_ARGS("i", priority),
+                                SD_BUS_NO_RESULT,
+                                bus_link_method_set_dns_priority,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("SetDNSFallthrough",
+                                SD_BUS_ARGS("b", enable),
+                                SD_BUS_NO_RESULT,
+                                bus_link_method_set_dns_fallthrough,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("SetLLMNR",
                                 SD_BUS_ARGS("s", mode),

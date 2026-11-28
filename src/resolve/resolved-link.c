@@ -356,6 +356,53 @@ clear:
         return r;
 }
 
+static int link_update_priority(Link *l) {
+        uint32_t priority;
+        int r;
+
+        assert(l);
+
+        r = sd_network_link_get_dns_priority(l->ifindex, &priority);
+        if (r == -ENODATA) {
+                r = 0;
+                goto clear;
+        }
+        if (r < 0)
+                goto clear;
+        if (!dns_priority_is_valid(priority)) {
+                r = -ERANGE;
+                goto clear;
+        }
+
+        link_set_priority(l, (int) priority);
+        return 0;
+
+clear:
+        l->priority = DNS_PRIORITY_UNSET;
+        return r;
+}
+
+static int link_update_fallthrough(Link *l) {
+        int r;
+
+        assert(l);
+
+        r = sd_network_link_get_dns_fallthrough(l->ifindex);
+        if (r == -ENODATA) {
+                r = 0;
+                goto clear;
+        }
+        if (r < 0)
+                goto clear;
+
+        link_set_fallthrough(l, r > 0);
+        return 0;
+
+clear:
+        l->fallthrough = false;
+        return r;
+}
+
 static int link_update_llmnr_support(Link *l) {
         _cleanup_free_ char *b = NULL;
         int r;
@@ -660,6 +707,14 @@ static void link_read_settings(Link *l) {
         r = link_update_default_route(l);
         if (r < 0)
                 log_link_warning_errno(l, r, "Failed to read default route setting for the interface, proceeding anyway: %m");
+
+        r = link_update_priority(l);
+        if (r < 0)
+                log_link_warning_errno(l, r, "Failed to read DNS priority for the interface, proceeding anyway: %m");
+
+        r = link_update_fallthrough(l);
+        if (r < 0)
+                log_link_warning_errno(l, r, "Failed to read DNS fall-through setting for the interface, proceeding anyway: %m");
 }
 
 int link_update(Link *l) {

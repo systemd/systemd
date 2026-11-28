@@ -1083,6 +1083,30 @@ static int dns_misc_append_json(Link *link, sd_json_variant **v) {
                         return r;
         }
 
+        t = link->dns_priority != DNS_PRIORITY_UNSET ? link->dns_priority : link->network->dns_priority;
+        if (t != DNS_PRIORITY_UNSET) {
+                source = link->dns_priority != DNS_PRIORITY_UNSET ? NETWORK_CONFIG_SOURCE_RUNTIME : NETWORK_CONFIG_SOURCE_STATIC;
+
+                r = sd_json_variant_append_arraybo(
+                                &array,
+                                SD_JSON_BUILD_PAIR_INTEGER("DNSPriority", t),
+                                SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(source)));
+                if (r < 0)
+                        return r;
+        }
+
+        t = link->dns_fallthrough >= 0 ? link->dns_fallthrough : link->network->dns_fallthrough;
+        if (t >= 0) {
+                source = link->dns_fallthrough >= 0 ? NETWORK_CONFIG_SOURCE_RUNTIME : NETWORK_CONFIG_SOURCE_STATIC;
+
+                r = sd_json_variant_append_arraybo(
+                                &array,
+                                SD_JSON_BUILD_PAIR_BOOLEAN("DNSFallthrough", t),
+                                SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(source)));
+                if (r < 0)
+                        return r;
+        }
+
         mode = link->dns_over_tls_mode >= 0 ? link->dns_over_tls_mode : link->network->dns_over_tls_mode;
         if (mode >= 0) {
                 source = link->dns_over_tls_mode >= 0 ? NETWORK_CONFIG_SOURCE_RUNTIME : NETWORK_CONFIG_SOURCE_STATIC;
