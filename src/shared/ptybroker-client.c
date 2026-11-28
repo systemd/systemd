@@ -10,6 +10,13 @@
 #include "string-util.h"
 #include "terminal-util.h"
 
+bool pty_broker_description_valid(const char *s) {
+        if (!string_is_safe(s, STRING_ALLOW_QUOTES|STRING_ALLOW_BACKSLASHES|STRING_ALLOW_GLOBS))
+                return false;
+
+        return strlen(s) <= PTY_BROKER_DESCRIPTION_MAX;
+}
+
 int pty_broker_connect_full(RuntimeScope scope, int log_level, sd_varlink **ret) {
         int r;
 
