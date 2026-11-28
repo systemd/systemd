@@ -758,9 +758,12 @@
     <refsect2>
       <title>[PCRSignature:<replaceable>NAME</replaceable>] section</title>
 
-      <para>In the config file, those options are grouped by section. On the command line, they
-      must be specified in the same order. The sections specified in both sources are combined.
-      </para>
+      <para>In the config file, those options are grouped by section: each section specifies one signing
+      group, and the options may be omitted per section, except that <varname>PCRPrivateKey=</varname> must
+      be specified in a section that specifies <varname>Phases=</varname> or <varname>PolicyRef=</varname>. A
+      section that specifies only <varname>PCRPublicKey=</varname> or <varname>PCRCertificate=</varname> is
+      allowed, and only causes the public key to be embedded into the image. On the command line, the options
+      must be specified in the same order. The sections specified in both sources are combined.</para>
 
       <variablelist>
         <varlistentry>
