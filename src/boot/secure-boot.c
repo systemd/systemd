@@ -199,11 +199,17 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
         if (action == ENROLL_ACTION_SHUTDOWN) {
                 printf("Custom Secure Boot keys successfully enrolled, powering off the system now!\n");
                 console_key_read(/* ret_key= */ NULL, /* timeout_usec= */ 2 * 1000 * 1000); /* wait a bit so user can see the message */
+                /* Flush gcov counters before the system state changes and our memory
+                 * goes away (no-op unless built with -Defi-coverage=true). */
+                efi_gcov_exit();
                 RT->ResetSystem(EfiResetShutdown, EFI_SUCCESS, 0, NULL);
         } else {
                 assert(action == ENROLL_ACTION_REBOOT);
                 printf("Custom Secure Boot keys successfully enrolled, rebooting the system now!\n");
                 console_key_read(/* ret_key= */ NULL, /* timeout_usec= */ 2 * 1000 * 1000); /* wait a bit so user can see the message */
+                /* Flush gcov counters before the system state changes and our memory
+                 * goes away (no-op unless built with -Defi-coverage=true). */
+                efi_gcov_exit();
                 RT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
         }
         assert_not_reached();

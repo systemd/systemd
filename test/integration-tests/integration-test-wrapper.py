@@ -334,7 +334,6 @@ def process_coverage(args: argparse.Namespace, summary: Summary, name: str, jour
                     '-size', '0',
                     '-delete',
                 ],
-                input=tarball,
                 stdout=sys.stderr,
                 check=True,
             )  # fmt: skip
@@ -354,17 +353,16 @@ def process_coverage(args: argparse.Namespace, summary: Summary, name: str, jour
                 check=True,
             )
 
+            gcov_tool = (
+                ['--gcov-tool', 'llvm-cov', '--gcov-tool', 'gcov']
+                if summary.environment.get('LLVM', '0') == '1'
+                else []
+            )
+
             subprocess.run(
                 [
                     'lcov',
-                    *(
-                        [
-                            '--gcov-tool', 'llvm-cov',
-                            '--gcov-tool', 'gcov',
-                        ]
-                        if summary.environment.get('LLVM', '0') == '1'
-                        else []
-                    ),
+                    *gcov_tool,
                     '--directory', tmp,
                     '--base-directory', 'src/',
                     '--capture',

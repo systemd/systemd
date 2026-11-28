@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+[Unit]
+Description=Collect EFI coverage data from the ESP
+ConditionEnvironment=COVERAGE_BUILD_DIR
+RequiresMountsFor=/boot /efi
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/systemd/coverage-forwarder collect
+
+[Install]
+# Integration test VMs boot with systemd.unit=TEST-*.service, whose base unit only wants
+# multi-user.target, so default.target is never reached there.
+WantedBy=multi-user.target

@@ -109,6 +109,9 @@ static EFI_STATUS load_via_boot_services(
 
         log_wait();
 
+        /* The kernel entry does not return: flush the coverage counters before handing off. */
+        efi_gcov_exit();
+
         err = BS->StartImage(kernel_image, NULL, NULL);
         /* Try calling the kernel compat entry point if one exists. */
         if (err == EFI_UNSUPPORTED && compat_entry_point > 0) {
@@ -371,6 +374,11 @@ EFI_STATUS linux_exec(
         }
 
         log_wait();
+
+        /* The kernel entry does not return (the kernel itself calls ExitBootServices() and takes over),
+         * so this is the last moment where the firmware's file services are still available: flush the
+         * coverage counters before handing off. */
+        efi_gcov_exit();
 
         if (entry_point > 0) {
                 EFI_IMAGE_ENTRY_POINT entry =

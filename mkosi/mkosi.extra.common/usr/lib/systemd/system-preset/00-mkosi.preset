@@ -61,6 +61,7 @@ disable systemd-tmpfiles-clean.timer
 # TEST-06-SELINUX handles relabeling itself at runtime.
 disable selinux-autorelabel-mark.service
 
+enable coverage-efi-collect.service
 enable coverage-forwarder.service
 
 # Old multipathd.service pulls deprecated systemd-udev-settle.service, and it

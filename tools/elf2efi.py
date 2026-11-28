@@ -301,7 +301,9 @@ def iter_copy_sections(file: elffile.ELFFile) -> typing.Iterator[PeSection]:
             or elf_s['sh_size'] == 0
         ):
             continue
-        if elf_s['sh_type'] not in ['SHT_PROGBITS', 'SHT_NOBITS']:
+        # SHT_INIT_ARRAY/SHT_FINI_ARRAY are plain arrays of function pointers (e.g. from
+        # gcov-instrumented objects), treat them like PROGBITS.
+        if elf_s['sh_type'] not in ['SHT_PROGBITS', 'SHT_NOBITS', 'SHT_INIT_ARRAY', 'SHT_FINI_ARRAY']:
             raise BadSectionError(f'Unknown section {elf_s.name} with type {elf_s["sh_type"]}')
         if elf_s.name == '.got' and not is_x86_reserved_got(file, elf_s):
             print('WARNING: Non-empty .got section', file=sys.stderr)
