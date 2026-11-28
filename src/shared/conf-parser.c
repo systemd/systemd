@@ -543,22 +543,27 @@ static int config_parse_many_files(
 
         /* First process the first found main config file. */
         STRV_FOREACH(fn, conf_files) {
-                _cleanup_fclose_ FILE *f = NULL;
-                r = chase_and_fopenat_unlocked(root_fd, root_fd, *fn, CHASE_MUST_BE_REGULAR, "re", /* ret_path= */ NULL, &f);
+                _cleanup_(conf_file_freep) ConfFile *c = NULL;
+                r = conf_file_new_at(
+                                *fn, root, root_fd,
+                                CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED_BY_SYMLINK,
+                                &c);
                 if (r == -ENOENT)
                         continue;
+                if (r == -ERFKILL) /* Masked, do not fall back to a file with lower priority. */
+                        break;
                 if (r < 0)
                         return log_full_errno(level, r, "Failed to open %s: %m", *fn);
 
-                if (inodes) {
-                        if (fstat(fileno(f), &st) < 0)
-                                return log_full_errno(level, errno, "Failed to stat %s: %m", *fn);
-
-                        if (set_contains(inodes, &st)) {
-                                log_debug("%s: symlink to/symlinked as drop-in, will be read later.", *fn);
-                                break;
-                        }
+                if (set_contains(inodes, &c->st)) {
+                        log_debug("%s: symlink to/symlinked as drop-in, will be read later.", *fn);
+                        break;
                 }
+
+                _cleanup_fclose_ FILE *f = NULL;
+                r = fdopen_independent(c->fd, "re", &f);
+                if (r < 0)
+                        return log_full_errno(level, r, "Failed to open %s: %m", *fn);
 
                 r = config_parse(/* unit= */ NULL, *fn, f, sections, lookup, table, flags, userdata, &st);
                 if (r < 0)
@@ -654,7 +659,8 @@ int config_parse_many_full(
                         dropin_dirname,
                         root,
                         root_fd,
-                        FLAGS_SET(flags, CONFIG_PARSE_WARN) ? CONF_FILES_WARN : 0,
+                        CONF_FILES_FILTER_MASKED_BY_SYMLINK |
+                        (FLAGS_SET(flags, CONFIG_PARSE_WARN) ? CONF_FILES_WARN : 0),
                         conf_file_dirs);
         if (r < 0)
                 return log_full_errno(FLAGS_SET(flags, CONFIG_PARSE_WARN) ? LOG_WARNING : LOG_DEBUG, r,
@@ -745,12 +751,13 @@ static int dropins_get_stats_by_path(
         if (!strextend(&dropin_dirname, ".d"))
                 return -ENOMEM;
 
+        /* Filter like config_parse_many_full() does, as callers compare the stats of both. */
         r = conf_files_list_dropins(
                         &files,
                         dropin_dirname,
                         /* root= */ NULL,
                         /* root_fd= */ XAT_FDROOT,
-                        /* flags= */ 0,
+                        CONF_FILES_FILTER_MASKED_BY_SYMLINK,
                         conf_file_dirs);
         if (r < 0)
                 return r;
