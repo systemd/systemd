@@ -1136,6 +1136,7 @@ static int varlink_reply_or_watch_unit_job(
                 sd_varlink *link,
                 Unit *u,
                 Job *j,
+                bool more,
                 bool notify_job_changes,
                 bool notify_unit_changes) {
 
@@ -1145,14 +1146,22 @@ static int varlink_reply_or_watch_unit_job(
         assert(u);
         assert(j);
 
-        /* Non-streaming, or fire-and-forget (no notification flags set): return full unit context
-         * and runtime, plus the job object so the caller can correlate with later state. */
+        /* One way call: don't bother even building a reply */
+        if (!sd_varlink_wants_reply(link))
+                return 0;
+
+        /* Fire-and-forget: caller didn't opt into any notifications, so we started the job and now return
+         * everything we know about the initial state. */
         if (!notify_job_changes && !notify_unit_changes)
                 return varlink_reply_unit_job(link, u, j);
 
-        /* Streaming: attach to the job for the final reply, and optionally to the unit for state change
-         * notifications. j->varlink owns the stream lifetime, u->varlink_unit_change is just a flag to
-         * also send unit state notifications along the way.
+        /* If not streaming, we should return the final reply only, not notifications along the way. */
+        if (!more)
+                notify_job_changes = notify_unit_changes = false;
+
+        /* Attach to the job for the final reply, and turn on notifications on the job and/or unit if requested.
+         * j->varlink owns the stream lifetime, u->varlink_unit_change is just a flag to also send unit state
+         * notifications along the way.
          *
          * Because jobs coalesce, a concurrent streaming request may map onto a job (or unit) that is
          * already being watched by another connection. Only a single streaming subscriber is supported,
@@ -1280,8 +1289,9 @@ int vl_method_enqueue_unit_job(sd_varlink *link, sd_json_variant *parameters, sd
 
         size_t n = strv_length(p.names);
         bool notify = p.notify_job_changes > 0 || p.notify_unit_changes > 0;
+        bool more = FLAGS_SET(flags, SD_VARLINK_METHOD_MORE);
 
-        if ((n > 1 || notify) && !FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+        if ((n > 1 || notify) && !more)
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, /* parameters= */ NULL);
 
         /* A notification stream currently tracks only one job and unit. */
@@ -1334,7 +1344,7 @@ int vl_method_enqueue_unit_job(sd_varlink *link, sd_json_variant *parameters, sd
                 if (r < 0)
                         return varlink_reply_bus_error(link, r, &bus_error);
 
-                return varlink_reply_or_watch_unit_job(link, first, j, p.notify_job_changes > 0, p.notify_unit_changes > 0);
+                return varlink_reply_or_watch_unit_job(link, first, j, more, p.notify_job_changes > 0, p.notify_unit_changes > 0);
         }
 
         /* Multiple units: enqueue all jobs in a single transaction */
@@ -1556,12 +1566,11 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
         if (r < 0)
                 return varlink_reply_bus_error(link, r, &bus_error);
 
-        bool more = FLAGS_SET(flags, SD_VARLINK_METHOD_MORE);
-
         return varlink_reply_or_watch_unit_job(
                         link, u, j,
-                        more && p.notify_job_changes > 0,
-                        more && p.notify_unit_changes > 0);
+                        FLAGS_SET(flags, SD_VARLINK_METHOD_MORE),
+                        p.notify_job_changes > 0,
+                        p.notify_unit_changes > 0);
 }
 
 typedef struct UnitSetPropertiesParameters {
