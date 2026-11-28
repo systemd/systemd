@@ -90,6 +90,7 @@ char *arg_entry_version = NULL;
 uint64_t arg_entry_commit = 0;
 char **arg_extras = NULL;
 unsigned arg_tries_left = UINT_MAX;
+bool arg_force = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
@@ -701,6 +702,11 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
                 }
 
+                OPTION_LONG("force", NULL,
+                            "Create a new boot menu entry even if an identical one exists"):
+                        arg_force = true;
+                        break;
+
                 OPTION_COMMON_INTROSPECT_CLI:
                         return introspect_cli(arg_json_format_flags);
                 }
@@ -725,6 +731,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
         if (arg_dry_run && args[0] && !STR_IN_SET(args[0], "unlink", "cleanup"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--dry-run is only supported with --unlink or --cleanup");
+
+        if (arg_force && !(args[0] && STR_IN_SET(args[0], "link", "link-auto")))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--force is only supported with link or link-auto.");
 
         if (arg_secure_boot_auto_enroll) {
 #if HAVE_OPENSSL
