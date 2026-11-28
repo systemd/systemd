@@ -821,6 +821,10 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
 * `$SYSTEMD_LLDP_SEND_MACHINE_ID` - takes a boolean, If true, systemd-networkd
   sends machine ID as chassis ID through LLDP protocol.
 
+* `$SYSTEMD_NETWORK_CLAT_BPF` – takes a boolean. If false, `CLAT=` translates
+  in userspace through a TUN device even where the eBPF programs could be used.
+  Primarily useful for testing and debugging.
+
 * `$SYSTEMD_NETWORK_MAX_ADDRESSES_PER_LINK` – takes a positive integer.
   Defaults to 16384. Limits the number of addresses that `systemd-networkd`
   may add per link.

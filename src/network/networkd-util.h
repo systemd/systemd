@@ -15,6 +15,7 @@ typedef enum NetworkConfigSource {
         NETWORK_CONFIG_SOURCE_NDISC,
         NETWORK_CONFIG_SOURCE_RUNTIME, /* through D-Bus method */
         NETWORK_CONFIG_SOURCE_MODEM_MANAGER,
+        NETWORK_CONFIG_SOURCE_CLAT,
         _NETWORK_CONFIG_SOURCE_MAX,
         _NETWORK_CONFIG_SOURCE_INVALID = -EINVAL,
 } NetworkConfigSource;

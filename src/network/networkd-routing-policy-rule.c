@@ -94,9 +94,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 routing_policy_rule_compare_func,
                 routing_policy_rule_detach);
 
-DEFINE_SECTION_CLEANUP_FUNCTIONS(RoutingPolicyRule, routing_policy_rule_unref);
-
-static int routing_policy_rule_new(RoutingPolicyRule **ret) {
+int routing_policy_rule_new(RoutingPolicyRule **ret) {
         RoutingPolicyRule *rule;
 
         assert(ret);
@@ -373,7 +371,7 @@ static bool routing_policy_rule_can_update(const RoutingPolicyRule *existing, co
         return true;
 }
 
-static int routing_policy_rule_get(Manager *m, const RoutingPolicyRule *in, int family, RoutingPolicyRule **ret) {
+int routing_policy_rule_get(Manager *m, const RoutingPolicyRule *in, int family, RoutingPolicyRule **ret) {
         RoutingPolicyRule *rule;
 
         assert(m);
@@ -733,7 +731,7 @@ static int routing_policy_rule_remove_handler(sd_netlink *rtnl, sd_netlink_messa
         return 1;
 }
 
-static int routing_policy_rule_remove(RoutingPolicyRule *rule, Manager *manager) {
+int routing_policy_rule_remove(RoutingPolicyRule *rule, Manager *manager) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
@@ -912,13 +910,7 @@ static int routing_policy_rule_process_request(Request *req, Link *link, Routing
         return 1;
 }
 
-static int static_routing_policy_rule_configure_handler(
-                sd_netlink *rtnl,
-                sd_netlink_message *m,
-                Request *req,
-                Link *link,
-                RoutingPolicyRule *rule) {
-
+int routing_policy_rule_configure_handler_internal(sd_netlink_message *m, Link *link, RoutingPolicyRule *rule) {
         int r;
 
         assert(m);
@@ -936,8 +928,24 @@ static int static_routing_policy_rule_configure_handler(
         } else if (r < 0) {
                 log_link_message_warning_errno(link, m, r, "Could not add routing policy rule");
                 link_enter_failed(link);
-                return 1;
+                return 0;
         }
+
+        return 1;
+}
+
+static int static_routing_policy_rule_configure_handler(
+                sd_netlink *rtnl,
+                sd_netlink_message *m,
+                Request *req,
+                Link *link,
+                RoutingPolicyRule *rule) {
+
+        int r;
+
+        r = routing_policy_rule_configure_handler_internal(m, link, rule);
+        if (r <= 0)
+                return r;
 
         if (link->static_routing_policy_rule_messages == 0) {
                 log_link_debug(link, "Routing policy rule configured.");
@@ -948,7 +956,13 @@ static int static_routing_policy_rule_configure_handler(
         return 1;
 }
 
-static int link_request_routing_policy_rule(Link *link, const RoutingPolicyRule *rule, int family) {
+int link_request_routing_policy_rule(
+                Link *link,
+                const RoutingPolicyRule *rule,
+                int family,
+                unsigned *message_counter,
+                routing_policy_rule_netlink_handler_t netlink_handler) {
+
         _cleanup_(routing_policy_rule_unrefp) RoutingPolicyRule *tmp = NULL;
         RoutingPolicyRule *existing = NULL;
         int r;
@@ -989,8 +1003,8 @@ static int link_request_routing_policy_rule(Link *link, const RoutingPolicyRule 
                                     routing_policy_rule_hash_func,
                                     routing_policy_rule_compare_func,
                                     routing_policy_rule_process_request,
-                                    &link->static_routing_policy_rule_messages,
-                                    static_routing_policy_rule_configure_handler,
+                                    message_counter,
+                                    netlink_handler,
                                     NULL);
         if (r <= 0)
                 return r;
@@ -1003,6 +1017,14 @@ static int link_request_routing_policy_rule(Link *link, const RoutingPolicyRule 
         return 1;
 }
 
+static int link_request_static_routing_policy_rule_family(Link *link, const RoutingPolicyRule *rule, int family) {
+        assert(link);
+
+        return link_request_routing_policy_rule(link, rule, family,
+                                                &link->static_routing_policy_rule_messages,
+                                                static_routing_policy_rule_configure_handler);
+}
+
 static int link_request_static_routing_policy_rule(Link *link, const RoutingPolicyRule *rule) {
         int r;
 
@@ -1010,15 +1032,15 @@ static int link_request_static_routing_policy_rule(Link *link, const RoutingPoli
         assert(rule);
 
         if (IN_SET(rule->family, AF_INET, AF_INET6))
-                return link_request_routing_policy_rule(link, rule, rule->family);
+                return link_request_static_routing_policy_rule_family(link, rule, rule->family);
 
         assert(rule->address_family == ADDRESS_FAMILY_YES);
 
-        r = link_request_routing_policy_rule(link, rule, AF_INET);
+        r = link_request_static_routing_policy_rule_family(link, rule, AF_INET);
         if (r < 0)
                 return r;
 
-        r = link_request_routing_policy_rule(link, rule, AF_INET6);
+        r = link_request_static_routing_policy_rule_family(link, rule, AF_INET6);
         if (r < 0)
                 return r;
 

@@ -42,6 +42,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
 
@@ -11519,6 +11520,134 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         )
 
 
+class FakeNAT64:
+    """Answers translated IPv6 packets on the router side of a veth pair, and verifies their checksums."""
+
+    ETH_P_IPV6 = 0x86DD
+
+    def __init__(self, ifname, remote):
+        self.ifname = ifname
+        self.remote = socket.inet_pton(socket.AF_INET6, remote)
+        self.router = socket.inet_pton(socket.AF_INET6, '2001:db8:ffff::1')
+        self.errors = []
+        self.sources = set()
+        self.resets = 0
+        self.port_unreachable = threading.Event()
+        self.done = threading.Event()
+        self.peer = (b'', b'')  # Ethernet header and address of the CLAT host, once seen
+
+    def __enter__(self):
+        self.sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(self.ETH_P_IPV6))
+        self.sock.bind((self.ifname, 0))
+        self.sock.settimeout(0.2)
+        self.thread = threading.Thread(target=self.run, daemon=True)
+        self.thread.start()
+        return self
+
+    def __exit__(self, *args):
+        self.done.set()
+        self.thread.join()
+        self.sock.close()
+
+    @staticmethod
+    def checksum(data):
+        if len(data) % 2:
+            data += b'\0'
+        total = sum(struct.unpack(f'!{len(data) // 2}H', data))
+        while total >> 16:
+            total = (total & 0xFFFF) + (total >> 16)
+        return ~total & 0xFFFF
+
+    def upper_checksum(self, src, dst, protocol, data):
+        return self.checksum(src + dst + struct.pack('!I3xB', len(data), protocol) + data)
+
+    def send(self, src, protocol, data):
+        ethernet, dst = self.peer
+        offset = {6: 16, 17: 6, 58: 2}[protocol]
+        data = data[:offset] + b'\0\0' + data[offset + 2 :]
+        check = self.upper_checksum(src, dst, protocol, data) or 0xFFFF
+        data = data[:offset] + struct.pack('!H', check) + data[offset + 2 :]
+        header = struct.pack('!IHBB', 6 << 28, len(data), protocol, 64) + src + dst
+        self.sock.send(ethernet + struct.pack('!H', self.ETH_P_IPV6) + header + data)
+
+    def send_udp(self, source_port, destination_port, payload):
+        data = struct.pack('!HHHH', source_port, destination_port, 8 + len(payload), 0) + payload
+        self.send(self.remote, 17, data)
+
+    def run(self):
+        while not self.done.is_set():
+            try:
+                frame = self.sock.recv(65536)
+            except socket.timeout:
+                continue
+
+            ethernet, packet = frame[:14], frame[14:]
+            if len(packet) < 40 or packet[24:40] != self.remote:
+                continue
+
+            length, protocol = struct.unpack('!HB', packet[4:7])
+            src, dst, data = packet[8:24], packet[24:40], packet[40 : 40 + length]
+            if protocol not in (6, 17, 58):
+                continue
+
+            if self.upper_checksum(src, dst, protocol, data) != 0:
+                self.errors.append(f'bad checksum, protocol {protocol}: {packet.hex()}')
+                continue
+
+            reply_ethernet = ethernet[6:12] + ethernet[0:6]
+            address = socket.inet_ntop(socket.AF_INET6, src)
+
+            if protocol == 58 and data[0] == 128:  # echo request, also native ones of the host
+                self.peer = (reply_ethernet, src)
+                self.send(dst, 58, bytes([129]) + data[1:])
+                if length > 500:
+                    self.sources.add(address)
+                continue
+
+            self.peer = (reply_ethernet, src)
+            self.sources.add(address)
+
+            if protocol == 58 and data[0] == 1 and data[1] == 4:  # port unreachable from the host
+                quoted = data[8:]
+                if (
+                    quoted[8:24] == dst
+                    and quoted[24:40] == src
+                    and self.upper_checksum(quoted[8:24], quoted[24:40], quoted[6], quoted[40:]) == 0
+                ):
+                    self.port_unreachable.set()
+                else:
+                    self.errors.append(f'bad quoted packet: {quoted.hex()}')
+
+            elif protocol == 17:
+                source_port, destination_port = struct.unpack('!HH', data[:4])
+                if destination_port == 7:
+                    self.send_udp(destination_port, source_port, data[8:])
+                elif destination_port == 9:  # port unreachable, quoting the packet
+                    self.send(dst, 58, struct.pack('!BBHI', 1, 4, 0, 0) + packet[: 40 + length])
+                elif destination_port == 10:  # packet too big, from a router outside of the prefix
+                    self.send(self.router, 58, struct.pack('!BBHI', 2, 0, 0, 1400) + packet[:1232])
+
+            elif protocol == 6:
+                source_port, destination_port, sequence = struct.unpack('!HHI', data[:8])
+                flags = data[13]
+                if flags & 0x04:
+                    self.resets += 1
+                elif flags & 0x02:  # SYN
+                    reply = struct.pack(
+                        '!HHIIBBHHH',
+                        destination_port,
+                        source_port,
+                        1000,
+                        sequence + 1,
+                        0x50,
+                        0x12,
+                        65535,
+                        0,
+                        0,
+                    )
+                    self.send(dst, 6, reply)
+
+
 class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
     def setUp(self):
         setup_common()
@@ -11634,6 +11763,231 @@ class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
         output = resolvectl('domain', 'veth-peer')
         print(output)
         self.assertIn('example.com', output)
+
+    def setup_clat(self, force_tun=False):
+        copy_network_unit(
+            '25-veth.netdev',
+            '25-ipv6ra-prefix-client-clat.network',
+            '25-ipv6ra-prefix.network',
+            '12-dummy.netdev',
+            '25-ipv6ra-uplink.network',
+        )
+
+        if force_tun:
+            dropin = '/run/systemd/system/systemd-networkd.service.d/50-clat-no-bpf.conf'
+            mkdir_p(os.path.dirname(dropin))
+            with open(dropin, mode='w', encoding='utf-8') as f:
+                f.write('[Service]\nEnvironment=SYSTEMD_NETWORK_CLAT_BPF=no\n')
+            self.addCleanup(check_output, 'systemctl daemon-reload')
+            self.addCleanup(rm_f, dropin)
+            check_output('systemctl daemon-reload')
+
+        start_networkd()
+        self.wait_online('veth99:routable', 'veth-peer:routable', 'dummy98:routable')
+
+        # Verify PREF64 was discovered
+        output = networkctl_json('veth-peer')
+        check_json(output)
+        pref64 = json.loads(output)['NDisc']['PREF64'][0]
+        prefix = socket.inet_ntop(socket.AF_INET6, bytearray(pref64['Prefix']))
+        self.assertEqual(prefix, '64:ff9b::')
+        self.assertEqual(pref64['PrefixLength'], 96)
+
+        self.check_networkd_log('veth-peer: CLAT: starting with PREF64 64:ff9b::/96')
+        self.check_networkd_log('veth-peer: CLAT: started using')
+
+        use_bpf = 'veth-peer: CLAT: started using BPF TC translation.' in read_networkd_log()
+        if force_tun:
+            self.assertFalse(use_bpf)
+        else:
+            version = check_output(f'{networkd_bin} --version')
+            if '+BPF_FRAMEWORK' in version and tuple(map(int, os.uname().release.split('.')[:2])) >= (6, 6):
+                self.assertTrue(use_bpf, 'CLAT should use BPF with a BPF capable build and kernel')
+
+        return use_bpf
+
+    def wait_clat_started(self, count):
+        for _ in range(40):
+            if read_networkd_log().count('veth-peer: CLAT: started using') >= count:
+                return
+            time.sleep(0.5)
+        self.fail(f'CLAT was not started {count} times')
+
+    def check_clat_configuration(self, use_bpf):
+        ifname = 'veth-peer' if use_bpf else 'cl-veth-peer'
+
+        output = check_output(f'ip -4 address show dev {ifname}')
+        print(output)
+        self.assertIn('192.0.0.1/32', output)
+
+        output = check_output(f'ip -4 route show dev {ifname}')
+        print(output)
+        self.assertRegex(output, 'default .*metric 2048')
+        self.assertIn('mtu 1472', output)
+
+        # The dedicated address is deprecated, and not one of the addresses of the host
+        output = check_output('ip -6 address show dev veth-peer deprecated')
+        print(output)
+        m = re.search(r'inet6 (2001:db8:0:1:[0-9a-f:]+)/128 scope global deprecated', output)
+        assert m is not None
+        address = m.group(1)
+
+        if use_bpf:
+            self.assertIn('via 192.0.0.2', check_output('ip -4 route show dev veth-peer'))
+            output = check_output('ip -4 neighbor show dev veth-peer')
+            print(output)
+            self.assertRegex(output, '192.0.0.2 .*PERMANENT')
+            self.assertFalse(link_exists('cl-veth-peer'), 'TUN device should not exist in BPF mode')
+        else:
+            output = check_output('ip -6 rule list priority 1000')
+            print(output)
+            self.assertRegex(output, f'from {address} .*blackhole')
+
+        return address
+
+    def check_clat_removed(self):
+        self.assertFalse(link_exists('cl-veth-peer'), 'CLAT TUN device should be removed')
+        self.assertNotIn('192.0.0.1', check_output('ip -4 address show dev veth-peer'))
+        self.assertNotIn('metric 2048', check_output('ip -4 route show dev veth-peer'))
+        self.assertNotIn('192.0.0.2', check_output('ip -4 neighbor show dev veth-peer'))
+        self.assertNotIn('/128 scope global deprecated', check_output('ip -6 address show dev veth-peer'))
+        self.assertNotIn('blackhole', check_output('ip -6 rule list priority 1000'))
+
+    def check_clat_translation(self, use_bpf, address):
+        # veth99 is the NAT64 router side. A fake NAT64 answers there, and verifies the checksums of all
+        # translated packets. Disable checksum offloading, so that the checksums are complete on the wire.
+        check_output('ethtool -K veth-peer tx off')
+        remote4 = '198.41.0.4'
+        remote6 = '64:ff9b::c629:4'
+
+        # The test system may have an IPv4 default route with a lower metric on another interface
+        if use_bpf:
+            check_output(f'ip route replace {remote4}/32 via 192.0.0.2 dev veth-peer onlink src 192.0.0.1')
+        else:
+            check_output(f'ip route replace {remote4}/32 dev cl-veth-peer src 192.0.0.1')
+
+        with FakeNAT64('veth99', remote6) as nat64:
+            # ICMP echo in both directions
+            output = check_output(f'ping -c 3 -i 0.2 -W 2 -s 1000 {remote4}')
+            print(output)
+            self.assertIn('3 received', output)
+
+            # UDP, with the datagram sizes on both sides of the 1260 byte limit for the DF bit
+            for size in [1, 1000, 1432]:
+                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+                    sock.settimeout(3)
+                    sock.connect((remote4, 7))
+                    payload = os.urandom(size)
+                    sock.send(payload)
+                    self.assertEqual(sock.recv(4096), payload)
+
+            # UDP without checksum gets one
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+                sock.settimeout(3)
+                sock.setsockopt(socket.SOL_SOCKET, 11, 1)  # SO_NO_CHECK
+                sock.connect((remote4, 7))
+                sock.send(b'no checksum' * 100)
+                self.assertEqual(sock.recv(4096), b'no checksum' * 100)
+
+            # TCP handshake
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.settimeout(3)
+                sock.connect((remote4, 80))
+
+            # ICMPv6 errors are translated: port unreachable from the NAT64 side…
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+                sock.settimeout(3)
+                sock.connect((remote4, 9))
+                sock.send(b'unreachable')
+                with self.assertRaises(ConnectionRefusedError):
+                    sock.recv(4096)
+
+            # …and packet too big from a router in front of it, for path MTU discovery
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+                sock.settimeout(3)
+                sock.connect((remote4, 10))
+                sock.send(b'x' * 1400)
+                with self.assertRaises(OSError) as e:
+                    sock.recv(4096)
+                self.assertEqual(e.exception.errno, errno.EMSGSIZE)
+
+            output = check_output(f'ip -4 route get {remote4}')
+            print(output)
+            self.assertIn('mtu 1372', output)
+
+            # The host sends ICMP errors too, e.g. port unreachable for an unexpected datagram
+            nat64.send_udp(12345, 54321, b'nobody listens')
+            self.assertTrue(nat64.port_unreachable.wait(3), 'No ICMPv6 port unreachable received')
+
+            # Native IPv6 traffic of the host to the NAT64 prefix is not affected (RFC 6877 section 6.3).
+            # The socket is not connected, as both ends are in the same network namespace here, and the
+            # router side also reports that it cannot forward the packet.
+            with socket.socket(socket.AF_INET6, socket.SOCK_DGRAM) as sock:
+                sock.settimeout(3)
+                sock.sendto(b'native', (remote6, 7))
+                self.assertEqual(sock.recv(4096), b'native')
+
+            self.assertEqual(nat64.errors, [])
+            self.assertEqual(nat64.resets, 0, 'The host must not reset translated connections')
+            self.assertIn(address, nat64.sources)
+
+    def check_clat(self, force_tun=False):
+        use_bpf = self.setup_clat(force_tun)
+        address = self.check_clat_configuration(use_bpf)
+        self.check_clat_translation(use_bpf, address)
+
+        # A reconfiguration of an unchanged link restarts CLAT
+        networkctl_reconfigure('veth-peer')
+        self.wait_online('veth-peer:routable')
+        self.check_networkd_log('veth-peer: CLAT: stopped.')
+        self.wait_clat_started(2)
+        self.check_clat_configuration(use_bpf)
+
+        # CLAT=no takes effect on reload
+        with open(
+            os.path.join(network_unit_dir, '25-ipv6ra-prefix-client-clat.network'),
+            mode='a',
+            encoding='utf-8',
+        ) as f:
+            f.write('\n[Network]\nCLAT=no\n')
+        networkctl_reload()
+        self.wait_online('veth-peer:routable')
+        time.sleep(1)
+        self.check_clat_removed()
+
+        with open(
+            os.path.join(network_unit_dir, '25-ipv6ra-prefix-client-clat.network'),
+            mode='a',
+            encoding='utf-8',
+        ) as f:
+            f.write('\n[Network]\nCLAT=yes\n')
+        networkctl_reload()
+        self.wait_online('veth-peer:routable')
+        self.wait_clat_started(3)
+        self.check_clat_configuration(use_bpf)
+
+        # A native IPv4 default route stops CLAT, and its removal starts it again
+        check_output('ip address add 192.168.99.2/24 dev veth-peer')
+        check_output('ip route add default via 192.168.99.1 dev veth-peer')
+        self.check_networkd_log('veth-peer: CLAT: native IPv4 default route appeared, stopping.')
+        for _ in range(20):
+            if 'metric 2048' not in check_output('ip -4 route show'):
+                break
+            time.sleep(0.5)
+        self.assertNotIn('metric 2048', check_output('ip -4 route show'))
+        check_output('ip route del default via 192.168.99.1 dev veth-peer')
+        self.wait_clat_started(4)
+        self.check_clat_configuration(use_bpf)
+
+        # Everything is removed again when networkd stops
+        stop_networkd()
+        self.check_clat_removed()
+
+    def test_clat(self):
+        self.check_clat()
+
+    def test_clat_tun(self):
+        self.check_clat(force_tun=True)
 
 
 class NetworkdMTUTests(unittest.TestCase, Utilities):

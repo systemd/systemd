@@ -11,6 +11,7 @@ typedef enum NetDevLocalAddressType NetDevLocalAddressType;
 typedef enum NetworkConfigSource NetworkConfigSource;
 
 typedef struct Address Address;
+typedef struct Clat Clat;
 typedef struct IPv6Token IPv6Token;
 typedef struct Link Link;
 typedef struct Manager Manager;

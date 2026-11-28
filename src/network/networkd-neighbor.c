@@ -53,7 +53,6 @@ static Neighbor* neighbor_free(Neighbor *neighbor) {
 }
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(Neighbor, neighbor, neighbor_free);
-DEFINE_SECTION_CLEANUP_FUNCTIONS(Neighbor, neighbor_unref);
 
 static void neighbor_hash_func(const Neighbor *neighbor, struct siphash *state);
 static int neighbor_compare_func(const Neighbor *a, const Neighbor *b);
@@ -79,7 +78,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
         Neighbor,
         neighbor_detach);
 
-static int neighbor_new(Neighbor **ret) {
+int neighbor_new(Neighbor **ret) {
         Neighbor *neighbor;
 
         assert(ret);
@@ -349,7 +348,12 @@ static int static_neighbor_configure_handler(sd_netlink *rtnl, sd_netlink_messag
         return 1;
 }
 
-static int link_request_neighbor(Link *link, const Neighbor *neighbor) {
+int link_request_neighbor(
+                Link *link,
+                const Neighbor *neighbor,
+                unsigned *message_counter,
+                neighbor_netlink_handler_t netlink_handler) {
+
         _cleanup_(neighbor_unrefp) Neighbor *tmp = NULL;
         Neighbor *existing = NULL;
         int r;
@@ -386,8 +390,8 @@ static int link_request_neighbor(Link *link, const Neighbor *neighbor) {
                                     neighbor_hash_func,
                                     neighbor_compare_func,
                                     neighbor_process_request,
-                                    &link->static_neighbor_messages,
-                                    static_neighbor_configure_handler,
+                                    message_counter,
+                                    netlink_handler,
                                     NULL);
         if (r <= 0)
                 return r;
@@ -411,7 +415,8 @@ int link_request_static_neighbors(Link *link) {
         link->static_neighbors_configured = false;
 
         ORDERED_HASHMAP_FOREACH(neighbor, link->network->neighbors_by_section) {
-                r = link_request_neighbor(link, neighbor);
+                r = link_request_neighbor(link, neighbor, &link->static_neighbor_messages,
+                                          static_neighbor_configure_handler);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not request neighbor: %m");
         }
