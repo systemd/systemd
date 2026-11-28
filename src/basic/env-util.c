@@ -15,6 +15,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "syslog-util.h"
+#include "time-util.h"
 #include "utf8.h"
 
 /* We follow bash for the character set. Different shells have different rules. */
@@ -1020,6 +1021,17 @@ int secure_getenv_uint64(const char *p, uint64_t *ret) {
                 return -ENXIO;
 
         return safe_atou64(e, ret);
+}
+
+int secure_getenv_usec(const char *p, usec_t *ret) {
+        assert(p);
+        assert(ret);
+
+        const char *e = secure_getenv(p);
+        if (!e)
+                return -ENXIO;
+
+        return parse_sec(e, ret);
 }
 
 int set_unset_env(const char *name, const char *value, bool overwrite) {

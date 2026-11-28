@@ -8,9 +8,12 @@
 
 #include "acl-util.h"
 #include "alloc-util.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "dirent-util.h"
+#include "env-util.h"
 #include "errno-util.h"
+#include "event-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -32,11 +35,37 @@
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "udev-util.h"
 #include "user-record.h"
 #include "user-util.h"
+
+/* Key of the extra argument that seat_trigger_devices() appends to the uevents it triggers, to make
+ * them recognizable in manager_process_device_triggered_by_seat(). The kernel exposes it as
+ * SYNTH_ARG_LogindSeatEvent=1. */
+#define SEAT_EVENT_ARG_KEY "LogindSeatEvent"
+
+/* Timeout for waiting uevents triggered by seat_trigger_devices() to be processed by udevd.
+ * May be overridden by $SYSTEMD_SEAT_UEVENTS_TIMEOUT_SEC. */
+#define SEAT_UEVENTS_TIMEOUT_USEC (30 * USEC_PER_SEC)
+
+static usec_t seat_uevents_timeout(void) {
+        static usec_t cached = USEC_INFINITY;
+        int r;
+
+        if (cached != USEC_INFINITY)
+                return cached;
+
+        usec_t t = SEAT_UEVENTS_TIMEOUT_USEC;
+        r = secure_getenv_usec("SYSTEMD_SEAT_UEVENTS_TIMEOUT_SEC", &t);
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_SEAT_UEVENTS_TIMEOUT_SEC, ignoring: %m");
+
+        return (cached = t);
+}
 
 int seat_new(Manager *m, const char *id, Seat **ret) {
         _cleanup_(seat_freep) Seat *s = NULL;
@@ -90,6 +119,7 @@ Seat* seat_free(Seat *s) {
 
         hashmap_remove(s->manager->seats, s->id);
 
+        sd_event_source_disable_unref(s->uevents_timeout_event_source);
         set_free(s->uevents);
         free(s->positions);
         free(s->state_file);
@@ -219,6 +249,8 @@ static void seat_triggered_uevents_done(Seat *s) {
                 return (void) log_debug("%s: waiting for %u events being processed by udevd.", s->id,
                                         set_size(s->uevents));
 
+        (void) event_source_disable(s->uevents_timeout_event_source);
+
         Session *session = s->active;
 
         if (session) {
@@ -235,16 +267,32 @@ static void seat_triggered_uevents_done(Seat *s) {
                 seat_send_changed(s, "ActiveSession");
 }
 
+static int on_seat_uevents_timeout(sd_event_source *source, uint64_t usec, void *userdata) {
+        Seat *s = ASSERT_PTR(userdata);
+
+        log_warning("Seat %s: timed out waiting for %u uevents to be processed by udevd, resuming session devices anyway.",
+                    s->id, set_size(s->uevents));
+
+        set_clear(s->uevents);
+        seat_triggered_uevents_done(s);
+        return 0;
+}
+
 int manager_process_device_triggered_by_seat(Manager *m, sd_device *dev) {
         int r;
 
         assert(m);
         assert(dev);
 
+        /* Check if the uevent is one of those triggered by seat_trigger_devices(). */
+        r = device_get_property_bool(dev, "SYNTH_ARG_" SEAT_EVENT_ARG_KEY);
+        if (IN_SET(r, 0, -ENOENT))
+                return 0;
+        if (r < 0)
+                return r;
+
         sd_id128_t uuid;
         r = sd_device_get_trigger_uuid(dev, &uuid);
-        if (IN_SET(r, -ENOENT, -ENODATA))
-                return 0;
         if (r < 0)
                 return r;
 
@@ -252,8 +300,11 @@ int manager_process_device_triggered_by_seat(Manager *m, sd_device *dev) {
         HASHMAP_FOREACH(s, m->seats)
                 if (set_contains(s->uevents, &uuid))
                         break;
+
+        /* The UUID is already removed, when another monitor instance received the same event earlier,
+         * or the event was triggered before the current batch. */
         if (!s)
-                return 0;
+                return 1;
 
         log_device_uevent(dev, "Received event processed by udevd");
         free(ASSERT_PTR(set_remove(s->uevents, &uuid)));
@@ -273,12 +324,22 @@ int manager_process_device_triggered_by_seat(Manager *m, sd_device *dev) {
 }
 
 static int seat_trigger_devices(Seat *s) {
-        int r;
+        int r, ret = 0;
 
         assert(s);
         assert(s->manager);
 
         set_clear(s->uevents);
+
+        /* Append the extra argument to make the triggered uevents recognizable in
+         * manager_process_device_triggered_by_seat(). */
+        _cleanup_strv_free_ char **args = strv_copy(s->manager->device_trigger_args);
+        if (!args)
+                return -ENOMEM;
+
+        r = strv_extend_many(&args, SEAT_EVENT_ARG_KEY, "1");
+        if (r < 0)
+                return r;
 
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         r = sd_device_enumerator_new(&e);
@@ -292,8 +353,10 @@ static int seat_trigger_devices(Seat *s) {
         FOREACH_DEVICE(e, d) {
                 /* Verify that the tag is still in place. */
                 r = sd_device_has_current_tag(d, "uaccess");
-                if (r < 0)
-                        return r;
+                if (r < 0) {
+                        RET_GATHER(ret, log_device_debug_errno(d, r, "Failed to check 'uaccess' tag, ignoring: %m"));
+                        continue;
+                }
                 if (r == 0)
                         continue;
 
@@ -301,36 +364,62 @@ static int seat_trigger_devices(Seat *s) {
                 r = sd_device_get_devname(d, /* ret= */ NULL);
                 if (r == -ENOENT)
                         continue;
-                if (r < 0)
-                        return r;
+                if (r < 0) {
+                        RET_GATHER(ret, log_device_debug_errno(d, r, "Failed to get device node, ignoring: %m"));
+                        continue;
+                }
 
                 const char *id;
                 r = device_get_seat(d, &id);
-                if (r < 0)
-                        return r;
+                if (r < 0) {
+                        RET_GATHER(ret, log_device_debug_errno(d, r, "Failed to get seat of the device, ignoring: %m"));
+                        continue;
+                }
 
                 if (!streq(id, s->id))
                         continue;
 
                 sd_id128_t uuid;
-                r = device_trigger_with_timestamp(d, SD_DEVICE_CHANGE, s->manager->device_trigger_args, &uuid);
+                r = device_trigger_with_timestamp(d, SD_DEVICE_CHANGE, args, &uuid);
                 if (r < 0) {
-                        log_device_debug_errno(d, r, "Failed to trigger 'change' event, ignoring: %m");
+                        RET_GATHER(ret, log_device_debug_errno(d, r, "Failed to trigger 'change' event, ignoring: %m"));
                         continue;
                 }
 
                 log_device_debug(d, "Triggered synthetic event (ACTION=change, UUID=%s).", SD_ID128_TO_UUID_STRING(uuid));
 
                 _cleanup_free_ sd_id128_t *copy = newdup(sd_id128_t, &uuid, 1);
-                if (!copy)
-                        return -ENOMEM;
+                if (!copy) {
+                        RET_GATHER(ret, log_oom_debug());
+                        continue;
+                }
 
                 r = set_ensure_consume(&s->uevents, &id128_hash_ops_free, TAKE_PTR(copy));
-                if (r < 0)
-                        return r;
+                if (r < 0) {
+                        RET_GATHER(ret, log_device_debug_errno(d, r, "Failed to remember the UUID of the triggered event, ignoring: %m"));
+                        continue;
+                }
         }
 
-        return 0;
+        if (!set_isempty(s->uevents)) {
+                r = event_reset_time_relative(
+                                s->manager->event,
+                                &s->uevents_timeout_event_source,
+                                CLOCK_BOOTTIME,
+                                seat_uevents_timeout(),
+                                /* accuracy= */ 0,
+                                on_seat_uevents_timeout,
+                                s,
+                                /* Use lower priority than the device monitor sources, to prefer
+                                 * processing uevents echoed back by udevd. */
+                                SD_EVENT_PRIORITY_NORMAL + 1,
+                                "seat-uevents-timeout",
+                                /* force_reset= */ true);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set uevents timeout, ignoring: %m");
+        }
+
+        return ret;
 }
 
 static int static_node_acl(Seat *s) {
@@ -410,7 +499,7 @@ static int static_node_acl(Seat *s) {
 #endif
 }
 
-int seat_set_active(Seat *s, Session *session) {
+void seat_set_active(Seat *s, Session *session) {
         Session *old_active;
         int r;
 
@@ -429,7 +518,7 @@ int seat_set_active(Seat *s, Session *session) {
                         log_debug("Active session remains unchanged, resuming session devices.");
                         session_device_resume_all(session);
                 }
-                return 0;
+                return;
         }
 
         old_active = s->active;
@@ -446,14 +535,13 @@ int seat_set_active(Seat *s, Session *session) {
 
         r = seat_trigger_devices(s);
         if (r < 0)
-                return r;
+                log_warning_errno(r, "Failed to trigger uevents for seat devices, ignoring: %m");
 
         r = static_node_acl(s);
         if (r < 0)
-                return r;
+                log_warning_errno(r, "Failed to update ACLs on static device nodes, ignoring: %m");
 
         seat_triggered_uevents_done(s);
-        return 0;
 }
 
 static Session* seat_get_position(Seat *s, unsigned pos) {
@@ -534,7 +622,6 @@ int seat_switch_to_previous(Seat *s) {
 
 int seat_active_vt_changed(Seat *s, unsigned vtnr) {
         Session *new_active = NULL;
-        int r;
 
         assert(s);
         assert(vtnr >= 1);
@@ -561,10 +648,10 @@ int seat_active_vt_changed(Seat *s, unsigned vtnr) {
                                 break;
                         }
 
-        r = seat_set_active(s, new_active);
+        seat_set_active(s, new_active);
         manager_spawn_autovt(s->manager, vtnr);
 
-        return r;
+        return 0;
 }
 
 int seat_read_active_vt(Seat *s) {
