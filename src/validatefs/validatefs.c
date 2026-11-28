@@ -207,6 +207,74 @@ static int validate_gpt_metadata(int fd, const char *path, const ValidateFields 
         return 0;
 }
 
+static int listed_mount_point_resolves_to(const char *listed, const char *path) {
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        assert(listed);
+        assert(path);
+
+        /* Checks whether the listed mount point resolves to 'path' in the target root. The file system we
+         * validate is already mounted on 'path', and its contents are not trusted yet, so the resolution
+         * must not look up anything in it: e.g. a symlink from "tmp" to "." in it would otherwise make
+         * /var/tmp/ resolve to /var/. Hence resolve one step at a time, and give up as soon as the path left
+         * to resolve leads below 'path'. The generators could not look into the file system either, as they
+         * resolved the mount point before it was mounted. */
+
+        p = path_join(arg_root, listed);
+        if (!p)
+                return log_oom();
+
+        for (unsigned n_steps = 0;; n_steps++) {
+                _cleanup_free_ char *next = NULL;
+
+                if (n_steps > CHASE_MAX)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ELOOP),
+                                               "Too many levels of symlinks resolving '%s', ignoring.", listed);
+
+                if (!isempty(path_startswith(p, path))) {
+                        log_debug("Resolving '%s' would look up '%s' in the file system being validated, ignoring.",
+                                  listed, p);
+                        return false;
+                }
+
+                r = chase(p, arg_root, CHASE_STEP|CHASE_NONEXISTENT, &next, /* ret_fd= */ NULL);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to resolve '%s', ignoring: %m", listed);
+                if (r > 0)
+                        return path_equal(next, path);
+
+                path_simplify(next);
+                free_and_replace(p, next);
+        }
+}
+
+static int validate_mount_point(const ValidateFields *f, const char *path) {
+        int r;
+
+        assert(f);
+        assert(path);
+
+        /* The listed mount points are usually the default ones of the partition type, e.g. /home/. If one of
+         * them is a symlink in the target root (on OSTree, /home/ points to /var/home/), the generators
+         * mount the file system where the symlink points to, hence resolve the listed paths before
+         * comparing. */
+        STRV_FOREACH(i, f->mount_point) {
+                r = listed_mount_point_resolves_to(*i, path);
+                if (r == -ENOMEM)
+                        return r;
+                if (r > 0) {
+                        log_debug("Mount point '%s' matches listed mount point '%s'.", path, *i);
+                        return 0;
+                }
+        }
+
+        /* Fall back to the literal comparison, which also logs the error */
+        return validate_fields_check_mount_point(f, arg_root, path, LOG_ERR);
+}
+
 static int validate_fields_check(int fd, const char *path, const ValidateFields *f) {
         int r;
 
@@ -214,7 +282,7 @@ static int validate_fields_check(int fd, const char *path, const ValidateFields 
         assert(path);
         assert(f);
 
-        r = validate_fields_check_mount_point(f, arg_root, path, LOG_ERR);
+        r = validate_mount_point(f, path);
         if (r < 0)
                 return r;
 

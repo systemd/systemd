@@ -8,6 +8,7 @@ WORK_DIR="$(mktemp --directory /var/tmp/test-gpt-auto-generator.XXXXXX)"
 DEFINITIONS="$WORK_DIR/definitions"
 IMAGE="$WORK_DIR/image.raw"
 OUTPUT="$WORK_DIR/output"
+OUTPUT_SYMLINK="$WORK_DIR/output-symlink"
 ROOT="$WORK_DIR/root"
 LOOP=""
 
@@ -24,7 +25,7 @@ at_exit() {
 trap at_exit EXIT
 
 test -x "$GENERATOR_BIN"
-mkdir -p "$DEFINITIONS" "$OUTPUT"/{normal,early,late} "$ROOT"
+mkdir -p "$DEFINITIONS" "$OUTPUT"/{normal,early,late} "$OUTPUT_SYMLINK"/{normal,early,late} "$ROOT"
 
 cat >"$DEFINITIONS/10-usr.conf" <<EOF
 [Partition]
@@ -53,8 +54,12 @@ udevadm wait --timeout=60 --settle --initialized=no "$LOOP"p1 "$LOOP"p2
 
 # Recreate a root=tmpfs system whose /usr/ is backed by a GPT partition and overlaid by systemd-sysext.
 # Run the generator as PID 1 because generators deliberately do nothing in containers.
-unshare --mount --pid --fork --mount-proc \
-    bash -euxo pipefail -s -- "$ROOT" "$OUTPUT" "$WORK_DIR" "$LOOP" "$GENERATOR_BIN" <<'EOF'
+# Takes the output directory and whether to make /home a symlink to /var/home.
+run_generator() {
+    rm -rf "$WORK_DIR/usr-upper" "$WORK_DIR/usr-work"
+
+    unshare --mount --pid --fork --mount-proc \
+        bash -euxo pipefail -s -- "$ROOT" "$1" "$WORK_DIR" "$LOOP" "$GENERATOR_BIN" "$2" <<'EOF'
 mount --make-rprivate /
 
 mount --types tmpfs tmpfs "$1"
@@ -63,6 +68,11 @@ mount --bind /dev "$1/dev"
 mount --bind /proc "$1/proc"
 mount --bind /sys "$1/sys"
 mount --bind "$2" "$1/run/generator-output"
+
+if [[ "$6" == yes ]]; then
+    mkdir -p "$1/var/home"
+    ln -s var/home "$1/home"
+fi
 
 mkdir -p "$3/usr-upper" "$3/usr-work"
 mount --types overlay overlay \
@@ -87,7 +97,22 @@ exec chroot "$1" "$5" \
     /run/generator-output/early \
     /run/generator-output/late
 EOF
+}
+
+run_generator "$OUTPUT" no
 
 test -f "$OUTPUT/late/home.mount"
+test "$(sed -n 's/^Where=//p' "$OUTPUT/late/home.mount")" = "/home"
+(! grep -F "# Canonicalized" "$OUTPUT/late/home.mount" >/dev/null)
 WHAT="$(sed -n 's/^What=//p' "$OUTPUT/late/home.mount")"
+test "$(readlink --canonicalize "$WHAT")" = "$(readlink --canonicalize "${LOOP}p2")"
+
+# If /home is a symlink, the mount unit has to be generated for the path it points to.
+run_generator "$OUTPUT_SYMLINK" yes
+
+test ! -e "$OUTPUT_SYMLINK/late/home.mount"
+test -f "$OUTPUT_SYMLINK/late/var-home.mount"
+test "$(sed -n 's/^Where=//p' "$OUTPUT_SYMLINK/late/var-home.mount")" = "/var/home"
+grep -Fx "# Canonicalized from /home" "$OUTPUT_SYMLINK/late/var-home.mount" >/dev/null
+WHAT="$(sed -n 's/^What=//p' "$OUTPUT_SYMLINK/late/var-home.mount")"
 test "$(readlink --canonicalize "$WHAT")" = "$(readlink --canonicalize "${LOOP}p2")"
