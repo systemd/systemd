@@ -232,6 +232,24 @@
       </varlistentry>
 
       <varlistentry>
+        <term><command>dns-priority</command> [<replaceable>LINK</replaceable> [<replaceable>PRIORITY</replaceable>]]</term>
+        <term><command>dns-fallthrough</command> [<replaceable>LINK</replaceable> [<replaceable>BOOL</replaceable>]]</term>
+
+        <listitem>
+          <para>Get/set the per-interface DNS priority and fall-through flag. The
+          <command>dns-priority</command> command expects an integer, or an empty string to reset it, and
+          configures the order in which the link is asked among those that match a lookup equally well. The
+          <command>dns-fallthrough</command> command expects a boolean, and configures whether a lookup that
+          failed on the link may continue with links that match it less well. See
+          <varname>DNSPriority=</varname> and <varname>DNSFallthrough=</varname> in
+          <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for details.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><command>revert <replaceable>LINK</replaceable></command></term>
 
         <listitem><para>Revert the per-interface DNS configuration. If the DNS configuration is

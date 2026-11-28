@@ -43,6 +43,8 @@
         _resolvectl_cmds=(
             default-route:"Configure per-interface default-route setting"
             dns:"Configure per-interface DNS configuration"
+            dns-fallthrough:"Configure per-interface DNS fall-through setting"
+            dns-priority:"Configure per-interface DNS priority"
             dnsovertls:"Configure per-interface dnsovertls enabled status"
             dnssec:"Configure per-interface dnssec enabled status"
             domain:"Configure per-interface search and route-only domains"
