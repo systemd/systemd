@@ -34,6 +34,10 @@
 
 int lookup_machine_by_name_or_pidref(sd_varlink *link, Manager *manager, const char *machine_name, const PidRef *pidref, Machine **ret_machine);
 
+/* Answer a Register() call still waiting for the machine's unit to start: with 'error' if negative, else with
+ * success. No-op if no call is waiting. */
+int machine_send_create_varlink_reply(Machine *m, int error);
+
 int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
 int vl_method_unregister_internal(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
 int vl_method_terminate_internal(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);

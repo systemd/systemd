@@ -25,6 +25,7 @@
 #include "log.h"
 #include "machine.h"
 #include "machine-dbus.h"
+#include "machine-varlink.h"
 #include "machined-resolve-hook.h"
 #include "machined-ssh-agent.h"
 #include "machined.h"
@@ -140,6 +141,9 @@ Machine* machine_free(Machine *m) {
         pidref_done(&m->supervisor);
 
         sd_bus_message_unref(m->create_message);
+
+        /* Don't leave a pending Register() call hanging, e.g. if the leader exited before the unit started. */
+        (void) machine_send_create_varlink_reply(m, -ESRCH);
 
         m->cgroup_empty_event_source = sd_event_source_disable_unref(m->cgroup_empty_event_source);
 
