@@ -72,5 +72,5 @@ rm "$WETC/localtime"
 firstboot_unit_dropin "systemd.firstboot=yes"
 (! systemctl restart systemd-firstboot.service)
 journalctl --sync
-journalctl --cursor-file="$JOURNAL_CURSOR" SYSLOG_IDENTIFIER=systemd-firstboot \
-           --grep "Failed to query user: Input/output error"
+journalctl --cursor-file="$JOURNAL_CURSOR" SYSLOG_IDENTIFIER=systemd-firstboot ERRNO=5 \
+           --grep "Failed to query user"
