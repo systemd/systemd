@@ -73,4 +73,4 @@ firstboot_unit_dropin "systemd.firstboot=yes"
 (! systemctl restart systemd-firstboot.service)
 journalctl --sync
 journalctl --cursor-file="$JOURNAL_CURSOR" SYSLOG_IDENTIFIER=systemd-firstboot \
-           --grep "Failed to query user: Input/output error"
+           --grep "Failed to query user: (Input/output|I/O) error"
