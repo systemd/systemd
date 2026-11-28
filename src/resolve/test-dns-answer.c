@@ -586,7 +586,7 @@ TEST(dns_answer_move_by_key) {
 
 TEST(dns_answer_has_dname_for_cname) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *cname = NULL, *dname = NULL, *rr = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *cname = NULL, *dname = NULL, *owner_cname = NULL, *rr = NULL;
 
         ASSERT_NOT_NULL(answer = dns_answer_new(0));
 
@@ -599,6 +599,12 @@ TEST(dns_answer_has_dname_for_cname) {
         ASSERT_NOT_NULL(dname = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNAME, "example.com"));
         ASSERT_NOT_NULL(dname->dname.name = strdup("v2.example.com"));
         ASSERT_OK_POSITIVE(dns_answer_add(answer, dname, 1, DNS_ANSWER_CACHEABLE, /* rrsig= */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_has_dname_for_cname(answer, cname));
+
+        /* A DNAME does not apply to its owner. */
+        ASSERT_NOT_NULL(owner_cname = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "example.com"));
+        ASSERT_NOT_NULL(owner_cname->cname.name = strdup("v2.example.com"));
+        ASSERT_OK_ZERO(dns_answer_has_dname_for_cname(answer, owner_cname));
 
         /* no matching old suffix */
         ASSERT_OK(free_and_strdup(&dname->dname.name, "www.v2.examples.com"));

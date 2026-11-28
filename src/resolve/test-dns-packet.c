@@ -109,6 +109,7 @@ static void test_dns_resource_record_get_cname_target(void) {
         ASSERT_ERROR(dns_resource_record_get_cname_target(&DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_A, "quux"), dname, &target), EUNATCH);
         ASSERT_ERROR(dns_resource_record_get_cname_target(&DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_A, ""), dname, &target), EUNATCH);
         ASSERT_ERROR(dns_resource_record_get_cname_target(&DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_A, "."), dname, &target), EUNATCH);
+        ASSERT_ERROR(dns_resource_record_get_cname_target(&DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_A, "quux.foobar"), dname, &target), EUNATCH);
         ASSERT_OK_ZERO(dns_resource_record_get_cname_target(&DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_A, "yupp.quux.foobar"), dname, &target));
         ASSERT_STREQ(target, "yupp.wuff.wuff");
         target = mfree(target);
