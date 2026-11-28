@@ -542,8 +542,16 @@ static int boot_entry_load_type1(
                         r = parse_path_one(tmp.path, line, field, &tmp.uki, p);
                 else if (streq(field, "uki-url"))
                         r = free_and_strdup(&tmp.uki_url, p);
-                else if (streq(field, "profile"))
-                        r = safe_atou_full(p, 10, &tmp.profile);
+                else if (streq(field, "profile")) {
+                        unsigned u;
+                        r = safe_atou_full(p, 10, &u);
+                        if (r >= 0) {
+                                if (u == UINT_MAX)
+                                        r = -ERANGE;
+                                else
+                                        tmp.profile = u;
+                        }
+                }
                 else if (streq(field, "initrd"))
                         r = parse_path_strv(tmp.path, line, field, &tmp.initrd, p);
                 else if (streq(field, "devicetree"))
