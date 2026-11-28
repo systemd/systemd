@@ -186,6 +186,14 @@ int sd_network_link_get_route_domains(int ifindex, char ***ret);
 /* Get whether this link shall be used as 'default route' for DNS queries */
 int sd_network_link_get_dns_default_route(int ifindex);
 
+/* Priority of the link among the DNS scopes that match a name equally well, lower values first.
+ * Returns -ENODATA if not configured. */
+int sd_network_link_get_dns_priority(int ifindex, uint32_t *ret);
+
+/* Whether a lookup continues with less specific DNS scopes after every scope matching it as well as this
+ * link failed. Returns -ENODATA if not configured. */
+int sd_network_link_get_dns_fallthrough(int ifindex);
+
 /* Get the carrier interface indexes to which current link is bound to. */
 int sd_network_link_get_carrier_bound_to(int ifindex, int **ret);
 

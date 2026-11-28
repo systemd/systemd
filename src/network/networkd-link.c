@@ -225,6 +225,8 @@ void link_dns_settings_clear(Link *link) {
         link->route_domains = ordered_set_free(link->route_domains);
 
         link->dns_default_route = -1;
+        link->dns_priority = DNS_PRIORITY_UNSET;
+        link->dns_fallthrough = -1;
         link->llmnr = _RESOLVE_SUPPORT_INVALID;
         link->mdns = _RESOLVE_SUPPORT_INVALID;
         link->dnssec_mode = _DNSSEC_MODE_INVALID;
@@ -2966,6 +2968,8 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
 
                 .n_dns = UINT_MAX,
                 .dns_default_route = -1,
+                .dns_priority = DNS_PRIORITY_UNSET,
+                .dns_fallthrough = -1,
                 .llmnr = _RESOLVE_SUPPORT_INVALID,
                 .mdns = _RESOLVE_SUPPORT_INVALID,
                 .dnssec_mode = _DNSSEC_MODE_INVALID,

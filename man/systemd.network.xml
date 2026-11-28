@@ -864,6 +864,37 @@ DuplicateAddressDetection=none</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>DNSPriority=</varname></term>
+        <listitem>
+          <para>Takes an integer in the range 0…2147483647. Orders this link's DNS servers relative to those
+          of other links, DNS delegates, and the global configuration that match a lookup equally well:
+          lower values are asked first, and equal ones in parallel. If unset or empty, this link is asked
+          together with the lowest configured priority. See the "Priority and Fall-Through" section in
+          <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          for details. This setting is read by
+          <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DNSFallthrough=</varname></term>
+        <listitem>
+          <para>Takes a boolean argument. If true, and a lookup failed on this link and on every other
+          configuration that matches it equally well, and all of them enable fall-through, the lookup
+          continues with the configurations that match it next best, for example the default route. This
+          gives up the protection this link's routing domains otherwise provide against names leaking to
+          other networks. Defaults to false. See the "Priority and Fall-Through" section in
+          <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          for details.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>NTP=</varname></term>
         <listitem>
           <para>An NTP server address (either an IP address, or a hostname). This option may be
