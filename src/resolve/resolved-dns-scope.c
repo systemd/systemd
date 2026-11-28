@@ -1862,6 +1862,35 @@ bool dns_scope_is_default_route(DnsScope *scope) {
                 return true;
 }
 
+int dns_scope_get_priority(DnsScope *scope) {
+        assert(scope);
+
+        /* Priorities order classic DNS scopes only. LLMNR and mDNS scopes join the first group. */
+        if (scope->protocol != DNS_PROTOCOL_DNS)
+                return DNS_PRIORITY_UNSET;
+
+        if (scope->link)
+                return scope->link->priority;
+        if (scope->delegate)
+                return scope->delegate->priority;
+
+        return scope->manager->priority;
+}
+
+bool dns_scope_get_fallthrough(DnsScope *scope) {
+        assert(scope);
+
+        if (scope->protocol != DNS_PROTOCOL_DNS)
+                return false;
+
+        if (scope->link)
+                return scope->link->fallthrough;
+        if (scope->delegate)
+                return scope->delegate->fallthrough;
+
+        return scope->manager->fallthrough;
+}
+
 int dns_scope_to_json(DnsScope *scope, bool with_cache, sd_json_variant **ret) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *cache = NULL;
         int r;

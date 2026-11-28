@@ -6,6 +6,7 @@
 #include "fd-util.h"
 #include "hashmap.h"
 #include "ordered-set.h"
+#include "resolve-util.h"
 #include "resolved-conf.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-server.h"
@@ -38,6 +39,99 @@ TEST(config_parse_fallback_dns) {
                           "", /* data= */ NULL, &manager));
         ASSERT_FALSE(manager.need_builtin_fallbacks);
         ASSERT_NULL(manager.fallback_dns_servers);
+}
+
+/* ================ Priority=, PriorityStaggerSec=, PriorityHoldSec= ================ */
+
+TEST(config_parse_dns_priority) {
+        int priority = DNS_PRIORITY_UNSET;
+
+        ASSERT_OK_POSITIVE(config_parse_dns_priority(
+                          /* unit= */ NULL, "resolved.conf", 1, "Resolve", 1, "Priority", /* ltype= */ 0,
+                          "10", &priority, /* userdata= */ NULL));
+        ASSERT_EQ(priority, 10);
+
+        ASSERT_OK_POSITIVE(config_parse_dns_priority(
+                          /* unit= */ NULL, "resolved.conf", 2, "Resolve", 1, "Priority", /* ltype= */ 0,
+                          "2147483647", &priority, /* userdata= */ NULL));
+        ASSERT_EQ(priority, DNS_PRIORITY_MAX);
+
+        /* Out of range and invalid values are ignored. */
+        ASSERT_OK_ZERO(config_parse_dns_priority(
+                          /* unit= */ NULL, "resolved.conf", 3, "Resolve", 1, "Priority", /* ltype= */ 0,
+                          "2147483648", &priority, /* userdata= */ NULL));
+        ASSERT_OK_ZERO(config_parse_dns_priority(
+                          /* unit= */ NULL, "resolved.conf", 4, "Resolve", 1, "Priority", /* ltype= */ 0,
+                          "-1", &priority, /* userdata= */ NULL));
+        ASSERT_OK_ZERO(config_parse_dns_priority(
+                          /* unit= */ NULL, "resolved.conf", 5, "Resolve", 1, "Priority", /* ltype= */ 0,
+                          "high", &priority, /* userdata= */ NULL));
+        ASSERT_EQ(priority, DNS_PRIORITY_MAX);
+
+        ASSERT_OK_POSITIVE(config_parse_dns_priority(
+                          /* unit= */ NULL, "resolved.conf", 6, "Resolve", 1, "Priority", /* ltype= */ 0,
+                          "", &priority, /* userdata= */ NULL));
+        ASSERT_EQ(priority, DNS_PRIORITY_UNSET);
+}
+
+TEST(config_parse_priority_stagger_sec) {
+        usec_t usec = 0;
+
+        ASSERT_OK_POSITIVE(config_parse_priority_stagger_sec(
+                          /* unit= */ NULL, "resolved.conf", 1, "Resolve", 1, "PriorityStaggerSec", /* ltype= */ 0,
+                          "100ms", &usec, /* userdata= */ NULL));
+        ASSERT_EQ(usec, 100 * USEC_PER_MSEC);
+
+        ASSERT_OK_POSITIVE(config_parse_priority_stagger_sec(
+                          /* unit= */ NULL, "resolved.conf", 2, "Resolve", 1, "PriorityStaggerSec", /* ltype= */ 0,
+                          "10ms", &usec, /* userdata= */ NULL));
+        ASSERT_EQ(usec, PRIORITY_STAGGER_USEC_MIN);
+
+        ASSERT_OK_POSITIVE(config_parse_priority_stagger_sec(
+                          /* unit= */ NULL, "resolved.conf", 3, "Resolve", 1, "PriorityStaggerSec", /* ltype= */ 0,
+                          "2s", &usec, /* userdata= */ NULL));
+        ASSERT_EQ(usec, PRIORITY_STAGGER_USEC_MAX);
+
+        /* RFC 8305 asks for at least 10 ms between attempts, and recommends at most 2 s. */
+        ASSERT_OK_ZERO(config_parse_priority_stagger_sec(
+                          /* unit= */ NULL, "resolved.conf", 4, "Resolve", 1, "PriorityStaggerSec", /* ltype= */ 0,
+                          "9ms", &usec, /* userdata= */ NULL));
+        ASSERT_OK_ZERO(config_parse_priority_stagger_sec(
+                          /* unit= */ NULL, "resolved.conf", 5, "Resolve", 1, "PriorityStaggerSec", /* ltype= */ 0,
+                          "3s", &usec, /* userdata= */ NULL));
+        ASSERT_OK_ZERO(config_parse_priority_stagger_sec(
+                          /* unit= */ NULL, "resolved.conf", 6, "Resolve", 1, "PriorityStaggerSec", /* ltype= */ 0,
+                          "0", &usec, /* userdata= */ NULL));
+        ASSERT_EQ(usec, PRIORITY_STAGGER_USEC_MAX);
+
+        ASSERT_OK_POSITIVE(config_parse_priority_stagger_sec(
+                          /* unit= */ NULL, "resolved.conf", 7, "Resolve", 1, "PriorityStaggerSec", /* ltype= */ 0,
+                          "", &usec, /* userdata= */ NULL));
+        ASSERT_EQ(usec, PRIORITY_STAGGER_USEC_DEFAULT);
+}
+
+TEST(config_parse_priority_hold_sec) {
+        usec_t usec = 1;
+
+        ASSERT_OK_POSITIVE(config_parse_priority_hold_sec(
+                          /* unit= */ NULL, "resolved.conf", 1, "Resolve", 1, "PriorityHoldSec", /* ltype= */ 0,
+                          "0", &usec, /* userdata= */ NULL));
+        ASSERT_EQ(usec, 0u);
+
+        ASSERT_OK_POSITIVE(config_parse_priority_hold_sec(
+                          /* unit= */ NULL, "resolved.conf", 2, "Resolve", 1, "PriorityHoldSec", /* ltype= */ 0,
+                          "2s", &usec, /* userdata= */ NULL));
+        ASSERT_EQ(usec, PRIORITY_HOLD_USEC_MAX);
+
+        ASSERT_OK_ZERO(config_parse_priority_hold_sec(
+                          /* unit= */ NULL, "resolved.conf", 3, "Resolve", 1, "PriorityHoldSec", /* ltype= */ 0,
+                          "2001ms", &usec, /* userdata= */ NULL));
+        ASSERT_EQ(usec, PRIORITY_HOLD_USEC_MAX);
+
+        ASSERT_OK_POSITIVE(config_parse_priority_hold_sec(
+                          /* unit= */ NULL, "resolved.conf", 4, "Resolve", 1, "PriorityHoldSec", /* ltype= */ 0,
+                          "", &usec, /* userdata= */ NULL));
+        ASSERT_EQ(usec, PRIORITY_HOLD_USEC_DEFAULT);
 }
 
 /* ================================================================

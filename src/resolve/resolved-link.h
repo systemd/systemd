@@ -45,6 +45,8 @@ typedef struct Link {
         unsigned n_search_domains;
 
         int default_route;
+        int priority;
+        bool fallthrough;
 
         ResolveSupport llmnr_support;
         ResolveSupport mdns_support;
@@ -89,6 +91,8 @@ DnsServer* link_set_dns_server(Link *l, DnsServer *s);
 DnsServer* link_get_dns_server(Link *l);
 void link_next_dns_server(Link *l, DnsServer *if_current);
 void link_set_default_route(Link *l, bool b);
+void link_set_priority(Link *l, int priority);
+void link_set_fallthrough(Link *l, bool b);
 
 DnssecMode link_get_dnssec_mode(Link *l);
 bool link_dnssec_supported(Link *l);

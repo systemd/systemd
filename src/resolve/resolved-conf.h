@@ -22,3 +22,5 @@ CONFIG_PARSER_PROTOTYPE(config_parse_dns_stub_listener_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_dns_stub_listener_extra);
 CONFIG_PARSER_PROTOTYPE(config_parse_dns_cache_max);
 CONFIG_PARSER_PROTOTYPE(config_parse_record_types);
+CONFIG_PARSER_PROTOTYPE(config_parse_priority_stagger_sec);
+CONFIG_PARSER_PROTOTYPE(config_parse_priority_hold_sec);

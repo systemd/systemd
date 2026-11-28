@@ -698,6 +698,29 @@ int dispatch_negative_trust_anchors(const char *name, sd_json_variant *variant, 
         return 0;
 }
 
+int dispatch_dns_priority(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        int *priority = ASSERT_PTR(userdata);
+        int64_t v;
+
+        if (sd_json_variant_is_null(variant)) {
+                *priority = DNS_PRIORITY_UNSET;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_integer(variant) && !sd_json_variant_is_unsigned(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an integer.", strna(name));
+
+        if (sd_json_variant_is_unsigned(variant) && sd_json_variant_unsigned(variant) > DNS_PRIORITY_MAX)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE), "JSON field '%s' out of range.", strna(name));
+
+        v = sd_json_variant_integer(variant);
+        if (!dns_priority_is_valid(v))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE), "JSON field '%s' out of range.", strna(name));
+
+        *priority = (int) v;
+        return 0;
+}
+
 JSON_DISPATCH_ENUM_DEFINE(dispatch_resolve_support_mode, ResolveSupport, resolve_support_from_string);
 JSON_DISPATCH_ENUM_DEFINE(dispatch_dns_over_tls_mode, DnsOverTlsMode, dns_over_tls_mode_from_string);
 
@@ -735,6 +758,8 @@ static int dispatch_dns_configuration(const char *name, sd_json_variant *variant
                 { "ifname",               SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,              offsetof(DNSConfiguration, ifname),                 0             },
                 { "ifindex",              SD_JSON_VARIANT_UNSIGNED, json_dispatch_ifindex,                offsetof(DNSConfiguration, ifindex),                SD_JSON_RELAX },
                 { "defaultRoute",         SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_stdbool,             offsetof(DNSConfiguration, default_route),          0             },
+                { "priority",             _SD_JSON_VARIANT_TYPE_INVALID, dispatch_dns_priority,           offsetof(DNSConfiguration, priority),               0             },
+                { "fallthrough",          SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_stdbool,             offsetof(DNSConfiguration, fallthrough),            0             },
                 { "currentServer",        SD_JSON_VARIANT_OBJECT,   dispatch_dns_server_runtime,          offsetof(DNSConfiguration, current_dns_server),     0             },
                 { "servers",              SD_JSON_VARIANT_ARRAY,    dispatch_dns_server_runtime_array,    offsetof(DNSConfiguration, dns_servers),            0             },
                 { "searchDomains",        SD_JSON_VARIANT_ARRAY,    dispatch_search_domain_runtime_array, offsetof(DNSConfiguration, search_domains),         0             },
@@ -758,6 +783,8 @@ static int dispatch_dns_configuration(const char *name, sd_json_variant *variant
         c = new0(DNSConfiguration, 1);
         if (!c)
                 return log_oom();
+
+        c->priority = DNS_PRIORITY_UNSET;
 
         r = sd_json_dispatch(variant, dns_configuration_dispatch_table, flags, c);
         if (r < 0)

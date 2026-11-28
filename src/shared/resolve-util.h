@@ -67,6 +67,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_resolve_support);
 CONFIG_PARSER_PROTOTYPE(config_parse_dnssec_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_dns_over_tls_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_dns_cache_mode);
+CONFIG_PARSER_PROTOTYPE(config_parse_dns_priority);
 
 DECLARE_STRING_TABLE_LOOKUP(resolve_support, ResolveSupport);
 
@@ -75,6 +76,15 @@ DECLARE_STRING_TABLE_LOOKUP(dnssec_mode, DnssecMode);
 DECLARE_STRING_TABLE_LOOKUP(dns_over_tls_mode, DnsOverTlsMode);
 
 bool dns_server_address_valid(int family, const union in_addr_union *sa);
+
+/* The priority of a DNS scope among the scopes that match a name equally well. Lower values are asked
+ * first. A scope without a priority joins the first group. */
+#define DNS_PRIORITY_UNSET (-1)
+#define DNS_PRIORITY_MAX INT32_MAX
+
+static inline bool dns_priority_is_valid(int64_t p) {
+        return p >= 0 && p <= DNS_PRIORITY_MAX;
+}
 
 DECLARE_STRING_TABLE_LOOKUP(dns_cache_mode, DnsCacheMode);
 

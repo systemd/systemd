@@ -11,6 +11,8 @@ int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_
 int bus_link_method_set_dns_servers_ex(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_link_method_set_default_route(sd_bus_message *message, void *userdata, sd_bus_error *error);
+int bus_link_method_set_dns_priority(sd_bus_message *message, void *userdata, sd_bus_error *error);
+int bus_link_method_set_dns_fallthrough(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_link_method_set_llmnr(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_link_method_set_mdns(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_link_method_set_dns_over_tls(sd_bus_message *message, void *userdata, sd_bus_error *error);

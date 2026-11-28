@@ -110,6 +110,8 @@ typedef enum StatusMode {
         STATUS_DNS,
         STATUS_DOMAIN,
         STATUS_DEFAULT_ROUTE,
+        STATUS_PRIORITY,
+        STATUS_FALLTHROUGH,
         STATUS_LLMNR,
         STATUS_MDNS,
         STATUS_DNS_OVER_TLS,
@@ -124,6 +126,8 @@ static const char* const status_mode_json_field_table[_STATUS_MAX] = {
         [STATUS_DNS]           = "servers",
         [STATUS_DOMAIN]        = "searchDomains",
         [STATUS_DEFAULT_ROUTE] = "defaultRoute",
+        [STATUS_PRIORITY]      = "priority",
+        [STATUS_FALLTHROUGH]   = "fallthrough",
         [STATUS_LLMNR]         = "llmnr",
         [STATUS_MDNS]          = "mDNS",
         [STATUS_DNS_OVER_TLS]  = "dnsOverTLS",
@@ -1439,6 +1443,10 @@ static int format_protocol_status(DNSConfiguration *configuration, char ***ret) 
                         return r;
         }
 
+        r = strv_extendf(&s, "%sFallthrough", plus_minus(configuration->fallthrough));
+        if (r < 0)
+                return r;
+
         r = strv_extend_extended_bool(&s, "LLMNR", configuration->llmnr_mode_str);
         if (r < 0)
                 return r;
@@ -1628,6 +1636,21 @@ static int print_configuration(DNSConfiguration *configuration, StatusMode mode,
 
                 return 0;
 
+        } else if (mode == STATUS_PRIORITY) {
+                char buf[DECIMAL_STR_MAX(int)] = "none";
+
+                if (configuration->priority != DNS_PRIORITY_UNSET)
+                        xsprintf(buf, "%i", configuration->priority);
+
+                status_print_string(configuration, buf);
+
+                return 0;
+
+        } else if (mode == STATUS_FALLTHROUGH) {
+                status_print_string(configuration, yes_no(configuration->fallthrough));
+
+                return 0;
+
         } else if (IN_SET(mode, STATUS_LLMNR, STATUS_MDNS, STATUS_DNS_OVER_TLS, STATUS_DNSSEC)) {
                 if (configuration->delegate)
                         return 0;
@@ -1736,6 +1759,23 @@ static int print_configuration(DNSConfiguration *configuration, StatusMode mode,
                 r = table_add_many(table,
                                    TABLE_FIELD, "Default Route",
                                    TABLE_BOOLEAN, configuration->default_route);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (configuration->priority != DNS_PRIORITY_UNSET) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Priority",
+                                   TABLE_INT, configuration->priority);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (configuration->delegate) {
+                /* Delegates have no protocol line, so show the fall-through flag on its own. */
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Fallthrough",
+                                   TABLE_BOOLEAN, configuration->fallthrough);
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -2961,6 +3001,80 @@ static int verb_default_route(int argc, char *argv[], uintptr_t _data, void *use
                 return log_error_errno(r, "Failed to build JSON parameters: %m");
 
         return varlink_call_link_method("io.systemd.Resolve.Link.SetDNSDefaultRoute", parameters);
+}
+
+VERB(verb_dns_priority, "dns-priority", "[LINK [PRIORITY]]\0", VERB_ANY, 3, 0,
+     "Get/set per-interface DNS priority");
+static int verb_dns_priority(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        int r;
+
+        if (argc >= 2) {
+                r = ifname_mangle(argv[1]);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_ifindex <= 0)
+                return status_all(STATUS_PRIORITY);
+
+        if (argc < 3)
+                return status_ifindex(arg_ifindex, STATUS_PRIORITY);
+
+        int priority = DNS_PRIORITY_UNSET;
+        if (!isempty(argv[2])) {
+                unsigned u;
+
+                r = safe_atou_bounded(argv[2], /* min= */ 0, DNS_PRIORITY_MAX, &u);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse DNS priority: %s", argv[2]);
+
+                priority = (int) u;
+        }
+
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        r = sd_json_buildo(
+                        &parameters,
+                        SD_JSON_BUILD_PAIR_CONDITION(priority != DNS_PRIORITY_UNSET, "priority", SD_JSON_BUILD_INTEGER(priority)),
+                        SD_JSON_BUILD_PAIR_CONDITION(priority == DNS_PRIORITY_UNSET, "priority", SD_JSON_BUILD_NULL));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON parameters: %m");
+
+        return varlink_call_link_method("io.systemd.Resolve.Link.SetDNSPriority", parameters);
+}
+
+VERB(verb_dns_fallthrough, "dns-fallthrough", "[LINK [BOOL]]\0", VERB_ANY, 3, 0,
+     "Get/set per-interface DNS fall-through flag");
+static int verb_dns_fallthrough(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        int r;
+
+        if (argc >= 2) {
+                r = ifname_mangle(argv[1]);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_ifindex <= 0)
+                return status_all(STATUS_FALLTHROUGH);
+
+        if (argc < 3)
+                return status_ifindex(arg_ifindex, STATUS_FALLTHROUGH);
+
+        int b = parse_boolean(argv[2]);
+        if (b < 0)
+                return log_error_errno(b, "Failed to parse boolean argument: %s", argv[2]);
+
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        r = sd_json_buildo(
+                        &parameters,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("fallthrough", b));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON parameters: %m");
+
+        return varlink_call_link_method("io.systemd.Resolve.Link.SetDNSFallthrough", parameters);
 }
 
 static int call_set_llmnr(const char *mode_str) {

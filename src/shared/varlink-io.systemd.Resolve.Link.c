@@ -63,6 +63,22 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(defaultRoute, SD_VARLINK_BOOL, 0));
 
 static SD_VARLINK_DEFINE_METHOD(
+                SetDNSPriority,
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_FIELD_COMMENT("Index of the interface to configure."),
+                SD_VARLINK_DEFINE_INPUT(ifindex, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Priority of this link among the DNS scopes that match a name equally well. Lower values are asked first. Passing null resets it."),
+                SD_VARLINK_DEFINE_INPUT(priority, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                SetDNSFallthrough,
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_FIELD_COMMENT("Index of the interface to configure."),
+                SD_VARLINK_DEFINE_INPUT(ifindex, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Whether a lookup continues with less specific DNS scopes after every scope matching it as well as this link failed."),
+                SD_VARLINK_DEFINE_INPUT(fallthrough, SD_VARLINK_BOOL, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
                 SetLLMNR,
                 VARLINK_DEFINE_POLKIT_INPUT,
                 SD_VARLINK_FIELD_COMMENT("Index of the interface to configure."),
@@ -121,6 +137,10 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_SetDNSSECNegativeTrustAnchors,
                 SD_VARLINK_SYMBOL_COMMENT("Set the per-link DNS default route setting."),
                 &vl_method_SetDNSDefaultRoute,
+                SD_VARLINK_SYMBOL_COMMENT("Set the per-link DNS priority."),
+                &vl_method_SetDNSPriority,
+                SD_VARLINK_SYMBOL_COMMENT("Set the per-link DNS fall-through setting."),
+                &vl_method_SetDNSFallthrough,
                 &vl_type_ResolveSupport,
                 SD_VARLINK_SYMBOL_COMMENT("Set the per-link LLMNR mode."),
                 &vl_method_SetLLMNR,
