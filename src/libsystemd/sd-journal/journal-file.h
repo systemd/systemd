@@ -74,6 +74,8 @@ typedef struct JournalFile {
         bool archive:1;
         bool strict_order:1;
         bool verifying:1;    /* The file is opened for verifying. See journal_file_verify(). */
+        bool allow_unlinked:1;
+        bool allow_online:1;
 
         direction_t last_direction;
         LocationType location_type;
@@ -128,7 +130,9 @@ typedef enum JournalFileFlags {
         JOURNAL_COMPRESS        = 1 << 0,
         JOURNAL_SEAL            = 1 << 1,
         JOURNAL_STRICT_ORDER    = 1 << 2,
-        _JOURNAL_FILE_FLAGS_ALL = JOURNAL_COMPRESS|JOURNAL_SEAL|JOURNAL_STRICT_ORDER,
+        JOURNAL_ALLOW_UNLINKED  = 1 << 3,
+        JOURNAL_ALLOW_ONLINE    = 1 << 4, /* The caller must guarantee that the previous writer has exited. */
+        _JOURNAL_FILE_FLAGS_ALL = JOURNAL_COMPRESS|JOURNAL_SEAL|JOURNAL_STRICT_ORDER|JOURNAL_ALLOW_UNLINKED|JOURNAL_ALLOW_ONLINE,
 } JournalFileFlags;
 
 typedef struct {
@@ -397,6 +401,7 @@ void journal_file_post_change(JournalFile *f);
 int journal_file_enable_post_change_timer(JournalFile *f, sd_event *e, usec_t t);
 
 void journal_reset_metrics(JournalMetrics *m);
+void journal_default_metrics(JournalMetrics *m, int fd);
 bool journal_metrics_equal(const JournalMetrics *x, const JournalMetrics *y);
 
 int journal_file_get_cutoff_realtime_usec(JournalFile *f, usec_t *ret_from, usec_t *ret_to);

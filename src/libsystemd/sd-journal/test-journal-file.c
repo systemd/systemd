@@ -336,6 +336,53 @@ TEST(seek_tail_live) {
         f = journal_file_offline_close(f);
 }
 
+TEST(reopen_online) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(journal_file_offline_closep) JournalFile *f = NULL;
+
+        if (!journal_test_setup(&directory))
+                return;
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+
+        f = journal_test_open(m, "test.journal", O_RDWR|O_CREAT, 2 * U64_MB);
+        model_append(f, /* model= */ NULL, MODEL_REALTIME_BASE, 5000, MODEL_BOOT_A,
+                     STRV_MAKE("MESSAGE=Before restart"));
+        ASSERT_EQ(f->header->state, STATE_ONLINE);
+        f = journal_file_close(f); /* Simulate an unclean exit of the previous writer. */
+
+        ASSERT_ERROR(journal_file_open(
+                             /* fd= */ -EBADF,
+                             "test.journal",
+                             O_RDWR,
+                             /* file_flags= */ 0,
+                             /* mode= */ 0,
+                             /* compress_threshold_bytes= */ UINT64_MAX,
+                             /* metrics= */ NULL,
+                             m,
+                             /* template= */ NULL,
+                             &f),
+                     EBUSY);
+        ASSERT_NULL(f);
+
+        ASSERT_OK(journal_file_open(
+                          /* fd= */ -EBADF,
+                          "test.journal",
+                          O_RDWR,
+                          JOURNAL_ALLOW_ONLINE,
+                          /* mode= */ 0,
+                          /* compress_threshold_bytes= */ UINT64_MAX,
+                          /* metrics= */ NULL,
+                          m,
+                          /* template= */ NULL,
+                          &f));
+        ASSERT_EQ(le64toh(f->header->n_entries), 1U);
+
+        model_append(f, /* model= */ NULL, MODEL_REALTIME_BASE + 1, 5001, MODEL_BOOT_A,
+                     STRV_MAKE("MESSAGE=After restart"));
+        ASSERT_EQ(le64toh(f->header->n_entries), 2U);
+}
+
 TEST(seqnum_id) {
         _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
