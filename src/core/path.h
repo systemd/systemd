@@ -28,6 +28,7 @@ typedef struct PathSpec {
         int primary_wd;
 
         bool previous_exists;
+        bool warned_incomplete;
 } PathSpec;
 
 int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler);

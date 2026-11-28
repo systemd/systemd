@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+[Unit]
+Description=Test PathChanged below a search-only directory
+
+[Path]
+PathChanged=/tmp/test-path_searchonly/sub/file

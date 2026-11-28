@@ -6,10 +6,13 @@
 
 #include "all-units.h"
 #include "alloc-util.h"
+#include "capability-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "manager.h"
 #include "mkdir.h"
+#include "pidref.h"
+#include "process-util.h"
 #include "rm-rf.h"
 #include "string-util.h"
 #include "strv.h"
@@ -36,13 +39,14 @@ static int setup_test(Manager **ret) {
                        "exists",
                        "existsglobFOOBAR",
                        "changed",
+                       "searchonly",
                        "modified",
                        "unit",
                        "directorynotempty",
                        "makedirectory") {
 
                 _cleanup_free_ char *p = ASSERT_NOT_NULL(strjoin("/tmp/test-path_", s));
-                (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL);
+                (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_CHMOD);
         }
 
         *ret = TAKE_PTR(m);
@@ -240,6 +244,66 @@ TEST_RET(path_changed) {
 
         (void) rm_rf(test_path, REMOVE_ROOT|REMOVE_PHYSICAL);
         ASSERT_OK(unit_stop(unit));
+        return 0;
+}
+
+static int run_path_changed_searchonly(const char *test_dir, const char *test_path) {
+        int r;
+
+        _cleanup_(manager_freep) Manager *m = NULL;
+        r = setup_test(&m);
+        if (r != 0)
+                return r;
+
+        ASSERT_OK(mkdir_parents(test_path, 0755));
+        ASSERT_OK(touch(test_path));
+        ASSERT_OK_ERRNO(chmod(test_dir, 0100));
+
+        /* Root may read any directory, drop the capabilities that allow that. */
+        ASSERT_OK(drop_capability(CAP_DAC_OVERRIDE));
+        ASSERT_OK(drop_capability(CAP_DAC_READ_SEARCH));
+        if (access(test_dir, R_OK) >= 0)
+                return log_tests_skipped("'%s' is readable despite mode 0100", test_dir);
+
+        Unit *unit;
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, "path-changed-searchonly.path", /* path= */ NULL, LOG_ERR, &unit));
+
+        Path *path = PATH(unit);
+        Service *service = service_for_path(m, path, /* service_name= */ NULL);
+
+        ASSERT_OK(unit_start(unit, /* details= */ NULL));
+        check_states(m, path, service, PATH_WAITING, SERVICE_DEAD);
+
+        fclose(ASSERT_NOT_NULL(fopen(test_path, "we")));
+        check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING);
+
+        ASSERT_OK(unit_stop(UNIT(service)));
+        check_states(m, path, service, PATH_WAITING, SERVICE_DEAD);
+
+        ASSERT_OK(unit_stop(unit));
+        return 0;
+}
+
+TEST_RET(path_changed_searchonly) {
+        /* inotify needs read access to watch an inode, so a directory that we may search but not read cannot
+         * be watched itself. The file below it can still be, and changes to it must trigger the unit. */
+        const char *test_dir = "/tmp/test-path_searchonly",
+                *test_path = "/tmp/test-path_searchonly/sub/file";
+        _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
+        int r;
+
+        /* The test drops capabilities, do that in a child so that the other tests keep them. */
+        r = ASSERT_OK(pidref_safe_fork("test-path-searchonly", FORK_DEATHSIG_SIGKILL|FORK_LOG, &child));
+        if (r == 0) {
+                r = run_path_changed_searchonly(test_dir, test_path);
+                _exit(r < 0 ? EXIT_FAILURE : r);
+        }
+
+        r = pidref_wait_for_terminate_and_check("test-path-searchonly", &child, WAIT_LOG);
+        (void) rm_rf(test_dir, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_CHMOD);
+        if (r == EXIT_TEST_SKIP)
+                return EXIT_TEST_SKIP; /* The child logged why. */
+        ASSERT_OK_ZERO(r);
         return 0;
 }
 
