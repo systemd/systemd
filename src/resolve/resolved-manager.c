@@ -657,6 +657,10 @@ static void manager_set_defaults(Manager *m) {
         for (DnsProtocol p = 0; p < _DNS_PROTOCOL_MAX; p++)
                 m->cache_max[p] = DEFAULT_CACHE_MAX;
         m->stale_retention_usec = 0;
+        m->priority_stagger_usec = PRIORITY_STAGGER_USEC_DEFAULT;
+        m->priority_hold_usec = PRIORITY_HOLD_USEC_DEFAULT;
+        m->priority = DNS_PRIORITY_UNSET;
+        m->fallthrough = false;
         m->refuse_record_types = set_free(m->refuse_record_types);
         m->resolv_conf_stat = (struct stat) {};
 }

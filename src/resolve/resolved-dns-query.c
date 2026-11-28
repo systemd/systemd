@@ -33,7 +33,7 @@
 assert_cc(AUXILIARY_QUERIES_MAX < UINT8_MAX);
 assert_cc(CNAME_REDIRECTS_MAX < UINT8_MAX);
 
-static int dns_query_candidate_new(DnsQueryCandidate **ret, DnsQuery *q, DnsScope *s) {
+static int dns_query_candidate_new(DnsQueryCandidate **ret, DnsQuery *q, DnsScope *s, unsigned level) {
         DnsQueryCandidate *c;
 
         assert(ret);
@@ -48,6 +48,7 @@ static int dns_query_candidate_new(DnsQueryCandidate **ret, DnsQuery *q, DnsScop
                 .n_ref = 1,
                 .query = q,
                 .scope = s,
+                .level = level,
         };
 
         LIST_PREPEND(candidates_by_query, q->candidates, c);
@@ -292,6 +293,7 @@ static int dns_query_candidate_setup_transactions(DnsQueryCandidate *c) {
         dns_query_candidate_stop(c);
 
         c->generation++;
+        c->accept_partial = false;
 
         if (c->query->question_bypass) {
                 /* If this is a bypass query, then pass the original query packet along to the transaction */
@@ -341,8 +343,6 @@ fail:
         return r;
 }
 
-static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c);
-
 static int on_candidate_timeout(sd_event_source *s, usec_t usec, void *userdata) {
         DnsQueryCandidate *c = userdata;
 
@@ -350,7 +350,8 @@ static int on_candidate_timeout(sd_event_source *s, usec_t usec, void *userdata)
         assert(c);
 
         log_debug("Accepting incomplete query candidate after expedited timeout on partial success.");
-        dns_query_accept(c->query, c);
+        c->accept_partial = true;
+        dns_query_ready(c->query);
 
         return 0;
 }
@@ -426,10 +427,18 @@ fail:
         dns_query_ready(c->query);
 }
 
+static void dns_query_disable_chain_timers(DnsQuery *q) {
+        assert(q);
+
+        (void) event_source_disable(q->stagger_event_source);
+        (void) event_source_disable(q->hold_event_source);
+}
+
 static void dns_query_stop(DnsQuery *q) {
         assert(q);
 
         event_source_disable(q->timeout_event_source);
+        dns_query_disable_chain_timers(q);
 
         LIST_FOREACH(candidates_by_query, c, q->candidates)
                 dns_query_candidate_stop(c);
@@ -440,6 +449,7 @@ static void dns_query_abandon(DnsQuery *q) {
 
         /* Thankfully transactions have their own timeouts */
         event_source_disable(q->timeout_event_source);
+        dns_query_disable_chain_timers(q);
 
         LIST_FOREACH(candidates_by_query, c, q->candidates)
                 dns_query_candidate_abandon(c);
@@ -475,6 +485,8 @@ DnsQuery *dns_query_free(DnsQuery *q) {
                 return NULL;
 
         q->timeout_event_source = sd_event_source_disable_unref(q->timeout_event_source);
+        q->stagger_event_source = sd_event_source_disable_unref(q->stagger_event_source);
+        q->hold_event_source = sd_event_source_disable_unref(q->hold_event_source);
 
         while (q->auxiliary_queries)
                 dns_query_free(q->auxiliary_queries);
@@ -792,14 +804,14 @@ static int on_query_timeout(sd_event_source *s, usec_t usec, void *userdata) {
         return 0;
 }
 
-static int dns_query_add_candidate(DnsQuery *q, DnsScope *s) {
+static int dns_query_add_candidate(DnsQuery *q, DnsScope *s, unsigned level) {
         _cleanup_(dns_query_candidate_unrefp) DnsQueryCandidate *c = NULL;
         int r;
 
         assert(q);
         assert(s);
 
-        r = dns_query_candidate_new(&c, q, s);
+        r = dns_query_candidate_new(&c, q, s, level);
         if (r < 0)
                 return r;
 
@@ -938,6 +950,191 @@ static int dns_query_try_static_records(DnsQuery *q) {
         return 1;
 }
 
+static bool dns_query_next_level_priority(DnsQuery *q, int *ret) {
+        bool first, found = false;
+        int priority = DNS_PRIORITY_UNSET;
+
+        assert(q);
+        assert(ret);
+
+        /* Finds the priority of the next level of the current tier: the lowest priority above the last
+         * started level. Scopes without a priority join the first level. */
+
+        first = q->n_levels == q->tier_first_level;
+
+        LIST_FOREACH(scopes, s, q->manager->dns_scopes) {
+                if (dns_scope_good_domain(s, q, q->flags) != (DnsScopeMatch) q->tier_match)
+                        continue;
+
+                int p = dns_scope_get_priority(s);
+                if (p == DNS_PRIORITY_UNSET) {
+                        if (first)
+                                found = true;
+                        continue;
+                }
+
+                if (!first && p <= q->tier_priority)
+                        continue;
+
+                if (priority == DNS_PRIORITY_UNSET || p < priority)
+                        priority = p;
+                found = true;
+        }
+
+        *ret = priority;
+        return found;
+}
+
+/* Declared ahead: the stagger timer starts a level, and starting a level schedules the stagger timer. */
+static int on_stagger_timeout(sd_event_source *s, usec_t usec, void *userdata);
+
+/* Starts the next priority level of the current tier after PriorityStaggerSec=, unless this level finishes
+ * first. The stagger never crosses tiers. */
+static void dns_query_schedule_next_level(DnsQuery *q) {
+        int priority, r;
+
+        assert(q);
+
+        if (!dns_query_next_level_priority(q, &priority)) {
+                (void) event_source_disable(q->stagger_event_source);
+                return;
+        }
+
+        r = event_reset_time_relative(
+                        q->manager->event,
+                        &q->stagger_event_source,
+                        CLOCK_BOOTTIME,
+                        q->manager->priority_stagger_usec,
+                        /* accuracy= */ 0, on_stagger_timeout, q,
+                        /* priority= */ 0, "query-stagger", /* force_reset= */ true);
+        if (r < 0)
+                /* Without the timer the next level still starts once this one has failed. */
+                log_debug_errno(r, "Failed to arm stagger timer, ignoring: %m");
+}
+
+static int dns_query_start_level(DnsQuery *q) {
+        int priority, r;
+        bool first;
+
+        assert(q);
+        assert(DNS_TRANSACTION_IS_LIVE(q->state));
+
+        /* Starts the next level of the current tier. Returns 0 if the tier has no further level. The caller
+         * must call dns_query_ready() afterwards. */
+
+        if (!dns_query_next_level_priority(q, &priority))
+                return 0;
+
+        first = q->n_levels == q->tier_first_level;
+        unsigned level = q->n_levels++;
+        q->tier_priority = priority;
+
+        if (priority != DNS_PRIORITY_UNSET)
+                log_debug("Asking scopes with priority %i%s for %s.",
+                          priority, first ? " and without priority" : "", dns_query_string(q));
+
+        LIST_FOREACH(scopes, s, q->manager->dns_scopes) {
+                if (dns_scope_good_domain(s, q, q->flags) != (DnsScopeMatch) q->tier_match)
+                        continue;
+
+                int p = dns_scope_get_priority(s);
+                if (p != priority && !(first && p == DNS_PRIORITY_UNSET))
+                        continue;
+
+                r = dns_query_add_candidate(q, s, level);
+                if (r < 0)
+                        return r;
+        }
+
+        dns_query_schedule_next_level(q);
+
+        q->block_ready++;
+        LIST_FOREACH(candidates_by_query, c, q->candidates) {
+                if (c->level != level)
+                        continue;
+
+                r = dns_query_candidate_go(c);
+                if (r < 0) {
+                        q->block_ready--;
+                        return r;
+                }
+        }
+        q->block_ready--;
+
+        return 1;
+}
+
+static int on_stagger_timeout(sd_event_source *s, usec_t usec, void *userdata) {
+        DnsQuery *q = ASSERT_PTR(userdata);
+        int r;
+
+        /* An answer is already in and only waits for earlier levels: don't ask more scopes. */
+        if (sd_event_source_get_enabled(q->hold_event_source, /* ret= */ NULL) > 0)
+                return 0;
+
+        r = dns_query_start_level(q);
+        if (r < 0) {
+                q->answer_errno = -r;
+                dns_query_complete(q, DNS_TRANSACTION_ERRNO);
+                return 0;
+        }
+
+        dns_query_ready(q);
+        return 0;
+}
+
+static int dns_query_next_tier(DnsQuery *q) {
+        DnsScopeMatch next = DNS_SCOPE_NO;
+
+        assert(q);
+
+        /* Steps to the next less specific tier. Returns 0 if there is none. */
+
+        LIST_FOREACH(scopes, s, q->manager->dns_scopes) {
+                DnsScopeMatch match = dns_scope_good_domain(s, q, q->flags);
+
+                if (match < (DnsScopeMatch) q->tier_match && match > next)
+                        next = match;
+        }
+
+        if (next == DNS_SCOPE_NO)
+                return 0;
+
+        log_debug("All scopes matching %s best failed and allow fall-through, continuing with less specific scopes.",
+                  dns_query_string(q));
+
+        q->tier_match = next;
+        q->tier_first_level = q->n_levels;
+        q->tier_priority = DNS_PRIORITY_UNSET;
+
+        return dns_query_start_level(q);
+}
+
+static bool dns_query_tier_falls_through(DnsQuery *q) {
+        assert(q);
+
+        /* Only leave a tier when every one of its DNS scopes permits it, since their routing domains are
+         * what keeps the name from leaking to less specific scopes. LLMNR and mDNS scopes have no such
+         * setting and abstain, but a tier without any DNS scope never falls through: that would send names
+         * that only LLMNR or mDNS were asked for to unicast DNS. */
+
+        bool any = false;
+        LIST_FOREACH(candidates_by_query, c, q->candidates) {
+                if (c->level < q->tier_first_level)
+                        continue;
+                if (!c->scope)
+                        return false;
+                if (c->scope->protocol != DNS_PROTOCOL_DNS)
+                        continue;
+                if (!dns_scope_get_fallthrough(c->scope))
+                        return false;
+
+                any = true;
+        }
+
+        return any;
+}
+
 static int dns_query_go_scopes(DnsQuery *q) {
         int r;
 
@@ -948,17 +1145,13 @@ static int dns_query_go_scopes(DnsQuery *q) {
         /* Start the lookup via the scopes */
 
         DnsScopeMatch found = DNS_SCOPE_NO;
-        DnsScope *first = NULL;
         LIST_FOREACH(scopes, s, q->manager->dns_scopes) {
                 DnsScopeMatch match;
 
                 match = dns_scope_good_domain(s, q, q->flags);
                 assert(match >= 0);
-                if (match > found) { /* Does this match better? If so, remember how well it matched, and the first one
-                                      * that matches this well */
+                if (match > found) /* Does this match better? If so, remember how well it matched */
                         found = match;
-                        first = s;
-                }
         }
 
         if (found == DNS_SCOPE_NO) {
@@ -972,24 +1165,12 @@ static int dns_query_go_scopes(DnsQuery *q) {
                 return 1;
         }
 
-        r = dns_query_add_candidate(q, first);
-        if (r < 0)
-                goto fail;
-
-        LIST_FOREACH(scopes, s, first->scopes_next) {
-                DnsScopeMatch match;
-
-                match = dns_scope_good_domain(s, q, q->flags);
-                assert(match >= 0);
-                if (match < found)
-                        continue;
-
-                r = dns_query_add_candidate(q, s);
-                if (r < 0)
-                        goto fail;
-        }
-
         dns_query_reset_answer(q);
+
+        q->tier_match = found;
+        q->tier_priority = DNS_PRIORITY_UNSET;
+        q->tier_first_level = q->n_levels = 0;
+        q->hold_expired = false;
 
         r = event_reset_time_relative(
                         q->manager->event,
@@ -1002,18 +1183,12 @@ static int dns_query_go_scopes(DnsQuery *q) {
                 goto fail;
 
         q->state = DNS_TRANSACTION_PENDING;
-        q->block_ready++;
 
-        /* Start the transactions */
-        LIST_FOREACH(candidates_by_query, c, q->candidates) {
-                r = dns_query_candidate_go(c);
-                if (r < 0) {
-                        q->block_ready--;
-                        goto fail;
-                }
-        }
+        r = dns_query_start_level(q);
+        if (r < 0)
+                goto fail;
+        assert(r > 0);
 
-        q->block_ready--;
         dns_query_ready(q);
 
         return 1;
@@ -1223,9 +1398,77 @@ fail:
         dns_query_complete(q, DNS_TRANSACTION_ERRNO);
 }
 
-void dns_query_ready(DnsQuery *q) {
-        DnsQueryCandidate *bad = NULL;
+typedef enum DnsQueryLevelState {
+        DNS_QUERY_LEVEL_FAILED,
+        DNS_QUERY_LEVEL_PENDING,
+        DNS_QUERY_LEVEL_DENIED,    /* NXDOMAIN, validated with DNSSEC */
+        DNS_QUERY_LEVEL_SUCCEEDED,
+} DnsQueryLevelState;
+
+static bool dns_query_candidate_denied(DnsQueryCandidate *c) {
+        DnsTransaction *t;
+
+        assert(c);
+
+        /* Only an authenticated NXDOMAIN ends the chain. Hostile servers send fake NXDOMAIN replies to block
+         * names, so an unauthenticated one counts as a failure. */
+
+        SET_FOREACH(t, c->transactions)
+                if (t->state == DNS_TRANSACTION_RCODE_FAILURE &&
+                    t->answer_rcode == DNS_RCODE_NXDOMAIN &&
+                    FLAGS_SET(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED))
+                        return true;
+
+        return false;
+}
+
+static DnsQueryLevelState dns_query_level_state(DnsQuery *q, unsigned level, DnsQueryCandidate **ret) {
+        DnsQueryCandidate *denied = NULL;
         bool pending = false;
+
+        assert(q);
+        assert(ret);
+
+        LIST_FOREACH(candidates_by_query, c, q->candidates) {
+                if (c->level != level)
+                        continue;
+
+                DnsTransactionState state = c->accept_partial ? DNS_TRANSACTION_SUCCESS : dns_query_candidate_state(c);
+
+                if (state == DNS_TRANSACTION_SUCCESS) {
+                        /* One of the candidates is successful, use it */
+                        *ret = c;
+                        return DNS_QUERY_LEVEL_SUCCEEDED;
+                }
+
+                if (DNS_TRANSACTION_IS_LIVE(state))
+                        pending = true;
+                else if (!denied && dns_query_candidate_denied(c))
+                        denied = c;
+        }
+
+        *ret = denied;
+
+        if (pending)
+                return DNS_QUERY_LEVEL_PENDING;
+
+        return denied ? DNS_QUERY_LEVEL_DENIED : DNS_QUERY_LEVEL_FAILED;
+}
+
+static int on_hold_timeout(sd_event_source *s, usec_t usec, void *userdata) {
+        DnsQuery *q = ASSERT_PTR(userdata);
+
+        log_debug("Earlier scopes did not answer %s in time, accepting the answer of a later one.", dns_query_string(q));
+
+        q->hold_expired = true;
+        dns_query_ready(q);
+        return 0;
+}
+
+void dns_query_ready(DnsQuery *q) {
+        DnsQueryCandidate *bad = NULL, *held = NULL;
+        bool pending = false;
+        int r;
 
         assert(q);
         assert(DNS_TRANSACTION_IS_LIVE(q->state));
@@ -1241,40 +1484,89 @@ void dns_query_ready(DnsQuery *q) {
         if (q->block_ready > 0)
                 return;
 
-        LIST_FOREACH(candidates_by_query, c, q->candidates) {
-                DnsTransactionState state;
+        /* Walk the levels in the order they were started. The first level that succeeded, or denied the name
+         * with DNSSEC, decides, unless an earlier level is still pending: the order is the user's choice, so
+         * the earlier level gets until the hold expires to answer first. */
+        for (unsigned level = 0; level < q->n_levels; level++) {
+                DnsQueryCandidate *c;
 
-                state = dns_query_candidate_state(c);
-                switch (state) {
+                switch (dns_query_level_state(q, level, &c)) {
 
-                case DNS_TRANSACTION_SUCCESS:
-                        /* One of the candidates is successful,
-                         * let's use it, and copy its data out */
-                        dns_query_accept(q, c);
-                        return;
+                case DNS_QUERY_LEVEL_SUCCEEDED:
+                case DNS_QUERY_LEVEL_DENIED:
+                        if (!pending) {
+                                dns_query_accept(q, c);
+                                return;
+                        }
 
-                case DNS_TRANSACTION_NULL:
-                case DNS_TRANSACTION_PENDING:
-                case DNS_TRANSACTION_VALIDATING:
-                        /* One of the candidates is still going on,
-                         * let's maybe wait for it */
+                        if (!held)
+                                held = c;
+                        break;
+
+                case DNS_QUERY_LEVEL_PENDING:
                         pending = true;
                         break;
 
-                default:
-                        /* Any kind of failure: save the most recent error, as long as we never saved one
-                         * before or our current one is "conclusive" in the sense that we definitely did a
-                         * lookup, and thus have a real answer (which might be a failure, but is still *some*
-                         * answer). */
-
-                        if (!bad || !IN_SET(state, DNS_TRANSACTION_NO_SERVERS, DNS_TRANSACTION_NETWORK_DOWN, DNS_TRANSACTION_NO_SOURCE))
-                                bad = c;
+                case DNS_QUERY_LEVEL_FAILED:
                         break;
                 }
         }
 
+        if (held) {
+                if (q->hold_expired || q->manager->priority_hold_usec == 0) {
+                        dns_query_accept(q, held);
+                        return;
+                }
+
+                if (sd_event_source_get_enabled(q->hold_event_source, /* ret= */ NULL) <= 0) {
+                        r = event_reset_time_relative(
+                                        q->manager->event,
+                                        &q->hold_event_source,
+                                        CLOCK_BOOTTIME,
+                                        q->manager->priority_hold_usec,
+                                        /* accuracy= */ 0, on_hold_timeout, q,
+                                        /* priority= */ 0, "query-hold", /* force_reset= */ true);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to arm hold timer, accepting the later answer: %m");
+                                dns_query_accept(q, held);
+                        }
+                }
+
+                return;
+        }
+
+        /* Still waiting for some candidates. The stagger timer starts the next level. */
         if (pending)
                 return;
+
+        /* Everything asked so far has failed. Continue with the next level of this tier, or with the next
+         * tier if every scope of this one permits fall-through. */
+        r = dns_query_start_level(q);
+        if (r == 0 && dns_query_tier_falls_through(q))
+                r = dns_query_next_tier(q);
+        if (r < 0) {
+                q->answer_errno = -r;
+                dns_query_complete(q, DNS_TRANSACTION_ERRNO);
+                return;
+        }
+        if (r > 0) {
+                dns_query_ready(q);
+                return;
+        }
+
+        /* Any kind of failure: save the most recent error, as long as we never saved one before or our current
+         * one is "conclusive" in the sense that we definitely did a lookup, and thus have a real answer (which
+         * might be a failure, but is still *some* answer). Walk the levels in the order they were started, so
+         * that the last level asked provides the error. */
+        for (unsigned level = 0; level < q->n_levels; level++)
+                LIST_FOREACH(candidates_by_query, c, q->candidates) {
+                        if (c->level != level)
+                                continue;
+
+                        DnsTransactionState state = dns_query_candidate_state(c);
+                        if (!bad || !IN_SET(state, DNS_TRANSACTION_NO_SERVERS, DNS_TRANSACTION_NETWORK_DOWN, DNS_TRANSACTION_NO_SOURCE))
+                                bad = c;
+                }
 
         dns_query_accept(q, bad);
 }
@@ -1368,6 +1660,7 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
         q->question_utf8 = TAKE_PTR(nq_utf8);
 
         dns_query_unlink_candidates(q);
+        dns_query_disable_chain_timers(q);
 
         /* Note that we do *not* reset the answer here, because the answer we previously got might already
          * include everything we need, let's check that first */

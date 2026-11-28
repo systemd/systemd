@@ -21,6 +21,13 @@ typedef struct DnsQueryCandidate {
         Set *transactions;
         sd_event_source *timeout_event_source;
 
+        /* The level of the query's scope chain this candidate belongs to, see DnsQuery.n_levels */
+        unsigned level;
+
+        /* Set when the expedited timeout after a partial success expired: the candidate then counts as
+         * successful even though some of its transactions are still pending. */
+        bool accept_partial;
+
         LIST_FIELDS(DnsQueryCandidate, candidates_by_query);
         LIST_FIELDS(DnsQueryCandidate, candidates_by_scope);
 } DnsQueryCandidate;
@@ -65,6 +72,19 @@ typedef struct DnsQuery {
         LIST_HEAD(DnsQueryCandidate, candidates);
         sd_event_source *timeout_event_source;
 
+        /* The scope chain. Scopes that match the name equally well form a tier, and the query starts with
+         * the best matching one. Inside a tier the scopes are asked in levels of rising priority: the next
+         * level starts when every candidate so far has failed, or when stagger_event_source fires. When a
+         * tier is exhausted and all of its scopes allow fall-through, the next less specific tier
+         * follows. Levels are numbered across tiers in the order they were started, and n_levels counts
+         * them. A later level's answer waits up to hold_event_source for pending earlier levels. */
+        int tier_match;           /* DnsScopeMatch of the current tier */
+        int tier_priority;        /* priority of the tier's last started level */
+        unsigned tier_first_level;
+        unsigned n_levels;
+        sd_event_source *stagger_event_source;
+        sd_event_source *hold_event_source;
+
         /* Discovered data */
         DnsAnswer *answer;
         int answer_rcode;
@@ -89,6 +109,7 @@ typedef struct DnsQuery {
         bool previous_redirect_non_confidential:1;
         bool previous_redirect_non_synthetic:1;
         bool request_address_valid:1;
+        bool hold_expired:1;
 
         /* Bus + Varlink client information */
         sd_bus_message *bus_request;
