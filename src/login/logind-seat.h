@@ -35,6 +35,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Seat*, seat_free);
 int seat_save(Seat *s);
 int seat_load(Seat *s);
 
+bool device_triggered_by_seat(sd_device *dev);
 int manager_process_device_triggered_by_seat(Manager *m, sd_device *dev);
 
 void seat_set_active(Seat *s, Session *session);

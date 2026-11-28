@@ -659,12 +659,8 @@ static int manager_dispatch_seat_udev(sd_device_monitor *monitor, sd_device *dev
 
         assert(device);
 
-        /* If the event is triggered by us, do not try to start the relevant seat again. Otherwise, starting
-         * the seat may trigger uevents again again again... */
-        r = manager_process_device_triggered_by_seat(m, device);
-        if (r < 0)
-                log_device_warning_errno(device, r, "Failed to process seat device event triggered by us, ignoring: %m");
-        if (r != 0)
+        /* The uevents triggered by us are processed by manager_dispatch_uaccess_udev(). */
+        if (device_triggered_by_seat(device))
                 return 0;
 
         r = manager_process_seat_device(m, device);
@@ -680,19 +676,15 @@ static int manager_dispatch_device_udev(sd_device_monitor *monitor, sd_device *d
 
         assert(device);
 
+        /* The uevents triggered by us are processed by manager_dispatch_uaccess_udev(). */
+        if (device_triggered_by_seat(device))
+                return 0;
+
         /* If the device currently has "master-of-seat" tag, then it has been or will be processed by
          * manager_dispatch_seat_udev(). */
         r = sd_device_has_current_tag(device, "master-of-seat");
         if (r < 0)
                 log_device_warning_errno(device, r, "Failed to check if the device currently has master-of-seat tag, ignoring: %m");
-        if (r != 0)
-                return 0;
-
-        /* If the event is triggered by us, do not try to start the relevant seat again. Otherwise, starting
-         * the seat may trigger uevents again again again... */
-        r = manager_process_device_triggered_by_seat(m, device);
-        if (r < 0)
-                log_device_warning_errno(device, r, "Failed to process seat device event triggered by us, ignoring: %m");
         if (r != 0)
                 return 0;
 
@@ -708,22 +700,6 @@ static int manager_dispatch_uaccess_udev(sd_device_monitor *monitor, sd_device *
         int r;
 
         assert(device);
-
-        /* If the device currently has "master-of-seat" tag, then it has been or will be processed by
-         * manager_dispatch_seat_udev(). */
-        r = sd_device_has_current_tag(device, "master-of-seat");
-        if (r < 0)
-                log_device_warning_errno(device, r, "Failed to check if the device currently has master-of-seat tag, ignoring: %m");
-        if (r != 0)
-                return 0;
-
-        /* If the device is in input, graphics, or drm, then the event has been or will be processed by
-         * manager_dispatch_device_udev(). */
-        r = device_in_subsystem(device, "input", "graphics", "drm");
-        if (r < 0)
-                log_device_warning_errno(device, r, "Failed to check device subsystem, ignoring: %m");
-        if (r != 0)
-                return 0;
 
         r = manager_process_device_triggered_by_seat(m, device);
         if (r < 0)

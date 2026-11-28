@@ -8,6 +8,7 @@
 
 #include "acl-util.h"
 #include "alloc-util.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "dirent-util.h"
 #include "env-util.h"
@@ -34,12 +35,15 @@
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
 #include "udev-util.h"
 #include "user-record.h"
 #include "user-util.h"
+
+#define SEAT_EVENT_ARG_KEY "LogindSeatEvent"
 
 /* Timeout for waiting uevents triggered by seat_trigger_devices() to be processed by udevd.
  * May be overridden by $SYSTEMD_SEAT_UEVENTS_TIMEOUT_SEC. */
@@ -271,16 +275,30 @@ static int on_seat_uevents_timeout(sd_event_source *source, uint64_t usec, void 
         return 0;
 }
 
+bool device_triggered_by_seat(sd_device *dev) {
+        int r;
+
+        assert(dev);
+
+        /* Check if the uevent is one of those triggered by seat_trigger_devices(). */
+        r = device_get_property_bool(dev, "SYNTH_ARG_" SEAT_EVENT_ARG_KEY);
+        if (r < 0 && r != -ENOENT)
+                log_debug_errno(r, "Failed to parse $SYNTH_ARG_" SEAT_EVENT_ARG_KEY ", assuming it is not triggered by seat, ignoring: %m");
+
+        return r > 0;
+}
+
 int manager_process_device_triggered_by_seat(Manager *m, sd_device *dev) {
         int r;
 
         assert(m);
         assert(dev);
 
+        if (!device_triggered_by_seat(dev))
+                return 0;
+
         sd_id128_t uuid;
         r = sd_device_get_trigger_uuid(dev, &uuid);
-        if (IN_SET(r, -ENOENT, -ENODATA))
-                return 0;
         if (r < 0)
                 return r;
 
@@ -288,6 +306,7 @@ int manager_process_device_triggered_by_seat(Manager *m, sd_device *dev) {
         HASHMAP_FOREACH(s, m->seats)
                 if (set_contains(s->uevents, &uuid))
                         break;
+
         if (!s)
                 return 0;
 
@@ -302,10 +321,14 @@ int manager_process_device_triggered_by_seat(Manager *m, sd_device *dev) {
 
         if (!streq(id, s->id)) {
                 log_device_debug(dev, "ID_SEAT is changed in the triggered uevent: \"%s\" -> \"%s\"", s->id, id);
-                return 0;
+
+                /* Process the seat assignment change during the synthesized event. */
+                r = manager_process_seat_device(m, dev);
+                if (r < 0)
+                        return r;
         }
 
-        return 1; /* The uevent is triggered by the relevant seat. */
+        return 0;
 }
 
 static int seat_trigger_devices(Seat *s) {
@@ -315,6 +338,16 @@ static int seat_trigger_devices(Seat *s) {
         assert(s->manager);
 
         set_clear(s->uevents);
+
+        /* Append the extra argument, so that device_triggered_by_seat() can recognize the triggered
+         * uevents. */
+        _cleanup_strv_free_ char **args = strv_copy(s->manager->device_trigger_args);
+        if (!args)
+                return -ENOMEM;
+
+        r = strv_extend_many(&args, SEAT_EVENT_ARG_KEY, "1");
+        if (r < 0)
+                return r;
 
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         r = sd_device_enumerator_new(&e);
@@ -355,7 +388,7 @@ static int seat_trigger_devices(Seat *s) {
                         continue;
 
                 sd_id128_t uuid;
-                r = device_trigger_with_timestamp(d, SD_DEVICE_CHANGE, s->manager->device_trigger_args, &uuid);
+                r = device_trigger_with_timestamp(d, SD_DEVICE_CHANGE, args, &uuid);
                 if (r < 0) {
                         RET_GATHER(ret, log_device_debug_errno(d, r, "Failed to trigger 'change' event, ignoring: %m"));
                         continue;
