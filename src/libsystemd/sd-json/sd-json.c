@@ -3643,7 +3643,17 @@ char *json_dashify(char *p) {
         return p;
 }
 
-_public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
+static void json_build_filter_pair(JsonStack *current, size_t n_stack, char * const *filter, const char *name) {
+        assert(current);
+
+        /* Suppresses this pair (its name and value) if it's a field of the top-level object that isn't
+         * in filter, if there is one. */
+
+        if (filter && n_stack == 2 && current->n_suppress == 0 && !strv_contains(filter, name))
+                current->n_suppress = 2;
+}
+
+static int json_buildv_filtered(sd_json_variant **ret, char * const *filter, va_list ap) {
         JsonStack *stack = NULL;
         size_t n_stack = 1;
         const char *name = NULL;
@@ -4533,6 +4543,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         }
 
                         name = va_arg(ap, const char *);
+                        json_build_filter_pair(current, n_stack, filter, name);
 
                         if (current->n_suppress == 0) {
                                 r = sd_json_variant_new_string(&add, name);
@@ -4556,6 +4567,8 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
 
                         b = va_arg(ap, int);
                         name = va_arg(ap, const char *);
+                        if (b) /* otherwise it's suppressed below anyway */
+                                json_build_filter_pair(current, n_stack, filter, name);
 
                         if (b && current->n_suppress == 0) {
                                 r = sd_json_variant_new_string(&add, name);
@@ -4584,6 +4597,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         }
 
                         n = va_arg(ap, const char*);
+                        json_build_filter_pair(current, n_stack, filter, n);
                         i = va_arg(ap, int64_t);
 
                         if (command == _JSON_BUILD_PAIR_INTEGER_NON_ZERO)
@@ -4620,6 +4634,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         }
 
                         n = va_arg(ap, const char *);
+                        json_build_filter_pair(current, n_stack, filter, n);
                         u = va_arg(ap, uint64_t);
                         eq = command == _JSON_BUILD_PAIR_UNSIGNED_NON_ZERO ? 0 : va_arg(ap, uint64_t);
 
@@ -4650,6 +4665,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         }
 
                         n = va_arg(ap, const char *);
+                        json_build_filter_pair(current, n_stack, filter, n);
                         u = va_arg(ap, usec_t);
 
                         if (u != USEC_INFINITY &&
@@ -4680,6 +4696,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         }
 
                         n = va_arg(ap, const char *);
+                        json_build_filter_pair(current, n_stack, filter, n);
                         s = va_arg(ap, const char *);
 
                         if (!isempty(s) && current->n_suppress == 0) {
@@ -4718,6 +4735,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         }
 
                         n = va_arg(ap, const char *);
+                        json_build_filter_pair(current, n_stack, filter, n);
                         l = va_arg(ap, char **);
 
                         if (!strv_isempty(l) && current->n_suppress == 0) {
@@ -4754,6 +4772,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         }
 
                         n = va_arg(ap, const char *);
+                        json_build_filter_pair(current, n_stack, filter, n);
                         v = va_arg(ap, sd_json_variant *);
 
                         if (v && !sd_json_variant_is_null(v) && current->n_suppress == 0) {
@@ -4780,6 +4799,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         }
 
                         n = va_arg(ap, const char *);
+                        json_build_filter_pair(current, n_stack, filter, n);
                         v = va_arg(ap, sd_json_variant *);
 
                         if (v && !sd_json_variant_is_blank_object(v) && current->n_suppress == 0) {
@@ -4807,6 +4827,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         }
 
                         n = va_arg(ap, const char *);
+                        json_build_filter_pair(current, n_stack, filter, n);
                         array = va_arg(ap, const void*);
                         sz = va_arg(ap, size_t);
 
@@ -4839,6 +4860,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         }
 
                         n = va_arg(ap, const char *);
+                        json_build_filter_pair(current, n_stack, filter, n);
                         f = va_arg(ap, int);
                         a = va_arg(ap, const union in_addr_union *);
 
@@ -4901,6 +4923,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         }
 
                         n = va_arg(ap, const char *);
+                        json_build_filter_pair(current, n_stack, filter, n);
                         a = va_arg(ap, const struct ether_addr *);
 
                         if (a && !ether_addr_is_null(a) && current->n_suppress == 0) {
@@ -4929,6 +4952,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         }
 
                         n = va_arg(ap, const char *);
+                        json_build_filter_pair(current, n_stack, filter, n);
                         a = va_arg(ap, const struct hw_addr_data *);
 
                         if (a && !hw_addr_is_null(a) && current->n_suppress == 0) {
@@ -4957,6 +4981,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         }
 
                         n = va_arg(ap, const char*);
+                        json_build_filter_pair(current, n_stack, filter, n);
                         ts = va_arg(ap, const dual_timestamp*);
 
                         if (ts && dual_timestamp_is_set(ts) && current->n_suppress == 0) {
@@ -4987,6 +5012,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         }
 
                         n = va_arg(ap, const char*);
+                        json_build_filter_pair(current, n_stack, filter, n);
                         rl = va_arg(ap, const RateLimit*);
 
                         if (rl && ratelimit_configured(rl) && current->n_suppress == 0) {
@@ -5017,6 +5043,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         }
 
                         n = va_arg(ap, const char*);
+                        json_build_filter_pair(current, n_stack, filter, n);
                         p = va_arg(ap, PidRef*);
 
                         if (pidref_is_set(p) && current->n_suppress == 0) {
@@ -5046,6 +5073,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         }
 
                         n = va_arg(ap, const char*);
+                        json_build_filter_pair(current, n_stack, filter, n);
                         cb = va_arg(ap, sd_json_build_callback_t);
                         userdata = va_arg(ap, void*);
 
@@ -5083,6 +5111,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         }
 
                         n = va_arg(ap, const char*);
+                        json_build_filter_pair(current, n_stack, filter, n);
                         p = va_arg(ap, const void *);
                         sz = va_arg(ap, size_t);
 
@@ -5115,6 +5144,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         }
 
                         n = va_arg(ap, const char*);
+                        json_build_filter_pair(current, n_stack, filter, n);
                         tristate = va_arg(ap, int);
 
                         if (tristate >= 0 && current->n_suppress == 0) {
@@ -5169,6 +5199,21 @@ finish:
                 json_stack_release(i);
 
         free(stack);
+
+        return r;
+}
+
+_public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
+        return json_buildv_filtered(ret, /* filter= */ NULL, ap);
+}
+
+int json_build_filtered(sd_json_variant **ret, char * const *filter, ...) {
+        va_list ap;
+        int r;
+
+        va_start(ap, filter);
+        r = json_buildv_filtered(ret, filter, ap);
+        va_end(ap);
 
         return r;
 }
