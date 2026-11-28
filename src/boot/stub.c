@@ -164,7 +164,7 @@ static bool parse_profile_from_cmdline(char16_t **cmdline, unsigned *ret_profile
         const char16_t *tail;
         if (!parse_number16(p + 1, &u, &tail))
                 goto nothing;
-        if (u > UINT_MAX)
+        if (u >= UINT_MAX)
                 goto nothing;
         /* Remove exactly one separating space. No further mangling, in order to not disturb measurements –
          * and thus making prediction harder –, after all we want that people can safely prefix their command
@@ -196,7 +196,7 @@ static bool parse_profile_from_argument(const char16_t *arg, unsigned *ret_profi
         if (!parse_number16(arg + 1, &u, /* ret_tail= */ NULL))
                 goto nothing;
 
-        if (u > UINT_MAX)
+        if (u >= UINT_MAX)
                 goto nothing;
 
         *ret_profile = u;
@@ -1458,6 +1458,7 @@ static EFI_STATUS find_sections(
         EFI_STATUS err;
 
         assert(loaded_image);
+        assert(profile != UINT_MAX);
         assert(sections);
 
         const PeSectionHeader *section_table;
@@ -1478,19 +1479,17 @@ static EFI_STATUS find_sections(
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Unable to locate embedded base PE sections: %m");
 
-        if (profile != UINT_MAX) {
-                /* And then override them with the per-profile sections of the selected profile */
-                err = pe_locate_profile_sections(
-                                section_table,
-                                n_section_table,
-                                unified_sections,
-                                profile,
-                                /* validate_base= */ PTR_TO_SIZE(loaded_image->ImageBase),
-                                size_in_memory,
-                                sections);
-                if (err != EFI_SUCCESS && !(err == EFI_NOT_FOUND && profile == 0)) /* the first profile is implied if it doesn't exist */
-                        return log_error_status(err, "Unable to locate embedded per-profile PE sections: %m");
-        }
+        /* And then override them with the per-profile sections of the selected profile */
+        err = pe_locate_profile_sections(
+                        section_table,
+                        n_section_table,
+                        unified_sections,
+                        profile,
+                        /* validate_base= */ PTR_TO_SIZE(loaded_image->ImageBase),
+                        size_in_memory,
+                        sections);
+        if (err != EFI_SUCCESS && !(err == EFI_NOT_FOUND && profile == 0)) /* the first profile is implied if it doesn't exist */
+                return log_error_status(err, "Unable to locate embedded per-profile PE sections: %m");
 
         if (!PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_LINUX))
                 return log_error_status(EFI_NOT_FOUND, "Image lacks .linux section.");
