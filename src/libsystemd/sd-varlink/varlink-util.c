@@ -422,3 +422,27 @@ int varlink_dispatch_fd(sd_varlink *link, const char *name, sd_json_variant *var
 
         return close_and_replace(*fd, dup_fd);
 }
+
+int varlink_process_nonblocking(sd_varlink *link) {
+        int r;
+
+        assert(link);
+
+        /* Processes the connection for as long as this is possible without blocking. This is useful for
+         * method handlers that run synchronously for a long time, and want to write out notifications they
+         * enqueued while doing so, since the event loop is not dispatched until the handler returns. Unlike
+         * sd_varlink_flush() this does not block until everything is written, hence a client that doesn't
+         * read cannot stall the handler. If the client disconnected this will notice it, so that further
+         * notifications fail. If processing fails the connection is closed, since we are running inside
+         * a method handler, and the connection is not in a state then that the handler could return to. */
+
+        for (;;) {
+                r = sd_varlink_process(link);
+                if (r < 0) {
+                        (void) sd_varlink_close(link);
+                        return r;
+                }
+                if (r == 0)
+                        return 0;
+        }
+}

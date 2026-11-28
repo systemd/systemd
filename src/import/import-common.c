@@ -3,6 +3,7 @@
 #include <sched.h>
 #include <unistd.h>
 
+#include "sd-daemon.h"
 #include "sd-event.h"
 
 #include "acl-util.h"
@@ -13,6 +14,7 @@
 #include "dirent-util.h"
 #include "dissect-image.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
 #include "import-common.h"
@@ -30,6 +32,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "tar-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 
 static int drain_null_padding(int fd) {
@@ -606,4 +609,132 @@ int import_parse_compression_argument(const char *option, const char *s, Compres
 
         *ret = c;
         return 0;
+}
+
+/* Don't estimate anything in the first few seconds, the transfer rate is usually not settled yet then */
+#define IMPORT_PROGRESS_ESTIMATE_SETTLE_USEC (3 * USEC_PER_SEC)
+
+static usec_t import_progress_estimate_time_left(ImportProgress *p, usec_t n, uint64_t done, uint64_t total) {
+        assert(p);
+
+        /* Nothing to estimate if the total is not known or zero, or if we are done already */
+        if (total == 0 || total == UINT64_MAX || done >= total)
+                return USEC_INFINITY;
+
+        double percent = (double) done * 100.0 / (double) total;
+
+        if (p->estimate_start_usec == 0 || percent < p->estimate_start_percent) {
+                /* First report (or progress went backwards for some reason): start counting from here. Note
+                 * that we deliberately start counting at the first progress report, and not when the
+                 * operation was started, so that any initial setup time is not taken into account. */
+                p->estimate_start_usec = n;
+                p->estimate_start_percent = percent;
+                return USEC_INFINITY;
+        }
+
+        /* Wait until things settled a bit, both in time and in progress made, before giving any estimate. */
+        usec_t elapsed = usec_sub_unsigned(n, p->estimate_start_usec);
+        double progressed = percent - p->estimate_start_percent;
+        if (elapsed < IMPORT_PROGRESS_ESTIMATE_SETTLE_USEC || progressed < 1.0)
+                return USEC_INFINITY;
+
+        /* Extrapolate based on the average rate since the first report, which is less jumpy than any
+         * short-term rate, and adapts gracefully if things stall, since the rate decreases then. */
+        double left = (double) elapsed * (100.0 - percent) / progressed;
+        if (left >= (double) (USEC_INFINITY - 1))
+                return USEC_INFINITY;
+
+        return (usec_t) left;
+}
+
+static uint64_t import_progress_estimate_rate(ImportProgress *p, usec_t n, uint64_t done_bytes, uint64_t total_bytes) {
+        assert(p);
+
+        /* No rate if we don't know how many bytes were processed, or if we are done already */
+        if (done_bytes == UINT64_MAX ||
+            (total_bytes != UINT64_MAX && done_bytes >= total_bytes))
+                return UINT64_MAX;
+
+        if (p->rate_start_usec == 0 || done_bytes < p->rate_start_bytes) {
+                /* First report (or the byte counter went backwards, e.g. because a download was restarted):
+                 * start counting from here. */
+                p->rate_start_usec = n;
+                p->rate_start_bytes = done_bytes;
+                return UINT64_MAX;
+        }
+
+        /* Same as for the time left: report the average rate since the first report, once things settled */
+        usec_t elapsed = usec_sub_unsigned(n, p->rate_start_usec);
+        if (elapsed < IMPORT_PROGRESS_ESTIMATE_SETTLE_USEC)
+                return UINT64_MAX;
+
+        double rate = (double) (done_bytes - p->rate_start_bytes) * (double) USEC_PER_SEC / (double) elapsed;
+        if (rate >= (double) (UINT64_MAX - 1))
+                return UINT64_MAX;
+
+        return (uint64_t) rate;
+}
+
+void import_progress_update(
+                ImportProgress *p,
+                unsigned percent,
+                uint64_t done,
+                uint64_t total,
+                uint64_t done_bytes,
+                uint64_t total_bytes) {
+
+        assert(p);
+
+        usec_t n = now(CLOCK_MONOTONIC);
+
+        /* The elapsed time is counted from the first progress report on */
+        if (p->start_usec == 0)
+                p->start_usec = n;
+
+        p->percent = percent;
+        p->time_elapsed = usec_sub_unsigned(n, p->start_usec);
+        p->time_left = import_progress_estimate_time_left(p, n, done, total);
+        p->done_bytes = done_bytes;
+        p->total_bytes = total_bytes;
+        p->bytes_per_sec = import_progress_estimate_rate(p, n, done_bytes, total_bytes);
+}
+
+void import_progress_notify(const ImportProgress *p) {
+        assert(p);
+
+        /* On the wire we send the time elapsed plus the estimated total time of the operation, rather than
+         * the time left, so that both values remain meaningful on their own. This is purely informational,
+         * hence if we run out of memory we just send the basics. */
+        _cleanup_free_ char *extra = NULL;
+
+        if (p->time_left != USEC_INFINITY)
+                (void) strextendf(&extra, "\nX_IMPORT_TIME_TOTAL_USEC=" USEC_FMT, usec_add(p->time_elapsed, p->time_left));
+        if (p->done_bytes != UINT64_MAX)
+                (void) strextendf(&extra, "\nX_IMPORT_DONE_BYTES=%" PRIu64, p->done_bytes);
+        if (p->total_bytes != UINT64_MAX)
+                (void) strextendf(&extra, "\nX_IMPORT_TOTAL_BYTES=%" PRIu64, p->total_bytes);
+        if (p->bytes_per_sec != UINT64_MAX)
+                (void) strextendf(&extra, "\nX_IMPORT_BYTES_PER_SEC=%" PRIu64, p->bytes_per_sec);
+
+        (void) sd_notifyf(/* unset_environment= */ false,
+                          "X_IMPORT_PROGRESS=%u%%\n"
+                          "X_IMPORT_TIME_ELAPSED_USEC=" USEC_FMT "%s",
+                          p->percent, p->time_elapsed, strempty(extra));
+}
+
+char* import_progress_format(const ImportProgress *p) {
+        assert(p);
+
+        if (p->time_left == USEC_INFINITY && p->bytes_per_sec == UINT64_MAX)
+                return NULL;
+
+        /* Only show seconds granularity for the last hour, minutes are good enough otherwise */
+        return strjoin(" (",
+                       p->time_left != USEC_INFINITY ?
+                                FORMAT_TIMESPAN(p->time_left, p->time_left >= USEC_PER_HOUR ? USEC_PER_MINUTE : USEC_PER_SEC) : "",
+                       p->time_left != USEC_INFINITY ? " left" : "",
+                       p->time_left != USEC_INFINITY && p->bytes_per_sec != UINT64_MAX ? ", " : "",
+                       p->bytes_per_sec != UINT64_MAX ? FORMAT_BYTES(p->bytes_per_sec) : "",
+                       p->bytes_per_sec != UINT64_MAX ? "/s" : "",
+                       ")");
 }
