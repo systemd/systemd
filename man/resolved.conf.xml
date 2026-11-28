@@ -451,6 +451,57 @@ DNSStubListenerExtra=udp:[2001:db8:0:f102::13]:9953</programlisting>
         <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>Priority=</varname></term>
+        <listitem><para>Takes an integer in the range 0…2147483647. Orders the global DNS servers relative to
+        links and DNS delegates that match a lookup equally well: lower values are asked first, and equal ones
+        in parallel. If unset or empty, the global DNS servers are asked together with the lowest configured
+        priority. See the "Priority and Fall-Through" section in
+        <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Fallthrough=</varname></term>
+        <listitem><para>Takes a boolean argument, defaults to false. If true, and a lookup failed on the global
+        DNS servers and on every other configuration that matches it equally well, and all of them enable
+        fall-through, the lookup continues with the configurations that match it next best. See the
+        "Priority and Fall-Through" section in
+        <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>PriorityStaggerSec=</varname></term>
+        <listitem><para>Takes a duration between 10 ms and 2 s, defaults to 250 ms. When DNS servers are asked
+        in order of their priority, a lookup that has neither succeeded nor failed on the earlier ones within
+        this time is also sent to the next ones, as recommended by
+        <ulink url="https://www.rfc-editor.org/rfc/rfc8305#section-5">RFC 8305</ulink>. Note that the next
+        ones might use a different network, or be reached without encryption: increasing this value reduces
+        how often a lookup reaches them while an earlier one is merely slow, at the cost of a longer delay when
+        an earlier one does not respond at all.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>PriorityHoldSec=</varname></term>
+        <listitem><para>Takes a duration between 0 and 2 s, defaults to 250 ms. When a lookup succeeds on DNS
+        servers with a later priority while one with an earlier priority is still pending, the response is
+        held back for up to this time, and the earlier one's response is returned instead if it arrives in the
+        meantime. If set to 0, the first successful response is returned.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

@@ -253,6 +253,54 @@
     it. Finally, in order to avoid a specific link receiving any DNS traffic not matching any of its
     configured routing domains, do not make it a default route.</para>
 
+    <refsect2>
+      <title>Priority and Fall-Through</title>
+
+      <para>By default, a unicast DNS lookup is sent in parallel to every link, delegate, and the global
+      configuration that match it equally well, as described above. A priority can be configured to ask
+      them in order instead: with <varname>DNSPriority=</varname> in
+      <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      files or <command>resolvectl dns-priority</command>, and with <varname>Priority=</varname> in
+      <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> and
+      <citerefentry><refentrytitle>systemd.dns-delegate</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      files. The priority only orders the configurations that match a name equally well: a more specific
+      routing domain still wins outright. Lower values are asked first, and configurations with the same
+      priority are asked in parallel. Configurations without a priority are asked together with the lowest
+      configured one, so that setting no priority anywhere keeps the behaviour described above. For example,
+      to ask a local network first, then a VPN, and then a public resolver, for names not matched by any
+      routing domain, make each of them a default route without a <literal>~.</literal> routing domain and
+      give them rising priorities.</para>
+
+      <para>The next priority is asked as soon as every configuration asked so far has failed, or when the
+      delay set with <varname>PriorityStaggerSec=</varname> in
+      <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      expires, following the "Happy Eyeballs" algorithm of
+      <ulink url="https://www.rfc-editor.org/rfc/rfc8305#section-5">RFC 8305</ulink>. This bounds how long an
+      unreachable configuration, or one whose servers first try encrypted transports that fail, can hold up
+      a lookup. Timeouts, <constant>SERVFAIL</constant>, <constant>REFUSED</constant>, and
+      <constant>NXDOMAIN</constant> responses that were not validated with DNSSEC count as failures: only a
+      successful response or a DNSSEC-validated <constant>NXDOMAIN</constant> ends the lookup. A successful
+      response from a later priority waits up to <varname>PriorityHoldSec=</varname> for the earlier ones,
+      whose response is preferred if it arrives in time.</para>
+
+      <para>Note that staggering means a lookup that is slow on an earlier configuration is also sent to the
+      later ones, which might use a different network, or DNS servers that are reached without encryption.
+      Increase <varname>PriorityStaggerSec=</varname> to reduce how often this happens.</para>
+
+      <para>When every configuration that matches a lookup best has failed, the lookup fails. If all of
+      these configurations enable fall-through, with <varname>DNSFallthrough=</varname> in
+      <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      files or <command>resolvectl dns-fallthrough</command>, and with <varname>Fallthrough=</varname> in
+      <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> and
+      <citerefentry><refentrytitle>systemd.dns-delegate</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      files, the lookup instead continues with the configurations that match it next best, in the same
+      manner. This gives up the protection that routing domains otherwise provide against names leaking to
+      other networks, so it is off by default. It only happens on failure, never because the stagger delay
+      expired. Only unicast DNS configurations are considered: LLMNR and MulticastDNS, which may be asked
+      for the same names, neither allow nor prevent fall-through, but a lookup that only they were asked
+      for never falls through.</para>
+    </refsect2>
+
     <para>See
     <citerefentry><refentrytitle>org.freedesktop.resolve1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for information about the D-Bus APIs <command>systemd-resolved</command> provides.</para>

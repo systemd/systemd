@@ -4,10 +4,43 @@
 #include "in-addr-util.h"
 #include "resolve-util.h"
 #include "string-table.h"
+#include "string-util.h"
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_resolve_support, resolve_support, ResolveSupport);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_dnssec_mode, dnssec_mode, DnssecMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_dns_over_tls_mode, dns_over_tls_mode, DnsOverTlsMode);
+
+int config_parse_dns_priority(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        int *priority = ASSERT_PTR(data);
+        unsigned u;
+        int r;
+
+        if (isempty(rvalue)) {
+                *priority = DNS_PRIORITY_UNSET;
+                return 1;
+        }
+
+        r = config_parse_unsigned_bounded(
+                        unit, filename, line, section, section_line, lvalue, rvalue,
+                        /* min= */ 0, DNS_PRIORITY_MAX, /* ignoring= */ true,
+                        &u);
+        if (r <= 0)
+                return r;
+
+        *priority = (int) u;
+        return 1;
+}
 
 static const char* const resolve_support_table[_RESOLVE_SUPPORT_MAX] = {
         [RESOLVE_SUPPORT_NO] = "no",

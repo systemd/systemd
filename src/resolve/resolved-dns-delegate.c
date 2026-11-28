@@ -50,6 +50,7 @@ int dns_delegate_new(Manager *m, const char *id, DnsDelegate **ret) {
         *d = (DnsDelegate) {
                 .id = TAKE_PTR(id_copy),
                 .default_route = -1,
+                .priority = DNS_PRIORITY_UNSET,
         };
 
         r = dns_scope_new(

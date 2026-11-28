@@ -8,6 +8,7 @@
 #include "dns-packet.h"
 #include "dns-question.h"
 #include "dns-rr.h"
+#include "hashmap.h"
 #include "resolved-dns-query.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-search-domain.h"
@@ -15,6 +16,7 @@
 #include "resolved-dns-transaction.h"
 #include "resolved-link.h"
 #include "resolved-manager.h"
+#include "set.h"
 #include "tests.h"
 
 static char* checked_strdup(const char *str) {
@@ -895,6 +897,543 @@ TEST(dns_query_go) {
         cfg = mk_go_config();
         cfg.n_search_domains = 2;
         exercise_dns_query_go(&cfg, /* check_query= */ NULL);
+}
+
+/* ================================================================
+ * The scope chain: priority levels, staggering, the authority hold and fall-through
+ * ================================================================ */
+
+/* These tests never touch the network. Before dns_query_go(), they add a pending transaction for the
+ * question to every scope. The candidates pick those up instead of creating and starting their own (see
+ * dns_query_candidate_add_transaction()), and the tests decide their outcome by setting their state
+ * directly before calling dns_query_ready(), as dns_query_candidate_notify() would. The event loop then
+ * only runs the query's own stagger and hold timers. */
+
+#define CHAIN_LINKS_MAX 3
+
+typedef struct ChainEnvironment {
+        Manager manager;
+        Link *links[CHAIN_LINKS_MAX];
+        /* The name each link's transaction asks for, if not the question's, e.g. with a search domain */
+        const char *names[CHAIN_LINKS_MAX];
+        size_t n_links;
+        DnsQuery *query;
+} ChainEnvironment;
+
+static void chain_env_teardown(ChainEnvironment *env) {
+        assert(env);
+
+        env->query = dns_query_free(env->query);
+        env->manager.links = hashmap_free(env->manager.links);
+        sd_event_unref(env->manager.event);
+}
+
+static void chain_env_setup(ChainEnvironment *env) {
+        assert(env);
+
+        *env = (ChainEnvironment) {
+                .manager = {
+                        .priority = DNS_PRIORITY_UNSET,
+                        .priority_stagger_usec = PRIORITY_STAGGER_USEC_MAX,
+                        .priority_hold_usec = PRIORITY_HOLD_USEC_MAX,
+                },
+        };
+
+        ASSERT_OK(sd_event_new(&env->manager.event));
+}
+
+static Link* chain_env_add_link(ChainEnvironment *env, int priority, const char *route_domain) {
+        /* 192.0.2.1 (TEST-NET-1): scopes need a server to match a name, but it is never contacted */
+        union in_addr_union address = { .in.s_addr = htobe32(UINT32_C(0xc0000201)) };
+        DnsServer *server;
+        DnsScope *scope;
+        Link *link;
+
+        assert(env);
+        ASSERT_LT(env->n_links, (size_t) CHAIN_LINKS_MAX);
+
+        int ifindex = (int) ++env->n_links;
+
+        ASSERT_OK(link_new(&env->manager, &link, ifindex));
+        link->default_route = !route_domain;
+        link->priority = priority;
+
+        ASSERT_OK(dns_scope_new(&env->manager, &scope, DNS_SCOPE_LINK, link, /* delegate= */ NULL,
+                                DNS_PROTOCOL_DNS, AF_INET));
+        link->unicast_scope = scope;
+
+        ASSERT_OK(dns_server_new(&env->manager, &server, DNS_SERVER_LINK, link, /* delegate= */ NULL,
+                                 AF_INET, &address, 53, /* ifindex= */ 0, /* server_name= */ NULL,
+                                 RESOLVE_CONFIG_SOURCE_DBUS));
+
+        if (route_domain) {
+                DnsSearchDomain *d; /* owned by the link's list */
+
+                ASSERT_OK(dns_search_domain_new(&env->manager, &d, DNS_SEARCH_DOMAIN_LINK, link,
+                                                /* delegate= */ NULL, route_domain));
+                d->route_only = true;
+        }
+
+        env->links[ifindex - 1] = link;
+        return link;
+}
+
+static void chain_on_complete(DnsQuery *q) {
+        /* Keep the query around, the test checks and frees it. */
+}
+
+static DnsQueryCandidate* chain_find_scope_candidate(DnsQuery *q, DnsScope *scope) {
+        assert(q);
+        assert(scope);
+
+        LIST_FOREACH(candidates_by_query, c, q->candidates)
+                if (c->scope == scope)
+                        return c;
+
+        return NULL;
+}
+
+static DnsQueryCandidate* chain_find_candidate(DnsQuery *q, Link *link) {
+        assert(link);
+
+        return chain_find_scope_candidate(q, link->unicast_scope);
+}
+
+static void chain_add_pending_transaction(DnsQuery *q, DnsScope *scope, const char *name) {
+        DnsResourceKey *key;
+        DnsTransaction *t;
+
+        assert(q);
+
+        if (!scope)
+                return;
+
+        key = dns_question_first_key(dns_query_question_for_protocol(q, scope->protocol));
+        ASSERT_NOT_NULL(key);
+
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *k = dns_resource_key_new(key->class, key->type, name ?: dns_resource_key_name(key));
+        ASSERT_NOT_NULL(k);
+
+        /* Owned by the scope, which frees it */
+        ASSERT_OK(dns_transaction_new(&t, scope, k, /* bypass= */ NULL, q->flags));
+        t->state = DNS_TRANSACTION_PENDING;
+}
+
+static void chain_assert_nothing_sent(DnsQuery *q) {
+        assert(q);
+
+        /* Every candidate uses one of the transactions added by chain_add_pending_transaction(), so
+         * nothing reaches the network. */
+        LIST_FOREACH(candidates_by_query, c, q->candidates) {
+                DnsTransaction *t;
+
+                SET_FOREACH(t, c->transactions)
+                        ASSERT_NULL(t->sent);
+        }
+}
+
+static void chain_env_go_full(ChainEnvironment *env, uint16_t type, const char *name, uint64_t flags) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+
+        assert(env);
+
+        if (type == DNS_TYPE_A)
+                ASSERT_OK(dns_question_new_address(&question, AF_INET, name, /* convert_idna= */ false));
+        else {
+                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+                key = dns_resource_key_new(DNS_CLASS_IN, type, name);
+                ASSERT_NOT_NULL(key);
+                question = dns_question_new(1);
+                ASSERT_NOT_NULL(question);
+                ASSERT_OK(dns_question_add(question, key, /* flags= */ 0));
+        }
+        ASSERT_OK(dns_query_new(&env->manager, &env->query, question, question, /* question_bypass= */ NULL,
+                                /* ifindex= */ 0, flags));
+        env->query->complete = chain_on_complete;
+
+        for (size_t i = 0; i < env->n_links; i++) {
+                chain_add_pending_transaction(env->query, env->links[i]->unicast_scope, env->names[i]);
+                chain_add_pending_transaction(env->query, env->links[i]->llmnr_ipv4_scope, env->names[i]);
+        }
+
+        ASSERT_OK_POSITIVE(dns_query_go(env->query));
+        chain_assert_nothing_sent(env->query);
+}
+
+static void chain_env_go(ChainEnvironment *env) {
+        chain_env_go_full(env, DNS_TYPE_A, "www.example.com",
+                          SD_RESOLVED_FLAGS_MAKE(DNS_PROTOCOL_DNS, AF_INET, /* authenticated= */ false,
+                                                 /* confidential= */ false));
+}
+
+static Link* chain_env_add_llmnr_link(ChainEnvironment *env) {
+        DnsScope *scope;
+        Link *link;
+
+        assert(env);
+        ASSERT_LT(env->n_links, (size_t) CHAIN_LINKS_MAX);
+
+        int ifindex = (int) ++env->n_links;
+
+        /* A link with LLMNR only, and no DNS servers. */
+        ASSERT_OK(link_new(&env->manager, &link, ifindex));
+
+        ASSERT_OK(dns_scope_new(&env->manager, &scope, DNS_SCOPE_LINK, link, /* delegate= */ NULL,
+                                DNS_PROTOCOL_LLMNR, AF_INET));
+        link->llmnr_ipv4_scope = scope;
+
+        env->links[ifindex - 1] = link;
+        return link;
+}
+
+static void chain_run_timer(ChainEnvironment *env) {
+        assert(env);
+
+        unsigned n_levels = env->query->n_levels;
+
+        /* Dispatch the query's stagger or hold timer: the transactions never time out on their own, and the
+         * query timeout is 120 s away, so nothing else can fire. Firing either one adds a level or completes
+         * the query. */
+        ASSERT_OK_POSITIVE(sd_event_run(env->manager.event, PRIORITY_STAGGER_USEC_MAX + PRIORITY_HOLD_USEC_MAX));
+        ASSERT_TRUE(env->query->n_levels != n_levels || !DNS_TRANSACTION_IS_LIVE(env->query->state));
+        chain_assert_nothing_sent(env->query);
+}
+
+static void chain_fail_scope(DnsQuery *q, DnsScope *scope, DnsTransactionState state, int rcode, bool authenticated) {
+        DnsQueryCandidate *c = chain_find_scope_candidate(q, scope);
+        DnsTransaction *t;
+
+        ASSERT_NOT_NULL(c);
+
+        SET_FOREACH(t, c->transactions) {
+                t->state = state;
+                t->answer_rcode = rcode;
+                t->answer_source = DNS_TRANSACTION_NETWORK;
+                SET_FLAG(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED, authenticated);
+        }
+}
+
+static void chain_fail(DnsQuery *q, Link *link, DnsTransactionState state, int rcode, bool authenticated) {
+        assert(link);
+
+        chain_fail_scope(q, link->unicast_scope, state, rcode, authenticated);
+}
+
+static DnsResourceRecord* chain_record(Link *link) {
+        DnsResourceRecord *rr;
+
+        assert(link);
+
+        union in_addr_union address = { .in.s_addr = htobe32(0xc0000200 + link->ifindex) };
+
+        ASSERT_OK(dns_resource_record_new_address(&rr, AF_INET, &address, "www.example.com"));
+        return rr;
+}
+
+static void chain_succeed(DnsQuery *q, Link *link) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = chain_record(link);
+        DnsQueryCandidate *c = chain_find_candidate(q, link);
+        DnsTransaction *t;
+
+        ASSERT_NOT_NULL(c);
+
+        SET_FOREACH(t, c->transactions) {
+                t->state = DNS_TRANSACTION_SUCCESS;
+                t->answer_rcode = DNS_RCODE_SUCCESS;
+                t->answer_source = DNS_TRANSACTION_NETWORK;
+
+                dns_answer_unref(t->answer);
+                t->answer = dns_answer_new(1);
+                ASSERT_NOT_NULL(t->answer);
+                ASSERT_OK(dns_answer_add(t->answer, rr, link->ifindex, /* flags= */ 0, /* rrsig= */ NULL));
+        }
+}
+
+static void chain_assert_answer_from(DnsQuery *q, Link *link) {
+        assert(q);
+
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = chain_record(link);
+
+        ASSERT_EQ(q->state, DNS_TRANSACTION_SUCCESS);
+        ASSERT_TRUE(dns_answer_contains(q->answer, rr));
+}
+
+static bool chain_stagger_armed(DnsQuery *q) {
+        assert(q);
+
+        return sd_event_source_get_enabled(q->stagger_event_source, /* ret= */ NULL) > 0;
+}
+
+TEST(dns_query_chain_without_priorities) {
+        _cleanup_(chain_env_teardown) ChainEnvironment env;
+        Link *a, *b;
+
+        chain_env_setup(&env);
+        a = chain_env_add_link(&env, DNS_PRIORITY_UNSET, /* route_domain= */ NULL);
+        b = chain_env_add_link(&env, DNS_PRIORITY_UNSET, /* route_domain= */ NULL);
+        chain_env_go(&env);
+
+        /* Without priorities, every scope is asked at once, as before. */
+        ASSERT_EQ(env.query->n_levels, 1u);
+        ASSERT_NOT_NULL(chain_find_candidate(env.query, a));
+        ASSERT_NOT_NULL(chain_find_candidate(env.query, b));
+        ASSERT_FALSE(chain_stagger_armed(env.query));
+
+        chain_fail(env.query, a, DNS_TRANSACTION_TIMEOUT, /* rcode= */ 0, /* authenticated= */ false);
+        dns_query_ready(env.query);
+        ASSERT_EQ(env.query->state, DNS_TRANSACTION_PENDING);
+
+        chain_succeed(env.query, b);
+        dns_query_ready(env.query);
+        chain_assert_answer_from(env.query, b);
+}
+
+TEST(dns_query_chain_failure_starts_next_level) {
+        _cleanup_(chain_env_teardown) ChainEnvironment env;
+        Link *first, *unset, *second;
+
+        chain_env_setup(&env);
+        second = chain_env_add_link(&env, 20, /* route_domain= */ NULL);
+        first = chain_env_add_link(&env, 10, /* route_domain= */ NULL);
+        unset = chain_env_add_link(&env, DNS_PRIORITY_UNSET, /* route_domain= */ NULL);
+        chain_env_go(&env);
+
+        /* The lowest priority goes first, and scopes without a priority join it. */
+        ASSERT_EQ(env.query->n_levels, 1u);
+        ASSERT_NOT_NULL(chain_find_candidate(env.query, first));
+        ASSERT_NOT_NULL(chain_find_candidate(env.query, unset));
+        ASSERT_NULL(chain_find_candidate(env.query, second));
+        ASSERT_TRUE(chain_stagger_armed(env.query));
+
+        /* An unauthenticated NXDOMAIN is a failure, and does not end the chain. */
+        chain_fail(env.query, first, DNS_TRANSACTION_TIMEOUT, /* rcode= */ 0, /* authenticated= */ false);
+        chain_fail(env.query, unset, DNS_TRANSACTION_RCODE_FAILURE, DNS_RCODE_NXDOMAIN, /* authenticated= */ false);
+        dns_query_ready(env.query);
+        chain_assert_nothing_sent(env.query);
+
+        ASSERT_EQ(env.query->state, DNS_TRANSACTION_PENDING);
+        ASSERT_EQ(env.query->n_levels, 2u);
+        ASSERT_NOT_NULL(chain_find_candidate(env.query, second));
+        ASSERT_FALSE(chain_stagger_armed(env.query));
+
+        chain_succeed(env.query, second);
+        dns_query_ready(env.query);
+        chain_assert_answer_from(env.query, second);
+}
+
+TEST(dns_query_chain_last_failure_returned) {
+        _cleanup_(chain_env_teardown) ChainEnvironment env;
+        Link *first, *second;
+
+        chain_env_setup(&env);
+        first = chain_env_add_link(&env, 10, /* route_domain= */ NULL);
+        second = chain_env_add_link(&env, 20, /* route_domain= */ NULL);
+        chain_env_go(&env);
+
+        chain_fail(env.query, first, DNS_TRANSACTION_TIMEOUT, /* rcode= */ 0, /* authenticated= */ false);
+        dns_query_ready(env.query);
+        chain_assert_nothing_sent(env.query);
+
+        chain_fail(env.query, second, DNS_TRANSACTION_RCODE_FAILURE, DNS_RCODE_SERVFAIL, /* authenticated= */ false);
+        dns_query_ready(env.query);
+
+        ASSERT_EQ(env.query->state, DNS_TRANSACTION_RCODE_FAILURE);
+        ASSERT_EQ(env.query->answer_rcode, DNS_RCODE_SERVFAIL);
+}
+
+TEST(dns_query_chain_validated_nxdomain_ends_chain) {
+        _cleanup_(chain_env_teardown) ChainEnvironment env;
+        Link *first;
+
+        chain_env_setup(&env);
+        first = chain_env_add_link(&env, 10, /* route_domain= */ NULL);
+        (void) chain_env_add_link(&env, 20, /* route_domain= */ NULL);
+        chain_env_go(&env);
+
+        chain_fail(env.query, first, DNS_TRANSACTION_RCODE_FAILURE, DNS_RCODE_NXDOMAIN, /* authenticated= */ true);
+        dns_query_ready(env.query);
+
+        ASSERT_EQ(env.query->state, DNS_TRANSACTION_RCODE_FAILURE);
+        ASSERT_EQ(env.query->answer_rcode, DNS_RCODE_NXDOMAIN);
+        ASSERT_EQ(env.query->n_levels, 1u);
+}
+
+TEST(dns_query_chain_stagger_and_hold) {
+        _cleanup_(chain_env_teardown) ChainEnvironment env;
+        Link *first, *second;
+
+        chain_env_setup(&env);
+        env.manager.priority_stagger_usec = PRIORITY_STAGGER_USEC_MIN;
+        first = chain_env_add_link(&env, 10, /* route_domain= */ NULL);
+        second = chain_env_add_link(&env, 20, /* route_domain= */ NULL);
+        chain_env_go(&env);
+
+        /* The first level is slow: the stagger delay starts the second one. */
+        chain_run_timer(&env);
+        ASSERT_EQ(env.query->n_levels, 2u);
+        ASSERT_NOT_NULL(chain_find_candidate(env.query, second));
+
+        /* The second level answers first: its answer waits for the first level. */
+        chain_succeed(env.query, second);
+        dns_query_ready(env.query);
+        ASSERT_EQ(env.query->state, DNS_TRANSACTION_PENDING);
+        ASSERT_GT(sd_event_source_get_enabled(env.query->hold_event_source, /* ret= */ NULL), 0);
+
+        /* The first level answers within the hold, and wins. */
+        chain_succeed(env.query, first);
+        dns_query_ready(env.query);
+        chain_assert_answer_from(env.query, first);
+}
+
+TEST(dns_query_chain_hold_expires) {
+        _cleanup_(chain_env_teardown) ChainEnvironment env;
+        Link *second;
+
+        chain_env_setup(&env);
+        env.manager.priority_stagger_usec = PRIORITY_STAGGER_USEC_MIN;
+        env.manager.priority_hold_usec = PRIORITY_STAGGER_USEC_MIN;
+        (void) chain_env_add_link(&env, 10, /* route_domain= */ NULL);
+        second = chain_env_add_link(&env, 20, /* route_domain= */ NULL);
+        chain_env_go(&env);
+
+        chain_run_timer(&env);
+        ASSERT_EQ(env.query->n_levels, 2u);
+
+        chain_succeed(env.query, second);
+        dns_query_ready(env.query);
+        ASSERT_EQ(env.query->state, DNS_TRANSACTION_PENDING);
+
+        /* The first level stays silent: the later answer is used once the hold expires. */
+        chain_run_timer(&env);
+        chain_assert_answer_from(env.query, second);
+}
+
+TEST(dns_query_chain_no_hold) {
+        _cleanup_(chain_env_teardown) ChainEnvironment env;
+        Link *second;
+
+        chain_env_setup(&env);
+        env.manager.priority_stagger_usec = PRIORITY_STAGGER_USEC_MIN;
+        env.manager.priority_hold_usec = 0;
+        (void) chain_env_add_link(&env, 10, /* route_domain= */ NULL);
+        second = chain_env_add_link(&env, 20, /* route_domain= */ NULL);
+        chain_env_go(&env);
+
+        chain_run_timer(&env);
+
+        /* PriorityHoldSec=0 takes the first success, like plain Happy Eyeballs. */
+        chain_succeed(env.query, second);
+        dns_query_ready(env.query);
+        chain_assert_answer_from(env.query, second);
+}
+
+static void exercise_chain_fallthrough(bool fallthrough) {
+        _cleanup_(chain_env_teardown) ChainEnvironment env;
+        Link *specific, *general;
+
+        chain_env_setup(&env);
+        env.manager.priority_stagger_usec = PRIORITY_STAGGER_USEC_MIN;
+        specific = chain_env_add_link(&env, DNS_PRIORITY_UNSET, "example.com");
+        specific->fallthrough = fallthrough;
+        general = chain_env_add_link(&env, DNS_PRIORITY_UNSET, /* route_domain= */ NULL);
+        chain_env_go(&env);
+
+        /* The routing domain wins outright, and the stagger never crosses to less specific scopes. */
+        ASSERT_EQ(env.query->n_levels, 1u);
+        ASSERT_NOT_NULL(chain_find_candidate(env.query, specific));
+        ASSERT_NULL(chain_find_candidate(env.query, general));
+        ASSERT_FALSE(chain_stagger_armed(env.query));
+
+        chain_fail(env.query, specific, DNS_TRANSACTION_RCODE_FAILURE, DNS_RCODE_SERVFAIL, /* authenticated= */ false);
+        dns_query_ready(env.query);
+
+        if (!fallthrough) {
+                ASSERT_EQ(env.query->state, DNS_TRANSACTION_RCODE_FAILURE);
+                ASSERT_EQ(env.query->n_levels, 1u);
+                return;
+        }
+
+        chain_assert_nothing_sent(env.query);
+        ASSERT_EQ(env.query->state, DNS_TRANSACTION_PENDING);
+        ASSERT_EQ(env.query->n_levels, 2u);
+        ASSERT_NOT_NULL(chain_find_candidate(env.query, general));
+
+        chain_succeed(env.query, general);
+        dns_query_ready(env.query);
+        chain_assert_answer_from(env.query, general);
+}
+
+TEST(dns_query_chain_fallthrough) {
+        exercise_chain_fallthrough(/* fallthrough= */ false);
+        exercise_chain_fallthrough(/* fallthrough= */ true);
+}
+
+TEST(dns_query_chain_fallthrough_llmnr_abstains) {
+        _cleanup_(chain_env_teardown) ChainEnvironment env;
+        Link *search, *llmnr, *general;
+        DnsSearchDomain *d; /* owned by the link's list */
+
+        chain_env_setup(&env);
+
+        /* A single-label name puts a DNS scope with a search domain and an LLMNR scope in the same tier.
+         * TXT, since unicast DNS refuses single-label A and AAAA lookups unless ResolveUnicastSingleLabel=
+         * is set. */
+        search = chain_env_add_link(&env, DNS_PRIORITY_UNSET, /* route_domain= */ NULL);
+        search->default_route = false;
+        search->fallthrough = true;
+        ASSERT_OK(dns_search_domain_new(&env.manager, &d, DNS_SEARCH_DOMAIN_LINK, search,
+                                        /* delegate= */ NULL, "example.com"));
+        env.names[search->ifindex - 1] = "berlin.example.com";
+        llmnr = chain_env_add_llmnr_link(&env);
+        general = chain_env_add_link(&env, DNS_PRIORITY_UNSET, /* route_domain= */ NULL);
+
+        chain_env_go_full(&env, DNS_TYPE_TXT, "berlin", SD_RESOLVED_DNS|SD_RESOLVED_LLMNR_IPV4);
+
+        ASSERT_EQ(env.query->n_levels, 1u);
+        ASSERT_NOT_NULL(chain_find_candidate(env.query, search));
+        ASSERT_NOT_NULL(chain_find_scope_candidate(env.query, llmnr->llmnr_ipv4_scope));
+        ASSERT_NULL(chain_find_candidate(env.query, general));
+
+        /* The LLMNR scope has no fall-through setting of its own, and does not prevent it. */
+        chain_fail(env.query, search, DNS_TRANSACTION_RCODE_FAILURE, DNS_RCODE_SERVFAIL, /* authenticated= */ false);
+        chain_fail_scope(env.query, llmnr->llmnr_ipv4_scope, DNS_TRANSACTION_TIMEOUT, /* rcode= */ 0, /* authenticated= */ false);
+        dns_query_ready(env.query);
+        chain_assert_nothing_sent(env.query);
+
+        ASSERT_EQ(env.query->state, DNS_TRANSACTION_PENDING);
+        ASSERT_EQ(env.query->n_levels, 2u);
+        ASSERT_NOT_NULL(chain_find_candidate(env.query, general));
+
+        chain_succeed(env.query, general);
+        dns_query_ready(env.query);
+        chain_assert_answer_from(env.query, general);
+}
+
+TEST(dns_query_chain_llmnr_only_tier_does_not_fall_through) {
+        _cleanup_(chain_env_teardown) ChainEnvironment env;
+        Link *llmnr, *general;
+
+        chain_env_setup(&env);
+        llmnr = chain_env_add_llmnr_link(&env);
+        general = chain_env_add_link(&env, DNS_PRIORITY_UNSET, /* route_domain= */ NULL);
+        general->fallthrough = true;
+
+        chain_env_go_full(&env, DNS_TYPE_TXT, "berlin", SD_RESOLVED_DNS|SD_RESOLVED_LLMNR_IPV4);
+
+        /* The default-route DNS scope would be the next tier for this name, and would look up a TXT record
+         * for it, ... */
+        ASSERT_EQ(dns_scope_good_domain(general->unicast_scope, env.query, env.query->flags), DNS_SCOPE_MAYBE);
+        ASSERT_EQ(env.query->n_levels, 1u);
+        ASSERT_NOT_NULL(chain_find_scope_candidate(env.query, llmnr->llmnr_ipv4_scope));
+        ASSERT_NULL(chain_find_candidate(env.query, general));
+
+        /* ... but a name only LLMNR was asked for never goes to unicast DNS. */
+        chain_fail_scope(env.query, llmnr->llmnr_ipv4_scope, DNS_TRANSACTION_TIMEOUT, /* rcode= */ 0, /* authenticated= */ false);
+        dns_query_ready(env.query);
+
+        ASSERT_EQ(env.query->state, DNS_TRANSACTION_TIMEOUT);
+        ASSERT_EQ(env.query->n_levels, 1u);
 }
 
 static int intro(void) {

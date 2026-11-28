@@ -58,6 +58,7 @@ int link_new(Manager *m, Link **ret, int ifindex) {
         *l = (Link) {
                 .ifindex = ifindex,
                 .default_route = -1,
+                .priority = DNS_PRIORITY_UNSET,
                 .llmnr_support = RESOLVE_SUPPORT_YES,
                 .mdns_support = RESOLVE_SUPPORT_YES,
                 .dnssec_mode = _DNSSEC_MODE_INVALID,
@@ -85,6 +86,8 @@ void link_flush_settings(Link *l) {
         assert(l);
 
         l->default_route = -1;
+        l->priority = DNS_PRIORITY_UNSET;
+        l->fallthrough = false;
         l->llmnr_support = RESOLVE_SUPPORT_YES;
         l->mdns_support = RESOLVE_SUPPORT_YES;
         l->dnssec_mode = _DNSSEC_MODE_INVALID;
@@ -824,6 +827,19 @@ void link_set_default_route(Link *l, bool b) {
          * we should reconsider whether or not the fallback servers are necessary. */
         if (b && dns_server_is_fallback(l->manager->current_dns_server))
                 manager_set_dns_server(l->manager, NULL);
+}
+
+void link_set_priority(Link *l, int priority) {
+        assert(l);
+        assert(priority == DNS_PRIORITY_UNSET || dns_priority_is_valid(priority));
+
+        l->priority = priority;
+}
+
+void link_set_fallthrough(Link *l, bool b) {
+        assert(l);
+
+        l->fallthrough = b;
 }
 
 DnsOverTlsMode link_get_dns_over_tls_mode(Link *l) {

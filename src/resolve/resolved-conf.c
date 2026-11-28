@@ -16,6 +16,7 @@
 #include "set.h"
 #include "socket-netlink.h"
 #include "string-util.h"
+#include "time-util.h"
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_dns_stub_listener_mode, dns_stub_listener_mode, DnsStubListenerMode);
 
@@ -322,6 +323,87 @@ int config_parse_dns_cache_max(
                         unit, filename, line, section, section_line, lvalue, rvalue,
                         /* min= */ 0, CACHE_MAX_UPPER_LIMIT, /* ignoring= */ true,
                         &m->cache_max[ltype]);
+}
+
+static int config_parse_sec_bounded(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *lvalue,
+                const char *rvalue,
+                usec_t min,
+                usec_t max,
+                usec_t *ret) {
+
+        usec_t t;
+        int r;
+
+        assert(ret);
+
+        r = parse_sec(rvalue, &t);
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+
+        if (t < min || t > max) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid '%s=%s', allowed range is %s..%s, ignoring.",
+                           lvalue, rvalue,
+                           FORMAT_TIMESPAN(min, USEC_PER_MSEC), FORMAT_TIMESPAN(max, USEC_PER_MSEC));
+                return 0;
+        }
+
+        *ret = t;
+        return 1;
+}
+
+int config_parse_priority_stagger_sec(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        usec_t *usec = ASSERT_PTR(data);
+
+        if (isempty(rvalue)) {
+                *usec = PRIORITY_STAGGER_USEC_DEFAULT;
+                return 1;
+        }
+
+        return config_parse_sec_bounded(
+                        unit, filename, line, lvalue, rvalue,
+                        PRIORITY_STAGGER_USEC_MIN, PRIORITY_STAGGER_USEC_MAX,
+                        usec);
+}
+
+int config_parse_priority_hold_sec(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        usec_t *usec = ASSERT_PTR(data);
+
+        if (isempty(rvalue)) {
+                *usec = PRIORITY_HOLD_USEC_DEFAULT;
+                return 1;
+        }
+
+        return config_parse_sec_bounded(
+                        unit, filename, line, lvalue, rvalue,
+                        /* min= */ 0, PRIORITY_HOLD_USEC_MAX,
+                        usec);
 }
 
 int config_parse_record_types(
