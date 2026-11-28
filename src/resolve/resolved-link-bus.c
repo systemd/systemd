@@ -366,6 +366,87 @@ int bus_link_method_set_default_route(sd_bus_message *message, void *userdata, s
         return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
+int bus_link_method_set_dns_priority(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Link *l = ASSERT_PTR(userdata);
+        int32_t priority;
+        int r;
+
+        assert(message);
+
+        r = verify_unmanaged_link(l, error);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read(message, "i", &priority);
+        if (r < 0)
+                return r;
+
+        if (priority != DNS_PRIORITY_UNSET && !dns_priority_is_valid(priority))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid DNS priority %" PRIi32 ".", priority);
+
+        r = bus_verify_polkit_async(
+                        message,
+                        "org.freedesktop.resolve1.set-default-route",
+                        (const char**) STRV_MAKE("interface", l->ifname),
+                        &l->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Polkit will call us back */
+
+        bus_client_log(message, "dns priority change");
+
+        if (l->priority != priority) {
+                link_set_priority(l, priority);
+                (void) link_save_user(l);
+
+                if (priority == DNS_PRIORITY_UNSET)
+                        log_link_info(l, "Bus client reset DNS priority.");
+                else
+                        log_link_info(l, "Bus client set DNS priority: %" PRIi32, priority);
+        }
+
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
+}
+
+int bus_link_method_set_dns_fallthrough(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Link *l = ASSERT_PTR(userdata);
+        int r, b;
+
+        assert(message);
+
+        r = verify_unmanaged_link(l, error);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read(message, "b", &b);
+        if (r < 0)
+                return r;
+
+        r = bus_verify_polkit_async(
+                        message,
+                        "org.freedesktop.resolve1.set-default-route",
+                        (const char**) STRV_MAKE("interface", l->ifname),
+                        &l->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Polkit will call us back */
+
+        bus_client_log(message, "dns fall-through change");
+
+        if (l->fallthrough != b) {
+                link_set_fallthrough(l, b);
+                (void) link_save_user(l);
+
+                log_link_info(l, "Bus client set DNS fall-through: %s", yes_no(b));
+        }
+
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
+}
+
 int bus_link_method_set_llmnr(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Link *l = ASSERT_PTR(userdata);
         ResolveSupport mode;
@@ -743,6 +824,8 @@ static const sd_bus_vtable link_vtable[] = {
         SD_BUS_PROPERTY("CurrentDNSServerEx", "(iayqs)", property_get_current_dns_server_ex, offsetof(Link, current_dns_server), 0),
         SD_BUS_PROPERTY("Domains", "a(sb)", property_get_domains, 0, 0),
         SD_BUS_PROPERTY("DefaultRoute", "b", property_get_default_route, 0, 0),
+        SD_BUS_PROPERTY("DNSPriority", "i", bus_property_get_int, offsetof(Link, priority), 0),
+        SD_BUS_PROPERTY("DNSFallthrough", "b", bus_property_get_bool, offsetof(Link, fallthrough), 0),
         SD_BUS_PROPERTY("LLMNR", "s", property_get_llmnr_support, 0, 0),
         SD_BUS_PROPERTY("MulticastDNS", "s", property_get_mdns_support, 0, 0),
         SD_BUS_PROPERTY("DNSOverTLS", "s", property_get_dns_over_tls_mode, 0, 0),
@@ -769,6 +852,16 @@ static const sd_bus_vtable link_vtable[] = {
                                 SD_BUS_ARGS("b", enable),
                                 SD_BUS_NO_RESULT,
                                 bus_link_method_set_default_route,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("SetDNSPriority",
+                                SD_BUS_ARGS("i", priority),
+                                SD_BUS_NO_RESULT,
+                                bus_link_method_set_dns_priority,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("SetDNSFallthrough",
+                                SD_BUS_ARGS("b", enable),
+                                SD_BUS_NO_RESULT,
+                                bus_link_method_set_dns_fallthrough,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("SetLLMNR",
                                 SD_BUS_ARGS("s", mode),

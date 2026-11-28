@@ -1269,6 +1269,9 @@ static bool link_needs_save(Link *l) {
         if (l->default_route >= 0)
                 return true;
 
+        if (l->priority != DNS_PRIORITY_UNSET || l->fallthrough)
+                return true;
+
         return false;
 }
 
@@ -1316,6 +1319,12 @@ int link_save_user(Link *l) {
 
         if (l->default_route >= 0)
                 fprintf(f, "DEFAULT_ROUTE=%s\n", yes_no(l->default_route));
+
+        if (l->priority != DNS_PRIORITY_UNSET)
+                fprintf(f, "PRIORITY=%i\n", l->priority);
+
+        if (l->fallthrough)
+                fputs("FALLTHROUGH=yes\n", f);
 
         if (l->dns_servers) {
                 fputs("SERVERS=", f);
@@ -1394,7 +1403,9 @@ int link_load_user(Link *l) {
                 *servers = NULL,
                 *domains = NULL,
                 *ntas = NULL,
-                *default_route = NULL;
+                *default_route = NULL,
+                *priority = NULL,
+                *fallthrough = NULL;
 
         ResolveSupport s;
         const char *p;
@@ -1419,7 +1430,9 @@ int link_load_user(Link *l) {
                            "SERVERS", &servers,
                            "DOMAINS", &domains,
                            "NTAS", &ntas,
-                           "DEFAULT_ROUTE", &default_route);
+                           "DEFAULT_ROUTE", &default_route,
+                           "PRIORITY", &priority,
+                           "FALLTHROUGH", &fallthrough);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -1439,6 +1452,18 @@ int link_load_user(Link *l) {
         r = parse_boolean(default_route);
         if (r >= 0)
                 l->default_route = r;
+
+        if (priority) {
+                int v;
+
+                r = safe_atoi(priority, &v);
+                if (r >= 0 && dns_priority_is_valid(v))
+                        l->priority = v;
+        }
+
+        r = parse_boolean(fallthrough);
+        if (r >= 0)
+                l->fallthrough = r;
 
         /* If we can't recognize the DNSSEC setting, then set it to invalid, so that the daemon default is used. */
         l->dnssec_mode = dnssec_mode_from_string(dnssec);

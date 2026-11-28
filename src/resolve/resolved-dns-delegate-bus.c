@@ -149,6 +149,8 @@ static const sd_bus_vtable dns_delegate_vtable[] = {
         SD_BUS_PROPERTY("CurrentDNSServer", "(iiayqs)", property_get_current_dns_server, 0, 0),
         SD_BUS_PROPERTY("Domains", "a(sb)", property_get_domains, 0, 0),
         SD_BUS_PROPERTY("DefaultRoute", "b", bus_property_get_tristate, offsetof(DnsDelegate, default_route), 0),
+        SD_BUS_PROPERTY("DNSPriority", "i", bus_property_get_int, offsetof(DnsDelegate, priority), 0),
+        SD_BUS_PROPERTY("DNSFallthrough", "b", bus_property_get_bool, offsetof(DnsDelegate, fallthrough), 0),
 
         SD_BUS_VTABLE_END
 };
