@@ -55,6 +55,7 @@ int parse_acl(
                 bool want_mask);
 int acls_for_file(const char *path, acl_type_t type, acl_t acl, acl_t *ret);
 int fd_add_uid_acl_permission(int fd, uid_t uid, unsigned mask);
+int acl_has_negative_permissions(acl_t acl);
 
 /* acl_free() takes multiple argument types. Multiple cleanup functions are necessary. */
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(acl_t, sym_acl_free, acl_freep, NULL);
