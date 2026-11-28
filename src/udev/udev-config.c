@@ -1,13 +1,12 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include <stdlib.h>
-
 #include "sd-json.h"
 
 #include "build.h"
 #include "conf-parser.h"
 #include "cpu-set-util.h"
 #include "daemon-util.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hashmap.h"
@@ -606,7 +605,6 @@ static usec_t extra_timeout_usec(void) {
         static usec_t saved = 10 * USEC_PER_SEC;
         static bool parsed = false;
         usec_t timeout;
-        const char *e;
         int r;
 
         if (parsed)
@@ -614,16 +612,14 @@ static usec_t extra_timeout_usec(void) {
 
         parsed = true;
 
-        e = secure_getenv("SYSTEMD_UDEV_EXTRA_TIMEOUT_SEC");
-        if (!e)
+        r = secure_getenv_usec("SYSTEMD_UDEV_EXTRA_TIMEOUT_SEC", &timeout);
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_UDEV_EXTRA_TIMEOUT_SEC, ignoring: %m");
+        if (r < 0)
                 return saved;
 
-        r = parse_sec(e, &timeout);
-        if (r < 0)
-                log_debug_errno(r, "Failed to parse $SYSTEMD_UDEV_EXTRA_TIMEOUT_SEC=%s, ignoring: %m", e);
-
         if (timeout > 5 * USEC_PER_HOUR) /* Add an arbitrary upper bound */
-                log_debug("Parsed $SYSTEMD_UDEV_EXTRA_TIMEOUT_SEC=%s is too large, ignoring.", e);
+                log_debug("Parsed value of $SYSTEMD_UDEV_EXTRA_TIMEOUT_SEC is too large, ignoring.");
         else
                 saved = timeout;
 
