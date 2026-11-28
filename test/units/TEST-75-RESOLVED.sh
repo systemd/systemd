@@ -1738,6 +1738,184 @@ EOF
     grep -qF "1.2.3.4" "$RUN_OUT"
 }
 
+testcase_scope_priority() {
+    local link_path start end
+
+    # shellcheck disable=SC2317,SC2329
+    cleanup() {
+        rm -f /run/systemd/network/10-prio0.netdev /run/systemd/network/10-prio0.network
+        rm -f /run/systemd/resolved.conf.d/95-scope-priority.conf
+        rm -f /run/systemd/dns-delegate.d/scope-priority.dns-delegate
+        if command -v nft >/dev/null; then
+            nft delete table inet scope_priority 2>/dev/null || :
+        fi
+        resolvectl revert dns0 || :
+        resolvectl revert dns1 || :
+        networkctl reload || :
+        ip link del prio0 2>/dev/null || :
+        systemctl reload systemd-resolved.service || :
+        resolvectl flush-caches || :
+    }
+    trap cleanup RETURN ERR
+
+    # prio0 reaches knot via the address it also listens on for testcase_delegate(), so that dns0 and prio0
+    # serve the same zones, and the "link:" line of resolvectl query tells which one answered. dns1 points
+    # to the dummy server, which answers every name it does not know with an unsigned NXDOMAIN.
+    {
+        echo "[NetDev]"
+        echo "Name=prio0"
+        echo "Kind=dummy"
+    } >/run/systemd/network/10-prio0.netdev
+    {
+        echo "[Match]"
+        echo "Name=prio0"
+        echo ""
+        echo "[Network]"
+        echo "IPv6AcceptRA=no"
+        echo "Address=192.168.77.78/24"
+        echo "DNS=192.168.77.78"
+        echo "DNSSEC=no"
+        echo "DNSDefaultRoute=yes"
+        echo "DNSPriority=10"
+    } >/run/systemd/network/10-prio0.network
+    networkctl reload
+    /usr/lib/systemd/systemd-networkd-wait-online --timeout=30 --interface=prio0 --dns
+
+    resolvectl dns dns1 10.99.0.1
+    resolvectl dnssec dns1 no
+    resolvectl default-route dns1 yes
+    resolvectl dns-priority dns1 5
+    resolvectl dns-priority dns0 20
+
+    : "--- The settings are exposed through resolvectl, varlink and D-Bus ---"
+    assert_eq "$(resolvectl --json=short dns-priority prio0 | jq -rc '.[0].priority')" '10'
+    assert_eq "$(resolvectl --json=short dns-priority dns1 | jq -rc '.[0].priority')" '5'
+    assert_eq "$(resolvectl --json=short dns-fallthrough dns1 | jq -rc '.[0].fallthrough')" 'false'
+    resolvectl status prio0 | grep -E "Priority: 10"
+    resolvectl dns-priority prio0 | grep -F "10"
+    networkctl status prio0
+    link_path="$(busctl call --json=short org.freedesktop.resolve1 /org/freedesktop/resolve1 \
+                     org.freedesktop.resolve1.Manager GetLink i "$(ip -json link show prio0 | jq '.[0].ifindex')" | jq -r '.data[0]')"
+    assert_eq "$(busctl get-property --json=short org.freedesktop.resolve1 "$link_path" \
+                     org.freedesktop.resolve1.Link DNSPriority | jq -rc '.data')" '10'
+    assert_eq "$(networkctl --json=short status prio0 | jq -rc '.DNSSettings[] | select(.DNSPriority != null) | .DNSPriority')" '10'
+    assert_eq "$(varlinkctl call /run/systemd/netif/io.systemd.Network io.systemd.Network.Link.Describe \
+                     "{\"InterfaceName\":\"prio0\"}" | jq -rc '.Interface.DNSSettings[] | select(.DNSPriority != null) | .DNSPriority')" '10'
+
+    : "--- Lower priorities are asked first, and an unsigned NXDOMAIN moves on to the next ---"
+    resolvectl flush-caches
+    JOURNAL_CURSOR="$(mktemp)"
+    journalctl -n0 -q --cursor-file="$JOURNAL_CURSOR"
+    run resolvectl query -t A delegation.exercise.test
+    grep -qF "1.2.3.4" "$RUN_OUT"
+    grep -qF "link: prio0" "$RUN_OUT"
+    journalctl --sync
+    journalctl -u resolved-dummy-server.service --cursor-file="$JOURNAL_CURSOR" \
+        --grep "Processing question for name 'delegation.exercise.test'"
+
+    resolvectl dns-priority dns0 7
+    resolvectl flush-caches
+    run resolvectl query -t A delegation.exercise.test
+    grep -qF "1.2.3.4" "$RUN_OUT"
+    grep -qF "link: dns0" "$RUN_OUT"
+
+    : "--- A level that does not respond only delays the lookup by the stagger and hold delays ---"
+    # Nothing answers on 10.99.0.2: dns1 is a dummy interface, which drops everything it sends.
+    resolvectl dns dns1 10.99.0.2
+    resolvectl flush-caches
+    start="$(date +%s%N)"
+    run resolvectl query -t A delegation.exercise.test
+    end="$(date +%s%N)"
+    grep -qF "1.2.3.4" "$RUN_OUT"
+    grep -qF "link: dns0" "$RUN_OUT"
+    # 250 ms stagger plus 250 ms hold, far below the 5 s the first attempt on dns1 takes to time out
+    (( (end - start) / 1000000 < 3000 ))
+
+    : "--- Names an earlier level resolves never reach later levels ---"
+    # prio0 (10) is now asked first, then dns0 (20), then dns1 (30), which logs every query it receives.
+    resolvectl dns dns1 10.99.0.1
+    resolvectl dns-priority dns0 20
+    resolvectl dns-priority dns1 30
+    resolvectl flush-caches
+    # A fresh cursor: reading with --cursor-file only advances it past entries that were shown.
+    JOURNAL_CURSOR="$(mktemp)"
+    journalctl -n0 -q --cursor-file="$JOURNAL_CURSOR"
+    run resolvectl query -t A delegation.exercise.test
+    grep -qF "1.2.3.4" "$RUN_OUT"
+    grep -qF "link: prio0" "$RUN_OUT"
+    # Give a wrongly started later level time to reach the dummy server: stagger and hold are 250 ms each.
+    sleep 1
+    journalctl --sync
+    (! journalctl -u resolved-dummy-server.service --cursor-file="$JOURNAL_CURSOR" \
+           --grep "Processing question for name 'delegation.exercise.test'")
+
+    : "--- Every lookup starts at the first level again, so a server that recovers is used again ---"
+    # This is the use case of https://github.com/systemd/systemd/issues/5755: servers that are not
+    # equivalent, tried in a preferred order, each in its own scope.
+    if command -v nft >/dev/null; then
+        # Take prio0's server down without touching the link or its configuration.
+        nft add table inet scope_priority
+        nft add chain inet scope_priority output \{ type filter hook output priority 0 \; \}
+        nft add rule inet scope_priority output ip daddr 192.168.77.78 drop
+
+        resolvectl flush-caches
+        run resolvectl query -t A delegation.exercise.test
+        grep -qF "1.2.3.4" "$RUN_OUT"
+        grep -qF "link: dns0" "$RUN_OUT"
+
+        # The server is back: the next lookup is asked of prio0 first again and answered there, even
+        # though dns0 answered the previous one.
+        nft delete table inet scope_priority
+        resolvectl flush-caches
+        run resolvectl query -t A delegation.exercise.test
+        grep -qF "1.2.3.4" "$RUN_OUT"
+        grep -qF "link: prio0" "$RUN_OUT"
+    else
+        echo "nftables is not installed, skipping the recovery check."
+    fi
+
+    : "--- Fall-through crosses to less specific scopes only when enabled ---"
+    resolvectl dns dns1 10.99.0.1
+    resolvectl domain dns1 '~exercise.test'
+    resolvectl flush-caches
+    (! run resolvectl query -t A delegation.exercise.test)
+    grep -qF "not found" "$RUN_OUT"
+
+    resolvectl dns-fallthrough dns1 yes
+    assert_eq "$(resolvectl --json=short dns-fallthrough dns1 | jq -rc '.[0].fallthrough')" 'true'
+    resolvectl status dns1 | grep -F "+Fallthrough"
+    resolvectl flush-caches
+    run resolvectl query -t A delegation.exercise.test
+    grep -qF "1.2.3.4" "$RUN_OUT"
+    # The default-route tier is asked in priority order too: prio0 (10) before dns0 (20).
+    grep -qF "link: prio0" "$RUN_OUT"
+
+    resolvectl dns-priority dns1 ""
+    assert_eq "$(resolvectl --json=short dns-priority dns1 | jq -rc '.[0].priority')" 'null'
+
+    : "--- resolved.conf and .dns-delegate settings ---"
+    {
+        echo "[Resolve]"
+        echo "Priority=3"
+        echo "Fallthrough=yes"
+        echo "PriorityStaggerSec=100ms"
+        echo "PriorityHoldSec=0"
+    } >/run/systemd/resolved.conf.d/95-scope-priority.conf
+    mkdir -p /run/systemd/dns-delegate.d/
+    {
+        echo "[Delegate]"
+        echo "DNS=192.168.77.79"
+        echo "Domains=scope-priority.test"
+        echo "Priority=4"
+        echo "Fallthrough=yes"
+    } >/run/systemd/dns-delegate.d/scope-priority.dns-delegate
+    systemctl reload systemd-resolved.service
+    assert_eq "$(resolvectl --json=short | jq -rc '.[] | select(.ifindex == null and .delegate == null) | [.priority, .fallthrough]')" '[3,true]'
+    assert_eq "$(resolvectl --json=short | jq -rc '.[] | select(.delegate == "scope-priority") | [.priority, .fallthrough]')" '[4,true]'
+    assert_eq "$(busctl get-property --json=short org.freedesktop.resolve1 /org/freedesktop/resolve1 \
+                     org.freedesktop.resolve1.Manager DNSPriority | jq -rc '.data')" '3'
+}
+
 # Regression test for CVE/strict-DoT verification: when the global
 # DNSOverTLS= is "no" or "opportunistic" but a specific link is configured
 # with DNSOverTLS=yes (per-link strict mode), resolved must still enable

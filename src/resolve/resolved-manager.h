@@ -13,9 +13,21 @@
 #include "resolved-dns-trust-anchor.h"
 #include "resolved-etc-hosts.h"
 #include "resolved-forward.h"
+#include "time-util.h"
 
 #define MANAGER_SEARCH_DOMAINS_MAX 1024
 #define MANAGER_DNS_SERVERS_MAX 256
+
+/* Delay before the next priority level is asked, after RFC 8305 §5: 250 ms by default, at least 10 ms
+ * between attempts, at most 2 s. */
+#define PRIORITY_STAGGER_USEC_DEFAULT (250 * USEC_PER_MSEC)
+#define PRIORITY_STAGGER_USEC_MIN (10 * USEC_PER_MSEC)
+#define PRIORITY_STAGGER_USEC_MAX (2 * USEC_PER_SEC)
+
+/* How long a later priority level's answer waits for a pending earlier level: 250 ms by default, at most
+ * 2 s. */
+#define PRIORITY_HOLD_USEC_DEFAULT (250 * USEC_PER_MSEC)
+#define PRIORITY_HOLD_USEC_MAX (2 * USEC_PER_SEC)
 
 typedef struct Manager {
         sd_event *event;
@@ -29,6 +41,12 @@ typedef struct Manager {
         bool cache_from_localhost;
         DnsStubListenerMode dns_stub_listener_mode;
         usec_t stale_retention_usec;
+        usec_t priority_stagger_usec;
+        usec_t priority_hold_usec;
+
+        /* Priority and fall-through of the global scope */
+        int priority;
+        bool fallthrough;
 
 #if ENABLE_DNS_OVER_TLS
         DnsTlsManagerData dnstls_data;

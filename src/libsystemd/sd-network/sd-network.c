@@ -287,6 +287,28 @@ int sd_network_link_get_dns_default_route(int ifindex) {
         return network_link_get_boolean(ifindex, "DNS_DEFAULT_ROUTE");
 }
 
+int sd_network_link_get_dns_priority(int ifindex, uint32_t *ret) {
+        _cleanup_free_ char *s = NULL;
+        uint32_t u;
+        int r;
+
+        r = network_link_get_string(ifindex, "DNS_PRIORITY", &s);
+        if (r < 0)
+                return r;
+
+        r = safe_atou32(s, &u);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = u;
+        return 0;
+}
+
+int sd_network_link_get_dns_fallthrough(int ifindex) {
+        return network_link_get_boolean(ifindex, "DNS_FALLTHROUGH");
+}
+
 static int network_link_get_ifindexes(int ifindex, const char *key, int **ret) {
         _cleanup_free_ int *ifis = NULL;
         _cleanup_free_ char *s = NULL;

@@ -20,6 +20,8 @@ int vl_method_link_set_dns(sd_varlink *vlink, sd_json_variant *parameters, sd_va
 int vl_method_link_set_domains(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
 int vl_method_link_set_dnssec_negative_trust_anchors(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
 int vl_method_link_set_dns_default_route(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
+int vl_method_link_set_dns_priority(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
+int vl_method_link_set_dns_fallthrough(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
 int vl_method_link_set_llmnr(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
 int vl_method_link_set_mdns(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
 int vl_method_link_set_dns_over_tls(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);

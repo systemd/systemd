@@ -423,6 +423,8 @@ typedef struct Network {
         unsigned n_dns;
         OrderedSet *search_domains, *route_domains;
         int dns_default_route;
+        int dns_priority;
+        int dns_fallthrough;
         ResolveSupport llmnr;
         ResolveSupport mdns;
         DnssecMode dnssec_mode;

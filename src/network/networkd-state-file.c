@@ -924,6 +924,22 @@ static int link_save(Link *link) {
 
                 /************************************************************/
 
+                int dns_priority =
+                        link->dns_priority != DNS_PRIORITY_UNSET ? link->dns_priority :
+                        link->network->dns_priority;
+                if (dns_priority != DNS_PRIORITY_UNSET)
+                        fprintf(f, "DNS_PRIORITY=%i\n", dns_priority);
+
+                /************************************************************/
+
+                int dns_fallthrough =
+                        link->dns_fallthrough >= 0 ? link->dns_fallthrough :
+                        link->network->dns_fallthrough;
+                if (dns_fallthrough >= 0)
+                        fprintf(f, "DNS_FALLTHROUGH=%s\n", yes_no(dns_fallthrough));
+
+                /************************************************************/
+
                 DnsOverTlsMode dns_over_tls_mode =
                         link->dns_over_tls_mode != _DNS_OVER_TLS_MODE_INVALID ? link->dns_over_tls_mode :
                         link->network->dns_over_tls_mode;

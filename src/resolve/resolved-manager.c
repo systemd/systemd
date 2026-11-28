@@ -657,6 +657,10 @@ static void manager_set_defaults(Manager *m) {
         for (DnsProtocol p = 0; p < _DNS_PROTOCOL_MAX; p++)
                 m->cache_max[p] = DEFAULT_CACHE_MAX;
         m->stale_retention_usec = 0;
+        m->priority_stagger_usec = PRIORITY_STAGGER_USEC_DEFAULT;
+        m->priority_hold_usec = PRIORITY_HOLD_USEC_DEFAULT;
+        m->priority = DNS_PRIORITY_UNSET;
+        m->fallthrough = false;
         m->refuse_record_types = set_free(m->refuse_record_types);
         m->resolv_conf_stat = (struct stat) {};
 }
@@ -2178,6 +2182,8 @@ static int dns_configuration_json_append(
                 int ifindex,
                 const char *delegate,
                 int default_route,
+                int priority,
+                bool fallthrough,
                 DnsServer *current_dns_server,
                 DnsServer *dns_servers,
                 DnsServer *fallback_dns_servers,
@@ -2262,6 +2268,8 @@ static int dns_configuration_json_append(
                         SD_JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", SD_JSON_BUILD_UNSIGNED(ifindex)),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("delegate", delegate),
                         JSON_BUILD_PAIR_TRISTATE_NON_NULL("defaultRoute", default_route),
+                        SD_JSON_BUILD_PAIR_CONDITION(priority != DNS_PRIORITY_UNSET, "priority", SD_JSON_BUILD_INTEGER(priority)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("fallthrough", fallthrough),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("currentServer", current_dns_server_json),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("servers", dns_servers_json),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("fallbackServers", fallback_dns_servers_json),
@@ -2298,6 +2306,8 @@ static int global_dns_configuration_json_append(Manager *m, sd_json_variant **co
                         /* ifindex= */ 0,
                         /* delegate= */ NULL,
                         /* default_route= */ -1,
+                        m->priority,
+                        m->fallthrough,
                         current_dns_server,
                         m->dns_servers,
                         m->fallback_dns_servers,
@@ -2355,6 +2365,8 @@ static int link_dns_configuration_json_append(Link *l, sd_json_variant **configu
                         l->ifindex,
                         /* delegate= */ NULL,
                         link_get_default_route(l),
+                        l->priority,
+                        l->fallthrough,
                         link_get_dns_server(l),
                         l->dns_servers,
                         /* fallback_dns_servers= */ NULL,
@@ -2386,6 +2398,8 @@ static int delegate_dns_configuration_json_append(DnsDelegate *d, sd_json_varian
                         /* ifindex= */ 0,
                         d->id,
                         d->default_route > 0, /* Defaults to false. See dns_scope_is_default_route(). */
+                        d->priority,
+                        d->fallthrough,
                         dns_delegate_get_dns_server(d),
                         d->dns_servers,
                         /* fallback_dns_servers= */ NULL,

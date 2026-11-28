@@ -59,6 +59,10 @@ node /org/freedesktop/network1 {
                      in  a(sb) domains);
       SetLinkDefaultRoute(in  i ifindex,
                           in  b enable);
+      SetLinkDNSPriority(in  i ifindex,
+                         in  i priority);
+      SetLinkDNSFallthrough(in  i ifindex,
+                            in  b enable);
       SetLinkLLMNR(in  i ifindex,
                    in  s mode);
       SetLinkMulticastDNS(in  i ifindex,
@@ -111,6 +115,10 @@ node /org/freedesktop/network1 {
     <!--method SetLinkDomains is not documented!-->
 
     <!--method SetLinkDefaultRoute is not documented!-->
+
+    <!--method SetLinkDNSPriority is not documented!-->
+
+    <!--method SetLinkDNSFallthrough is not documented!-->
 
     <!--method SetLinkLLMNR is not documented!-->
 
@@ -171,6 +179,10 @@ node /org/freedesktop/network1 {
     <variablelist class="dbus-method" generated="True" extra-ref="SetLinkDomains()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="SetLinkDefaultRoute()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetLinkDNSPriority()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetLinkDNSFallthrough()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="SetLinkLLMNR()"/>
 
@@ -244,6 +256,8 @@ node /org/freedesktop/network1/link/_1 {
       SetDNSEx(in  a(iayqs) addresses);
       SetDomains(in  a(sb) domains);
       SetDefaultRoute(in  b enable);
+      SetDNSPriority(in  i priority);
+      SetDNSFallthrough(in  b enable);
       SetLLMNR(in  s mode);
       SetMulticastDNS(in  s mode);
       SetDNSOverTLS(in  s mode);
@@ -281,6 +295,10 @@ node /org/freedesktop/network1/link/_1 {
     <!--method SetDomains is not documented!-->
 
     <!--method SetDefaultRoute is not documented!-->
+
+    <!--method SetDNSPriority is not documented!-->
+
+    <!--method SetDNSFallthrough is not documented!-->
 
     <!--method SetLLMNR is not documented!-->
 
@@ -335,6 +353,10 @@ node /org/freedesktop/network1/link/_1 {
     <variablelist class="dbus-method" generated="True" extra-ref="SetDomains()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="SetDefaultRoute()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetDNSPriority()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetDNSFallthrough()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="SetLLMNR()"/>
 
@@ -620,6 +642,13 @@ $ gdbus introspect --system \
     <refsect2>
       <title>Manager Object</title>
       <para><varname>NamespaceNSID</varname> was added in version 256.</para>
+      <para><function>SetLinkDNSPriority()</function> and <function>SetLinkDNSFallthrough()</function> were
+      added in version 263.</para>
+    </refsect2>
+    <refsect2>
+      <title>Link Object</title>
+      <para><function>SetDNSPriority()</function> and <function>SetDNSFallthrough()</function> were added in
+      version 263.</para>
     </refsect2>
   </refsect1>
 

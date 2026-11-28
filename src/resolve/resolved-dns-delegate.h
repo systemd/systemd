@@ -22,6 +22,8 @@ typedef struct DnsDelegate {
         unsigned n_search_domains;
 
         int default_route;
+        int priority;
+        bool fallthrough;
 
         uint32_t fwmark;
 

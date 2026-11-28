@@ -58,6 +58,7 @@ int link_new(Manager *m, Link **ret, int ifindex) {
         *l = (Link) {
                 .ifindex = ifindex,
                 .default_route = -1,
+                .priority = DNS_PRIORITY_UNSET,
                 .llmnr_support = RESOLVE_SUPPORT_YES,
                 .mdns_support = RESOLVE_SUPPORT_YES,
                 .dnssec_mode = _DNSSEC_MODE_INVALID,
@@ -85,6 +86,8 @@ void link_flush_settings(Link *l) {
         assert(l);
 
         l->default_route = -1;
+        l->priority = DNS_PRIORITY_UNSET;
+        l->fallthrough = false;
         l->llmnr_support = RESOLVE_SUPPORT_YES;
         l->mdns_support = RESOLVE_SUPPORT_YES;
         l->dnssec_mode = _DNSSEC_MODE_INVALID;
@@ -350,6 +353,53 @@ static int link_update_default_route(Link *l) {
 
 clear:
         l->default_route = -1;
+        return r;
+}
+
+static int link_update_priority(Link *l) {
+        uint32_t priority;
+        int r;
+
+        assert(l);
+
+        r = sd_network_link_get_dns_priority(l->ifindex, &priority);
+        if (r == -ENODATA) {
+                r = 0;
+                goto clear;
+        }
+        if (r < 0)
+                goto clear;
+        if (!dns_priority_is_valid(priority)) {
+                r = -ERANGE;
+                goto clear;
+        }
+
+        link_set_priority(l, (int) priority);
+        return 0;
+
+clear:
+        l->priority = DNS_PRIORITY_UNSET;
+        return r;
+}
+
+static int link_update_fallthrough(Link *l) {
+        int r;
+
+        assert(l);
+
+        r = sd_network_link_get_dns_fallthrough(l->ifindex);
+        if (r == -ENODATA) {
+                r = 0;
+                goto clear;
+        }
+        if (r < 0)
+                goto clear;
+
+        link_set_fallthrough(l, r > 0);
+        return 0;
+
+clear:
+        l->fallthrough = false;
         return r;
 }
 
@@ -657,6 +707,14 @@ static void link_read_settings(Link *l) {
         r = link_update_default_route(l);
         if (r < 0)
                 log_link_warning_errno(l, r, "Failed to read default route setting for the interface, proceeding anyway: %m");
+
+        r = link_update_priority(l);
+        if (r < 0)
+                log_link_warning_errno(l, r, "Failed to read DNS priority for the interface, proceeding anyway: %m");
+
+        r = link_update_fallthrough(l);
+        if (r < 0)
+                log_link_warning_errno(l, r, "Failed to read DNS fall-through setting for the interface, proceeding anyway: %m");
 }
 
 int link_update(Link *l) {
@@ -824,6 +882,19 @@ void link_set_default_route(Link *l, bool b) {
          * we should reconsider whether or not the fallback servers are necessary. */
         if (b && dns_server_is_fallback(l->manager->current_dns_server))
                 manager_set_dns_server(l->manager, NULL);
+}
+
+void link_set_priority(Link *l, int priority) {
+        assert(l);
+        assert(priority == DNS_PRIORITY_UNSET || dns_priority_is_valid(priority));
+
+        l->priority = priority;
+}
+
+void link_set_fallthrough(Link *l, bool b) {
+        assert(l);
+
+        l->fallthrough = b;
 }
 
 DnsOverTlsMode link_get_dns_over_tls_mode(Link *l) {
@@ -1253,6 +1324,9 @@ static bool link_needs_save(Link *l) {
         if (l->default_route >= 0)
                 return true;
 
+        if (l->priority != DNS_PRIORITY_UNSET || l->fallthrough)
+                return true;
+
         return false;
 }
 
@@ -1300,6 +1374,12 @@ int link_save_user(Link *l) {
 
         if (l->default_route >= 0)
                 fprintf(f, "DEFAULT_ROUTE=%s\n", yes_no(l->default_route));
+
+        if (l->priority != DNS_PRIORITY_UNSET)
+                fprintf(f, "PRIORITY=%i\n", l->priority);
+
+        if (l->fallthrough)
+                fputs("FALLTHROUGH=yes\n", f);
 
         if (l->dns_servers) {
                 fputs("SERVERS=", f);
@@ -1378,7 +1458,9 @@ int link_load_user(Link *l) {
                 *servers = NULL,
                 *domains = NULL,
                 *ntas = NULL,
-                *default_route = NULL;
+                *default_route = NULL,
+                *priority = NULL,
+                *fallthrough = NULL;
 
         ResolveSupport s;
         const char *p;
@@ -1403,7 +1485,9 @@ int link_load_user(Link *l) {
                            "SERVERS", &servers,
                            "DOMAINS", &domains,
                            "NTAS", &ntas,
-                           "DEFAULT_ROUTE", &default_route);
+                           "DEFAULT_ROUTE", &default_route,
+                           "PRIORITY", &priority,
+                           "FALLTHROUGH", &fallthrough);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -1423,6 +1507,18 @@ int link_load_user(Link *l) {
         r = parse_boolean(default_route);
         if (r >= 0)
                 l->default_route = r;
+
+        if (priority) {
+                int v;
+
+                r = safe_atoi(priority, &v);
+                if (r >= 0 && dns_priority_is_valid(v))
+                        l->priority = v;
+        }
+
+        r = parse_boolean(fallthrough);
+        if (r >= 0)
+                l->fallthrough = r;
 
         /* If we can't recognize the DNSSEC setting, then set it to invalid, so that the daemon default is used. */
         l->dnssec_mode = dnssec_mode_from_string(dnssec);

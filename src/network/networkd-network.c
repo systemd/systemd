@@ -479,6 +479,8 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .lldp_multicast_mode = _SD_LLDP_MULTICAST_MODE_INVALID,
 
                 .dns_default_route = -1,
+                .dns_priority = DNS_PRIORITY_UNSET,
+                .dns_fallthrough = -1,
                 .llmnr = RESOLVE_SUPPORT_YES,
                 .mdns = RESOLVE_SUPPORT_NO,
                 .dnssec_mode = _DNSSEC_MODE_INVALID,

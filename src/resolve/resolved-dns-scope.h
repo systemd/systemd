@@ -120,6 +120,8 @@ int dns_scope_add_dnssd_registered_services(DnsScope *scope);
 int dns_scope_remove_dnssd_registered_services(DnsScope *scope);
 
 bool dns_scope_is_default_route(DnsScope *scope);
+int dns_scope_get_priority(DnsScope *scope);
+bool dns_scope_get_fallthrough(DnsScope *scope);
 
 int dns_scope_to_json(DnsScope *scope, bool with_cache, sd_json_variant **ret);
 
